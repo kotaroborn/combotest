@@ -50,7 +50,6 @@ let actionTimeout = null;
 setInterval(() => { idleFrame = (idleFrame + 1) % 2; }, 500);
 
 function playAction(type) {
-    // 着地硬直中やメテオ中は入力を受け付けない
     if (isLanding || isKnocking) return;
 
     if (type === 'punch') {
@@ -66,8 +65,11 @@ function playAction(type) {
         if (isAirborne) return;
         currentState = 'upper'; yVelocity = -24; isAirborne = true;
     } else if (type === 'knock' && isAirborne) {
-        currentState = 'knock'; isKnocking = true; yVelocity = 0;
-        setTimeout(() => { yVelocity = 25; }, 300);
+        // 【修正】空中停止して強調してから急降下
+        currentState = 'knock'; 
+        isKnocking = true; 
+        yVelocity = 0; // 空中で完全に止める
+        setTimeout(() => { yVelocity = 30; }, 400); // 400msタメてから超加速
     } else if (type === 'guard') {
         currentState = 'guard'; guardKnockback = -18; guardShake = 35;
         setTimeout(() => { if (currentState === 'guard') currentState = 'idle'; }, 300);
@@ -85,9 +87,10 @@ function gameLoop() {
     
     if (isAirborne) {
         let gravity = (currentState === 'punch' || currentState === 'punch2') ? 0.08 : 1.6;
-        yVelocity += gravity;
+        // メテオ急降下中は重力の影響を受けない（加速済みのため）
+        if (!isKnocking || yVelocity < 30) yVelocity += gravity;
+        
         yOffset += yVelocity; 
-
         if (currentState === 'upper' && yVelocity >= 0) currentState = 'upper2';
 
         if (yOffset >= 0) { 
@@ -95,9 +98,8 @@ function gameLoop() {
             if (isKnocking) {
                 isKnocking = false;
                 isLanding = true;
-                currentState = 'knock2'; // 着地画像を固定
+                currentState = 'knock2'; 
                 shake = 35; 
-                // 1秒間の硬直
                 setTimeout(() => { isAirborne = false; isLanding = false; currentState = 'idle'; }, 1000);
             } else {
                 isAirborne = false; currentState = 'idle';
@@ -105,7 +107,6 @@ function gameLoop() {
         }
     }
     
-    // 着地中は描画画像をknock2で固定する
     let drawState = isLanding ? 'knock2' : (tempVisualState || currentState);
     let currentImg = (drawState === 'idle') ? actionImgs.idle[idleFrame] : actionImgs[drawState];
     
