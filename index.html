@@ -54,17 +54,21 @@ function playAction(type) {
 
     if (type === 'punch') {
         if (isAirborne) yVelocity = 0; 
+        
+        // ダッシュ中であってもコンボを優先
+        isDashing = false; 
+        
         let prevState = currentState;
-        // コンボ継続中にダッシュ画像を一瞬表示
         tempVisualState = 'dash';
         setTimeout(() => { if (tempVisualState === 'dash') tempVisualState = null; }, 80);
         
         currentState = (prevState === 'punch') ? 'punch2' : 'punch';
         shake = 5;
         clearTimeout(actionTimeout);
-        actionTimeout = setTimeout(() => { currentState = 'idle'; xOffset = 0; }, 400);
+        actionTimeout = setTimeout(() => { currentState = 'idle'; }, 400);
     } else if (type === 'upper') {
         if (isAirborne) return;
+        isDashing = false;
         currentState = 'upper'; yVelocity = -24; isAirborne = true;
     } else if (type === 'knock' && isAirborne) {
         currentState = 'knock'; 
@@ -81,16 +85,18 @@ function pushDash() {
     if (isAirborne || isLanding || isDashing) return;
     isDashing = true;
     currentState = 'dash'; 
-    xOffset = 150; // 前進
-    setTimeout(() => { 
-        xOffset = 0; // 戻る演出
-        currentState = 'idle'; 
-        isDashing = false;
-    }, 250);
+    xOffset = 180; // 前進距離を強調
+    setTimeout(() => { isDashing = false; }, 300);
 }
 
 function gameLoop() {
     ctx.fillStyle = '#0a192f'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    // ダッシュの戻り演出（慣性）
+    if (!isDashing && xOffset > 0) {
+        xOffset -= 15;
+        if (xOffset < 0) xOffset = 0;
+    }
     
     if (isAirborne) {
         if (!(isKnocking && yVelocity === 0)) {
