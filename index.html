@@ -46,7 +46,7 @@ actionImgs.damage.src = 'damage.PNG';
 
 let currentState = 'idle', tempVisualState = null, idleFrame = 0, xOffset = 0, yOffset = 0;
 let shake = 0, meteorShakeX = 0, isAirborne = false, yVelocity = 0, guardKnockback = 0, guardShake = 0;
-let isKnocking = false, isLanding = false, isDashing = false;
+let isKnocking = false, isLanding = false, isDashing = false, dashVelocity = 0;
 let afterImages = [];
 let actionTimeout = null;
 
@@ -79,20 +79,25 @@ function playAction(type) {
 function pushDash() {
     if (isAirborne || isLanding || isDashing || currentState.includes('punch')) return;
     isDashing = true; currentState = 'dash'; 
-    xOffset = 250;
+    dashVelocity = 30; // 加速度で制御
+    xOffset = 0;
     setTimeout(() => { 
         afterImages.push({x: xOffset, y: yOffset, alpha: 0.6}); 
         isDashing = false; 
-        currentState = 'idle'; // ここで状態をリセット
+        currentState = 'idle';
     }, 200);
 }
 
 function gameLoop() {
     ctx.fillStyle = '#0a192f'; ctx.fillRect(0, 0, canvas.width, canvas.height);
     
-    let isReturning = !isDashing && xOffset > 0 && !currentState.includes('punch');
-    if (isReturning) {
-        xOffset -= 5; if (xOffset < 0) xOffset = 0;
+    // ダッシュ制御：加速と減速の非対称化
+    if (isDashing) {
+        xOffset += dashVelocity;
+        dashVelocity *= 0.8;
+    } else if (xOffset > 0 && !currentState.includes('punch')) {
+        xOffset -= 5; // 戻りは一定速度で遅く
+        if (xOffset < 0) xOffset = 0;
     }
     
     afterImages.forEach((img, i) => {
@@ -119,6 +124,7 @@ function gameLoop() {
         }
     }
     
+    let isReturning = !isDashing && xOffset > 0 && !currentState.includes('punch');
     let drawState = isReturning ? 'damage' : (isLanding ? 'knock2' : (tempVisualState || currentState));
     let currentImg = (drawState === 'idle') ? actionImgs.idle[idleFrame] : actionImgs[drawState];
     
