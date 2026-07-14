@@ -65,6 +65,13 @@ let currentState = 'idle';
 let idleFrame = 0;
 let yOffset = 0, xOffset = 0, shake = 0, isAirborne = false, meteorDrop = 0;
 let actionTimeout = null;
+let returnTimeout = null; // ダッシュコンボ終了後に元の位置に戻る用
+
+// 新設：残像を管理する配列
+let dashGhosts = [];
+
+// 新設：ガード時の精密1px揺れフラグ
+let isGuardShaking = false;
 
 // 物理演算用パラメータ
 const gravity = 1.6;          
@@ -80,23 +87,38 @@ setInterval(() => {
     idleFrame = (idleFrame + 1) % 2;
 }, 500);
 
+// 残像を追加する関数
+function addGhost(img, x, y, fallbackColor) {
+    dashGhosts.push({
+        img: img,
+        x: x,
+        y: y,
+        fallbackColor: fallbackColor,
+        alpha: 0.6 // 開始時の不透明度
+    });
+}
+
 function playAction(type) {
-    // 【安全装置】メテオ発動中（タメ・急降下・着地硬直含む）は、一切のボタン入力を完全に無視する
     if (currentState === 'knock') return;
 
-    // 【空中制限】空中（アッパー落下中）はパンチとメテオ以外の入力を無視
     if (isAirborne) {
         if (type !== 'punch' && type !== 'knock') return;
     }
 
     if (actionTimeout) clearTimeout(actionTimeout);
+    if (returnTimeout) clearTimeout(returnTimeout);
+
+    // ガード以外ならガード揺れはリセット
+    if (type !== 'guard') isGuardShaking = false;
 
     if (type === 'punch') {
-        // 空中パンチの回数制限（最大2回）
         if (isAirborne) {
             if (airPunchesLeft <= 0) return;
             airPunchesLeft--;
         }
+
+        // ダッシュ中（またはダッシュ直後の前方維持中）のパンチ
+        let isDashPunch = (currentState === 'dash' || xOffset > 0);
 
         // パンチコンボ交互切り替え
         if (currentState === 'punch') {
@@ -108,15 +130,28 @@ function playAction(type) {
             lastPunchWasTwo = !lastPunchWasTwo;
         }
 
+        // ダッシュコンボ中なら前方に強制固定し、残像も発生させる
+        if (isDashPunch && !isAirborne) {
+            xOffset = 140; // 通常のダッシュ(60)よりさらに踏み込む
+        }
+
         shake = 5;
 
-        // パンチが終了したら元の姿勢に戻る
+        // パンチ終了時の処理
         actionTimeout = setTimeout(() => { 
             if (currentState === 'punch' || currentState === 'punch2') {
                 if (isAirborne) {
                     currentState = (yVelocity >= 0) ? 'upper2' : 'upper';
                 } else {
                     currentState = 'idle';
+                    
+                    // 前方にいる場合、コンボ終了の帰還タイマーを始動（400ms入力がないと戻る）
+                    if (xOffset > 0) {
+                        returnTimeout = setTimeout(() => {
+                            // シュッと元の位置に戻る（xOffsetを滑らかに戻すためループ側で処理）
+                            currentState = 'idle';
+                        }, 400);
+                    }
                 }
             }
         }, 200);
@@ -126,42 +161,50 @@ function playAction(type) {
         yVelocity = jumpStartSpeed; 
         isAirborne = true;
         airPunchesLeft = 2; 
+        if (xOffset > 0) xOffset = 0; // アッパー時は位置リセット
 
     } else if (type === 'knock' && isAirborne) {
-        // 【メテオ演出：タメフェーズ】
         currentState = 'knock';
-        isAirborne = false;  // 通常のジャンプ物理を即座にストップ
+        isAirborne = false;  
         yVelocity = 0;       
-        meteorDrop = 0;      // まだ落とさない（0のままキープして空中静止）
+        meteorDrop = 0;      
+        if (xOffset > 0) xOffset = 0;
 
-        // 200ms（0.2秒）その場でピタッと止まった後、一気に急降下を開始
         actionTimeout = setTimeout(() => {
             if (currentState === 'knock') {
-                meteorDrop = 32; // 以前の25からさらに超高速化
+                meteorDrop = 32; 
             }
         }, 200); 
 
     } else if (type === 'guard') {
         currentState = 'guard';
-        xOffset = -20; 
-        shake = 3;
+        if (xOffset > 0) xOffset = 0; // ガード時は元の位置
+        isGuardShaking = true; // 1px微振動開始
+        
         actionTimeout = setTimeout(() => { 
-            if (currentState === 'guard') { currentState = 'idle'; xOffset = 0; } 
+            if (currentState === 'guard') { 
+                currentState = 'idle'; 
+                isGuardShaking = false;
+            } 
         }, 300);
     }
 }
 
 function pushDash() {
-    if (isAirborne || currentState === 'knock') return; // 空中およびメテオ中はダッシュ不可
+    if (isAirborne || currentState === 'knock') return; 
     
     if (actionTimeout) clearTimeout(actionTimeout);
+    if (returnTimeout) clearTimeout(returnTimeout);
+    
     currentState = 'dash'; 
-    xOffset = 60; 
+    xOffset = 100; // 少し前方（前回60から100へ拡大）に鋭く飛び出す
     shake = 2;
+    
     actionTimeout = setTimeout(() => { 
         if (currentState === 'dash') {
             currentState = 'idle'; 
-            xOffset = 0; 
+            // ダッシュパンチに派生しなかった場合は自動で戻るタイマー始動
+            returnTimeout = setTimeout(() => {}, 0); 
         }
     }, 150);
 }
@@ -172,6 +215,12 @@ function gameLoop() {
     // 背景の描画
     ctx.fillStyle = '#0a192f'; 
     ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    // 前方維持から元の位置へ滑らかに戻る処理 (コンボ終了時かつダッシュ中でないとき)
+    if (currentState !== 'dash' && currentState !== 'punch' && currentState !== 'punch2' && xOffset > 0) {
+        xOffset -= 10; // 毎フレーム10pxずつ元の位置へバックステップ
+        if (xOffset < 0) xOffset = 0;
+    }
     
     let currentImg = null;
     let fallbackColor = '#2ecc71'; 
@@ -199,7 +248,7 @@ function gameLoop() {
             break;
         case 'knock': 
             currentImg = actionImgs.knock; 
-            fallbackColor = '#9b59b6'; // メテオ：紫
+            fallbackColor = '#9b59b6'; 
             break;
         case 'guard': 
             currentImg = actionImgs.guard; 
@@ -211,27 +260,51 @@ function gameLoop() {
             break;
     }
     
+    // ダッシュ中またはダッシュパンチ中に残像の種をまく
+    if (currentState === 'dash' || ((currentState === 'punch' || currentState === 'punch2') && xOffset > 60)) {
+        // 高頻度で残像を生成
+        if (Math.random() < 0.4) {
+            addGhost(currentImg, xOffset, yOffset, fallbackColor);
+        }
+    }
+    
+    // 残像（ゴースト）の描画と更新
+    for (let i = dashGhosts.length - 1; i >= 0; i--) {
+        let g = dashGhosts[i];
+        ctx.globalAlpha = g.alpha;
+        
+        let gx = 250 - 120 + g.x;
+        let gy = 270 - 120 + g.y;
+        
+        if (g.img && g.img.complete && g.img.naturalWidth > 0) {
+            ctx.drawImage(g.img, gx, gy, 240, 240);
+        } else {
+            ctx.fillStyle = g.fallbackColor;
+            ctx.fillRect(gx, gy, 240, 240);
+        }
+        
+        g.alpha -= 0.05; // 徐々に消える
+        if (g.alpha <= 0) {
+            dashGhosts.splice(i, 1); // 完全に消えたら配列から削除
+        }
+    }
+    ctx.globalAlpha = 1.0; // アルファ値を元に戻す
+    
     // ジャンプ・アッパーの物理演算
     if (isAirborne) {
         let currentGravity = gravity;
-        
-        // 【新仕様】空中パンチを打っている間だけ、重力を超軽量化＆落下速度に強烈なブレーキ
         if (currentState === 'punch' || currentState === 'punch2') {
-            currentGravity = gravity * 0.15; // 重力をいつもの15%に軽減
-            if (yVelocity > 0) {
-                yVelocity *= 0.75; // 下への落下慣性を25%カットしてフワッとさせる
-            }
+            currentGravity = gravity * 0.15; 
+            if (yVelocity > 0) yVelocity *= 0.75; 
         }
         
         yVelocity += currentGravity; 
         yOffset += yVelocity; 
         
-        // 頂点判定（上昇から下降に切り替わった瞬間、即座に下降ポーズへ）
         if (yVelocity >= 0 && currentState === 'upper') {
             currentState = 'upper2';
         }
         
-        // 着地判定
         if (yOffset >= 0) { 
             yOffset = 0; 
             yVelocity = 0;
@@ -242,17 +315,14 @@ function gameLoop() {
         }
     }
     
-    // 【新仕様】メテオ発動時の強襲急降下（meteorDropが0より大きい＝タメが終わったら一気に加速）
+    // メテオ急降下
     if (currentState === 'knock' && meteorDrop > 0) {
         yOffset += meteorDrop;
-        meteorDrop += 3.5; // 急降下の加速スピードも鋭く強化
-        
+        meteorDrop += 3.5; 
         if (yOffset >= 0) { 
             yOffset = 0; 
             meteorDrop = 0; 
-            shake = 35; // 地面に激突した時の画面揺れを大幅に強化！
-            
-            // 着地後の激しい硬直
+            shake = 35; 
             actionTimeout = setTimeout(() => { 
                 if (currentState === 'knock') currentState = 'idle'; 
             }, 300);
@@ -267,8 +337,15 @@ function gameLoop() {
         ctx.globalAlpha = 1.0;
     }
     
+    // 通常のヒット揺れ（カメラシェイク）
     let dx = (Math.random() - 0.5) * shake;
     let dy = (Math.random() - 0.5) * shake;
+    
+    // ガード時の「1px精密左揺れ」を上乗せ
+    if (isGuardShaking) {
+        dx -= 1; // 左側に固定で1pxずらす（毎フレーム交互に0と-1を往復させて細かく震わせる）
+        if (Math.random() > 0.5) dx += 1;
+    }
     
     let px = 250 - 120 + xOffset + dx;
     let py = 270 - 120 + yOffset + dy;
