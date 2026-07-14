@@ -42,19 +42,20 @@ actionImgs.upper.src = 'upper.PNG'; actionImgs.upper2.src = 'upper2.PNG';
 actionImgs.knock.src = 'knock.PNG'; actionImgs.knock2.src = 'knock2.PNG';
 actionImgs.guard.src = 'guard.PNG'; actionImgs.dash.src = 'dash.PNG';
 
-let currentState = 'idle', tempVisualState = null, idleFrame = 0, yOffset = 0, xOffset = 0;
+let currentState = 'idle', tempVisualState = null, idleFrame = 0, xOffset = 0, yOffset = 0;
 let shake = 0, isAirborne = false, yVelocity = 0, guardKnockback = 0, guardShake = 0;
-let actionTimeout = null, isKnocking = false;
+let isKnocking = false, isLanding = false;
+let actionTimeout = null;
 
 setInterval(() => { idleFrame = (idleFrame + 1) % 2; }, 500);
 
 function playAction(type) {
-    if (isKnocking && type !== 'guard') return;
+    if (isKnocking || isLanding) return;
 
     if (type === 'punch') {
-        if (isAirborne && yVelocity < 0) return; 
-
-        // 空中パンチ時はスローにするためvelocityを調整
+        if (isAirborne && yVelocity < -5) return; 
+        
+        // 空中パンチ：落下を抑制して滞空
         if (isAirborne) yVelocity = -2;
 
         let prevState = currentState;
@@ -64,16 +65,14 @@ function playAction(type) {
         currentState = (prevState === 'punch') ? 'punch2' : 'punch';
         shake = 5;
 
-        // コンボ維持のタイマー
         clearTimeout(actionTimeout);
         actionTimeout = setTimeout(() => { currentState = 'idle'; }, 400);
-
     } else if (type === 'upper') {
         if (isAirborne) return;
         currentState = 'upper'; yVelocity = -24; isAirborne = true;
     } else if (type === 'knock' && isAirborne) {
-        currentState = 'knock'; isKnocking = true; yVelocity = 0; // 空中停止
-        setTimeout(() => { yVelocity = 25; }, 300); // 少し止まってから急降下
+        currentState = 'knock'; isKnocking = true; yVelocity = 0;
+        setTimeout(() => { yVelocity = 25; }, 300);
     } else if (type === 'guard') {
         currentState = 'guard'; guardKnockback = -18; guardShake = 35;
         setTimeout(() => { if (currentState === 'guard') currentState = 'idle'; }, 300);
@@ -81,7 +80,7 @@ function playAction(type) {
 }
 
 function pushDash() {
-    if (isAirborne) return;
+    if (isAirborne || isLanding) return;
     currentState = 'dash'; xOffset = 100;
     setTimeout(() => { currentState = 'idle'; xOffset = 0; }, 200);
 }
@@ -90,14 +89,20 @@ function gameLoop() {
     ctx.fillStyle = '#0a192f'; ctx.fillRect(0, 0, canvas.width, canvas.height);
     
     if (isAirborne) {
-        yVelocity += 1.6;
+        // 重力計算（パンチ中は軽減）
+        let gravity = (currentState === 'punch' || currentState === 'punch2') ? 0.2 : 1.6;
+        yVelocity += gravity;
         yOffset += yVelocity; 
+
+        // アッパー下降時の画像切り替え
+        if (currentState === 'upper' && yVelocity >= 0) currentState = 'upper2';
+
         if (yOffset >= 0) { 
             yOffset = 0; yVelocity = 0; 
             if (isKnocking) {
-                currentState = 'knock2'; shake = 35; // 着地揺れ
-                isKnocking = false;
-                setTimeout(() => { isAirborne = false; currentState = 'idle'; }, 300);
+                currentState = 'knock2'; shake = 35; 
+                isKnocking = false; isLanding = true;
+                setTimeout(() => { isAirborne = false; isLanding = false; currentState = 'idle'; }, 800); // 800ms停止
             } else {
                 isAirborne = false; currentState = 'idle';
             }
