@@ -54,9 +54,7 @@ function playAction(type) {
 
     if (type === 'punch') {
         if (isAirborne) yVelocity = 0; 
-        
-        // ダッシュ中であってもコンボを優先
-        isDashing = false; 
+        isDashing = false; // コンボ開始でダッシュ状態を解除
         
         let prevState = currentState;
         tempVisualState = 'dash';
@@ -67,8 +65,8 @@ function playAction(type) {
         clearTimeout(actionTimeout);
         actionTimeout = setTimeout(() => { currentState = 'idle'; }, 400);
     } else if (type === 'upper') {
-        if (isAirborne) return;
-        isDashing = false;
+        // 【修正】空中またはダッシュ中はアッパー不可
+        if (isAirborne || isDashing) return;
         currentState = 'upper'; yVelocity = -24; isAirborne = true;
     } else if (type === 'knock' && isAirborne) {
         currentState = 'knock'; 
@@ -76,6 +74,8 @@ function playAction(type) {
         yVelocity = 0; 
         setTimeout(() => { if(isKnocking) yVelocity = 35; }, 400);
     } else if (type === 'guard') {
+        // 【修正】空中またはアッパー中はガード不可
+        if (isAirborne || currentState === 'upper' || currentState === 'upper2') return;
         currentState = 'guard'; guardKnockback = -18; guardShake = 35;
         setTimeout(() => { if (currentState === 'guard') currentState = 'idle'; }, 300);
     }
@@ -85,16 +85,16 @@ function pushDash() {
     if (isAirborne || isLanding || isDashing) return;
     isDashing = true;
     currentState = 'dash'; 
-    xOffset = 180; // 前進距離を強調
+    xOffset = 180; 
     setTimeout(() => { isDashing = false; }, 300);
 }
 
 function gameLoop() {
     ctx.fillStyle = '#0a192f'; ctx.fillRect(0, 0, canvas.width, canvas.height);
     
-    // ダッシュの戻り演出（慣性）
+    // 【修正】ダッシュ終了後、ゆるやかに元の場所に戻る（減衰）
     if (!isDashing && xOffset > 0) {
-        xOffset -= 15;
+        xOffset -= 8; // 戻るスピードを調整
         if (xOffset < 0) xOffset = 0;
     }
     
@@ -109,10 +109,8 @@ function gameLoop() {
         if (yOffset >= 0) { 
             yOffset = 0; yVelocity = 0; 
             if (isKnocking) {
-                isKnocking = false;
-                isLanding = true;
-                currentState = 'knock2'; 
-                shake = 35; 
+                isKnocking = false; isLanding = true;
+                currentState = 'knock2'; shake = 35; 
                 setTimeout(() => { isAirborne = false; isLanding = false; currentState = 'idle'; }, 1000);
             } else {
                 isAirborne = false; currentState = 'idle';
