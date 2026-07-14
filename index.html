@@ -42,7 +42,7 @@ actionImgs.upper.src = 'upper.PNG'; actionImgs.upper2.src = 'upper2.PNG';
 actionImgs.knock.src = 'knock.PNG'; actionImgs.knock2.src = 'knock2.PNG';
 actionImgs.guard.src = 'guard.PNG'; actionImgs.dash.src = 'dash.PNG';
 
-let currentState = 'idle', idleFrame = 0, xOffset = 0, yOffset = 0;
+let currentState = 'idle', tempVisualState = null, idleFrame = 0, xOffset = 0, yOffset = 0;
 let shake = 0, isAirborne = false, yVelocity = 0, guardKnockback = 0, guardShake = 0;
 let isKnocking = false, isLanding = false, isDashing = false;
 let afterImages = [];
@@ -54,10 +54,18 @@ function resetAction() { currentState = 'idle'; shake = 0; guardShake = 0; guard
 
 function playAction(type) {
     if (isLanding || isKnocking) return;
+
     if (type === 'punch') {
-        if (isAirborne) yVelocity = 0; isDashing = false; 
+        if (isAirborne) yVelocity = 0; 
+        isDashing = false; 
+        
+        // 【復活】コンボの瞬間にdash画像を一瞬表示
+        tempVisualState = 'dash';
+        setTimeout(() => { if (tempVisualState === 'dash') tempVisualState = null; }, 80);
+        
         currentState = (currentState === 'punch') ? 'punch2' : 'punch';
-        shake = 5; clearTimeout(actionTimeout);
+        shake = 5;
+        clearTimeout(actionTimeout);
         actionTimeout = setTimeout(() => { resetAction(); }, 400);
     } else if (type === 'upper') {
         if (isAirborne || isDashing || currentState.includes('punch')) return;
@@ -74,8 +82,12 @@ function playAction(type) {
 
 function pushDash() {
     if (isAirborne || isLanding || isDashing || currentState.includes('punch')) return;
-    isDashing = true; currentState = 'dash'; xOffset = 180;
-    setTimeout(() => { afterImages.push({x: xOffset, y: yOffset, alpha: 0.6}); isDashing = false; }, 200);
+    isDashing = true;
+    currentState = 'dash'; xOffset = 180;
+    setTimeout(() => { 
+        afterImages.push({x: xOffset, y: yOffset, alpha: 0.6});
+        isDashing = false; 
+    }, 200);
 }
 
 function gameLoop() {
@@ -108,7 +120,8 @@ function gameLoop() {
         }
     }
     
-    let drawState = isLanding ? 'knock2' : currentState;
+    // 【修正】描画優先度：landing > tempVisual(dash) > currentState
+    let drawState = isLanding ? 'knock2' : (tempVisualState || currentState);
     let currentImg = (drawState === 'idle') ? actionImgs.idle[idleFrame] : actionImgs[drawState];
     ctx.drawImage(currentImg, 250 - 120 + xOffset + (Math.random()-0.5)*(shake+guardShake)+guardKnockback, 270 - 120 + yOffset, 240, 240);
     
