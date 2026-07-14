@@ -31,17 +31,16 @@ const ctx = canvas.getContext('2d');
 
 // ==========================================================================
 // 【画像ファイル名設定エリア】
-// dash.PNG を新しく追加しました。
 // ==========================================================================
-const IMG_PLAYER  = 'player.PNG';  // 待機フレーム1
-const IMG_PLAYER2 = 'player2.PNG'; // 待機フレーム2
-const IMG_PUNCH   = 'punch.PNG';   // パンチ1
-const IMG_PUNCH2  = 'punch2.PNG';  // パンチ2
-const IMG_UPPER   = 'upper.PNG';   // アッパー（上昇・頂点）
-const IMG_UPPER2  = 'upper2.PNG';  // アッパー（下降用）
-const IMG_KNOCK   = 'knock.PNG';   // メテオ急降下
-const IMG_GUARD   = 'guard.PNG';   // ガード
-const IMG_DASH    = 'dash.PNG';    // ダッシュ (新規追加)
+const IMG_PLAYER  = 'player.PNG';  
+const IMG_PLAYER2 = 'player2.PNG'; 
+const IMG_PUNCH   = 'punch.PNG';   
+const IMG_PUNCH2  = 'punch2.PNG';  
+const IMG_UPPER   = 'upper.PNG';   
+const IMG_UPPER2  = 'upper2.PNG';  
+const IMG_KNOCK   = 'knock.PNG';   
+const IMG_GUARD   = 'guard.PNG';   
+const IMG_DASH    = 'dash.PNG';    
 // ==========================================================================
 
 const loadImg = (src) => { 
@@ -67,10 +66,10 @@ let idleFrame = 0;
 let yOffset = 0, xOffset = 0, shake = 0, isAirborne = false, meteorDrop = 0;
 let actionTimeout = null;
 
-// 物理演算用のパラメータ（格ゲーらしい鋭いジャンプ用）
-const gravity = 1.6;          // 重力の強さ
-let yVelocity = 0;            // 上下方向の速度
-const jumpStartSpeed = -24;   // アッパー時の跳ね上がり初速
+// 物理演算用パラメータ
+const gravity = 1.6;          
+let yVelocity = 0;            
+const jumpStartSpeed = -24;   
 
 // コンボ・空中制限用の変数
 let lastPunchWasTwo = false; 
@@ -82,7 +81,10 @@ setInterval(() => {
 }, 500);
 
 function playAction(type) {
-    // 【空中制限】空中（アッパー落下中）はパンチとメテオ以外の入力を完全に無視
+    // 【安全装置】メテオ発動中（タメ・急降下・着地硬直含む）は、一切のボタン入力を完全に無視する
+    if (currentState === 'knock') return;
+
+    // 【空中制限】空中（アッパー落下中）はパンチとメテオ以外の入力を無視
     if (isAirborne) {
         if (type !== 'punch' && type !== 'knock') return;
     }
@@ -108,7 +110,7 @@ function playAction(type) {
 
         shake = 5;
 
-        // パンチが終了したら元の姿勢に戻る（空中なら上昇/下降に応じた姿勢に戻る）
+        // パンチが終了したら元の姿勢に戻る
         actionTimeout = setTimeout(() => { 
             if (currentState === 'punch' || currentState === 'punch2') {
                 if (isAirborne) {
@@ -121,15 +123,23 @@ function playAction(type) {
 
     } else if (type === 'upper') {
         currentState = 'upper';
-        yVelocity = jumpStartSpeed; // 上向きの初速を与える
+        yVelocity = jumpStartSpeed; 
         isAirborne = true;
-        airPunchesLeft = 2; // 空中パンチ回数リセット
+        airPunchesLeft = 2; 
 
     } else if (type === 'knock' && isAirborne) {
+        // 【メテオ演出：タメフェーズ】
         currentState = 'knock';
-        meteorDrop = 25; // 急降下スピード（さらに高速化）
-        yVelocity = 0;   // 通常のジャンプ物理を停止
-        isAirborne = false; 
+        isAirborne = false;  // 通常のジャンプ物理を即座にストップ
+        yVelocity = 0;       
+        meteorDrop = 0;      // まだ落とさない（0のままキープして空中静止）
+
+        // 200ms（0.2秒）その場でピタッと止まった後、一気に急降下を開始
+        actionTimeout = setTimeout(() => {
+            if (currentState === 'knock') {
+                meteorDrop = 32; // 以前の25からさらに超高速化
+            }
+        }, 200); 
 
     } else if (type === 'guard') {
         currentState = 'guard';
@@ -141,12 +151,11 @@ function playAction(type) {
     }
 }
 
-// ダッシュ処理
 function pushDash() {
-    if (isAirborne) return; // 空中ダッシュは禁止
+    if (isAirborne || currentState === 'knock') return; // 空中およびメテオ中はダッシュ不可
     
     if (actionTimeout) clearTimeout(actionTimeout);
-    currentState = 'dash'; // 状態をダッシュに変更（画像を適用）
+    currentState = 'dash'; 
     xOffset = 60; 
     shake = 2;
     actionTimeout = setTimeout(() => { 
@@ -174,19 +183,19 @@ function gameLoop() {
             break;
         case 'punch': 
             currentImg = actionImgs.punch; 
-            fallbackColor = '#e74c3c'; // パンチ1：赤
+            fallbackColor = '#e74c3c'; 
             break;
         case 'punch2': 
             currentImg = actionImgs.punch2; 
-            fallbackColor = '#e67e22'; // パンチ2：オレンジ
+            fallbackColor = '#e67e22'; 
             break;
         case 'upper': 
             currentImg = actionImgs.upper; 
-            fallbackColor = '#f1c40f'; // アッパー上昇：黄
+            fallbackColor = '#f1c40f'; 
             break;
         case 'upper2': 
             currentImg = actionImgs.upper2; 
-            fallbackColor = '#f39c12'; // アッパー下降：深めの黄
+            fallbackColor = '#f39c12'; 
             break;
         case 'knock': 
             currentImg = actionImgs.knock; 
@@ -194,20 +203,30 @@ function gameLoop() {
             break;
         case 'guard': 
             currentImg = actionImgs.guard; 
-            fallbackColor = '#3498db'; // ガード：青
+            fallbackColor = '#3498db'; 
             break;
         case 'dash': 
             currentImg = actionImgs.dash; 
-            fallbackColor = '#1abc9c'; // ダッシュ：ターコイズブルー (新規)
+            fallbackColor = '#1abc9c'; 
             break;
     }
     
     // ジャンプ・アッパーの物理演算
     if (isAirborne) {
-        yVelocity += gravity; // 重力で徐々に減速 ➔ 下降加速
+        let currentGravity = gravity;
+        
+        // 【新仕様】空中パンチを打っている間だけ、重力を超軽量化＆落下速度に強烈なブレーキ
+        if (currentState === 'punch' || currentState === 'punch2') {
+            currentGravity = gravity * 0.15; // 重力をいつもの15%に軽減
+            if (yVelocity > 0) {
+                yVelocity *= 0.75; // 下への落下慣性を25%カットしてフワッとさせる
+            }
+        }
+        
+        yVelocity += currentGravity; 
         yOffset += yVelocity; 
         
-        // 【頂点判定】上昇から下降に切り替わった瞬間、即座に下降ポーズへ
+        // 頂点判定（上昇から下降に切り替わった瞬間、即座に下降ポーズへ）
         if (yVelocity >= 0 && currentState === 'upper') {
             currentState = 'upper2';
         }
@@ -223,17 +242,17 @@ function gameLoop() {
         }
     }
     
-    // メテオ発動時の強襲急降下
-    if (meteorDrop > 0) {
+    // 【新仕様】メテオ発動時の強襲急降下（meteorDropが0より大きい＝タメが終わったら一気に加速）
+    if (currentState === 'knock' && meteorDrop > 0) {
         yOffset += meteorDrop;
-        meteorDrop += 2.5; 
+        meteorDrop += 3.5; // 急降下の加速スピードも鋭く強化
         
         if (yOffset >= 0) { 
             yOffset = 0; 
             meteorDrop = 0; 
-            shake = 25; 
-            currentState = 'knock'; 
+            shake = 35; // 地面に激突した時の画面揺れを大幅に強化！
             
+            // 着地後の激しい硬直
             actionTimeout = setTimeout(() => { 
                 if (currentState === 'knock') currentState = 'idle'; 
             }, 300);
