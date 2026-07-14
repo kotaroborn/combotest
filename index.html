@@ -81,8 +81,17 @@ function playAction(type) {
     if (type !== 'guard') { guardKnockback = 0; guardShake = 0; }
 
     if (type === 'punch') {
-        let isDashPunch = (currentState === 'dash' || xOffset > 0);
-        currentState = (currentState === 'punch') ? 'punch2' : 'punch';
+        // 【新仕様】パンチ入力のたびに、まず一瞬「ダッシュ画像」を挟む
+        let prevState = currentState;
+        currentState = 'dash';
+        
+        setTimeout(() => {
+            if (currentState === 'dash') {
+                currentState = (prevState === 'punch') ? 'punch2' : 'punch';
+            }
+        }, 80); // 80msの間だけダッシュ画像を表示
+
+        let isDashPunch = (prevState === 'dash' || xOffset > 0);
         if (isDashPunch && !isAirborne) xOffset = 140;
         shake = 5;
 
@@ -94,7 +103,7 @@ function playAction(type) {
                     if (xOffset > 0) returnTimeout = setTimeout(() => { currentState = 'idle'; }, 400);
                 }
             }
-        }, 200);
+        }, 280);
     } else if (type === 'upper') {
         currentState = 'upper';
         yVelocity = jumpStartSpeed; 
@@ -109,9 +118,7 @@ function playAction(type) {
         currentState = 'guard';
         if (xOffset > 0) xOffset = 0; 
         guardKnockback = -18; 
-        // 【強化】ガードの震えをメテオの着地インパクト(35)と同等に設定
         guardShake = 35; 
-        
         actionTimeout = setTimeout(() => { if (currentState === 'guard') currentState = 'idle'; }, 300);
     }
 }
