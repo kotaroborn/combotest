@@ -29,38 +29,23 @@
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 
-const IMG_PLAYER  = 'player.PNG';  
-const IMG_PLAYER2 = 'player2.PNG'; 
-const IMG_PUNCH   = 'punch.PNG';   
-const IMG_PUNCH2  = 'punch2.PNG';  
-const IMG_UPPER   = 'upper.PNG';   
-const IMG_UPPER2  = 'upper2.PNG';  
-const IMG_KNOCK   = 'knock.PNG';   
-const IMG_GUARD   = 'guard.PNG';   
-const IMG_DASH    = 'dash.PNG';    
-
-const loadImg = (src) => { const i = new Image(); i.src = src; return i; };
 const actionImgs = {
-    idle: [loadImg(IMG_PLAYER), loadImg(IMG_PLAYER2)],
-    punch: loadImg(IMG_PUNCH),
-    punch2: loadImg(IMG_PUNCH2),
-    upper: loadImg(IMG_UPPER),
-    upper2: loadImg(IMG_UPPER2),
-    knock: loadImg(IMG_KNOCK),
-    guard: loadImg(IMG_GUARD),
-    dash: loadImg(IMG_DASH)
+    idle: [new Image(), new Image()],
+    punch: new Image(), punch2: new Image(),
+    upper: new Image(), upper2: new Image(),
+    knock: new Image(), guard: new Image(), dash: new Image()
 };
+actionImgs.idle[0].src = 'player.PNG'; actionImgs.idle[1].src = 'player2.PNG';
+actionImgs.punch.src = 'punch.PNG'; actionImgs.punch2.src = 'punch2.PNG';
+actionImgs.upper.src = 'upper.PNG'; actionImgs.upper2.src = 'upper2.PNG';
+actionImgs.knock.src = 'knock.PNG'; actionImgs.guard.src = 'guard.PNG'; actionImgs.dash.src = 'dash.PNG';
 
 let currentState = 'idle';
-let tempVisualState = null; // 見た目ダッシュ用
+let tempVisualState = null;
 let idleFrame = 0;
 let yOffset = 0, xOffset = 0, shake = 0, isAirborne = false, meteorDrop = 0;
-let actionTimeout = null, returnTimeout = null; 
-let dashGhosts = [], guardKnockback = 0, guardShake = 0;
-
-const gravity = 1.6;          
-let yVelocity = 0;            
-const jumpStartSpeed = -24;   
+let actionTimeout = null;
+let guardKnockback = 0, guardShake = 0;
 
 setInterval(() => { idleFrame = (idleFrame + 1) % 2; }, 500);
 
@@ -69,19 +54,11 @@ function playAction(type) {
     if (isAirborne && type !== 'punch' && type !== 'knock') return;
 
     if (actionTimeout) clearTimeout(actionTimeout);
-    if (returnTimeout) clearTimeout(returnTimeout);
-
-    if (type !== 'guard') { guardKnockback = 0; guardShake = 0; }
 
     if (type === 'punch') {
-        // 【修正】状態はパンチを維持したまま、見た目用変数だけダッシュにする
         let prevState = currentState;
         tempVisualState = 'dash';
-        
-        setTimeout(() => {
-            if (tempVisualState === 'dash') tempVisualState = null;
-        }, 80);
-
+        setTimeout(() => { if (tempVisualState === 'dash') tempVisualState = null; }, 80);
         currentState = (prevState === 'punch') ? 'punch2' : 'punch';
         if ((prevState === 'dash' || xOffset > 0) && !isAirborne) xOffset = 140;
         shake = 5;
@@ -89,54 +66,48 @@ function playAction(type) {
         actionTimeout = setTimeout(() => { 
             if (currentState === 'punch' || currentState === 'punch2') {
                 if (isAirborne) currentState = (yVelocity >= 0) ? 'upper2' : 'upper';
-                else {
-                    currentState = 'idle';
-                    if (xOffset > 0) returnTimeout = setTimeout(() => { currentState = 'idle'; }, 400);
-                }
+                else { currentState = 'idle'; xOffset = 0; shake = 0; }
             }
         }, 280);
     } else if (type === 'upper') {
-        currentState = 'upper';
-        yVelocity = jumpStartSpeed; isAirborne = true;
-        if (xOffset > 0) xOffset = 0; 
+        currentState = 'upper'; yVelocity = -24; isAirborne = true;
     } else if (type === 'knock' && isAirborne) {
-        currentState = 'knock';
-        isAirborne = false; yVelocity = 0; meteorDrop = 0;
-        actionTimeout = setTimeout(() => { if (currentState === 'knock') meteorDrop = 32; }, 200); 
+        currentState = 'knock'; isAirborne = false; yVelocity = 0; meteorDrop = 32;
     } else if (type === 'guard') {
-        currentState = 'guard';
-        guardKnockback = -18; guardShake = 35; 
-        actionTimeout = setTimeout(() => { if (currentState === 'guard') currentState = 'idle'; }, 300);
+        currentState = 'guard'; guardKnockback = -18; guardShake = 35;
+        actionTimeout = setTimeout(() => { if (currentState === 'guard') { currentState = 'idle'; guardShake = 0; } }, 300);
     }
 }
 
+let yVelocity = 0;
 function gameLoop() {
-    ctx.imageSmoothingEnabled = false;
     ctx.fillStyle = '#0a192f'; ctx.fillRect(0, 0, canvas.width, canvas.height);
     
-    // 描画用の状態を決定（ダッシュの見た目が優先）
+    // 物理演算
+    if (isAirborne) {
+        yVelocity += (currentState === 'punch' || currentState === 'punch2') ? 0.24 : 1.6; 
+        yOffset += yVelocity; 
+        if (yOffset >= 0) { yOffset = 0; yVelocity = 0; isAirborne = false; currentState = 'idle'; shake = 0; }
+    }
+    
     let drawState = tempVisualState || currentState;
     let currentImg = (drawState === 'idle') ? actionImgs.idle[idleFrame] : actionImgs[drawState];
     
-    // ... (中略: ゲームロジックは以前のまま、物理演算はcurrentStateで行う)
-    if (isAirborne) {
-        yVelocity += (currentState === 'punch' || currentState === 'punch2') ? gravity * 0.15 : gravity; 
-        yOffset += yVelocity; 
-        if (yVelocity >= 0 && currentState === 'upper') currentState = 'upper2';
-        if (yOffset >= 0) { yOffset = 0; yVelocity = 0; isAirborne = false; currentState = 'idle'; }
-    }
-    // ... (以降、以前のコードと同様に描画)
+    // 揺れ・ノックバックの減衰
+    if (shake > 0) shake *= 0.8; if (shake < 0.1) shake = 0;
+    if (guardShake > 0) guardShake *= 0.8; if (guardShake < 0.1) guardShake = 0;
+    if (guardKnockback < 0) { guardKnockback += 0.8; if (guardKnockback > 0) guardKnockback = 0; }
     
-    // 描画処理へ
+    // 自キャラ描画
     let dx = (Math.random() - 0.5) * (shake + guardShake);
     let dy = (Math.random() - 0.5) * (shake + guardShake);
-    let px = 250 - 120 + xOffset + dx + guardKnockback;
-    let py = 270 - 120 + yOffset + dy;
+    ctx.drawImage(currentImg, 250 - 120 + xOffset + dx + guardKnockback, 270 - 120 + yOffset + dy, 240, 240);
     
-    if (currentImg?.complete) ctx.drawImage(currentImg, px, py, 240, 240);
-    else { ctx.fillStyle = '#2ecc71'; ctx.fillRect(px, py, 240, 240); }
+    // 敵キャラ描画（常に描画されるようにループの最後に配置）
+    let enemyImg = actionImgs.idle[0];
+    ctx.save(); ctx.translate(700, 150); ctx.scale(-1, 1);
+    ctx.drawImage(enemyImg, -120, -120, 240, 240); ctx.restore();
     
-    // (残りの敵描画などは同じ)
     requestAnimationFrame(gameLoop);
 }
 gameLoop();
