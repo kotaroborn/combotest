@@ -65,11 +65,10 @@ function playAction(type) {
         if (isAirborne) return;
         currentState = 'upper'; yVelocity = -24; isAirborne = true;
     } else if (type === 'knock' && isAirborne) {
-        // 【修正】空中停止して強調してから急降下
         currentState = 'knock'; 
         isKnocking = true; 
-        yVelocity = 0; // 空中で完全に止める
-        setTimeout(() => { yVelocity = 30; }, 400); // 400msタメてから超加速
+        yVelocity = 0; 
+        setTimeout(() => { if(isKnocking) yVelocity = 35; }, 400);
     } else if (type === 'guard') {
         currentState = 'guard'; guardKnockback = -18; guardShake = 35;
         setTimeout(() => { if (currentState === 'guard') currentState = 'idle'; }, 300);
@@ -86,9 +85,11 @@ function gameLoop() {
     ctx.fillStyle = '#0a192f'; ctx.fillRect(0, 0, canvas.width, canvas.height);
     
     if (isAirborne) {
-        let gravity = (currentState === 'punch' || currentState === 'punch2') ? 0.08 : 1.6;
-        // メテオ急降下中は重力の影響を受けない（加速済みのため）
-        if (!isKnocking || yVelocity < 30) yVelocity += gravity;
+        // 重力計算の条件修正: isKnocking中はyVelocityが0なら重力を加算しない
+        if (!(isKnocking && yVelocity === 0)) {
+            let gravity = (currentState === 'punch' || currentState === 'punch2') ? 0.08 : 1.6;
+            yVelocity += gravity;
+        }
         
         yOffset += yVelocity; 
         if (currentState === 'upper' && yVelocity >= 0) currentState = 'upper2';
