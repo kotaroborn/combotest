@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Combo Clash Tactics</title>
+    <style>
+        body { margin: 0; background: #0a192f; display: flex; flex-direction: column; align-items: center; overflow: hidden; font-family: sans-serif; }
+        #gameArea { width: 100%; max-width: 600px; aspect-ratio: 16 / 9; position: relative; }
+        canvas { width: 100%; height: 100%; display: block; image-rendering: pixelated; }
+        #inputArea { width: 100%; max-width: 600px; display: grid; grid-template-columns: repeat(5, 1fr); gap: 2px; background: #000; }
+        .btn { height: 60px; background: #1a2a6c; color: white; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: bold; touch-action: manipulation; }
+        .btn:active { background: #00ffcc; color: #000; }
+    </style>
+</head>
+<body>
+
+<div id="gameArea"><canvas id="gameCanvas" width="960" height="540"></canvas></div>
+
+<div id="inputArea">
+    <div class="btn" onclick="playAction('punch')">PUNCH</div>
+    <div class="btn" onclick="playAction('upper')">UPPER</div>
+    <div class="btn" onclick="pushDash()">DASH</div>
+    <div class="btn" onclick="playAction('guard')">GUARD</div>
+    <div class="btn" onclick="playAction('knock')">METEOR</div>
+</div>
+
+<script>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+
+// ==========================================================================
+// 【画像ファイル名設定エリア】
+// dash.PNG を新しく追加しました。
+// ==========================================================================
+const IMG_PLAYER  = 'player.PNG';  // 待機フレーム1
+const IMG_PLAYER2 = 'player2.PNG'; // 待機フレーム2
+const IMG_PUNCH   = 'punch.PNG';   // パンチ1
+const IMG_PUNCH2  = 'punch2.PNG';  // パンチ2
+const IMG_UPPER   = 'upper.PNG';   // アッパー（上昇・頂点）
+const IMG_UPPER2  = 'upper2.PNG';  // アッパー（下降用）
+const IMG_KNOCK   = 'knock.PNG';   // メテオ急降下
+const IMG_GUARD   = 'guard.PNG';   // ガード
+const IMG_DASH    = 'dash.PNG';    // ダッシュ (新規追加)
+// ==========================================================================
+
+const loadImg = (src) => { 
+    const i = new Image(); 
+    i.src = src; 
+    return i; 
+};
+
+const actionImgs = {
+    idle: [loadImg(IMG_PLAYER), loadImg(IMG_PLAYER2)],
+    punch: loadImg(IMG_PUNCH),
+    punch2: loadImg(IMG_PUNCH2),
+    upper: loadImg(IMG_UPPER),
+    upper2: loadImg(IMG_UPPER2),
+    knock: loadImg(IMG_KNOCK),
+    guard: loadImg(IMG_GUARD),
+    dash: loadImg(IMG_DASH)
+};
+
+// 状態管理変数
+let currentState = 'idle';
+let idleFrame = 0;
+let yOffset = 0, xOffset = 0, shake = 0, isAirborne = false, meteorDrop = 0;
+let actionTimeout = null;
+
+// 物理演算用のパラメータ（格ゲーらしい鋭いジャンプ用）
+const gravity = 1.6;          // 重力の強さ
+let yVelocity = 0;            // 上下方向の速度
+const jumpStartSpeed = -24;   // アッパー時の跳ね上がり初速
+
+// コンボ・空中制限用の変数
+let lastPunchWasTwo = false; 
+let airPunchesLeft = 0;      
+
+// 待機アニメーション（0.5秒おき）
+setInterval(() => {
+    idleFrame = (idleFrame + 1) % 2;
+}, 500);
+
+function playAction(type) {
+    // 【空中制限】空中（アッパー落下中）はパンチとメテオ以外の入力を完全に無視
+    if (isAirborne) {
+        if (type !== 'punch' && type !== 'knock') return;
+    }
+
+    if (actionTimeout) clearTimeout(actionTimeout);
+
+    if (type === 'punch') {
+        // 空中パンチの回数制限（最大2回）
+        if (isAirborne) {
+            if (airPunchesLeft <= 0) return;
+            airPunchesLeft--;
+        }
+
+        // パンチコンボ交互切り替え
+        if (currentState === 'punch') {
+            currentState = 'punch2';
+        } else if (currentState === 'punch2') {
+            currentState = 'punch';
+        } else {
+            currentState = lastPunchWasTwo ? 'punch' : 'punch2';
+            lastPunchWasTwo = !lastPunchWasTwo;
+        }
+
+        shake = 5;
+
+        // パンチが終了したら元の姿勢に戻る（空中なら上昇/下降に応じた姿勢に戻る）
+        actionTimeout = setTimeout(() => { 
+            if (currentState === 'punch' || currentState === 'punch2') {
+                if (isAirborne) {
+                    currentState = (yVelocity >= 0) ? 'upper2' : 'upper';
+                } else {
+                    currentState = 'idle';
+                }
+            }
+        }, 200);
+
+    } else if (type === 'upper') {
+        currentState = 'upper';
+        yVelocity = jumpStartSpeed; // 上向きの初速を与える
+        isAirborne = true;
+        airPunchesLeft = 2; // 空中パンチ回数リセット
+
+    } else if (type === 'knock' && isAirborne) {
+        currentState = 'knock';
+        meteorDrop = 25; // 急降下スピード（さらに高速化）
+        yVelocity = 0;   // 通常のジャンプ物理を停止
+        isAirborne = false; 
+
+    } else if (type === 'guard') {
+        currentState = 'guard';
+        xOffset = -20; 
+        shake = 3;
+        actionTimeout = setTimeout(() => { 
+            if (currentState === 'guard') { currentState = 'idle'; xOffset = 0; } 
+        }, 300);
+    }
+}
+
+// ダッシュ処理
+function pushDash() {
+    if (isAirborne) return; // 空中ダッシュは禁止
+    
+    if (actionTimeout) clearTimeout(actionTimeout);
+    currentState = 'dash'; // 状態をダッシュに変更（画像を適用）
+    xOffset = 60; 
+    shake = 2;
+    actionTimeout = setTimeout(() => { 
+        if (currentState === 'dash') {
+            currentState = 'idle'; 
+            xOffset = 0; 
+        }
+    }, 150);
+}
+
+function gameLoop() {
+    ctx.imageSmoothingEnabled = false;
+    
+    // 背景の描画
+    ctx.fillStyle = '#0a192f'; 
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    let currentImg = null;
+    let fallbackColor = '#2ecc71'; 
+    
+    switch (currentState) {
+        case 'idle': 
+            currentImg = actionImgs.idle[idleFrame]; 
+            fallbackColor = idleFrame === 0 ? '#2ecc71' : '#27ae60';
+            break;
+        case 'punch': 
+            currentImg = actionImgs.punch; 
+            fallbackColor = '#e74c3c'; // パンチ1：赤
+            break;
+        case 'punch2': 
+            currentImg = actionImgs.punch2; 
+            fallbackColor = '#e67e22'; // パンチ2：オレンジ
+            break;
+        case 'upper': 
+            currentImg = actionImgs.upper; 
+            fallbackColor = '#f1c40f'; // アッパー上昇：黄
+            break;
+        case 'upper2': 
+            currentImg = actionImgs.upper2; 
+            fallbackColor = '#f39c12'; // アッパー下降：深めの黄
+            break;
+        case 'knock': 
+            currentImg = actionImgs.knock; 
+            fallbackColor = '#9b59b6'; // メテオ：紫
+            break;
+        case 'guard': 
+            currentImg = actionImgs.guard; 
+            fallbackColor = '#3498db'; // ガード：青
+            break;
+        case 'dash': 
+            currentImg = actionImgs.dash; 
+            fallbackColor = '#1abc9c'; // ダッシュ：ターコイズブルー (新規)
+            break;
+    }
+    
+    // ジャンプ・アッパーの物理演算
+    if (isAirborne) {
+        yVelocity += gravity; // 重力で徐々に減速 ➔ 下降加速
+        yOffset += yVelocity; 
+        
+        // 【頂点判定】上昇から下降に切り替わった瞬間、即座に下降ポーズへ
+        if (yVelocity >= 0 && currentState === 'upper') {
+            currentState = 'upper2';
+        }
+        
+        // 着地判定
+        if (yOffset >= 0) { 
+            yOffset = 0; 
+            yVelocity = 0;
+            isAirborne = false; 
+            if (currentState === 'upper' || currentState === 'upper2' || currentState === 'punch' || currentState === 'punch2') {
+                currentState = 'idle'; 
+            }
+        }
+    }
+    
+    // メテオ発動時の強襲急降下
+    if (meteorDrop > 0) {
+        yOffset += meteorDrop;
+        meteorDrop += 2.5; 
+        
+        if (yOffset >= 0) { 
+            yOffset = 0; 
+            meteorDrop = 0; 
+            shake = 25; 
+            currentState = 'knock'; 
+            
+            actionTimeout = setTimeout(() => { 
+                if (currentState === 'knock') currentState = 'idle'; 
+            }, 300);
+        }
+    }
+    
+    // 影の描画
+    if (yOffset < 0) {
+        ctx.globalAlpha = 0.3;
+        ctx.fillStyle = '#000000';
+        ctx.fillRect(250 - 60 + xOffset, 270 + 100, 120, 20); 
+        ctx.globalAlpha = 1.0;
+    }
+    
+    let dx = (Math.random() - 0.5) * shake;
+    let dy = (Math.random() - 0.5) * shake;
+    
+    let px = 250 - 120 + xOffset + dx;
+    let py = 270 - 120 + yOffset + dy;
+    
+    if (currentImg && currentImg.complete && currentImg.naturalWidth > 0) {
+        ctx.drawImage(currentImg, px, py, 240, 240);
+    } else {
+        ctx.fillStyle = fallbackColor;
+        ctx.fillRect(px, py, 240, 240);
+    }
+    
+    // 敵キャラの表示
+    ctx.fillStyle = '#ff0055';
+    ctx.fillRect(700 - 120, 270 - 120, 240, 240);
+    
+    if (shake > 0) {
+        shake *= 0.8;
+        if (shake < 0.1) shake = 0;
+    }
+    
+    requestAnimationFrame(gameLoop);
+}
+
+gameLoop();
+</script>
+</body>
+</html>
