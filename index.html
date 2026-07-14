@@ -50,19 +50,16 @@ let actionTimeout = null;
 setInterval(() => { idleFrame = (idleFrame + 1) % 2; }, 500);
 
 function playAction(type) {
-    if (isKnocking || isLanding) return;
+    // 着地硬直中やメテオ中は入力を受け付けない
+    if (isLanding || isKnocking) return;
 
     if (type === 'punch') {
-        // 【修正】空中パンチ時は上昇せず、速度をゼロにして滞空開始
         if (isAirborne) yVelocity = 0; 
-
         let prevState = currentState;
         tempVisualState = 'dash';
         setTimeout(() => { if (tempVisualState === 'dash') tempVisualState = null; }, 80);
-        
         currentState = (prevState === 'punch') ? 'punch2' : 'punch';
         shake = 5;
-
         clearTimeout(actionTimeout);
         actionTimeout = setTimeout(() => { currentState = 'idle'; }, 400);
     } else if (type === 'upper') {
@@ -87,7 +84,6 @@ function gameLoop() {
     ctx.fillStyle = '#0a192f'; ctx.fillRect(0, 0, canvas.width, canvas.height);
     
     if (isAirborne) {
-        // 【修正】パンチ中は重力を0.08まで極小にして、ふわりと降りるように
         let gravity = (currentState === 'punch' || currentState === 'punch2') ? 0.08 : 1.6;
         yVelocity += gravity;
         yOffset += yVelocity; 
@@ -97,16 +93,20 @@ function gameLoop() {
         if (yOffset >= 0) { 
             yOffset = 0; yVelocity = 0; 
             if (isKnocking) {
-                currentState = 'knock2'; shake = 35; 
-                isKnocking = false; isLanding = true;
-                setTimeout(() => { isAirborne = false; isLanding = false; currentState = 'idle'; }, 800);
+                isKnocking = false;
+                isLanding = true;
+                currentState = 'knock2'; // 着地画像を固定
+                shake = 35; 
+                // 1秒間の硬直
+                setTimeout(() => { isAirborne = false; isLanding = false; currentState = 'idle'; }, 1000);
             } else {
                 isAirborne = false; currentState = 'idle';
             }
         }
     }
     
-    let drawState = tempVisualState || currentState;
+    // 着地中は描画画像をknock2で固定する
+    let drawState = isLanding ? 'knock2' : (tempVisualState || currentState);
     let currentImg = (drawState === 'idle') ? actionImgs.idle[idleFrame] : actionImgs[drawState];
     
     if (shake > 0) shake *= 0.8;
