@@ -53,10 +53,8 @@ function playAction(type) {
     if (isKnocking || isLanding) return;
 
     if (type === 'punch') {
-        if (isAirborne && yVelocity < -5) return; 
-        
-        // 空中パンチ：落下を抑制して滞空
-        if (isAirborne) yVelocity = -2;
+        // 【修正】空中パンチ時は上昇せず、速度をゼロにして滞空開始
+        if (isAirborne) yVelocity = 0; 
 
         let prevState = currentState;
         tempVisualState = 'dash';
@@ -89,12 +87,11 @@ function gameLoop() {
     ctx.fillStyle = '#0a192f'; ctx.fillRect(0, 0, canvas.width, canvas.height);
     
     if (isAirborne) {
-        // 重力計算（パンチ中は軽減）
-        let gravity = (currentState === 'punch' || currentState === 'punch2') ? 0.2 : 1.6;
+        // 【修正】パンチ中は重力を0.08まで極小にして、ふわりと降りるように
+        let gravity = (currentState === 'punch' || currentState === 'punch2') ? 0.08 : 1.6;
         yVelocity += gravity;
         yOffset += yVelocity; 
 
-        // アッパー下降時の画像切り替え
         if (currentState === 'upper' && yVelocity >= 0) currentState = 'upper2';
 
         if (yOffset >= 0) { 
@@ -102,7 +99,7 @@ function gameLoop() {
             if (isKnocking) {
                 currentState = 'knock2'; shake = 35; 
                 isKnocking = false; isLanding = true;
-                setTimeout(() => { isAirborne = false; isLanding = false; currentState = 'idle'; }, 800); // 800ms停止
+                setTimeout(() => { isAirborne = false; isLanding = false; currentState = 'idle'; }, 800);
             } else {
                 isAirborne = false; currentState = 'idle';
             }
