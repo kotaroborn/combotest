@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Combo Clash Tactics - Full Engine</title>
+    <title>Combo Clash Tactics - Finalized Engine</title>
     <style>
         body { margin: 0; background: #000; color: #fff; font-family: monospace; overflow: hidden; display: flex; flex-direction: column; align-items: center; }
         #gameArea { width: 100vw; height: 50vh; background: #111; position: relative; }
@@ -31,7 +31,7 @@
 <div id="controls">
     <div class="btn" onclick="addCmd('punch')">PUNCH</div>
     <div class="btn" onclick="addCmd('upper')">UPPER</div>
-    <div class="btn" onclick="addCmd('guard')">GUARD</div>
+    <div class="btn" onclick="addCmd('knock')">KNOCK</div>
     <div class="btn" onclick="resetCmd()">RESET</div>
     <div class="btn" onclick="resolveBattle()" style="background:#b00;">GO</div>
 </div>
@@ -42,8 +42,9 @@ const ctx = canvas.getContext('2d');
 ctx.imageSmoothingEnabled = false;
 
 const s = { 
-    pCur: 'player', x: 200, y: 200, vy: 0, isAir: false, 
-    enHP: 100, isPlaying: false, shake: 0, afterImages: [] 
+    pCur: 'player', x: 200, y: 200, vx: 0, vy: 0, 
+    isAir: false, enHP: 100, isPlaying: false, 
+    shake: 0, afterImages: [], stopMotion: 0 
 };
 let myHands = [];
 
@@ -63,16 +64,16 @@ async function resolveBattle() {
         let cmd = myHands[i];
         if (cmd === 'punch') {
             s.pCur = (i % 2 === 0) ? 'punch' : 'punch2';
-            s.shake = 20;
-            s.enHP -= 10;
+            s.shake = 20; s.enHP -= 10;
         } else if (cmd === 'upper') {
             s.isAir = true; s.vy = -20; s.pCur = 'upper';
             s.afterImages.push({x: s.x, y: s.y, alpha: 0.8});
-        } else {
-            s.pCur = 'guard'; s.shake = 10;
+        } else if (cmd === 'knock') {
+            s.pCur = 'knock'; s.stopMotion = 30; // ストップモーション
         }
+        
         document.getElementById('enBar').style.width = Math.max(0, s.enHP) + "%";
-        await new Promise(r => setTimeout(r, 500));
+        await new Promise(r => setTimeout(r, 600));
         s.pCur = 'player';
     }
     s.isPlaying = false;
@@ -83,26 +84,26 @@ function loop() {
     ctx.fillStyle = '#0a192f'; ctx.fillRect(0, 0, canvas.width, canvas.height);
     
     // 物理演算
-    if (s.isAir) {
+    if (s.stopMotion > 0) {
+        s.stopMotion--;
+    } else if (s.isAir) {
         s.vy += 1.5; s.y += s.vy;
-        if(s.y >= 200) { s.y = 200; s.isAir = false; s.pCur = 'player'; }
+        if(s.y >= 200) { s.y = 200; s.isAir = false; s.pCur = 'knock2'; s.shake = 40; }
     }
     
-    // 残像描画
+    // 残像と描画
     s.afterImages.forEach((img, i) => {
         ctx.globalAlpha = img.alpha;
-        ctx.drawImage(imgs.dash, img.x, img.y, 240, 240);
+        ctx.drawImage(imgs.dash, img.x, img.y, 200, 200); // サイズ調整
         img.alpha -= 0.1; if(img.alpha <= 0) s.afterImages.splice(i, 1);
     });
     ctx.globalAlpha = 1.0;
 
-    // 振動
     let off = (Math.random()-0.5) * s.shake;
-    if(imgs[s.pCur]) ctx.drawImage(imgs[s.pCur], s.x + off, s.y, 240, 240);
+    if(imgs[s.pCur]) ctx.drawImage(imgs[s.pCur], s.x + off, s.y, 200, 200); // 縦長修正
     
-    // 敵
     ctx.save(); ctx.scale(-1, 1);
-    if(imgs.player2) ctx.drawImage(imgs.player2, -750, 200, 240, 240);
+    if(imgs.player2) ctx.drawImage(imgs.player2, -750, 200, 200, 200);
     ctx.restore();
     
     s.shake *= 0.8;
