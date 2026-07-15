@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Combo Clash Tactics - Upper Boosted</title>
+    <title>Combo Clash Tactics - Conditional Air</title>
     <style>
         body { margin: 0; background: #000; color: #fff; font-family: monospace; overflow: hidden; display: flex; flex-direction: column; align-items: center; }
         #gameArea { width: 100vw; height: 50vh; background: #111; position: relative; }
@@ -24,7 +24,6 @@
 <div id="gameArea">
     <div class="ui">
         <div class="hp" style="transform: scaleX(-1);"><div id="myBar" class="bar"></div></div>
-        <div id="timer">99</div>
         <div class="hp"><div id="enBar" class="bar"></div></div>
     </div>
     <canvas id="gameCanvas" width="960" height="540"></canvas>
@@ -50,8 +49,8 @@ const ctx = canvas.getContext('2d');
 ctx.imageSmoothingEnabled = false;
 
 const s = { 
-    pCur: 'player', x: 200, y: 200, isAir: false, airPunchCount: 0,
-    enHP: 100, isPlaying: false, shake: 0, afterImages: [], guardShift: 0 
+    pCur: 'player', x: 200, y: 200, isAir: false, enHP: 100, 
+    isPlaying: false, shake: 0, afterImages: [], guardShift: 0 
 };
 let myHands = [];
 
@@ -64,14 +63,15 @@ function resetCmd() { if(!s.isPlaying) { myHands = []; updateSlots(); } }
 function updateSlots() { document.getElementById('slotArea').innerHTML = myHands.map(h => `<div class="slot">${h.toUpperCase()}</div>`).join(''); }
 async function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
-async function animateMove(targetX, targetY, duration, pose, spawnTrail = false) {
+// 残像画像を引数で動的に変更可能に
+async function animateMove(targetX, targetY, duration, pose, trailImg = 'dash') {
     const startX = s.x; const startY = s.y; const start = Date.now();
     while(Date.now() - start < duration) {
         let p = (Date.now() - start) / duration;
         s.x = startX + (targetX - startX) * p;
         s.y = startY + (targetY - startY) * p;
         s.pCur = pose;
-        if (spawnTrail) s.afterImages.push({x: s.x, y: s.y, alpha: 0.5});
+        s.afterImages.push({x: s.x, y: s.y, alpha: 0.5, img: trailImg});
         await sleep(16);
     }
     s.x = targetX; s.y = targetY;
@@ -83,36 +83,46 @@ async function resolveBattle() {
 
     for (let i = 0; i < myHands.length; i++) {
         let cmd = myHands[i];
+        let nextCmd = myHands[i+1];
         
         if (cmd === 'upper') {
-            await animateMove(400, 200, 100, 'dash', true);
-            s.pCur = 'upper'; s.shake = 30; await sleep(500); // 溜めを強化
-            s.isAir = true;
-            await animateMove(400, 50, 300, 'upper2', true); // 高速上昇
-            await sleep(200); // 頂点で一瞬の静止
-            await animateMove(400, 200, 300, 'upper2', true); // 下降
-            s.pCur = 'knock2'; s.shake = 40; s.isAir = false; await sleep(300);
+            await animateMove(400, 200, 100, 'dash', 'dash');
+            s.pCur = 'upper'; s.shake = 30; await sleep(500);
+            if (nextCmd === 'punch') {
+                s.isAir = true;
+                await animateMove(400, 50, 300, 'upper2', 'upper2'); // 残像を upper2 に
+                await sleep(200);
+            } else {
+                s.pCur = 'upper2'; await sleep(200);
+                s.pCur = 'knock2'; s.shake = 20; await sleep(300);
+            }
         } else if (cmd === 'punch') {
-            await animateMove(400, 200, 150, 'dash', true);
-            s.pCur = (i % 2 === 0) ? 'punch' : 'punch2';
-            s.shake = 20; await sleep(400);
+            if (s.isAir) {
+                s.pCur = (i % 2 === 0) ? 'punch' : 'punch2';
+                s.shake = 15; await sleep(400);
+            } else {
+                await animateMove(400, 200, 150, 'dash', 'dash');
+                s.pCur = (i % 2 === 0) ? 'punch' : 'punch2';
+                s.shake = 20; await sleep(400);
+            }
         } else if (cmd === 'guard') {
-            await animateMove(400, 200, 150, 'dash', true);
+            await animateMove(400, 200, 150, 'dash', 'dash');
             s.pCur = 'guard'; s.shake = 20; s.guardShift = -20;
             await sleep(400); s.guardShift = 0;
         }
         document.getElementById('enBar').style.width = Math.max(0, s.enHP -= 10) + "%";
     }
 
-    await animateMove(200, 200, 180, 'dash', true);
-    s.pCur = 'player'; s.isPlaying = false; resetCmd();
+    if(s.isAir) { await animateMove(400, 200, 150, 'knock2', 'dash'); s.shake = 30; await sleep(300); }
+    await animateMove(200, 200, 180, 'dash', 'dash');
+    s.pCur = 'player'; s.isAir = false; s.isPlaying = false; resetCmd();
 }
 
 function loop() {
     ctx.fillStyle = '#0a192f'; ctx.fillRect(0, 0, canvas.width, canvas.height);
     s.afterImages.forEach((img, i) => {
         ctx.globalAlpha = img.alpha;
-        if(imgs.dash) ctx.drawImage(imgs.dash, img.x, img.y, 200, 200);
+        if(imgs[img.img]) ctx.drawImage(imgs[img.img], img.x, img.y, 200, 200);
         img.alpha -= 0.07; if(img.alpha <= 0) s.afterImages.splice(i, 1);
     });
     ctx.globalAlpha = 1.0;
@@ -128,5 +138,4 @@ function loop() {
 loop();
 </script>
 </body>
-</html>
 </html>
