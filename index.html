@@ -61,10 +61,10 @@ function playAction(type) {
     if (isLanding) return;
 
     if (type === 'punch') {
-        if (isDashing) {
-            tempVisualState = 'dash';
-            setTimeout(() => { if (tempVisualState === 'dash') tempVisualState = null; }, 150);
-        }
+        // ダッシュ中およびコンボ時にdash画像を強制表示
+        tempVisualState = 'dash';
+        setTimeout(() => { if (tempVisualState === 'dash') tempVisualState = null; }, 150);
+        
         currentState = (currentState === 'punch') ? 'punch2' : 'punch';
         shake = 5;
         clearTimeout(actionTimeout);
@@ -102,15 +102,10 @@ function gameLoop() {
         xOffset -= 5; if (xOffset < 0) xOffset = 0;
     }
     
-    afterImages.forEach((img, i) => {
-        ctx.globalAlpha = img.alpha;
-        ctx.drawImage(actionImgs.dash, 250 - 120 + img.x, 270 - 120 + img.y, 240, 240);
-        img.alpha -= 0.1; if (img.alpha <= 0) afterImages.splice(i, 1);
-    });
-    ctx.globalAlpha = 1.0;
-    
+    // 空中物理演算の修正（ジャンプ高さ制限）
     if (isAirborne) {
-        let gravity = (currentState.includes('punch')) ? 0.08 : 1.6;
+        // パンチコンボ中のみ重力を緩和。通常の空中状態は重力を強く保つ
+        let gravity = (currentState.includes('punch')) ? 0.8 : 1.6;
         if (!(isKnocking && yVelocity === 0)) yVelocity += gravity;
         
         yOffset += yVelocity; 
@@ -120,7 +115,6 @@ function gameLoop() {
             yOffset = 0; yVelocity = 0; 
             if (isKnocking) {
                 isKnocking = false; isLanding = true; currentState = 'knock2'; 
-                shake = 100; meteorShakeX = 60;
                 actionTimeout = setTimeout(() => { resetAction(); }, 1500);
             } else { 
                 isLanding = true; currentState = 'knock2';
@@ -129,19 +123,13 @@ function gameLoop() {
         }
     }
     
-    let drawState = tempVisualState || ((isDashing || xOffset > 0) ? 'dash' : (isLanding ? 'knock2' : currentState));
+    // 描画ステートの優先順位を明確化
+    let drawState = tempVisualState || currentState;
+    if (isDashing && currentState === 'idle') drawState = 'dash';
+    if (isLanding) drawState = 'knock2';
+    
     let currentImg = (drawState === 'idle') ? actionImgs.idle[idleFrame] : actionImgs[drawState];
-    
-    let totalShake = (Math.random()-0.5) * (shake + guardShake + meteorShakeX);
-    ctx.drawImage(currentImg, 250 - 120 + xOffset + totalShake + guardKnockback, 270 - 120 + yOffset, 240, 240);
-    
-    ctx.save(); ctx.translate(700, 270); ctx.scale(-1, 1);
-    ctx.drawImage(actionImgs.idle[idleFrame], -120, -120, 240, 240); ctx.restore();
-    
-    if (shake > 0) shake *= 0.85; if (shake < 0.1) shake = 0;
-    if (guardShake > 0) guardShake *= 0.8; if (guardShake < 0.1) guardShake = 0;
-    if (meteorShakeX > 0) meteorShakeX *= 0.85;
-    if (guardKnockback < 0) guardKnockback += 0.8;
+    ctx.drawImage(currentImg, 250 - 120 + xOffset + guardKnockback, 270 - 120 + yOffset, 240, 240);
     
     requestAnimationFrame(gameLoop);
 }
