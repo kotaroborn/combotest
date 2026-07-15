@@ -58,11 +58,9 @@ function resetAction() {
 }
 
 function playAction(type) {
-    // 着地演出中、またはダッシュ移動中は入力を受け付けない
     if (isLanding || xOffset > 0) return;
 
     if (type === 'punch') {
-        if (isAirborne) { /* 空中パンチはOK */ }
         currentState = (currentState === 'punch') ? 'punch2' : 'punch';
         shake = 5;
         actionTimeout = setTimeout(() => { if (!isAirborne) resetAction(); }, 400);
@@ -81,7 +79,7 @@ function playAction(type) {
 }
 
 function pushDash() {
-    if (isAirborne || isLanding || isDashing || xOffset > 0) return;
+    if (isAirborne || isLanding || isKnocking || isDashing || xOffset > 0) return;
     isDashing = true; currentState = 'dash'; 
     dashVelocity = 30; xOffset = 0;
     actionTimeout = setTimeout(() => { 
@@ -93,14 +91,12 @@ function pushDash() {
 function gameLoop() {
     ctx.fillStyle = '#0a192f'; ctx.fillRect(0, 0, canvas.width, canvas.height);
     
-    // ダッシュ/戻り制御
     if (isDashing) {
         xOffset += dashVelocity; dashVelocity *= 0.8;
     } else if (xOffset > 0) {
         xOffset -= 5; if (xOffset < 0) xOffset = 0;
     }
     
-    // 残像処理
     afterImages.forEach((img, i) => {
         ctx.globalAlpha = img.alpha;
         ctx.drawImage(actionImgs.dash, 250 - 120 + img.x, 270 - 120 + img.y, 240, 240);
@@ -108,7 +104,6 @@ function gameLoop() {
     });
     ctx.globalAlpha = 1.0;
     
-    // 空中物理演算
     if (isAirborne) {
         if (!(isKnocking && yVelocity === 0)) {
             let gravity = currentState.includes('punch') ? 0.08 : 1.6;
@@ -122,7 +117,7 @@ function gameLoop() {
             if (isKnocking) {
                 isKnocking = false; isLanding = true; currentState = 'knock2'; 
                 shake = 100; meteorShakeX = 60;
-                actionTimeout = setTimeout(() => { resetAction(); }, 1000);
+                actionTimeout = setTimeout(() => { resetAction(); }, 1500); // 延長
             } else { 
                 isLanding = true; currentState = 'knock2';
                 actionTimeout = setTimeout(() => { resetAction(); }, 150);
@@ -130,18 +125,15 @@ function gameLoop() {
         }
     }
     
-    // 描画状態の決定
     let drawState = (isDashing || xOffset > 0) ? 'dash' : (isLanding ? 'knock2' : currentState);
     let currentImg = (drawState === 'idle') ? actionImgs.idle[idleFrame] : actionImgs[drawState];
     
     let totalShake = (Math.random()-0.5) * (shake + guardShake + meteorShakeX);
     ctx.drawImage(currentImg, 250 - 120 + xOffset + totalShake + guardKnockback, 270 - 120 + yOffset, 240, 240);
     
-    // 相手キャラの描画
     ctx.save(); ctx.translate(700, 270); ctx.scale(-1, 1);
     ctx.drawImage(actionImgs.idle[idleFrame], -120, -120, 240, 240); ctx.restore();
     
-    // 減衰処理
     if (shake > 0) shake *= 0.85; if (shake < 0.1) shake = 0;
     if (guardShake > 0) guardShake *= 0.8; if (guardShake < 0.1) guardShake = 0;
     if (meteorShakeX > 0) meteorShakeX *= 0.85;
