@@ -50,37 +50,34 @@ let actionTimeout = null;
 
 setInterval(() => { idleFrame = (idleFrame + 1) % 2; }, 500);
 
-// 状態を完全にクリアする関数
 function resetAction() { 
     currentState = 'idle'; shake = 0; guardShake = 0; guardKnockback = 0; 
-    isLanding = false; isKnocking = false;
+    isLanding = false; isKnocking = false; isAirborne = false;
+    yOffset = 0; yVelocity = 0;
     clearTimeout(actionTimeout);
 }
 
 function playAction(type) {
-    if (isLanding || isKnocking) return;
+    // 空中、着地中、ダッシュ中(戻り含む)はアクション不可を徹底
+    if (isAirborne || isLanding || isKnocking || xOffset > 0) return;
+    
     if (type === 'punch') {
-        if (isAirborne) yVelocity = 0; isDashing = false; 
-        tempVisualState = 'dash';
-        setTimeout(() => { if (tempVisualState === 'dash') tempVisualState = null; }, 80);
         currentState = (currentState === 'punch') ? 'punch2' : 'punch';
-        shake = 5; clearTimeout(actionTimeout);
+        shake = 5; 
         actionTimeout = setTimeout(() => { resetAction(); }, 400);
     } else if (type === 'upper') {
-        if (isAirborne || isDashing || xOffset > 0 || currentState.includes('punch')) return;
         currentState = 'upper'; yVelocity = -24; isAirborne = true;
     } else if (type === 'knock' && isAirborne) {
         currentState = 'knock'; isKnocking = true; yVelocity = 0;
         actionTimeout = setTimeout(() => { if(isKnocking) yVelocity = 35; }, 400);
     } else if (type === 'guard') {
-        if (isAirborne || isDashing || currentState.includes('upper') || currentState.includes('punch')) return;
         currentState = 'guard'; guardKnockback = -18; guardShake = 35;
-        actionTimeout = setTimeout(() => { if (currentState === 'guard') resetAction(); }, 300);
+        actionTimeout = setTimeout(() => { resetAction(); }, 300);
     }
 }
 
 function pushDash() {
-    if (isAirborne || isLanding || isDashing || currentState.includes('punch')) return;
+    if (isAirborne || isLanding || isKnocking || isDashing || currentState.includes('punch')) return;
     isDashing = true; currentState = 'dash'; 
     dashVelocity = 30; xOffset = 0;
     actionTimeout = setTimeout(() => { 
@@ -94,7 +91,7 @@ function gameLoop() {
     
     if (isDashing) {
         xOffset += dashVelocity; dashVelocity *= 0.8;
-    } else if (xOffset > 0 && !currentState.includes('punch')) {
+    } else if (xOffset > 0) {
         xOffset -= 5; if (xOffset < 0) xOffset = 0;
     }
     
@@ -118,16 +115,15 @@ function gameLoop() {
             if (isKnocking) {
                 isKnocking = false; isLanding = true; currentState = 'knock2'; 
                 shake = 100; meteorShakeX = 60;
-                actionTimeout = setTimeout(() => { isAirborne = false; resetAction(); }, 1000);
+                actionTimeout = setTimeout(() => { resetAction(); }, 1000);
             } else { 
                 isLanding = true; currentState = 'knock2';
-                actionTimeout = setTimeout(() => { isAirborne = false; resetAction(); }, 150);
+                actionTimeout = setTimeout(() => { resetAction(); }, 150);
             }
         }
     }
     
-    let isReturning = !isDashing && xOffset > 0 && !currentState.includes('punch');
-    let drawState = (isReturning || isDashing) ? 'dash' : (isLanding ? 'knock2' : (tempVisualState || currentState));
+    let drawState = (isDashing || xOffset > 0) ? 'dash' : (isLanding ? 'knock2' : (tempVisualState || currentState));
     let currentImg = (drawState === 'idle') ? actionImgs.idle[idleFrame] : actionImgs[drawState];
     
     let totalShake = (Math.random()-0.5) * (shake + guardShake + meteorShakeX);
