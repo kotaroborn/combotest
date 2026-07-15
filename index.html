@@ -2,12 +2,13 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Combo Clash Tactics - Battle Engine</title>
+    <title>Combo Clash Tactics - Final Engine</title>
     <style>
         body { font-family: sans-serif; padding: 20px; background: #f0f0f0; }
         .slot { display: inline-block; width: 80px; padding: 10px; border: 2px solid #333; background: white; text-align: center; margin: 5px; font-weight: bold; }
-        #log { margin-top: 20px; padding: 15px; background: #fff; border: 1px solid #999; height: 350px; overflow-y: auto; font-family: monospace; }
+        #log { margin-top: 20px; padding: 15px; background: #fff; border: 1px solid #999; height: 400px; overflow-y: auto; font-family: monospace; }
         .damage { color: red; font-weight: bold; }
+        .log-line { border-bottom: 1px solid #eee; padding: 5px 0; }
     </style>
 </head>
 <body>
@@ -17,7 +18,7 @@
     <button onclick="addCommand('UPPER')">UPPER</button>
     <button onclick="addCommand('GUARD')">GUARD</button>
     <button onclick="resetSlots()">リセット</button>
-    <button onclick="runBattle()" style="background: #e74c3c; color: white; padding: 10px 20px;">対戦開始！</button>
+    <button onclick="runBattle()" style="background: #27ae60; color: white; padding: 10px 20px; font-weight: bold;">対戦開始！</button>
 
     <div id="log"></div>
 
@@ -41,49 +42,60 @@
             for (let i = 0; i < 5; i++) {
                 let m = myHands[i] || 'IDLE';
                 let e = enemyHands[i];
-                let dmg = 0;
                 let msg = `[${i+1}手目] `;
+                let dmg = 0;
 
-                // 確定反撃（ピヨり）判定
-                if (enemyStunned) {
-                    dmg = 15; // 確定ヒットダメージ
-                    msg += `<span class="damage">相手はピヨっている！追撃で${dmg}ダメ！</span>`;
-                    enHP -= dmg;
-                } 
-                // 相性判定
-                else if (m === 'GUARD' && e === 'UPPER') {
-                    msg += "ガード成功！相手の隙を突いた(カウンター発生)";
-                    enemyStunned = true;
-                } else if (m === 'UPPER' && e === 'GUARD') {
-                    msg += "ガード崩し成功！";
-                    enemyStunned = true;
-                } else if (m === 'PUNCH' && e === 'UPPER') {
-                    msg += "コンボ中断！(痛い...)";
-                    isAir = false; airComboCount = 0;
-                    myHP -= 10; // 中断された側へのペナルティ
-                } else if (m === 'GUARD' && e === 'PUNCH') {
-                    dmg = 2;
-                    msg += `ガードしたが削られた... <span class="damage">${dmg}ダメ</span>`;
-                    myHP -= dmg;
-                } else if (m === e) {
-                    msg += "相殺！";
-                } else {
-                    // 通常攻撃処理
-                    if (m === 'UPPER') { isAir = true; dmg = 5; }
-                    else if (m === 'PUNCH') {
-                        if (isAir) {
-                            airComboCount++;
-                            if (airComboCount === 3) { dmg = 50; msg += "空中METEOR発動！！"; isAir = false; }
-                            else { dmg = 10; msg += `空中PUNCH(${airComboCount})`; }
+                // 1. 【空中コンボ中】（無敵・相手無視・確定進行）
+                if (isAir) {
+                    if (m === 'PUNCH') {
+                        airComboCount++;
+                        if (airComboCount === 3) {
+                            dmg = 50;
+                            msg += `空中METEOR発動！！ <span class="damage">${dmg}ダメージ</span>`;
+                            isAir = false; airComboCount = 0;
                         } else {
-                            dmg = 10; msg += "PUNCHヒット";
+                            dmg = 10;
+                            msg += `空中PUNCH(${airComboCount}) 確定ヒット <span class="damage">${dmg}ダメージ</span>`;
                         }
+                    } else {
+                        isAir = false; airComboCount = 0;
+                        msg += "空中コンボ終了...";
                     }
                     enHP -= dmg;
-                    if(dmg > 0) msg += ` → 相手に<span class="damage">${dmg}ダメ</span>`;
                 }
-                
-                logDiv.innerHTML += msg + `<br>`;
+                // 2. 【通常・気絶中】（読み合い発生）
+                else {
+                    if (enemyStunned) {
+                        dmg = 15;
+                        msg += `<span class="damage">相手はピヨっている！追撃で${dmg}ダメージ</span>`;
+                        enHP -= dmg;
+                        enemyStunned = false; // 1手だけ有効
+                    } else if (m === 'GUARD' && e === 'UPPER') {
+                        msg += "カウンター成功！相手ピヨり状態へ";
+                        enemyStunned = true;
+                    } else if (m === 'UPPER' && e === 'GUARD') {
+                        msg += "ガード崩し成功！";
+                        enemyStunned = true;
+                    } else if (m === 'PUNCH' && e === 'UPPER') {
+                        msg += "コンボ中断！(相手の空中コンボ開始)";
+                        myHP -= 10;
+                    } else if (m === 'GUARD' && e === 'PUNCH') {
+                        dmg = 2;
+                        msg += `ガード削り <span class="damage">${dmg}ダメージ</span>`;
+                        myHP -= dmg;
+                    } else if (m === 'GUARD' && e === 'UPPER') {
+                        // 上記のカウンターと重複するが、念のためGUARDでアッパーを無効化するロジック
+                        msg += "ガード成功！アッパー無効";
+                    } else if (m === 'UPPER' && e === 'PUNCH') {
+                        msg += "UPPERヒット！(空中コンボ開始)";
+                        isAir = true; dmg = 5; enHP -= dmg;
+                    } else if (m === e) {
+                        msg += "相殺！";
+                    } else {
+                        msg += "ヒット無し";
+                    }
+                }
+                logDiv.innerHTML += `<div class="log-line">${msg}</div>`;
             }
             logDiv.innerHTML += `<hr><b>結果: 自分HP ${myHP} / 相手HP ${enHP}</b>`;
         }
