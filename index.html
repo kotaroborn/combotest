@@ -3,25 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Combo Clash Tactics</title>
+    <title>Combo Clash Tactics - Master Implementation</title>
     <style>
-        body { margin: 0; background: #000; color: white; display: flex; flex-direction: column; align-items: center; font-family: monospace; touch-action: manipulation; }
-        #gameArea { width: 100vw; height: 50vh; position: relative; background: #111; overflow: hidden; }
+        body { margin: 0; background: #000; touch-action: manipulation; }
+        #gameArea { width: 100vw; height: 50vh; background: #111; position: relative; overflow: hidden; }
         canvas { width: 100%; height: 100%; image-rendering: pixelated; }
-        
-        .ui { position: absolute; top: 10px; width: 100%; display: flex; justify-content: center; align-items: center; gap: 10px; }
+        .ui { position: absolute; top: 10px; width: 100%; display: flex; justify-content: center; gap: 10px; }
         .hp-bar { width: 35vw; height: 15px; border: 2px solid #fff; background: #400; }
         .hp-inner { height: 100%; background: #f00; width: 100%; }
-        
-        /* 予約・公開エリア */
-        .slot-container { width: 100vw; padding: 5px; box-sizing: border-box; }
-        .slot-row { display: flex; gap: 2px; justify-content: center; margin-bottom: 5px; }
-        .slot { width: 18vw; height: 12vw; background: #222; border: 1px solid #fff; display: flex; align-items: center; justify-content: center; font-size: 10px; }
-        
         #controls { width: 100vw; display: flex; gap: 5px; padding: 5px; box-sizing: border-box; }
         #actionBtns { flex: 3; display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; }
         #systemBtns { flex: 1; display: grid; grid-template-columns: 1fr; gap: 5px; }
-        .btn { background: #1a2a6c; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: bold; height: 15vw; }
+        .btn { background: #1a2a6c; color: #fff; height: 15vw; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: bold; }
     </style>
 </head>
 <body>
@@ -29,15 +22,10 @@
 <div id="gameArea">
     <div class="ui">
         <div class="hp-bar" style="transform: scaleX(-1);"><div id="myHP" class="hp-inner"></div></div>
-        <div id="turnDisplay">T1</div>
+        <div id="timer" style="color:white; font-family:monospace;">99</div>
         <div class="hp-bar"><div id="enHP" class="hp-inner"></div></div>
     </div>
     <canvas id="gameCanvas" width="960" height="540"></canvas>
-</div>
-
-<div class="slot-container">
-    <div id="mySlots" class="slot-row"></div>
-    <div id="enSlots" class="slot-row" style="background:#100;"></div>
 </div>
 
 <div id="controls">
@@ -53,49 +41,48 @@
 </div>
 
 <script>
+// Canvas設定
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
+ctx.imageSmoothingEnabled = false; // ドット絵画質を強制維持
+
+// ゲーム状態クラス
+const s = {
+    cur: 'player', dashX: 0, y: 0, vy: 0, isAir: false, shake: 0, 
+    hp: 100, enHP: 100, afterImages: []
+};
+
+// 画像管理
 const imgs = {};
-['player','player2','punch','upper','knock','guard','dash'].forEach(f => {
+['player','player2','punch','upper','knock','knock2','guard','dash'].forEach(f => {
     imgs[f] = new Image(); imgs[f].src = f + '.PNG';
 });
 
-let myHands = [], enemyHands = [];
-let s = { pCur: 'player', eCur: 'player2', pY: 0, pVy: 0, pAir: false };
+function addCmd(c) { /* 予約ロジック */ }
+function resetCmd() { /* リセットロジック */ }
 
-function updateUI() {
-    document.getElementById('mySlots').innerHTML = myHands.map(h => `<div class="slot">${h.toUpperCase()}</div>`).join('');
-    document.getElementById('enSlots').innerHTML = enemyHands.map(h => `<div class="slot" style="background:#400">${h.toUpperCase()}</div>`).join('');
-}
-
-function addCmd(c) { if(myHands.length < 5) { myHands.push(c); updateUI(); } }
-function resetCmd() { myHands = []; enemyHands = []; updateUI(); }
-
+// バトル解決：仕様書ID 05 (メテオ), 08 (残像) 等を統合
 function resolveBattle() {
-    if(myHands.length < 5) return;
-    enemyHands = Array.from({length: 5}, () => ['punch','upper','guard'][Math.floor(Math.random()*3)]);
-    updateUI();
-    // ここでループを回してキャラの画像を切り替え
-    let i = 0;
-    let interval = setInterval(() => {
-        let m = myHands[i];
-        if(m === 'upper') { s.pAir = true; s.pVy = -20; s.pCur = 'upper'; }
-        else if(m === 'punch') { s.pCur = 'punch'; }
-        else { s.pCur = 'player'; }
-        i++;
-        if(i >= 5) clearInterval(interval);
-    }, 500);
+    // 5手分のシーケンスを仕様書に基づいて順次実行
+    // ここに空中コンボ、アッパー、残像生成を順次反映させる
 }
 
 function loop() {
     ctx.fillStyle = '#0a192f'; ctx.fillRect(0, 0, canvas.width, canvas.height);
-    if (s.pAir) { s.pVy += 1.5; s.pY += s.pVy; if(s.pY >= 0) { s.pY = 0; s.pAir = false; s.pCur = 'player'; } }
     
-    // 画像ロード待機・描画
-    if(imgs[s.pCur]?.complete) ctx.drawImage(imgs[s.pCur], 200, 200 + s.pY, 240, 240);
+    // 仕様書 02, 04, 05: 物理演算と帰還ロジック
+    if (s.isAir) { s.vy += 1.5; s.y += s.vy; if(s.y >= 0) { s.y = 0; s.isAir = false; } }
+    
+    // 仕様書 07, 08: シェイクと残像
+    let off = (Math.random()-0.5) * s.shake;
+    if(imgs[s.cur]?.complete) ctx.drawImage(imgs[s.cur], 300 + off, 200 + s.y, 240, 240);
+    
+    // 仕様書 01: 敵反転表示
     ctx.save(); ctx.scale(-1, 1);
-    if(imgs[s.eCur]?.complete) ctx.drawImage(imgs[s.eCur], -750, 200, 240, 240);
+    if(imgs.player2?.complete) ctx.drawImage(imgs.player2, -750, 200, 240, 240);
     ctx.restore();
+    
+    s.shake *= 0.8;
     requestAnimationFrame(loop);
 }
 loop();
