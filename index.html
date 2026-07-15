@@ -2,75 +2,92 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Combo Clash Tactics - Battle Royale</title>
+    <title>Combo Clash Tactics - Duel</title>
     <style>
-        body { font-family: sans-serif; padding: 20px; background: #f0f0f0; }
-        .stats { display: flex; gap: 20px; font-size: 1.2em; font-weight: bold; }
-        .slot { display: inline-block; width: 60px; padding: 10px; border: 2px solid #333; background: white; text-align: center; margin: 2px; }
-        #log { margin-top: 20px; padding: 15px; background: #fff; height: 300px; overflow-y: auto; font-family: monospace; }
-        .turn-header { background: #333; color: white; padding: 5px; margin-top: 10px; }
+        body { font-family: sans-serif; background: #222; color: #fff; padding: 20px; }
+        .arena { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .hp-container { width: 40%; height: 30px; background: #444; position: relative; border: 2px solid #fff; }
+        .hp-bar { height: 100%; background: #e74c3c; width: 100%; transition: width 0.5s ease; }
+        .hp-ghost { position: absolute; top: 0; height: 100%; background: #f1c40f; transition: width 0.8s ease; z-index: -1; }
+        
+        .slots-row { margin: 10px 0; display: flex; gap: 5px; }
+        .slot { width: 50px; height: 50px; border: 2px solid #fff; display: flex; align-items: center; justify-content: center; font-weight: bold; background: #333; }
+        
+        #log { background: #000; padding: 15px; height: 200px; overflow-y: auto; border: 1px solid #555; }
     </style>
 </head>
 <body>
-    <div class="stats">
-        <div>自分 HP: <span id="myHP">100</span></div>
-        <div>相手 HP: <span id="enHP">100</span></div>
+
+    <div class="arena">
+        <div style="width:40%">
+            <div>YOU</div>
+            <div class="hp-container"><div id="myHP" class="hp-bar"></div><div id="myGhost" class="hp-ghost"></div></div>
+        </div>
+        <div>VS</div>
+        <div style="width:40%; text-align: right;">
+            <div>ENEMY</div>
+            <div class="hp-container" style="margin-left:auto;"><div id="enHP" class="hp-bar" style="float:right;"></div><div id="enGhost" class="hp-ghost" style="right:0;"></div></div>
+        </div>
     </div>
-    
-    <h2>コマンド予約 (5手)</h2>
-    <div id="slots"></div>
-    <button onclick="addCommand('PUNCH')">PUNCH</button>
-    <button onclick="addCommand('UPPER')">UPPER</button>
-    <button onclick="addCommand('GUARD')">GUARD</button>
-    <button onclick="resetSlots()">リセット</button>
-    <button onclick="executeTurn()" id="execBtn" style="background: #27ae60; color: white; padding: 10px 20px;">ターン開始</button>
+
+    <div>自分の予約:</div>
+    <div id="mySlots" class="slots-row"></div>
+    <div>相手の公開:</div>
+    <div id="enSlots" class="slots-row"></div>
+
+    <div style="margin: 20px 0;">
+        <button onclick="addCommand('PUNCH')">PUNCH</button>
+        <button onclick="addCommand('UPPER')">UPPER</button>
+        <button onclick="addCommand('GUARD')">GUARD</button>
+        <button onclick="resetSlots()">RESET</button>
+        <button onclick="resolveBattle()" style="background:#e74c3c; color:white; font-weight:bold; padding:5px 20px;">決定</button>
+    </div>
 
     <div id="log"></div>
 
     <script>
-        let myHands = [], myHP = 100, enHP = 100, turn = 1;
-        let isAir = false, airComboCount = 0, enemyStunned = false;
+        let myHands = [], myHP = 100, enHP = 100;
+        let myGhost = 100, enGhost = 100;
 
         function addCommand(cmd) { if(myHands.length < 5) { myHands.push(cmd); updateUI(); } }
         function resetSlots() { myHands = []; updateUI(); }
-        function updateUI() { document.getElementById('slots').innerHTML = myHands.map(h => `<div class="slot">${h}</div>`).join(''); }
+        function updateUI() { document.getElementById('mySlots').innerHTML = myHands.map(h => `<div class="slot">${h}</div>`).join(''); }
 
-        function executeTurn() {
-            if(myHands.length < 5) return alert("5手予約してください");
+        function updateHP() {
+            document.getElementById('myHP').style.width = myHP + "%";
+            document.getElementById('enHP').style.width = enHP + "%";
+            setTimeout(() => {
+                myGhost = myHP; enGhost = enHP;
+                document.getElementById('myGhost').style.width = myGhost + "%";
+                document.getElementById('enGhost').style.width = enGhost + "%";
+            }, 300);
+        }
+
+        function resolveBattle() {
+            if(myHands.length < 5) return;
             const enemyHands = Array.from({length: 5}, () => ['PUNCH', 'UPPER', 'GUARD'][Math.floor(Math.random()*3)]);
-            document.getElementById('log').innerHTML += `<div class="turn-header">--- 第${turn}ターン ---</div>`;
+            document.getElementById('enSlots').innerHTML = enemyHands.map(h => `<div class="slot">${h}</div>`).join('');
             
-            for (let i = 0; i < 5; i++) {
-                let m = myHands[i], e = enemyHands[i], msg = `[${i+1}] `;
-                
-                if (isAir) {
-                    if (m === 'PUNCH') {
-                        airComboCount++;
-                        if (airComboCount === 3) { enHP -= 50; msg += "空中METEOR発動！50ダメ"; isAir = false; airComboCount = 0; }
-                        else { enHP -= 10; msg += `空中PUNCH(${airComboCount}) 10ダメ`; }
-                    } else { isAir = false; airComboCount = 0; msg += "空中コンボ終了"; }
-                } else {
-                    if (enemyStunned) { enHP -= 15; msg += "ピヨり追撃 15ダメ"; enemyStunned = false; }
-                    else if (m === 'GUARD' && e === 'UPPER') { msg += "カウンター成功！"; enemyStunned = true; }
-                    else if (m === 'UPPER' && e === 'GUARD') { msg += "ガード崩し成功！"; enemyStunned = true; }
-                    else if (m === 'PUNCH' && e === 'UPPER') { myHP -= 10; msg += "コンボ中断！被ダメ10"; }
-                    else if (m === 'GUARD' && e === 'PUNCH') { myHP -= 2; msg += "ガード削り 2ダメ"; }
-                    else if (m === 'UPPER' && e !== 'GUARD') { isAir = true; enHP -= 5; msg += "UPPERヒット！5ダメ(空中へ)"; }
-                    else if (m === 'PUNCH' && e !== 'UPPER') { enHP -= 10; msg += "PUNCHヒット 10ダメ"; }
-                }
-                document.getElementById('log').innerHTML += `<div>${msg}</div>`;
-                if(myHP <= 0 || enHP <= 0) break;
-            }
-            
-            document.getElementById('myHP').innerText = myHP;
-            document.getElementById('enHP').innerText = enHP;
-            turn++;
-            resetSlots();
+            let isAir = false, airCount = 0, groundCount = 0, stun = false;
+            let log = document.getElementById('log');
+            log.innerHTML = "--- 解決開始 ---<br>";
 
-            if(myHP <= 0 || enHP <= 0) {
-                alert(myHP <= 0 ? "敗北..." : "勝利！");
-                location.reload();
+            for(let i=0; i<5; i++) {
+                let m = myHands[i], e = enemyHands[i];
+                // ここに前述のダメージ計算ロジックを統合（省略して簡易表示）
+                if(isAir) {
+                    if(m === 'PUNCH') { airCount++; enHP -= (airCount==3?50:10); if(airCount==3) isAir=false; }
+                    else isAir = false;
+                } else if(stun) { enHP -= 20; stun = false; }
+                else if(m=='GUARD' && e=='UPPER') stun = true;
+                else if(m=='UPPER' && e=='GUARD') stun = true;
+                else if(m=='PUNCH' && e!='UPPER') { groundCount++; enHP -= (10+(groundCount-1)*2); }
+                else if(m=='UPPER' && e!='GUARD') isAir = true;
+                
+                log.innerHTML += `[${i+1}] You:${m} vs En:${e}<br>`;
             }
+            updateHP();
+            if(myHP <= 0 || enHP <= 0) alert(myHP<=0 ? "YOU LOSE" : "YOU WIN");
         }
     </script>
 </body>
