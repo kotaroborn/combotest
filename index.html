@@ -5,18 +5,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Combo Clash Tactics</title>
     <style>
-        body { margin: 0; background: #0a192f; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; overflow: hidden; font-family: sans-serif; }
-        #gameArea { width: 100%; max-width: 600px; height: 300px; background: #112; position: relative; border: 2px solid #333; }
-        canvas { width: 100%; height: 100%; display: block; }
-        #inputArea { width: 100%; max-width: 600px; display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; padding: 10px; background: #000; box-sizing: border-box; }
-        .btn { height: 70px; background: #224; color: white; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold; border-radius: 5px; touch-action: manipulation; }
+        body { margin: 0; background: #0a192f; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; overflow: hidden; touch-action: none; }
+        #gameArea { width: 100%; max-width: 600px; aspect-ratio: 16/9; background: #000; position: relative; border: 2px solid #333; }
+        canvas { width: 100%; height: 100%; display: block; image-rendering: pixelated; }
+        #inputArea { width: 100%; max-width: 600px; display: grid; grid-template-columns: repeat(5, 1fr); gap: 2px; background: #000; }
+        .btn { height: 60px; background: #1a2a6c; color: white; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: bold; }
         .btn:active { background: #00ffcc; color: #000; }
     </style>
 </head>
 <body>
 
-<div id="gameArea"><canvas id="gameCanvas" width="600" height="300"></canvas></div>
-
+<div id="gameArea"><canvas id="gameCanvas" width="960" height="540"></canvas></div>
 <div id="inputArea">
     <div class="btn" onclick="playAction('punch')">PUNCH</div>
     <div class="btn" onclick="playAction('upper')">UPPER</div>
@@ -28,15 +27,31 @@
 <script>
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
+ctx.imageSmoothingEnabled = false;
+
+// キャラクター画像オブジェクト
+const actionImgs = {};
+const imgNames = ['player', 'player2', 'punch', 'punch2', 'upper', 'upper2', 'knock', 'knock2', 'guard', 'dash'];
+
+// 画像の読み込み（失敗時は自動的に四角形を描画する処理に回す）
+imgNames.forEach(name => {
+    actionImgs[name] = new Image();
+    actionImgs[name].src = name + '.PNG';
+});
 
 let currentState = 'idle', tempVisualState = null, xOffset = 0, yOffset = 0;
 let isAirborne = false, yVelocity = 0, isDashing = false, isLanding = false, isKnocking = false;
-let shake = 0, guardKnockback = 0;
+let guardKnockback = 0;
 
-function resetAction() {
-    currentState = 'idle'; isLanding = false; isKnocking = false;
-    shake = 0; guardKnockback = 0;
-    if (!isAirborne) currentState = 'idle';
+function drawCharacter(name, x, y) {
+    const img = actionImgs[name];
+    if (img && img.complete && img.naturalWidth !== 0) {
+        ctx.drawImage(img, x, y, 240, 240);
+    } else {
+        // 画像がない時のための緊急フォールバック（四角形）
+        ctx.fillStyle = '#f0f';
+        ctx.fillRect(x + 80, y + 80, 80, 120);
+    }
 }
 
 function playAction(type) {
@@ -44,17 +59,16 @@ function playAction(type) {
     if (type === 'punch') {
         if (isDashing) { tempVisualState = 'dash'; setTimeout(() => tempVisualState = null, 150); }
         currentState = (currentState === 'punch') ? 'punch2' : 'punch';
-        shake = 5;
         setTimeout(() => { if (!isAirborne) resetAction(); }, 400);
     } else if (type === 'upper') {
         if (isAirborne || isDashing) return;
-        currentState = 'upper'; yVelocity = -15; isAirborne = true;
+        currentState = 'upper'; yVelocity = -24; isAirborne = true;
     } else if (type === 'knock') {
         if (!isAirborne || isKnocking) return;
         currentState = 'knock'; isKnocking = true; yVelocity = 0;
-        setTimeout(() => { if(isKnocking) yVelocity = 20; }, 400);
+        setTimeout(() => { if(isKnocking) yVelocity = 35; }, 400);
     } else if (type === 'guard') {
-        currentState = 'guard'; guardKnockback = -10;
+        currentState = 'guard'; guardKnockback = -18;
         setTimeout(() => resetAction(), 300);
     }
 }
@@ -62,35 +76,39 @@ function playAction(type) {
 function pushDash() {
     if (isAirborne || isLanding || isDashing) return;
     isDashing = true;
-    let dV = 20;
+    let dV = 30;
     let intv = setInterval(() => {
         xOffset += dV; dV *= 0.8;
         if (dV < 1) { clearInterval(intv); isDashing = false; }
     }, 20);
 }
 
+function resetAction() {
+    currentState = 'idle'; isLanding = false; isKnocking = false; guardKnockback = 0;
+    if (!isAirborne) currentState = 'idle';
+}
+
 function gameLoop() {
     ctx.fillStyle = '#0a192f'; ctx.fillRect(0, 0, canvas.width, canvas.height);
-    if (!isDashing && xOffset > 0) xOffset -= 3;
+    if (!isDashing && xOffset > 0) xOffset -= 5;
+
     if (isAirborne) {
-        let gravity = (currentState.includes('punch')) ? 0.1 : 0.8;
+        let gravity = currentState.includes('punch') ? 0.08 : 1.6;
         if (!isKnocking) yVelocity += gravity;
         yOffset += yVelocity;
         if (yOffset >= 0) {
             yOffset = 0; yVelocity = 0;
             if (isKnocking) {
                 isKnocking = false; isLanding = true; currentState = 'knock2';
-                setTimeout(() => { isAirborne = false; resetAction(); }, 1000);
+                setTimeout(() => { isAirborne = false; resetAction(); }, 1500);
             } else { isAirborne = false; resetAction(); }
         }
     }
+
+    let drawName = tempVisualState || (isDashing && currentState === 'idle' ? 'dash' : currentState);
+    if(drawName === 'idle') drawName = 'player'; // idleの時はplayer.PNGを使う
     
-    // キャラクターの代わり（色分け）
-    ctx.fillStyle = (tempVisualState === 'dash' || isDashing) ? '#0ff' : 
-                    (currentState === 'punch' ? '#f00' : 
-                    (currentState === 'upper' ? '#ff0' : '#fff'));
-    ctx.fillRect(250 + xOffset + guardKnockback, 200 + yOffset, 50, 80);
-    
+    drawCharacter(drawName, 250 + xOffset + guardKnockback, 270 + yOffset);
     requestAnimationFrame(gameLoop);
 }
 gameLoop();
