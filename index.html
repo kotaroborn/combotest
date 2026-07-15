@@ -2,19 +2,21 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Combo Clash Tactics</title>
     <style>
-        body { margin: 0; background: #0a192f; display: flex; flex-direction: column; align-items: center; overflow: hidden; }
-        #gameArea { width: 100%; max-width: 600px; aspect-ratio: 16 / 9; position: relative; }
-        canvas { width: 100%; height: 100%; display: block; image-rendering: pixelated; }
-        #inputArea { width: 100%; max-width: 600px; display: grid; grid-template-columns: repeat(5, 1fr); }
-        .btn { height: 60px; background: #1a2a6c; color: white; display: flex; align-items: center; justify-content: center; font-size: 10px; }
+        body { margin: 0; background: #0a192f; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; overflow: hidden; font-family: sans-serif; }
+        #gameArea { width: 100%; max-width: 600px; height: 300px; background: #112; position: relative; border: 2px solid #333; }
+        canvas { width: 100%; height: 100%; display: block; }
+        #inputArea { width: 100%; max-width: 600px; display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; padding: 10px; background: #000; box-sizing: border-box; }
+        .btn { height: 70px; background: #224; color: white; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold; border-radius: 5px; touch-action: manipulation; }
         .btn:active { background: #00ffcc; color: #000; }
     </style>
 </head>
 <body>
 
-<div id="gameArea"><canvas id="gameCanvas" width="960" height="540"></canvas></div>
+<div id="gameArea"><canvas id="gameCanvas" width="600" height="300"></canvas></div>
+
 <div id="inputArea">
     <div class="btn" onclick="playAction('punch')">PUNCH</div>
     <div class="btn" onclick="playAction('upper')">UPPER</div>
@@ -26,59 +28,41 @@
 <script>
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
-const actionImgs = {
-    idle: [new Image(), new Image()],
-    punch: new Image(), punch2: new Image(),
-    upper: new Image(), upper2: new Image(),
-    knock: new Image(), knock2: new Image(), guard: new Image(), dash: new Image()
-};
-// 画像パスは適宜読み込み（省略）
 
-let currentState = 'idle', tempVisualState = null, idleFrame = 0, xOffset = 0, yOffset = 0;
+let currentState = 'idle', tempVisualState = null, xOffset = 0, yOffset = 0;
 let isAirborne = false, yVelocity = 0, isDashing = false, isLanding = false, isKnocking = false;
-let shake = 0, guardShake = 0, meteorShakeX = 0, guardKnockback = 0;
-let actionTimeout = null;
+let shake = 0, guardKnockback = 0;
 
 function resetAction() {
-    currentState = 'idle'; isLanding = false; isKnocking = false; 
-    shake = 0; guardShake = 0; guardKnockback = 0;
-    if (!isAirborne) { currentState = 'idle'; }
+    currentState = 'idle'; isLanding = false; isKnocking = false;
+    shake = 0; guardKnockback = 0;
+    if (!isAirborne) currentState = 'idle';
 }
 
 function playAction(type) {
     if (isLanding) return;
-
     if (type === 'punch') {
-        // ダッシュ中にパンチ→dash画像を挟む
-        if (isDashing) {
-            tempVisualState = 'dash';
-            setTimeout(() => { tempVisualState = null; }, 100);
-        }
+        if (isDashing) { tempVisualState = 'dash'; setTimeout(() => tempVisualState = null, 150); }
         currentState = (currentState === 'punch') ? 'punch2' : 'punch';
         shake = 5;
-        clearTimeout(actionTimeout);
-        actionTimeout = setTimeout(() => { if (!isAirborne) resetAction(); }, 400);
-    } 
-    else if (type === 'upper') {
+        setTimeout(() => { if (!isAirborne) resetAction(); }, 400);
+    } else if (type === 'upper') {
         if (isAirborne || isDashing) return;
-        currentState = 'upper'; yVelocity = -24; isAirborne = true;
-    } 
-    else if (type === 'knock') {
+        currentState = 'upper'; yVelocity = -15; isAirborne = true;
+    } else if (type === 'knock') {
         if (!isAirborne || isKnocking) return;
         currentState = 'knock'; isKnocking = true; yVelocity = 0;
-        setTimeout(() => { if(isKnocking) yVelocity = 35; }, 400);
-    }
-    else if (type === 'guard') {
-        if (isAirborne) return;
-        currentState = 'guard'; guardKnockback = -18; guardShake = 35;
-        actionTimeout = setTimeout(() => { resetAction(); }, 300);
+        setTimeout(() => { if(isKnocking) yVelocity = 20; }, 400);
+    } else if (type === 'guard') {
+        currentState = 'guard'; guardKnockback = -10;
+        setTimeout(() => resetAction(), 300);
     }
 }
 
 function pushDash() {
     if (isAirborne || isLanding || isDashing) return;
     isDashing = true;
-    let dV = 30;
+    let dV = 20;
     let intv = setInterval(() => {
         xOffset += dV; dV *= 0.8;
         if (dV < 1) { clearInterval(intv); isDashing = false; }
@@ -87,32 +71,25 @@ function pushDash() {
 
 function gameLoop() {
     ctx.fillStyle = '#0a192f'; ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    // 戻り処理
-    if (!isDashing && xOffset > 0) xOffset -= 5;
-    
-    // 空中物理
+    if (!isDashing && xOffset > 0) xOffset -= 3;
     if (isAirborne) {
-        // 空中パンチ中は重力を緩和(スローモーション)
-        let gravity = (currentState.includes('punch')) ? 0.08 : 1.6;
+        let gravity = (currentState.includes('punch')) ? 0.1 : 0.8;
         if (!isKnocking) yVelocity += gravity;
         yOffset += yVelocity;
-
         if (yOffset >= 0) {
             yOffset = 0; yVelocity = 0;
             if (isKnocking) {
                 isKnocking = false; isLanding = true; currentState = 'knock2';
-                setTimeout(() => { isAirborne = false; resetAction(); }, 1500);
-            } else {
-                isAirborne = false; resetAction();
-            }
+                setTimeout(() => { isAirborne = false; resetAction(); }, 1000);
+            } else { isAirborne = false; resetAction(); }
         }
     }
-
-    // 描画
-    let drawState = (tempVisualState || (isDashing && currentState === 'idle' ? 'dash' : currentState));
-    let currentImg = actionImgs[drawState] || actionImgs.idle[idleFrame];
-    ctx.drawImage(currentImg, 250 + xOffset + guardKnockback, 270 + yOffset, 240, 240);
+    
+    // キャラクターの代わり（色分け）
+    ctx.fillStyle = (tempVisualState === 'dash' || isDashing) ? '#0ff' : 
+                    (currentState === 'punch' ? '#f00' : 
+                    (currentState === 'upper' ? '#ff0' : '#fff'));
+    ctx.fillRect(250 + xOffset + guardKnockback, 200 + yOffset, 50, 80);
     
     requestAnimationFrame(gameLoop);
 }
