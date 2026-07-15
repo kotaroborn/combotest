@@ -1,77 +1,27 @@
-<!DOCTYPE html>
-<html lang="ja">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Combo Clash Tactics</title>
-    <style>
-        body { margin: 0; background: #000; color: #fff; font-family: monospace; overflow: hidden; display: flex; flex-direction: column; align-items: center; }
-        #gameArea { width: 100vw; height: 50vh; background: #111; position: relative; }
-        canvas { width: 100%; height: 100%; image-rendering: pixelated; }
-        .ui { position: absolute; top: 10px; width: 100%; display: flex; justify-content: center; gap: 20px; }
-        .hp { width: 30vw; height: 15px; border: 2px solid #fff; background: #400; }
-        .bar { height: 100%; background: #f00; transition: width 0.3s; width: 100%; }
-        #slotArea { display: flex; gap: 5px; margin: 10px; height: 40px; }
-        .slot { width: 15vw; border: 1px solid #fff; display: flex; align-items: center; justify-content: center; font-size: 10px; }
-        #controls { width: 100vw; display: grid; grid-template-columns: repeat(5, 1fr); gap: 2px; }
-        .btn { height: 15vw; background: #1a2a6c; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: bold; }
-    </style>
-</head>
-<body>
-
-<div id="gameArea">
-    <div class="ui">
-        <div class="hp"><div id="myBar" class="bar"></div></div>
-        <div class="hp"><div id="enBar" class="bar"></div></div>
-    </div>
-    <canvas id="gameCanvas" width="960" height="540"></canvas>
-</div>
-
-<div id="slotArea"></div>
-<div id="controls">
-    <div class="btn" onclick="addCmd('punch')">PUNCH</div>
-    <div class="btn" onclick="addCmd('upper')">UPPER</div>
-    <div class="btn" onclick="addCmd('guard')">GUARD</div>
-    <div class="btn" onclick="resetCmd()">RESET</div>
-    <div class="btn" onclick="resolveBattle()" style="background:#b00;">GO</div>
-</div>
-
-<script>
-const canvas = document.getElementById('gameCanvas');
-const ctx = canvas.getContext('2d');
-ctx.imageSmoothingEnabled = false;
-
-const s = { pCur: 'player', x: 200, y: 200, vy: 0, isAir: false, enHP: 100, isPlaying: false };
-let myHands = [];
-
-const imgNames = ['player','player2','punch','upper','guard','knock'];
-const imgs = {};
-let loaded = 0;
-
-// 画像ロードを確実に完了させる
-imgNames.forEach(f => {
-    imgs[f] = new Image();
-    imgs[f].src = f + '.PNG';
-    imgs[f].onload = () => {
-        loaded++;
-        if(loaded === imgNames.length) loop();
-    };
-});
-
-function addCmd(c) { if(myHands.length < 5 && !s.isPlaying) { myHands.push(c); updateSlots(); } }
-function resetCmd() { if(!s.isPlaying) { myHands = []; updateSlots(); } }
-function updateSlots() { document.getElementById('slotArea').innerHTML = myHands.map(h => `<div class="slot">${h.toUpperCase()}</div>`).join(''); }
-
+// 統合版のアクション処理ロジック
 async function resolveBattle() {
     if(myHands.length === 0 || s.isPlaying) return;
     s.isPlaying = true;
 
-    for (let cmd of myHands) {
-        if (cmd === 'upper') { s.isAir = true; s.vy = -20; s.pCur = 'upper'; }
-        else if (cmd === 'punch') { s.pCur = 'punch'; s.enHP -= 10; }
-        else { s.pCur = 'guard'; }
+    for (let i = 0; i < myHands.length; i++) {
+        let cmd = myHands[i];
+        
+        // 仕様書 ID 03: 地上パンチの2段切り替え
+        if (cmd === 'punch') {
+            s.pCur = (i % 2 === 0) ? 'punch' : 'punch2';
+            s.shake = 20; // 仕様書 ID 07: 振動
+            s.enHP -= 10;
+        } 
+        // 仕様書 ID 08: アッパーの残像と空中挙動
+        else if (cmd === 'upper') {
+            s.isAir = true; s.vy = -20; s.pCur = 'upper';
+            spawnAfterImage(s.x, s.y); // 残像生成
+        }
+        else {
+            s.pCur = 'guard';
+        }
 
-        document.getElementById('enBar').style.width = Math.max(0, s.enHP) + "%";
+        document.getElementById('enBar').style.width = s.enHP + "%";
         await new Promise(r => setTimeout(r, 600));
         s.pCur = 'player';
     }
@@ -79,24 +29,28 @@ async function resolveBattle() {
     resetCmd();
 }
 
+// 残像生成関数
+function spawnAfterImage(x, y) {
+    s.afterImages.push({x, y, alpha: 0.5});
+}
+
+// 描画ループ内での演出反映
 function loop() {
     ctx.fillStyle = '#0a192f'; ctx.fillRect(0, 0, canvas.width, canvas.height);
     
-    // 物理演算
-    if (s.isAir) {
-        s.vy += 1.5; s.y += s.vy;
-        if(s.y >= 200) { s.y = 200; s.isAir = false; s.pCur = 'player'; }
-    }
+    // 残像の描画とフェードアウト
+    s.afterImages.forEach((img, i) => {
+        ctx.globalAlpha = img.alpha;
+        ctx.drawImage(imgs.dash, img.x, img.y, 240, 240);
+        img.alpha -= 0.1;
+        if(img.alpha <= 0) s.afterImages.splice(i, 1);
+    });
+    ctx.globalAlpha = 1.0;
+
+    // 振動（仕様書 07）
+    let off = (Math.random()-0.5) * s.shake;
+    ctx.drawImage(imgs[s.pCur], s.x + off, s.y, 240, 240);
+    s.shake *= 0.8;
     
-    // 描画: ロード完了済み画像のみを描画
-    ctx.drawImage(imgs[s.pCur], s.x, s.y, 240, 240);
-    ctx.save(); 
-    ctx.scale(-1, 1);
-    ctx.drawImage(imgs.player2, -750, 200, 240, 240);
-    ctx.restore();
-    
-    requestAnimationFrame(loop);
+    // ...以降の敵描画処理
 }
-</script>
-</body>
-</html>
