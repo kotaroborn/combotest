@@ -2,11 +2,12 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Combo Clash Tactics Engine</title>
+    <title>Combo Clash Tactics - Battle Engine</title>
     <style>
-        body { font-family: sans-serif; padding: 20px; line-height: 1.6; }
-        .slot { display: inline-block; width: 80px; padding: 10px; border: 1px solid #ccc; text-align: center; margin: 5px; }
-        #log { margin-top: 20px; padding: 10px; background: #f4f4f4; white-space: pre-wrap; height: 300px; overflow-y: auto; }
+        body { font-family: sans-serif; padding: 20px; background: #f0f0f0; }
+        .slot { display: inline-block; width: 80px; padding: 10px; border: 2px solid #333; background: white; text-align: center; margin: 5px; font-weight: bold; }
+        #log { margin-top: 20px; padding: 15px; background: #fff; border: 1px solid #999; height: 350px; overflow-y: auto; font-family: monospace; }
+        .damage { color: red; font-weight: bold; }
     </style>
 </head>
 <body>
@@ -16,7 +17,7 @@
     <button onclick="addCommand('UPPER')">UPPER</button>
     <button onclick="addCommand('GUARD')">GUARD</button>
     <button onclick="resetSlots()">リセット</button>
-    <button onclick="runBattle()" style="background: red; color: white;">対戦開始！</button>
+    <button onclick="runBattle()" style="background: #e74c3c; color: white; padding: 10px 20px;">対戦開始！</button>
 
     <div id="log"></div>
 
@@ -31,47 +32,61 @@
 
         function runBattle() {
             const enemyHands = Array.from({length: 5}, () => ['PUNCH', 'UPPER', 'GUARD'][Math.floor(Math.random()*3)]);
-            logDiv.innerText = `自分: ${myHands.join(' -> ')}\n相手: ${enemyHands.join(' -> ')}\n\n--- 解決結果 ---\n`;
-            
-            let isAir = false;
-            let airComboCount = 0;
+            let myHP = 100, enHP = 100;
+            let isAir = false, airComboCount = 0;
             let enemyStunned = false;
 
+            logDiv.innerHTML = `<b>自分: ${myHands.join(' -> ')}</b><br><b>相手: ${enemyHands.join(' -> ')}</b><hr>`;
+            
             for (let i = 0; i < 5; i++) {
                 let m = myHands[i] || 'IDLE';
                 let e = enemyHands[i];
-                let msg = `[${i+1}手目] 自分:${m} vs 相手:${e} -> `;
+                let dmg = 0;
+                let msg = `[${i+1}手目] `;
 
+                // 確定反撃（ピヨり）判定
                 if (enemyStunned) {
-                    msg += "相手はピヨっている！確定ヒット。";
-                } else if (m === 'GUARD' && e === 'UPPER') {
-                    msg += "カウンター成功！相手をピヨらせた。";
+                    dmg = 15; // 確定ヒットダメージ
+                    msg += `<span class="damage">相手はピヨっている！追撃で${dmg}ダメ！</span>`;
+                    enHP -= dmg;
+                } 
+                // 相性判定
+                else if (m === 'GUARD' && e === 'UPPER') {
+                    msg += "ガード成功！相手の隙を突いた(カウンター発生)";
                     enemyStunned = true;
                 } else if (m === 'UPPER' && e === 'GUARD') {
-                    msg += "ガード崩し！次手確定。";
+                    msg += "ガード崩し成功！";
                     enemyStunned = true;
                 } else if (m === 'PUNCH' && e === 'UPPER') {
-                    msg += "コンボ中断！";
+                    msg += "コンボ中断！(痛い...)";
                     isAir = false; airComboCount = 0;
+                    myHP -= 10; // 中断された側へのペナルティ
                 } else if (m === 'GUARD' && e === 'PUNCH') {
-                    msg += "ガード成功(微ダメ)。";
+                    dmg = 2;
+                    msg += `ガードしたが削られた... <span class="damage">${dmg}ダメ</span>`;
+                    myHP -= dmg;
                 } else if (m === e) {
-                    msg += "相殺。";
+                    msg += "相殺！";
                 } else {
-                    if (m === 'UPPER') isAir = true;
-                    if (isAir && m === 'PUNCH') {
-                        airComboCount++;
-                        msg += (airComboCount === 3) ? "空中メテオ発動！！" : `空中PUNCH(${airComboCount})`;
-                    } else {
-                        msg += "ヒット。";
+                    // 通常攻撃処理
+                    if (m === 'UPPER') { isAir = true; dmg = 5; }
+                    else if (m === 'PUNCH') {
+                        if (isAir) {
+                            airComboCount++;
+                            if (airComboCount === 3) { dmg = 50; msg += "空中METEOR発動！！"; isAir = false; }
+                            else { dmg = 10; msg += `空中PUNCH(${airComboCount})`; }
+                        } else {
+                            dmg = 10; msg += "PUNCHヒット";
+                        }
                     }
+                    enHP -= dmg;
+                    if(dmg > 0) msg += ` → 相手に<span class="damage">${dmg}ダメ</span>`;
                 }
-                logDiv.innerText += msg + "\n";
+                
+                logDiv.innerHTML += msg + `<br>`;
             }
+            logDiv.innerHTML += `<hr><b>結果: 自分HP ${myHP} / 相手HP ${enHP}</b>`;
         }
     </script>
-</body>
-</html>
-</script>
 </body>
 </html>
