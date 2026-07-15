@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Combo Clash Tactics - Conditional Air</title>
+    <title>Combo Clash Tactics - Optimized</title>
     <style>
         body { margin: 0; background: #000; color: #fff; font-family: monospace; overflow: hidden; display: flex; flex-direction: column; align-items: center; }
         #gameArea { width: 100vw; height: 50vh; background: #111; position: relative; }
@@ -63,7 +63,6 @@ function resetCmd() { if(!s.isPlaying) { myHands = []; updateSlots(); } }
 function updateSlots() { document.getElementById('slotArea').innerHTML = myHands.map(h => `<div class="slot">${h.toUpperCase()}</div>`).join(''); }
 async function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
-// 残像画像を引数で動的に変更可能に
 async function animateMove(targetX, targetY, duration, pose, trailImg = 'dash') {
     const startX = s.x; const startY = s.y; const start = Date.now();
     while(Date.now() - start < duration) {
@@ -88,13 +87,15 @@ async function resolveBattle() {
         if (cmd === 'upper') {
             await animateMove(400, 200, 100, 'dash', 'dash');
             s.pCur = 'upper'; s.shake = 30; await sleep(500);
+            
+            // コンボが続く時だけジャンプ
             if (nextCmd === 'punch') {
                 s.isAir = true;
-                await animateMove(400, 50, 300, 'upper2', 'upper2'); // 残像を upper2 に
+                await animateMove(400, 50, 300, 'upper2', 'upper2');
                 await sleep(200);
             } else {
-                s.pCur = 'upper2'; await sleep(200);
-                s.pCur = 'knock2'; s.shake = 20; await sleep(300);
+                // 単発アッパーはここで終了
+                await sleep(200);
             }
         } else if (cmd === 'punch') {
             if (s.isAir) {
