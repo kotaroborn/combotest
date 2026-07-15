@@ -2,92 +2,65 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Combo Clash Tactics - Integrated</title>
+    <title>Combo Clash Tactics</title>
     <style>
-        body { margin: 0; background: #0a192f; display: flex; flex-direction: column; align-items: center; color: white; font-family: monospace; }
-        #gameArea { width: 100%; max-width: 600px; aspect-ratio: 16/9; position: relative; background: #111; }
-        canvas { width: 100%; height: 100%; display: block; image-rendering: pixelated; }
-        
-        /* HPゲージ・UI */
-        .battle-ui { position: absolute; top: 10px; width: 100%; display: flex; justify-content: center; align-items: center; gap: 10px; }
-        .hp-wrapper { width: 200px; height: 20px; border: 2px solid #fff; background: #400; position: relative; }
-        .hp-bar { height: 100%; background: #f00; transition: width 0.3s; }
-        .center-turn { font-size: 20px; font-weight: bold; }
-        
-        #inputArea { width: 100%; max-width: 600px; display: grid; grid-template-columns: repeat(5, 1fr); gap: 2px; }
-        .btn { height: 60px; background: #1a2a6c; color: white; display: flex; align-items: center; justify-content: center; font-size: 12px; }
+        body { margin: 0; background: #0a192f; display: flex; flex-direction: column; align-items: center; }
+        canvas { 
+            width: 600px; height: 337px; background: #111;
+            /* ドット絵をぼかさない設定 */
+            image-rendering: pixelated; 
+            image-rendering: crisp-edges;
+        }
     </style>
 </head>
 <body>
-
-<div id="gameArea">
-    <div class="battle-ui">
-        <div class="hp-wrapper"><div id="myBar" class="hp-bar" style="width:100%"></div></div>
-        <div id="turnDisplay" class="center-turn">T1</div>
-        <div class="hp-wrapper"><div id="enBar" class="hp-bar" style="width:100%"></div></div>
-    </div>
     <canvas id="gameCanvas" width="960" height="540"></canvas>
-</div>
-
-<div id="inputArea">
-    <div class="btn" onclick="addCmd('punch')">PUNCH</div>
-    <div class="btn" onclick="addCmd('upper')">UPPER</div>
-    <div class="btn" onclick="addCmd('guard')">GUARD</div>
-    <div class="btn" onclick="resetCmd()">RESET</div>
-    <div class="btn" onclick="resolveBattle()" style="background:#b00;">GO</div>
-</div>
+    <!-- UIは簡略化しています -->
+    <button onclick="resolveBattle()">GO</button>
 
 <script>
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
-// 画像読み込み設定（画像ファイルが同階層にある前提）
+// アンチエイリアスを無効化
+ctx.imageSmoothingEnabled = false;
+
+const imgNames = ['player','player2','punch','punch2','upper','upper2','knock','knock2','guard','dash'];
 const imgs = {};
-['player','player2','punch','punch2','upper','upper2','knock','knock2','guard','dash'].forEach(f => {
-    imgs[f] = new Image(); imgs[f].src = f + '.PNG';
+let loadedCount = 0;
+
+imgNames.forEach(f => {
+    imgs[f] = new Image();
+    imgs[f].src = f + '.PNG';
+    imgs[f].onload = () => {
+        loadedCount++;
+        if(loadedCount === imgNames.length) loop(); // 全画像ロード後に描画開始
+    };
 });
 
-let myHands = [], turn = 1;
-let s = { cur: 'player', dashX: 0, y: 0, vy: 0, isAir: false, shake: 0, hp: 100, enHP: 100 };
+let s = { cur: 'player', y: 0, vy: 0, isAir: false, hp: 100, enHP: 100 };
 
-function addCmd(c) { if(myHands.length < 5) myHands.push(c); }
-function resetCmd() { myHands = []; }
-
-// バトル解決ロジック（アニメーション状態と同期）
 function resolveBattle() {
-    if(myHands.length < 5) return;
-    const enemyHands = Array.from({length: 5}, () => ['punch','upper','guard'][Math.floor(Math.random()*3)]);
-    
-    myHands.forEach((m, i) => {
-        let e = enemyHands[i];
-        // 簡易ロジック反映
-        if(s.isAir) {
-            if(m === 'punch') { s.enHP -= 10; s.cur = 'punch'; s.shake = 10; }
-            else { s.isAir = false; s.y = 0; s.cur = 'player'; }
-        } else if(m === 'upper' && e !== 'guard') { s.isAir = true; s.vy = -20; s.cur = 'upper'; }
-        else if(m === 'punch') { s.enHP -= 10; s.cur = 'dash'; }
-        else { s.cur = 'player'; }
-    });
-    
-    document.getElementById('myBar').style.width = s.hp + '%';
-    document.getElementById('enBar').style.width = s.enHP + '%';
-    turn++;
-    document.getElementById('turnDisplay').innerText = 'T' + turn;
-    myHands = [];
+    // 動作確認用の簡易アニメーション
+    s.isAir = true; s.vy = -20; s.cur = 'upper';
 }
 
-// 描画ループ
 function loop() {
-    ctx.fillStyle = '#0a192f'; ctx.fillRect(0, 0, canvas.width, canvas.height);
-    if (s.isAir) { s.vy += 1.5; s.y += s.vy; if(s.y >= 0) { s.y = 0; s.isAir = false; } }
+    ctx.fillStyle = '#0a192f'; 
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
     
-    let off = (Math.random()-0.5) * s.shake;
-    ctx.drawImage(imgs[s.cur] || imgs.player, 300 + off, 200 + s.y, 240, 240);
+    // 物理演算
+    if (s.isAir) {
+        s.vy += 1.5; s.y += s.vy;
+        if(s.y >= 0) { s.y = 0; s.isAir = false; s.cur = 'player'; }
+    }
     
-    s.shake *= 0.8;
+    // 描画（画像がロードされていない場合はエラーを避ける）
+    if(imgs[s.cur] && imgs[s.cur].complete) {
+        ctx.drawImage(imgs[s.cur], 300, 200 + s.y, 240, 240);
+    }
+    
     requestAnimationFrame(loop);
 }
-loop();
 </script>
 </body>
 </html>
