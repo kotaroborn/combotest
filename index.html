@@ -50,7 +50,7 @@ const imgs = {};
 
 let s = {
     cur: 'player', dashX: 0, y: 0, vy: 0,
-    isAir: false, isDash: false, combo: 0,
+    isAir: false, isDash: false, combo: 0, airPunchCount: 0,
     shake: 0, gShake: 0, gShift: 0,
     stopMotion: 0, afterImages: [], isAttacking: false
 };
@@ -58,15 +58,23 @@ let s = {
 function playAction(type) {
     if (type === 'punch') {
         s.isAttacking = true;
-        s.combo = (s.combo >= 3) ? 1 : s.combo + 1;
-        s.cur = 'dash';
-        setTimeout(() => { s.cur = (s.combo === 2) ? 'punch2' : 'punch'; s.shake = 20; }, 100);
-        if (s.isAir) s.vy = -1;
+        if (s.isAir) {
+            // 空中パンチ：4段まで滞空＋スロー
+            s.airPunchCount = Math.min(s.airPunchCount + 1, 4);
+            s.vy = 0; // 落下を止める
+            s.cur = (s.airPunchCount % 2 === 0) ? 'punch2' : 'punch';
+            s.shake = 10;
+        } else {
+            // 地上パンチ
+            s.combo = (s.combo >= 3) ? 1 : s.combo + 1;
+            s.cur = 'dash';
+            setTimeout(() => { s.cur = (s.combo === 2) ? 'punch2' : 'punch'; s.shake = 20; }, 100);
+        }
         clearTimeout(s.returnTimer);
-        s.returnTimer = setTimeout(() => { s.isAttacking = false; }, 600);
+        s.returnTimer = setTimeout(() => { s.isAttacking = false; s.airPunchCount = 0; }, 800);
     }
     else if (type === 'upper' && !s.isAir) {
-        s.cur = 'upper'; s.isAir = true; s.vy = -20;
+        s.cur = 'upper'; s.isAir = true; s.vy = -20; s.airPunchCount = 0;
     }
     else if (type === 'knock' && s.isAir) {
         s.cur = 'knock';
@@ -100,7 +108,8 @@ function loop() {
     });
     ctx.globalAlpha = 1.0;
 
-    if (s.isAir && s.stopMotion === 0) {
+    // 空中：パンチ中以外は落下
+    if (s.isAir && s.stopMotion === 0 && s.airPunchCount === 0) {
         s.vy += 1.5; s.y += s.vy;
         if (s.y >= 0) { s.y = 0; s.isAir = false; s.cur = 'knock2'; setTimeout(() => s.cur = 'player', 500); }
     } else if (s.stopMotion > 0) {
