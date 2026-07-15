@@ -5,17 +5,26 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>Combo Clash Tactics</title>
     <style>
-        body { margin: 0; background: #0a192f; display: flex; flex-direction: column; align-items: center; overflow: hidden; }
-        #gameArea { width: 100%; max-width: 600px; aspect-ratio: 16/9; position: relative; background: #000; }
+        body { margin: 0; background: #0a192f; display: flex; flex-direction: column; align-items: center; overflow: hidden; font-family: monospace; }
+        #gameArea { width: 100%; max-width: 600px; aspect-ratio: 16/9; position: relative; background: #111; overflow: hidden; }
         canvas { width: 100%; height: 100%; display: block; image-rendering: pixelated; }
+        #ui { position: absolute; top: 10px; width: 100%; display: flex; justify-content: space-between; padding: 0 20px; box-sizing: border-box; color: #fff; font-size: 20px; pointer-events: none; }
+        .gauge { width: 40%; height: 20px; border: 2px solid #fff; background: #400; }
+        .inner { height: 100%; background: #f00; width: 100%; }
         #inputArea { width: 100%; max-width: 600px; display: grid; grid-template-columns: repeat(5, 1fr); gap: 2px; }
         .btn { height: 60px; background: #1a2a6c; color: white; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: bold; touch-action: manipulation; }
-        .btn:active { background: #00ffcc; color: #000; }
     </style>
 </head>
 <body>
 
-<div id="gameArea"><canvas id="gameCanvas" width="960" height="540"></canvas></div>
+<div id="gameArea">
+    <div id="ui">
+        <div class="gauge"><div class="inner" id="p1Health"></div></div>
+        <div id="timer">99</div>
+        <div class="gauge"><div class="inner" id="p2Health"></div></div>
+    </div>
+    <canvas id="gameCanvas" width="960" height="540"></canvas>
+</div>
 <div id="inputArea">
     <div class="btn" onclick="playAction('punch')">PUNCH</div>
     <div class="btn" onclick="playAction('upper')">UPPER</div>
@@ -40,17 +49,12 @@ let s = {
 };
 
 function playAction(type) {
-    s.isAttacking = true;
     if (type === 'punch') {
+        s.isAttacking = true;
         s.combo = (s.combo >= 3) ? 1 : s.combo + 1;
         s.cur = 'dash';
-        setTimeout(() => {
-            s.cur = (s.combo === 2) ? 'punch2' : 'punch';
-            s.shake = 20;
-        }, 100);
+        setTimeout(() => { s.cur = (s.combo === 2) ? 'punch2' : 'punch'; s.shake = 20; }, 100);
         if (s.isAir) s.vy = -1;
-        
-        // 攻撃が終わったら戻るタイマーをリセット
         clearTimeout(s.returnTimer);
         s.returnTimer = setTimeout(() => { s.isAttacking = false; }, 600);
     }
@@ -58,11 +62,12 @@ function playAction(type) {
         s.cur = 'upper'; s.isAir = true; s.vy = -20;
     }
     else if (type === 'knock' && s.isAir) {
-        s.stopMotion = 20;
+        s.cur = 'knock'; // 先に画像変換
+        s.stopMotion = 20; // その後一時停止
     }
-    else if (type === 'guard' && !s.isAir) {
+    else if (type === 'guard' && !s.isAir && !s.isDash) { // ジャンプ・ダッシュ中は不可
         s.cur = 'guard'; s.gShake = 30; s.gShift = -30;
-        setTimeout(() => { s.cur = 'player'; s.gShift = 0; s.isAttacking = false; }, 300);
+        setTimeout(() => { s.cur = 'player'; s.gShift = 0; }, 300);
     }
 }
 
@@ -80,28 +85,19 @@ function pushDash() {
 function loop() {
     ctx.fillStyle = '#0a192f'; ctx.fillRect(0, 0, canvas.width, canvas.height);
     
-    // 残像
-    s.afterImages.forEach((img, i) => {
-        ctx.globalAlpha = img.alpha;
-        ctx.drawImage(imgs.dash, 300 + img.x, 200, 240, 240);
-        img.alpha -= 0.05; if(img.alpha <= 0) s.afterImages.splice(i, 1);
-    });
-    ctx.globalAlpha = 1.0;
-
-    // 物理と帰還ロジック
+    // 物理とメテオ
     if (s.isAir && s.stopMotion === 0) {
         s.vy += 1.5; s.y += s.vy;
-        if (s.y >= 0) { s.y = 0; s.isAir = false; s.cur = 'knock2'; s.isAttacking = false; setTimeout(() => s.cur = 'player', 500); }
+        if (s.y >= 0) { s.y = 0; s.isAir = false; s.cur = 'knock2'; setTimeout(() => s.cur = 'player', 500); }
     } else if (s.stopMotion > 0) {
-        s.stopMotion--; if(s.stopMotion === 0) { s.cur = 'knock'; s.vy = 25; }
+        s.stopMotion--; if(s.stopMotion === 0) { s.vy = 25; }
     } else if (!s.isDash && !s.isAttacking && s.dashX > 0) {
-        // 攻撃もダッシュもしていなければ元の位置へ帰還
         s.dashX *= 0.8; if(s.dashX < 1) { s.dashX = 0; s.cur = 'player'; }
     }
 
+    // 描画
     let off = (Math.random()-0.5) * (s.shake + s.gShake);
     ctx.drawImage(imgs[s.cur] || imgs.player, 300 + s.dashX + off + s.gShift, 200 + s.y, 240, 240);
-    
     ctx.save(); ctx.translate(700, 200); ctx.scale(-1, 1);
     ctx.drawImage(imgs.player, -120, 0, 240, 240); ctx.restore();
     
