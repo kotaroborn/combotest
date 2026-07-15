@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Combo Clash Tactics - Finalized</title>
+    <title>Combo Clash Tactics</title>
     <style>
         body { margin: 0; background: #0a192f; display: flex; flex-direction: column; align-items: center; overflow: hidden; }
-        #gameArea { width: 100%; max-width: 600px; aspect-ratio: 16 / 9; position: relative; background: #000; }
+        #gameArea { width: 100%; max-width: 600px; aspect-ratio: 16/9; position: relative; background: #000; }
         canvas { width: 100%; height: 100%; display: block; image-rendering: pixelated; }
         #inputArea { width: 100%; max-width: 600px; display: grid; grid-template-columns: repeat(5, 1fr); gap: 2px; }
         .btn { height: 60px; background: #1a2a6c; color: white; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: bold; touch-action: manipulation; }
@@ -27,8 +27,6 @@
 <script>
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
-ctx.imageSmoothingEnabled = false;
-
 const imgs = {};
 ['player','player2','punch','punch2','upper','upper2','knock','knock2','guard','dash'].forEach(f => {
     imgs[f] = new Image(); imgs[f].src = f + '.PNG';
@@ -36,28 +34,31 @@ const imgs = {};
 
 let s = {
     cur: 'player', dashX: 0, y: 0, vy: 0,
-    isAir: false, isDash: false, isKnock: false,
-    shake: 0, gShake: 0, mShake: 0,
-    stopMotion: 0 // メテオ用停止時間
+    isAir: false, isDash: false, combo: 0,
+    shake: 0, gShake: 0, mShake: 0, gShift: 0,
+    stopMotion: 0, afterImages: []
 };
 
 function playAction(type) {
     if (type === 'punch') {
-        if (s.cur === 'punch') {
-            s.cur = 'dash'; // Dash一瞬挟む
-            setTimeout(() => { s.cur = 'punch2'; s.shake = 20; }, 100);
-        } else { s.cur = 'punch'; s.shake = 15; }
-        if (s.isAir) s.vy = -1; // パンチコンボ中スロー
+        s.combo = (s.combo >= 3) ? 1 : s.combo + 1;
+        // ダッシュ挟み込み演出
+        s.cur = 'dash';
+        setTimeout(() => {
+            s.cur = (s.combo === 2) ? 'punch2' : 'punch';
+            s.shake = 20;
+        }, 100);
+        if (s.isAir) s.vy = -1; 
     }
     else if (type === 'upper' && !s.isAir) {
         s.cur = 'upper'; s.isAir = true; s.vy = -20;
     }
     else if (type === 'knock' && s.isAir) {
-        s.isKnock = true; s.vy = 0; s.stopMotion = 20; // ストップモーション
+        s.stopMotion = 20; // 停止
     }
     else if (type === 'guard' && !s.isAir) {
-        s.cur = 'guard'; s.gShake = 30;
-        setTimeout(() => s.cur = 'player', 300);
+        s.cur = 'guard'; s.gShake = 30; s.gShift = -30;
+        setTimeout(() => { s.cur = 'player'; s.gShift = 0; s.combo = 0; }, 300);
     }
 }
 
@@ -67,30 +68,45 @@ function pushDash() {
     let d = 30;
     let t = setInterval(() => {
         s.dashX += d; d *= 0.8;
-        if (d < 1) { clearInterval(t); s.isDash = false; s.cur = 'player'; }
+        s.afterImages.push({x: s.dashX, alpha: 0.5});
+        if (d < 1) { clearInterval(t); s.isDash = false; }
     }, 20);
 }
 
 function loop() {
     ctx.fillStyle = '#0a192f'; ctx.fillRect(0, 0, canvas.width, canvas.height);
     
-    // 物理と停止
-    if (s.isAir && s.stopMotion === 0) {
-        s.vy += (s.cur.includes('punch') ? 0.2 : 1.5);
-        s.y += s.vy;
-        if (s.y >= 0) { s.y = 0; s.isAir = false; s.isKnock = false; s.cur = 'knock2'; setTimeout(() => s.cur = 'player', 500); }
-    } else if (s.stopMotion > 0) { s.stopMotion--; if(s.stopMotion === 0) { s.cur = 'knock'; s.vy = 20; } }
+    // 残像描画
+    s.afterImages.forEach((img, i) => {
+        ctx.globalAlpha = img.alpha;
+        ctx.drawImage(imgs.dash, 300 + img.x, 200, 240, 240);
+        img.alpha -= 0.05; if(img.alpha <= 0) s.afterImages.splice(i, 1);
+    });
+    ctx.globalAlpha = 1.0;
 
-    // 描画：自分
-    let off = (Math.random()-0.5) * (s.shake + s.gShake + s.mShake);
-    ctx.drawImage(imgs[s.cur] || imgs.player, 300 + s.dashX + off, 200 + s.y, 240, 240);
+    // 物理とメテオ
+    if (s.isAir && s.stopMotion === 0) {
+        s.vy += 1.5;
+        s.y += s.vy;
+        if (s.y >= 0) { 
+            s.y = 0; s.isAir = false; s.cur = 'knock2'; s.combo = 0;
+            setTimeout(() => { s.cur = 'player'; s.dashX = 0; }, 500); 
+        }
+    } else if (s.stopMotion > 0) {
+        s.stopMotion--; if(s.stopMotion === 0) { s.cur = 'knock'; s.vy = 25; }
+    } else if (!s.isDash && s.combo === 0 && s.dashX > 0) {
+        s.dashX *= 0.8; if(s.dashX < 1) s.dashX = 0;
+    }
+
+    // 描画
+    let off = (Math.random()-0.5) * (s.shake + s.gShake);
+    ctx.drawImage(imgs[s.cur] || imgs.player, 300 + s.dashX + off + s.gShift, 200 + s.y, 240, 240);
     
-    // 描画：敵（反転）
+    // 敵（反転）
     ctx.save(); ctx.translate(700, 200); ctx.scale(-1, 1);
-    ctx.drawImage(imgs.player, -120, 0, 240, 240);
-    ctx.restore();
+    ctx.drawImage(imgs.player, -120, 0, 240, 240); ctx.restore();
     
-    s.shake *= 0.8; s.gShake *= 0.8; s.mShake *= 0.8;
+    s.shake *= 0.8; s.gShake *= 0.8;
     requestAnimationFrame(loop);
 }
 loop();
