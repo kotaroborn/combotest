@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Combo Clash Tactics - Fixed</title>
+    <title>Combo Clash Tactics - Finalized</title>
     <style>
-        body { margin: 0; background: #0a192f; display: flex; flex-direction: column; align-items: center; overflow: hidden; touch-action: none; }
+        body { margin: 0; background: #0a192f; display: flex; flex-direction: column; align-items: center; overflow: hidden; }
         #gameArea { width: 100%; max-width: 600px; aspect-ratio: 16 / 9; position: relative; background: #000; }
         canvas { width: 100%; height: 100%; display: block; image-rendering: pixelated; }
         #inputArea { width: 100%; max-width: 600px; display: grid; grid-template-columns: repeat(5, 1fr); gap: 2px; }
@@ -29,85 +29,68 @@ const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 ctx.imageSmoothingEnabled = false;
 
-// 1. リソース管理
 const imgs = {};
-const files = ['player','player2','punch','punch2','upper','upper2','knock','knock2','guard','dash'];
-files.forEach(f => {
-    imgs[f] = new Image();
-    imgs[f].src = f + '.PNG';
+['player','player2','punch','punch2','upper','upper2','knock','knock2','guard','dash'].forEach(f => {
+    imgs[f] = new Image(); imgs[f].src = f + '.PNG';
 });
 
-// 2. 状態管理
-let state = {
-    cur: 'player', // 画像ID
-    dash: false, air: false,
-    x: 0, y: 0, vy: 0,
-    shake: 0, gShake: 0, mShake: 0
+let s = {
+    cur: 'player', dashX: 0, y: 0, vy: 0,
+    isAir: false, isDash: false, isKnock: false,
+    shake: 0, gShake: 0, mShake: 0,
+    stopMotion: 0 // メテオ用停止時間
 };
-let dashTimer = null, actionTimer = null;
 
-// 3. アクション制御
 function playAction(type) {
     if (type === 'punch') {
-        // コンボ: dashを一瞬挟む
-        if (state.cur === 'punch') {
-            state.cur = 'dash';
-            setTimeout(() => state.cur = 'punch2', 100);
-        } else {
-            state.cur = 'punch';
-        }
-        state.shake = 15;
-        clearTimeout(actionTimer);
-        actionTimer = setTimeout(() => { if(!state.air) state.cur = 'player'; }, 400);
-        
-        // 空中パンチならスロー演出
-        if (state.air) state.vy = -2; 
+        if (s.cur === 'punch') {
+            s.cur = 'dash'; // Dash一瞬挟む
+            setTimeout(() => { s.cur = 'punch2'; s.shake = 20; }, 100);
+        } else { s.cur = 'punch'; s.shake = 15; }
+        if (s.isAir) s.vy = -1; // パンチコンボ中スロー
     }
-    else if (type === 'upper' && !state.air) {
-        state.cur = 'upper'; state.air = true; state.vy = -20;
-        setTimeout(() => state.cur = 'upper2', 200);
+    else if (type === 'upper' && !s.isAir) {
+        s.cur = 'upper'; s.isAir = true; s.vy = -20;
     }
-    else if (type === 'knock' && state.air) {
-        state.cur = 'knock'; state.mShake = 80; state.vy = 10;
+    else if (type === 'knock' && s.isAir) {
+        s.isKnock = true; s.vy = 0; s.stopMotion = 20; // ストップモーション
     }
-    else if (type === 'guard' && !state.air) {
-        state.cur = 'guard'; state.gShake = 40;
-        setTimeout(() => state.cur = 'player', 300);
+    else if (type === 'guard' && !s.isAir) {
+        s.cur = 'guard'; s.gShake = 30;
+        setTimeout(() => s.cur = 'player', 300);
     }
 }
 
 function pushDash() {
-    if (state.air || state.dash) return;
-    state.dash = true; state.cur = 'dash';
-    let d = 40;
+    if (s.isAir || s.isDash) return;
+    s.isDash = true; s.cur = 'dash';
+    let d = 30;
     let t = setInterval(() => {
-        state.x += d; d *= 0.8;
-        if (d < 1) { clearInterval(t); state.dash = false; state.x = 0; state.cur = 'player'; }
+        s.dashX += d; d *= 0.8;
+        if (d < 1) { clearInterval(t); s.isDash = false; s.cur = 'player'; }
     }, 20);
 }
 
-// 4. メインループ
 function loop() {
     ctx.fillStyle = '#0a192f'; ctx.fillRect(0, 0, canvas.width, canvas.height);
     
-    // 物理
-    if (state.air) {
-        state.vy += (state.cur.includes('punch') ? 0.2 : 1.5);
-        state.y += state.vy;
-        if (state.y >= 0) {
-            state.y = 0; state.vy = 0; state.air = false;
-            state.cur = 'player';
-        }
-    }
+    // 物理と停止
+    if (s.isAir && s.stopMotion === 0) {
+        s.vy += (s.cur.includes('punch') ? 0.2 : 1.5);
+        s.y += s.vy;
+        if (s.y >= 0) { s.y = 0; s.isAir = false; s.isKnock = false; s.cur = 'knock2'; setTimeout(() => s.cur = 'player', 500); }
+    } else if (s.stopMotion > 0) { s.stopMotion--; if(s.stopMotion === 0) { s.cur = 'knock'; s.vy = 20; } }
 
-    // 描画
-    let img = imgs[state.cur] || imgs['player'];
-    let off = (Math.random()-0.5) * (state.shake + state.gShake + state.mShake);
+    // 描画：自分
+    let off = (Math.random()-0.5) * (s.shake + s.gShake + s.mShake);
+    ctx.drawImage(imgs[s.cur] || imgs.player, 300 + s.dashX + off, 200 + s.y, 240, 240);
     
-    ctx.drawImage(img, 300 + state.x + off, 200 + state.y, 240, 240);
+    // 描画：敵（反転）
+    ctx.save(); ctx.translate(700, 200); ctx.scale(-1, 1);
+    ctx.drawImage(imgs.player, -120, 0, 240, 240);
+    ctx.restore();
     
-    // 減衰
-    state.shake *= 0.8; state.gShake *= 0.8; state.mShake *= 0.8;
+    s.shake *= 0.8; s.gShake *= 0.8; s.mShake *= 0.8;
     requestAnimationFrame(loop);
 }
 loop();
