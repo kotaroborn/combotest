@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Combo Clash Tactics - Full Implementation</title>
+    <title>Combo Clash Tactics - Advanced Engine</title>
     <style>
         body { margin: 0; background: #000; color: #fff; font-family: monospace; overflow: hidden; display: flex; flex-direction: column; align-items: center; }
         #gameArea { width: 100vw; height: 50vh; background: #111; position: relative; }
@@ -31,7 +31,7 @@
 <div id="controls">
     <div class="btn" onclick="addCmd('punch')">PUNCH</div>
     <div class="btn" onclick="addCmd('upper')">UPPER</div>
-    <div class="btn" onclick="addCmd('guard')">GUARD</div>
+    <div class="btn" onclick="addCmd('knock')">KNOCK</div>
     <div class="btn" onclick="resetCmd()">RESET</div>
     <div class="btn" onclick="resolveBattle()" style="background:#b00;">GO</div>
 </div>
@@ -42,7 +42,7 @@ const ctx = canvas.getContext('2d');
 ctx.imageSmoothingEnabled = false;
 
 const s = { 
-    pCur: 'player', x: 200, y: 200, vy: 0, isAir: false, 
+    pCur: 'player', x: 200, y: 200, vy: 0, isAir: false, airCombo: 0,
     enHP: 100, isPlaying: false, shake: 0, afterImages: [], stopMotion: 0 
 };
 let myHands = [];
@@ -74,30 +74,52 @@ async function moveTo(targetX) {
 async function resolveBattle() {
     if(myHands.length === 0 || s.isPlaying) return;
     s.isPlaying = true;
+    s.airCombo = 0;
 
     for (let i = 0; i < myHands.length; i++) {
         let cmd = myHands[i];
-        if (cmd === 'punch') {
-            await moveTo(400); // 前方へダッシュ
-            if (i > 0 && myHands[i-1] === 'punch') { s.pCur = 'dash'; await sleep(100); }
-            s.pCur = (i % 2 === 0) ? 'punch' : 'punch2';
-            s.shake = 20; s.enHP -= 10;
-        } else if (cmd === 'upper') {
+        
+        if (cmd === 'upper') {
+            await moveTo(400); // 接近してアッパー
             s.isAir = true; s.vy = -20; s.pCur = 'upper';
+            s.afterImages.push({x: s.x, y: s.y, alpha: 0.8});
+        } else if (cmd === 'punch') {
+            if (s.isAir) {
+                // 空中コンボ
+                s.airCombo++;
+                s.pCur = (s.airCombo === 1) ? 'punch' : 'punch2';
+                if(s.airCombo >= 3) { // メテオ発動
+                    s.pCur = 'knock'; s.stopMotion = 20;
+                    await sleep(300);
+                    s.vy = 20; // 急降下
+                }
+            } else {
+                await moveTo(400);
+                s.pCur = (i % 2 === 0) ? 'punch' : 'punch2';
+            }
+            s.shake = 20; s.enHP -= 10;
         }
+        
         document.getElementById('enBar').style.width = Math.max(0, s.enHP) + "%";
         await sleep(400);
-        s.pCur = 'player';
     }
-    await moveTo(200); // 元の位置へダッシュ帰還
+
+    // 着地処理
+    s.pCur = 'knock2'; s.shake = 40;
+    await sleep(500);
     s.pCur = 'player';
+    await moveTo(200);
     s.isPlaying = false;
     resetCmd();
 }
 
 function loop() {
     ctx.fillStyle = '#0a192f'; ctx.fillRect(0, 0, canvas.width, canvas.height);
-    if (s.isAir) { s.vy += 1.5; s.y += s.vy; if(s.y >= 200) { s.y = 200; s.isAir = false; s.pCur = 'knock2'; s.shake = 40; } }
+    if (s.isAir) {
+        if (s.stopMotion > 0) { s.stopMotion--; } 
+        else { s.vy += 1.5; s.y += s.vy; }
+        if(s.y >= 200) { s.y = 200; s.isAir = false; }
+    }
     
     s.afterImages.forEach((img, i) => {
         ctx.globalAlpha = img.alpha;
