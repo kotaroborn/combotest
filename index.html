@@ -50,7 +50,12 @@ let actionTimeout = null;
 
 setInterval(() => { idleFrame = (idleFrame + 1) % 2; }, 500);
 
-function resetAction() { currentState = 'idle'; shake = 0; guardShake = 0; guardKnockback = 0; }
+// 状態を完全にクリアする関数
+function resetAction() { 
+    currentState = 'idle'; shake = 0; guardShake = 0; guardKnockback = 0; 
+    isLanding = false; isKnocking = false;
+    clearTimeout(actionTimeout);
+}
 
 function playAction(type) {
     if (isLanding || isKnocking) return;
@@ -66,21 +71,19 @@ function playAction(type) {
         currentState = 'upper'; yVelocity = -24; isAirborne = true;
     } else if (type === 'knock' && isAirborne) {
         currentState = 'knock'; isKnocking = true; yVelocity = 0;
-        setTimeout(() => { if(isKnocking) yVelocity = 35; }, 400);
+        actionTimeout = setTimeout(() => { if(isKnocking) yVelocity = 35; }, 400);
     } else if (type === 'guard') {
-        // 【修正】ダッシュ中(isDashing)はガード不可
         if (isAirborne || isDashing || currentState.includes('upper') || currentState.includes('punch')) return;
         currentState = 'guard'; guardKnockback = -18; guardShake = 35;
-        setTimeout(() => { if (currentState === 'guard') resetAction(); }, 300);
+        actionTimeout = setTimeout(() => { if (currentState === 'guard') resetAction(); }, 300);
     }
 }
 
 function pushDash() {
     if (isAirborne || isLanding || isDashing || currentState.includes('punch')) return;
     isDashing = true; currentState = 'dash'; 
-    dashVelocity = 30; 
-    xOffset = 0;
-    setTimeout(() => { 
+    dashVelocity = 30; xOffset = 0;
+    actionTimeout = setTimeout(() => { 
         afterImages.push({x: xOffset, y: yOffset, alpha: 0.6}); 
         isDashing = false; 
     }, 200);
@@ -90,11 +93,9 @@ function gameLoop() {
     ctx.fillStyle = '#0a192f'; ctx.fillRect(0, 0, canvas.width, canvas.height);
     
     if (isDashing) {
-        xOffset += dashVelocity;
-        dashVelocity *= 0.8;
+        xOffset += dashVelocity; dashVelocity *= 0.8;
     } else if (xOffset > 0 && !currentState.includes('punch')) {
-        xOffset -= 5;
-        if (xOffset < 0) xOffset = 0;
+        xOffset -= 5; if (xOffset < 0) xOffset = 0;
     }
     
     afterImages.forEach((img, i) => {
@@ -111,16 +112,16 @@ function gameLoop() {
         }
         yOffset += yVelocity; 
         if (currentState === 'upper' && yVelocity >= 0) currentState = 'upper2';
+        
         if (yOffset >= 0) { 
             yOffset = 0; yVelocity = 0; 
             if (isKnocking) {
                 isKnocking = false; isLanding = true; currentState = 'knock2'; 
                 shake = 100; meteorShakeX = 60;
-                setTimeout(() => { isAirborne = false; isLanding = false; resetAction(); }, 1000);
+                actionTimeout = setTimeout(() => { isAirborne = false; resetAction(); }, 1000);
             } else { 
-                // 【修正】通常のアッパー着地時も一瞬 knock2 を表示
                 isLanding = true; currentState = 'knock2';
-                setTimeout(() => { isAirborne = false; isLanding = false; resetAction(); }, 150);
+                actionTimeout = setTimeout(() => { isAirborne = false; resetAction(); }, 150);
             }
         }
     }
