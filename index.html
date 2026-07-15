@@ -9,8 +9,6 @@
         #gameArea { width: 100%; max-width: 600px; aspect-ratio: 16/9; position: relative; background: #111; }
         canvas { 
             width: 100%; height: 100%; display: block;
-            image-rendering: -moz-crisp-edges;
-            image-rendering: -webkit-optimize-contrast;
             image-rendering: pixelated;
         }
         #ui { position: absolute; top: 10px; width: 100%; display: flex; justify-content: space-between; padding: 0 20px; box-sizing: border-box; color: #fff; font-size: 20px; pointer-events: none; }
@@ -42,7 +40,6 @@
 <script>
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
-
 const imgs = {};
 ['player','player2','punch','punch2','upper','upper2','knock','knock2','guard','dash'].forEach(f => {
     imgs[f] = new Image(); imgs[f].src = f + '.PNG';
@@ -59,13 +56,11 @@ function playAction(type) {
     if (type === 'punch') {
         s.isAttacking = true;
         if (s.isAir) {
-            // 空中パンチ：4段まで滞空＋スロー
             s.airPunchCount = Math.min(s.airPunchCount + 1, 4);
-            s.vy = 0; // 落下を止める
+            s.vy = 0;
             s.cur = (s.airPunchCount % 2 === 0) ? 'punch2' : 'punch';
             s.shake = 10;
         } else {
-            // 地上パンチ
             s.combo = (s.combo >= 3) ? 1 : s.combo + 1;
             s.cur = 'dash';
             setTimeout(() => { s.cur = (s.combo === 2) ? 'punch2' : 'punch'; s.shake = 20; }, 100);
@@ -75,10 +70,11 @@ function playAction(type) {
     }
     else if (type === 'upper' && !s.isAir) {
         s.cur = 'upper'; s.isAir = true; s.vy = -20; s.airPunchCount = 0;
+        // アッパー残像エフェクト
+        for(let i=0; i<5; i++) setTimeout(() => s.afterImages.push({x: s.dashX, y: s.y + (i*-20), alpha: 0.5}), i*50);
     }
     else if (type === 'knock' && s.isAir) {
-        s.cur = 'knock';
-        s.stopMotion = 20;
+        s.cur = 'knock'; s.stopMotion = 20;
     }
     else if (type === 'guard' && !s.isAir && !s.isDash) {
         s.cur = 'guard'; s.gShake = 30; s.gShift = -30;
@@ -92,7 +88,7 @@ function pushDash() {
     let d = 30;
     let t = setInterval(() => {
         s.dashX += d; d *= 0.8;
-        s.afterImages.push({x: s.dashX, alpha: 0.5});
+        s.afterImages.push({x: s.dashX, y: 0, alpha: 0.5});
         if (d < 1) { clearInterval(t); s.isDash = false; }
     }, 20);
 }
@@ -103,15 +99,18 @@ function loop() {
     
     s.afterImages.forEach((img, i) => {
         ctx.globalAlpha = img.alpha;
-        ctx.drawImage(imgs.dash, 300 + img.x, 200, 240, 240);
+        ctx.drawImage(imgs.dash, 300 + img.x, 200 + (img.y || 0), 240, 240);
         img.alpha -= 0.05; if(img.alpha <= 0) s.afterImages.splice(i, 1);
     });
     ctx.globalAlpha = 1.0;
 
-    // 空中：パンチ中以外は落下
     if (s.isAir && s.stopMotion === 0 && s.airPunchCount === 0) {
         s.vy += 1.5; s.y += s.vy;
-        if (s.y >= 0) { s.y = 0; s.isAir = false; s.cur = 'knock2'; setTimeout(() => s.cur = 'player', 500); }
+        if (s.y >= 0) { 
+            s.y = 0; s.isAir = false; s.cur = 'knock2'; 
+            s.shake = 40; // 着地時の振動追加
+            setTimeout(() => s.cur = 'player', 500); 
+        }
     } else if (s.stopMotion > 0) {
         s.stopMotion--; if(s.stopMotion === 0) { s.vy = 25; }
     } else if (!s.isDash && !s.isAttacking && s.dashX > 0) {
