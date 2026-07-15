@@ -3,22 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Combo Clash Tactics - Perfect Engine</title>
+    <title>Combo Clash Tactics - Finalized Engine</title>
     <style>
         body { margin: 0; background: #000; color: #fff; font-family: monospace; overflow: hidden; display: flex; flex-direction: column; align-items: center; }
         #gameArea { width: 100vw; height: 50vh; background: #111; position: relative; }
         canvas { width: 100%; height: 100%; image-rendering: pixelated; }
-        
-        /* UIレイアウト */
         .ui { position: absolute; top: 10px; width: 100%; display: flex; justify-content: center; align-items: center; gap: 15px; }
         .hp { width: 30vw; height: 15px; border: 2px solid #fff; background: #400; }
         .bar { height: 100%; background: #f00; transition: width 0.2s; width: 100%; }
-        #timer { font-size: 18px; font-weight: bold; color: #fff; }
-        
         #slotArea { display: flex; gap: 5px; margin: 10px; height: 40px; }
         .slot { width: 15vw; border: 1px solid #fff; display: flex; align-items: center; justify-content: center; font-size: 10px; background: #222; }
-        
-        /* ボタン配置の最適化（左に技3つ、右にシステム2つ） */
         #controls { width: 100vw; display: flex; gap: 5px; padding: 5px; box-sizing: border-box; }
         #actionBtns { flex: 3; display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; }
         #systemBtns { flex: 2; display: grid; grid-template-columns: repeat(2, 1fr); gap: 5px; }
@@ -42,7 +36,7 @@
     <div id="actionBtns">
         <div class="btn" onclick="addCmd('punch')">PUNCH</div>
         <div class="btn" onclick="addCmd('upper')">UPPER</div>
-        <div class="btn" onclick="addCmd('knock')">KNOCK</div>
+        <div class="btn" onclick="addCmd('guard')">GUARD</div>
     </div>
     <div id="systemBtns">
         <div class="btn" onclick="resetCmd()" style="background:#555;">RESET</div>
@@ -55,14 +49,12 @@ const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 ctx.imageSmoothingEnabled = false;
 
-// 状態管理用オブジェクト
 const s = { 
     pCur: 'player', x: 200, y: 200, isAir: false, airPunchCount: 0,
-    enHP: 100, isPlaying: false, shake: 0, afterImages: [] 
+    enHP: 100, isPlaying: false, shake: 0, afterImages: [], guardShift: 0 
 };
 let myHands = [];
 
-// 全画像アセットの強制読み込み
 const imgNames = ['player','player2','punch','punch2','upper','upper2','knock','knock2','guard','dash'];
 const imgs = {};
 imgNames.forEach(f => { imgs[f] = new Image(); imgs[f].src = f + '.PNG'; });
@@ -70,141 +62,80 @@ imgNames.forEach(f => { imgs[f] = new Image(); imgs[f].src = f + '.PNG'; });
 function addCmd(c) { if(myHands.length < 5 && !s.isPlaying) { myHands.push(c); updateSlots(); } }
 function resetCmd() { if(!s.isPlaying) { myHands = []; updateSlots(); } }
 function updateSlots() { document.getElementById('slotArea').innerHTML = myHands.map(h => `<div class="slot">${h.toUpperCase()}</div>`).join(''); }
-function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
-function updateUI() { document.getElementById('enBar').style.width = Math.max(0, s.enHP) + "%"; }
+async function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
-// シーケンサーと完全に同期して座標を滑らかに動かす共通関数（残像対応）
 async function animateMove(targetX, targetY, duration, pose, spawnTrail = false) {
-    const startX = s.x;
-    const startY = s.y;
-    const start = Date.now();
+    const startX = s.x; const startY = s.y; const start = Date.now();
     while(Date.now() - start < duration) {
         let p = (Date.now() - start) / duration;
         s.x = startX + (targetX - startX) * p;
         s.y = startY + (targetY - startY) * p;
         s.pCur = pose;
-        if (spawnTrail) {
-            s.afterImages.push({x: s.x, y: s.y, alpha: 0.6});
-        }
+        if (spawnTrail) s.afterImages.push({x: s.x, y: s.y, alpha: 0.5});
         await sleep(16);
     }
-    s.x = targetX;
-    s.y = targetY;
+    s.x = targetX; s.y = targetY;
 }
 
-// メテオ（急降下フィニッシュ）の独立演出ロジック
-async function executeMeteor() {
-    s.pCur = 'knock'; 
-    s.shake = 10;
-    await sleep(300); // 仕様書：一時停止（ストップモーション）
-    
-    // 残像を伴い急降下
-    await animateMove(s.x, 200, 120, 'knock', true);
-    
-    // 着地衝撃演出
-    s.pCur = 'knock2'; 
-    s.shake = 50; // 画面を大きく揺らす
-    s.enHP -= 20; 
-    updateUI();
-    await sleep(400); // 着地の一時停止
-    s.isAir = false;
-}
-
-// バトル解決（メインシーケンサー）
 async function resolveBattle() {
     if(myHands.length === 0 || s.isPlaying) return;
     s.isPlaying = true;
     s.airPunchCount = 0;
-    s.isAir = false;
 
     for (let i = 0; i < myHands.length; i++) {
         let cmd = myHands[i];
         
         if (cmd === 'upper') {
-            await animateMove(400, 200, 150, 'dash', true); // 前方ダッシュ
-            await animateMove(400, 70, 200, 'upper', true); // アッパー上昇（残像あり）
-            s.isAir = true;
-            await sleep(150); // 滞空待機
-        } 
-        else if (cmd === 'punch') {
+            // アッパー前後の着地処理
+            if(s.isAir) { await animateMove(s.x, 200, 150, 'knock2', true); s.isAir = false; await sleep(200); }
+            await animateMove(400, 200, 150, 'dash', true);
+            await animateMove(400, 70, 200, 'upper', true);
+            s.isAir = true; await sleep(300);
+        } else if (cmd === 'punch') {
             if (s.isAir) {
-                // 空中コンボ判定
                 s.airPunchCount++;
                 if (s.airPunchCount <= 2) {
-                    // 入力ごとにその場に留まり（Y座標維持）、スローモーション待機
                     s.pCur = (s.airPunchCount === 1) ? 'punch' : 'punch2';
-                    s.shake = 15;
-                    s.enHP -= 10;
-                    updateUI();
-                    await sleep(400); 
+                    s.shake = 15; await sleep(400);
                 } else {
-                    // 3回目の空中パンチは自動的にメテオへ変化
-                    await executeMeteor();
+                    // メテオ発動
+                    s.pCur = 'knock'; s.shake = 10; await sleep(200);
+                    await animateMove(s.x, 200, 100, 'knock', true);
+                    s.pCur = 'knock2'; s.shake = 50; s.isAir = false; await sleep(400);
                 }
             } else {
-                // 地上パンチ
                 await animateMove(400, 200, 150, 'dash', true);
-                if (i > 0 && myHands[i-1] === 'punch') { s.pCur = 'dash'; await sleep(80); } // ダッシュ挟み込み
                 s.pCur = (i % 2 === 0) ? 'punch' : 'punch2';
-                s.shake = 20;
-                s.enHP -= 10;
-                updateUI();
-                await sleep(300);
+                s.shake = 20; await sleep(400);
             }
-        } 
-        else if (cmd === 'knock') {
-            if (s.isAir) {
-                await executeMeteor();
-            } else {
-                s.pCur = 'punch';
-                await sleep(300);
-            }
+        } else if (cmd === 'guard') {
+            await animateMove(400, 200, 150, 'dash', true);
+            s.pCur = 'guard'; s.shake = 20; s.guardShift = -20; // 左へ一瞬シフト
+            await sleep(400); s.guardShift = 0;
         }
+        document.getElementById('enBar').style.width = Math.max(0, s.enHP -= 10) + "%";
     }
 
-    // メテオを打たずに空中コンボが終わった場合の通常着地保護
-    if (s.isAir) {
-        await animateMove(s.x, 200, 150, 'knock2', true);
-        s.shake = 30;
-        await sleep(300);
-    }
-
-    // すべてのアクション終了後、元の位置へダッシュ帰還
-    if (s.x !== 200 || s.y !== 200) {
-        await animateMove(200, 200, 180, 'dash', true);
-    }
-    
-    s.pCur = 'player';
-    s.isAir = false;
-    s.isPlaying = false;
-    resetCmd();
+    if (s.isAir) { await animateMove(s.x, 200, 150, 'knock2', true); s.shake = 30; await sleep(300); }
+    await animateMove(200, 200, 180, 'dash', true);
+    s.pCur = 'player'; s.isAir = false; s.isPlaying = false; resetCmd();
 }
 
-// 描画メインループ（演出の反映のみに特化）
 function loop() {
     ctx.fillStyle = '#0a192f'; ctx.fillRect(0, 0, canvas.width, canvas.height);
-    
-    // 残像フェードアウト処理
     s.afterImages.forEach((img, i) => {
         ctx.globalAlpha = img.alpha;
         if(imgs.dash) ctx.drawImage(imgs.dash, img.x, img.y, 200, 200);
         img.alpha -= 0.07; if(img.alpha <= 0) s.afterImages.splice(i, 1);
     });
     ctx.globalAlpha = 1.0;
-
-    // シェイク（振動）座標計算
-    let offX = (Math.random() - 0.5) * s.shake;
+    let offX = (Math.random() - 0.5) * s.shake + s.guardShift;
     let offY = (Math.random() - 0.5) * s.shake;
-    
-    // プレイヤー描画
     if(imgs[s.pCur]) ctx.drawImage(imgs[s.pCur], s.x + offX, s.y + offY, 200, 200);
-    
-    // 敵描画（左右反転）
     ctx.save(); ctx.scale(-1, 1);
     if(imgs.player2) ctx.drawImage(imgs.player2, -750, 200, 200, 200);
     ctx.restore();
-    
-    s.shake *= 0.85; // 振動減衰
+    s.shake *= 0.85;
     requestAnimationFrame(loop);
 }
 loop();
