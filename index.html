@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Combo Clash Tactics - Optimized</title>
+    <title>Combo Clash Tactics - Meteor Final</title>
     <style>
         body { margin: 0; background: #000; color: #fff; font-family: monospace; overflow: hidden; display: flex; flex-direction: column; align-items: center; }
         #gameArea { width: 100vw; height: 50vh; background: #111; position: relative; }
@@ -49,8 +49,8 @@ const ctx = canvas.getContext('2d');
 ctx.imageSmoothingEnabled = false;
 
 const s = { 
-    pCur: 'player', x: 200, y: 200, isAir: false, enHP: 100, 
-    isPlaying: false, shake: 0, afterImages: [], guardShift: 0 
+    pCur: 'player', x: 200, y: 200, isAir: false, airPunchCount: 0,
+    enHP: 100, isPlaying: false, shake: 0, afterImages: [], guardShift: 0 
 };
 let myHands = [];
 
@@ -79,6 +79,7 @@ async function animateMove(targetX, targetY, duration, pose, trailImg = 'dash') 
 async function resolveBattle() {
     if(myHands.length === 0 || s.isPlaying) return;
     s.isPlaying = true;
+    s.airPunchCount = 0;
 
     for (let i = 0; i < myHands.length; i++) {
         let cmd = myHands[i];
@@ -87,20 +88,25 @@ async function resolveBattle() {
         if (cmd === 'upper') {
             await animateMove(400, 200, 100, 'dash', 'dash');
             s.pCur = 'upper'; s.shake = 30; await sleep(500);
-            
-            // コンボが続く時だけジャンプ
             if (nextCmd === 'punch') {
                 s.isAir = true;
                 await animateMove(400, 50, 300, 'upper2', 'upper2');
                 await sleep(200);
             } else {
-                // 単発アッパーはここで終了
-                await sleep(200);
+                s.pCur = 'upper2'; await sleep(200);
+                s.pCur = 'knock2'; s.shake = 20; await sleep(300);
             }
         } else if (cmd === 'punch') {
             if (s.isAir) {
-                s.pCur = (i % 2 === 0) ? 'punch' : 'punch2';
-                s.shake = 15; await sleep(400);
+                s.airPunchCount++;
+                if (s.airPunchCount < 3) {
+                    s.pCur = (s.airPunchCount === 1) ? 'punch' : 'punch2';
+                    s.shake = 15; await sleep(400);
+                } else {
+                    s.pCur = 'knock'; s.shake = 10; await sleep(300); // 停止
+                    await animateMove(400, 200, 100, 'knock', 'dash'); // 急降下
+                    s.pCur = 'knock2'; s.shake = 50; s.isAir = false; await sleep(400); // 着地
+                }
             } else {
                 await animateMove(400, 200, 150, 'dash', 'dash');
                 s.pCur = (i % 2 === 0) ? 'punch' : 'punch2';
