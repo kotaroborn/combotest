@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Combo Clash Tactics - Upper Refined</title>
+    <title>Combo Clash Tactics - Upper Boosted</title>
     <style>
         body { margin: 0; background: #000; color: #fff; font-family: monospace; overflow: hidden; display: flex; flex-direction: column; align-items: center; }
         #gameArea { width: 100vw; height: 50vh; background: #111; position: relative; }
@@ -86,9 +86,10 @@ async function resolveBattle() {
         
         if (cmd === 'upper') {
             await animateMove(400, 200, 100, 'dash', true);
-            s.pCur = 'upper'; s.shake = 15; await sleep(200);
+            s.pCur = 'upper'; s.shake = 30; await sleep(500); // 溜めを強化
             s.isAir = true;
-            await animateMove(400, 50, 400, 'upper2', true); // ふわっと上昇
+            await animateMove(400, 50, 300, 'upper2', true); // 高速上昇
+            await sleep(200); // 頂点で一瞬の静止
             await animateMove(400, 200, 300, 'upper2', true); // 下降
             s.pCur = 'knock2'; s.shake = 40; s.isAir = false; await sleep(300);
         } else if (cmd === 'punch') {
@@ -127,4 +128,5 @@ function loop() {
 loop();
 </script>
 </body>
+</html>
 </html>
