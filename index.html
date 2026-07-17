@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Combo Clash Tactics - Final Fixed</title>
+    <title>Combo Clash Tactics - Seamless Air Combo</title>
     <style>
         body { margin: 0; background: #000; color: #fff; font-family: sans-serif; touch-action: manipulation; overflow: hidden; }
         #topUI { display: flex; align-items: center; justify-content: space-between; padding: 10px; background: #222; height: 40px; }
@@ -76,7 +76,6 @@ async function animateVersus(pX, eX, duration, pPose, ePose) {
         let ease = 1 - Math.pow(1 - pr, 3);
         s.x = sX + (pX - sX) * ease;
         e.x = eX_s + (eX - eX_s) * ease;
-        // 空中コンボ時のみ重力を無効化（座標200への引き戻しを防止）
         if (!airCombo) { s.y = Math.min(200, s.y + 10); e.y = Math.min(200, e.y + 10); }
         s.pCur = pPose; e.pCur = ePose; await sleep(16);
     }
@@ -123,8 +122,12 @@ async function resolveBattle() {
                 let y = 150 * Math.sin((j / 20) * Math.PI / 2);
                 e.y = 200 - y; s.y = 200 - y; e.pCur = 'damage'; await sleep(20); 
             }
-            if (myHands[i+1] === 'punch') { airCombo = true; airStep = 0; s.y = 50; e.y = 50; }
-            else { 
+            
+            // 【重要】次がパンチなら空中で接続！地面へ戻るループをスキップ
+            if (myHands[i+1] === 'punch') { 
+                airCombo = true; airStep = 0; s.y = 50; e.y = 50; 
+            } else { 
+                // 次がパンチ以外なら、しっかり地面に帰還
                 for(let j = 20; j >= 0; j--) { let y = 150 * Math.sin((j / 20) * Math.PI / 2); e.y = 200 - y; s.y = 200 - y; await sleep(20); }
                 e.y = 200; s.y = 200; e.pCur = 'knock2'; await sleep(300); 
             }
