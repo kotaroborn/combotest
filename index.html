@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Combo Clash Tactics - Air Combo System</title>
+    <title>Combo Clash Tactics - Finalized Air Combo</title>
     <style>
         body { margin: 0; background: #000; color: #fff; font-family: monospace; overflow: hidden; display: flex; flex-direction: column; align-items: center; }
         #gameArea { width: 100vw; height: 50vh; background: #111; position: relative; }
@@ -63,15 +63,13 @@ function resetCmd() { if(!s.isPlaying) { myHands = []; pIdx = 0; updateSlots(); 
 function updateSlots() { document.getElementById('slotArea').innerHTML = myHands.map(h => `<div class="slot">${h.toUpperCase()}</div>`).join(''); }
 async function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
-async function animateVersus(pX, eX, duration, pPose, ePose, trailP = 'dash', trailE = 'dash') {
+async function animateVersus(pX, eX, duration, pPose, ePose) {
     const sX = s.x; const eX_start = e.x; const start = Date.now();
     while(Date.now() - start < duration) {
         let p = (Date.now() - start) / duration;
         s.x = sX + (pX - sX) * p;
         e.x = eX_start + (eX - eX_start) * p;
         s.pCur = pPose; e.pCur = ePose;
-        s.afterImages.push({x: s.x, y: s.y, alpha: 0.5, img: trailP});
-        e.afterImages.push({x: e.x, y: e.y, alpha: 0.5, img: trailE});
         await sleep(16);
     }
 }
@@ -86,36 +84,44 @@ async function resolveBattle() {
         let eCmd = ePatterns[pIdx % ePatterns.length];
         pIdx++;
 
-        // 空中コンボ処理
-        if (comboCount > 0 && comboCount < 3 && p === 'punch') {
+        // 1. 空中コンボ中の処理
+        if (comboCount > 0 && p === 'punch') {
+            comboCount++; 
             s.pCur = 'punch'; e.pCur = 'damage';
             e.shake = 30;
-            comboCount++;
-            if (comboCount === 3) { // 3回目：メテオ叩き落とし
+            if (comboCount === 3) { // メテオ
                 e.pCur = 'knock'; 
                 await sleep(500);
+                s.y = 200; e.y = 200; // 着地
+                comboCount = 0;
+            } else {
+                await sleep(300);
             }
-            if (comboCount >= 3) { s.y = 200; e.y = 200; comboCount = 0; }
             continue; 
-        } else if (comboCount > 0) {
-            s.y = 200; e.y = 200; comboCount = 0;
-        }
+        } 
         
+        // コンボ中断・終了時の着地
+        if (comboCount > 0) {
+            s.y = 200; e.y = 200;
+            comboCount = 0;
+        }
+
+        // 2. 基本接近
         await animateVersus(300, 460, 150, 'dash', 'dash');
 
-        // 初撃：アッパーヒット
+        // 3. アッパー成功（コンボ開始）
         if (p === 'upper' && eCmd === 'punch') {
             s.pCur = 'upper'; e.pCur = 'damage';
-            e.y = 50; s.y = 50; // 空中へ
-            comboCount = 1;
+            s.y = 50; e.y = 50; // 浮き上がる
+            comboCount = 1; // 1カウント目
             await sleep(500);
         } else {
-            // 通常の3すくみロジック（簡略化）
+            // 通常の3すくみロジック
             if (p === 'punch' && eCmd === 'punch') { s.pCur = 'punch'; e.pCur = 'punch'; s.shake = 30; e.shake = 30; await sleep(300); }
             else if (p === 'guard' && eCmd === 'punch') { s.pCur = 'damage'; e.pCur = 'punch'; s.guardShift = -20; e.guardShift = 20; await sleep(400); s.guardShift = 0; e.guardShift = 0; }
         }
 
-        s.y = 200; e.y = 200; // 着地
+        // 4. 帰還
         await animateVersus(100, 660, 200, 'dash', 'dash');
     }
 
@@ -127,12 +133,6 @@ async function resolveBattle() {
 function loop() {
     ctx.fillStyle = '#0a192f'; ctx.fillRect(0, 0, canvas.width, canvas.height);
     [s, e].forEach((obj, idx) => {
-        obj.afterImages.forEach((img, i) => {
-            ctx.globalAlpha = img.alpha;
-            if(imgs[img.img]) ctx.drawImage(imgs[img.img], obj.x, obj.y, 200, 200);
-            img.alpha -= 0.07; if(img.alpha <= 0) obj.afterImages.splice(i, 1);
-        });
-        ctx.globalAlpha = 1.0;
         ctx.save();
         let xOffset = (Math.random()-0.5)*obj.shake + obj.guardShift;
         let yOffset = (Math.random()-0.5)*obj.shake;
