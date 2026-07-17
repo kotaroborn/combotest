@@ -2,11 +2,10 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Combo Clash Tactics - Crisp Display</title>
+    <title>Combo Clash Tactics - Damage Implemented</title>
     <style>
         body { margin: 0; background: #000; color: #fff; font-family: sans-serif; overflow: hidden; display: flex; flex-direction: column; align-items: center; touch-action: manipulation; }
         #gameArea { width: 100vw; height: 50vh; background: #111; position: relative; }
-        /* 【重要】ここを pixelated にすることで画像がボケなくなります */
         canvas { width: 100%; height: 100%; object-fit: contain; image-rendering: pixelated; image-rendering: crisp-edges; }
         .ui { position: absolute; top: 10px; width: 90%; display: flex; justify-content: space-between; gap: 10px; }
         .hp { flex: 1; height: 20px; border: 2px solid #fff; background: #400; }
@@ -39,7 +38,6 @@
 <script>
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
-// Canvasの描画設定でも補間を無効化
 ctx.imageSmoothingEnabled = false;
 
 const s = { pCur: 'player', x: 100, y: 200, shake: 0, hp: 100, isPlaying: false };
@@ -48,6 +46,8 @@ const imgs = {}; ['player','player2','punch','punch2','upper','upper2','knock','
 
 let myHands = []; const ePatterns = ['punch', 'upper', 'guard', 'guard', 'punch'];
 let pIdx = 0, punchHitCount = 0;
+
+function applyDmg(target, val) { target.hp = Math.max(0, target.hp - val); target.shake = 50; }
 
 function addCmd(c) { if(myHands.length < 5 && !s.isPlaying) { myHands.push(c); updateSlots(); } }
 function resetCmd() { if(!s.isPlaying) { myHands = []; pIdx = 0; punchHitCount = 0; updateSlots(); } }
@@ -77,21 +77,33 @@ async function resolveBattle() {
 
     for (let i = 0; i < myHands.length; i++) {
         let p = myHands[i], eCmd = ePatterns[pIdx++ % ePatterns.length];
-        if (p === 'guard') { s.pCur = 'guard'; await sleep(400); await returnToPosition(); airCombo = false; continue; }
+        
+        if (p === 'guard') {
+            s.pCur = 'guard'; await sleep(400); 
+            if(eCmd === 'upper') applyDmg(e, 5); // ガードカウンター（Upperへのガード）
+            await returnToPosition(); airCombo = false; continue;
+        }
 
         if (airCombo) {
             airStep++;
-            if (airStep <= 3) { await execPunch(s); e.pCur = 'damage'; await sleep(300); }
-            else { s.pCur = 'knock'; await sleep(300); s.y = 200; e.y = 200; e.pCur = 'knock2'; e.shake = 50; await sleep(500); airCombo = false; await returnToPosition(); }
+            if (airStep <= 3) { await execPunch(s); applyDmg(e, 5); e.pCur = 'damage'; await sleep(300); }
+            else { s.pCur = 'knock'; await sleep(300); s.y = 200; e.y = 200; e.pCur = 'knock2'; applyDmg(e, 50); await sleep(500); airCombo = false; await returnToPosition(); }
             continue;
         }
 
         await animateVersus(300, 460, 150, 'dash', 'dash');
+
         if (p === 'upper' && eCmd === 'punch') {
-            s.pCur = 'upper'; e.pCur = 'damage'; s.y = 50; e.y = 50; airCombo = true; airStep = 0; await sleep(500);
-            continue;
+            s.pCur = 'upper'; e.pCur = 'damage'; s.y = 50; e.y = 50;
+            applyDmg(e, 5 * 1.5); // カウンター: 5 * 1.5
+            airCombo = true; airStep = 0; await sleep(500);
         } else if (p === 'punch') {
-            await execPunch(s); await sleep(300);
+            if(eCmd === 'upper') { applyDmg(s, 10); } // 敵Upperにパンチでカウンター食らう
+            else { await execPunch(s); applyDmg(e, 10); }
+            await sleep(300);
+        } else if (eCmd === 'guard') {
+            applyDmg(e, 2); // ガード削り
+            s.pCur = 'player'; e.pCur = 'guard'; await sleep(300);
         } else {
             s.pCur = 'player'; e.pCur = 'player'; await sleep(300);
         }
