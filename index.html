@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Combo Clash Tactics - Engine v1.0</title>
+    <title>Combo Clash Tactics - Full Coverage</title>
     <style>
         body { margin: 0; background: #000; color: #fff; font-family: monospace; overflow: hidden; display: flex; flex-direction: column; align-items: center; }
         #gameArea { width: 100vw; height: 50vh; background: #111; position: relative; }
@@ -47,8 +47,8 @@ const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 ctx.imageSmoothingEnabled = false;
 
-const s = { pCur: 'player', x: 100, y: 200, isAir: false, shake: 0, afterImages: [], guardShift: 0, isPlaying: false };
-const e = { pCur: 'player', x: 660, y: 200, isAir: false, shake: 0, afterImages: [], guardShift: 0 };
+const s = { pCur: 'player', x: 100, y: 200, shake: 0, afterImages: [], guardShift: 0, isPlaying: false };
+const e = { pCur: 'player', x: 660, y: 200, shake: 0, afterImages: [], guardShift: 0 };
 
 let myHands = [];
 const ePatterns = ['punch', 'upper', 'guard', 'guard', 'guard'];
@@ -59,7 +59,7 @@ const imgs = {};
 imgNames.forEach(f => { imgs[f] = new Image(); imgs[f].src = f + '.PNG'; });
 
 function addCmd(c) { if(myHands.length < 5 && !s.isPlaying) { myHands.push(c); updateSlots(); } }
-function resetCmd() { if(!s.isPlaying) { myHands = []; updateSlots(); } }
+function resetCmd() { if(!s.isPlaying) { myHands = []; pIdx = 0; updateSlots(); } }
 function updateSlots() { document.getElementById('slotArea').innerHTML = myHands.map(h => `<div class="slot">${h.toUpperCase()}</div>`).join(''); }
 async function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
@@ -81,42 +81,28 @@ async function resolveBattle() {
     s.isPlaying = true;
 
     for (let i = 0; i < myHands.length; i++) {
-        let pCmd = myHands[i];
+        let p = myHands[i];
         let eCmd = ePatterns[pIdx % ePatterns.length];
         pIdx++;
         
         await animateVersus(300, 460, 150, 'dash', 'dash');
 
-        if (pCmd === 'upper') {
+        if (p === 'punch') {
+            if (eCmd === 'punch') { s.pCur = 'punch'; e.pCur = 'punch'; s.shake = 30; e.shake = 30; await sleep(300); }
+            else if (eCmd === 'upper') { s.pCur = 'knock'; e.pCur = 'upper'; s.shake = 50; await sleep(400); }
+            else if (eCmd === 'guard') { s.pCur = 'punch'; e.pCur = 'guard'; s.shake = 20; e.guardShift = 20; await sleep(400); e.guardShift = 0; }
+        } else if (p === 'upper') {
             if (eCmd === 'punch') {
                 s.pCur = 'upper'; e.pCur = 'damage';
                 let startY = e.y;
-                for(let t=0; t<=20; t++) {
-                    e.y = startY - (100 * Math.sin((t/20) * Math.PI));
-                    await sleep(30);
-                }
+                for(let t=0; t<=20; t++) { e.y = startY - (100 * Math.sin((t/20) * Math.PI)); await sleep(30); }
                 e.y = startY;
-            } else if (eCmd === 'upper') {
-                s.pCur = 'upper'; e.pCur = 'upper';
-                await sleep(300);
-                await animateVersus(100, 660, 200, 'dash', 'dash');
-                continue;
-            } else if (eCmd === 'guard') {
-                s.pCur = 'upper'; e.pCur = 'guard';
-                s.guardShift = -20; e.guardShift = 20;
-                await sleep(400);
-                s.guardShift = 0; e.guardShift = 0;
-            }
-        } else if (pCmd === 'punch') {
-             if (eCmd === 'punch') {
-                s.pCur = 'punch'; e.pCur = 'punch'; s.shake = 30; e.shake = 30; await sleep(300);
-                await animateVersus(100, 660, 200, 'dash', 'dash');
-                continue;
-             } else {
-                s.pCur = 'punch'; e.pCur = 'guard'; s.shake = 20; e.guardShift = 20; await sleep(400); e.guardShift = 0;
-             }
-        } else if (pCmd === 'guard') {
-            s.pCur = 'guard'; s.guardShift = -20; await sleep(400); s.guardShift = 0;
+            } else if (eCmd === 'upper') { s.pCur = 'upper'; e.pCur = 'upper'; await sleep(300); }
+            else if (eCmd === 'guard') { s.pCur = 'upper'; e.pCur = 'guard'; s.guardShift = -20; e.guardShift = 20; await sleep(400); s.guardShift = 0; e.guardShift = 0; }
+        } else if (p === 'guard') {
+            if (eCmd === 'punch') { s.pCur = 'guard'; e.pCur = 'punch'; s.guardShift = -20; e.guardShift = 20; await sleep(400); s.guardShift = 0; e.guardShift = 0; }
+            else if (eCmd === 'upper') { s.pCur = 'guard'; e.pCur = 'upper'; s.guardShift = 20; await sleep(400); s.guardShift = 0; }
+            else if (eCmd === 'guard') { s.pCur = 'guard'; e.pCur = 'guard'; s.shake = 10; e.shake = 10; await sleep(300); }
         }
 
         await animateVersus(100, 660, 200, 'dash', 'dash');
