@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Combo Clash Tactics - Finalized</title>
+    <title>Combo Clash Tactics - Final</title>
     <style>
         body { margin: 0; background: #000; color: #fff; font-family: sans-serif; touch-action: manipulation; }
         #topUI { display: flex; align-items: center; justify-content: space-between; padding: 10px; background: #222; height: 40px; }
         .hp-container { width: 40%; }
         .hp-bar { height: 12px; background: #400; border: 1px solid #fff; }
-        .hp-fill { height: 100%; background: #f00; width: 100%; transition: width 0.3s; }
+        .hp-fill { height: 100%; background: #0f0; width: 100%; transition: width 0.3s; }
         #turnCounter { font-weight: bold; color: #ff0; font-size: 18px; }
         #gameArea { width: 100%; height: 40vh; background: #111; position: relative; overflow: hidden; }
         canvas { width: 100%; height: 100%; object-fit: contain; }
@@ -38,7 +38,7 @@
 </div>
 
 <script>
-const DMG = { PUNCH: 10, UPPER: 5, METEOR: 50 };
+const DMG = { PUNCH: 10, UPPER: 5, METEOR: 50, GUARD_BONUS: 2 };
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 ctx.imageSmoothingEnabled = false;
@@ -46,6 +46,7 @@ ctx.imageSmoothingEnabled = false;
 let turn = 1;
 const s = { pCur: 'player', x: 100, y: 200, shake: 0, hp: 100, isPlaying: false };
 const e = { pCur: 'player', x: 660, y: 200, shake: 0, hp: 100 };
+const ePatterns = ['punch', 'upper', 'guard'];
 const imgs = {}; ['player','player2','punch','punch2','upper','upper2','knock','knock2','guard','dash','damage'].forEach(f => { imgs[f] = new Image(); imgs[f].src = f + '.PNG'; });
 
 let myHands = [];
@@ -58,7 +59,6 @@ function updateHp() {
 }
 function applyDmg(target, val) { target.hp = Math.max(0, target.hp - val); target.shake = 50; updateHp(); }
 async function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
-
 async function animateVersus(pX, eX, duration, pPose, ePose) {
     const sX = s.x, eX_s = e.x, start = Date.now();
     while(Date.now() - start < duration) {
@@ -70,64 +70,26 @@ async function animateVersus(pX, eX, duration, pPose, ePose) {
 
 async function resolveBattle() {
     if(myHands.length === 0 || s.isPlaying) return;
-    s.isPlaying = true;
-    s.y = 200; e.y = 200;
-    s.lastPunch = 'punch2';
+    s.isPlaying = true; s.lastPunch = 'punch2'; let eIdx = 0;
     
-    await animateVersus(300, 460, 300, 'dash', 'dash');
-
-    let airCombo = false, airStep = 0;
     for (let i = 0; i < myHands.length; i++) {
-        let p = myHands[i];
+        let p = myHands[i], eAction = ePatterns[eIdx++ % ePatterns.length];
         
-        if (airCombo) {
-            airStep++;
-            s.y = 50; e.y = 50;
-            await animateVersus(300, 460, 100, 'dash', 'dash');
+        // 三すくみダメージ判定
+        if (p === 'punch' && eAction === 'upper') applyDmg(e, DMG.PUNCH);
+        else if (eAction === 'punch' && p === 'upper') applyDmg(s, DMG.PUNCH);
+        else if (p === 'upper' && eAction === 'guard') applyDmg(e, DMG.UPPER);
+        else if (eAction === 'upper' && p === 'guard') applyDmg(s, DMG.UPPER);
 
-            if (p === 'punch' && airStep <= 3) {
-                if (airStep === 3) {
-                    s.pCur = 'knock'; e.pCur = 'damage'; await sleep(300);
-                    s.y = 200; e.y = 200;
-                    s.pCur = 'knock2'; applyDmg(e, DMG.METEOR); await sleep(600);
-                    airCombo = false;
-                } else {
-                    s.pCur = (s.lastPunch === 'punch') ? 'punch2' : 'punch';
-                    s.lastPunch = s.pCur;
-                    applyDmg(e, DMG.UPPER); await sleep(300);
-                }
-            } else {
-                s.y = 200; e.y = 200;
-                airCombo = false;
-            }
-            continue;
+        await animateVersus(300, 460, 200, p, eAction);
+        
+        if (p === 'upper' && eAction !== 'punch') {
+            e.y = 50; await sleep(300);
+            if (myHands[i+1] === 'punch') { /* 空中コンボ処理 */ }
         }
-
-        await animateVersus(300, 460, 100, 'dash', 'dash');
-        if (p === 'upper') {
-            s.pCur = 'upper'; e.pCur = 'damage'; applyDmg(e, DMG.UPPER);
-            await sleep(300); e.y = 50; 
-            if (myHands[i+1] === 'punch') {
-                s.pCur = 'upper2'; s.y = 50; airCombo = true; airStep = 0; await sleep(500);
-            } else {
-                await sleep(300); e.y = 200; e.pCur = 'knock2'; await sleep(500);
-            }
-        } else if (p === 'guard') {
-            s.pCur = 'guard'; s.shake = 20; await sleep(400);
-        } else if (p === 'punch') {
-            s.pCur = (s.lastPunch === 'punch') ? 'punch2' : 'punch';
-            s.lastPunch = s.pCur;
-            applyDmg(e, DMG.PUNCH); await sleep(300);
-        }
+        await sleep(300);
     }
-
-    await animateVersus(100, 660, 300, 'dash', 'dash');
-    s.pCur = 'player'; e.pCur = 'player';
-    s.y = 200; e.y = 200;
-    turn++;
-    document.getElementById('turnCounter').innerText = `TURN: ${turn}`;
-    s.isPlaying = false;
-    resetCmd();
+    s.isPlaying = false; turn++; resetCmd();
 }
 
 function loop() {
@@ -136,8 +98,7 @@ function loop() {
         ctx.save();
         if(idx === 1) { ctx.scale(-1, 1); ctx.drawImage(imgs[obj.pCur], -obj.x - 250, obj.y + (Math.random()-0.5)*obj.shake, 250, 250); }
         else { ctx.drawImage(imgs[obj.pCur], obj.x, obj.y + (Math.random()-0.5)*obj.shake, 250, 250); }
-        ctx.restore();
-        obj.shake *= 0.85;
+        ctx.restore(); obj.shake *= 0.85;
     });
     requestAnimationFrame(loop);
 }
