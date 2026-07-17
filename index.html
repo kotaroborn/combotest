@@ -6,17 +6,27 @@
     <title>Combo Clash Tactics - Finalized</title>
     <style>
         body { margin: 0; background: #000; color: #fff; font-family: sans-serif; touch-action: manipulation; }
-        #gameArea { width: 100%; height: 50vh; background: #111; position: relative; overflow: hidden; }
+        #topUI { display: flex; align-items: center; justify-content: space-between; padding: 10px; background: #222; height: 40px; }
+        .hp-container { width: 40%; }
+        .hp-bar { height: 12px; background: #400; border: 1px solid #fff; }
+        .hp-fill { height: 100%; background: #f00; width: 100%; transition: width 0.3s; }
+        #turnCounter { font-weight: bold; color: #ff0; font-size: 18px; }
+        #gameArea { width: 100%; height: 40vh; background: #111; position: relative; overflow: hidden; }
         canvas { width: 100%; height: 100%; object-fit: contain; }
-        #slotArea { display: flex; gap: 5px; padding: 10px; height: 60px; justify-content: center; }
-        .slot { width: 60px; border: 2px solid #fff; display: flex; align-items: center; justify-content: center; font-size: 14px; background: #222; }
-        #controls { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; padding: 15px; }
-        .btn { height: 70px; background: #224; border: 2px solid #55a; color: white; font-weight: bold; font-size: 18px; border-radius: 12px; }
-        .sys-btn { grid-column: span 3; background: #b00; height: 60px; }
+        #slotArea { display: flex; gap: 5px; padding: 10px; height: 50px; justify-content: center; }
+        .slot { width: 60px; border: 2px solid #fff; display: flex; align-items: center; justify-content: center; font-size: 12px; background: #222; }
+        #controls { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; padding: 10px; }
+        .btn { height: 60px; background: #224; border: 2px solid #55a; color: white; font-weight: bold; border-radius: 8px; }
+        .sys-btn { grid-column: span 3; background: #b00; height: 50px; }
     </style>
 </head>
 <body>
 
+<div id="topUI">
+    <div class="hp-container"><div class="hp-bar"><div id="myHp" class="hp-fill"></div></div></div>
+    <div id="turnCounter">TURN: 1</div>
+    <div class="hp-container"><div class="hp-bar"><div id="enHp" class="hp-fill"></div></div></div>
+</div>
 <div id="gameArea"><canvas id="gameCanvas" width="960" height="540"></canvas></div>
 <div id="slotArea"></div>
 <div id="controls">
@@ -33,6 +43,7 @@ const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 ctx.imageSmoothingEnabled = false;
 
+let turn = 1;
 const s = { pCur: 'player', x: 100, y: 200, shake: 0, hp: 100, isPlaying: false };
 const e = { pCur: 'player', x: 660, y: 200, shake: 0, hp: 100 };
 const imgs = {}; ['player','player2','punch','punch2','upper','upper2','knock','knock2','guard','dash','damage'].forEach(f => { imgs[f] = new Image(); imgs[f].src = f + '.PNG'; });
@@ -41,9 +52,13 @@ let myHands = [];
 function addCmd(c) { if(myHands.length < 5 && !s.isPlaying) { myHands.push(c); updateSlots(); } }
 function resetCmd() { if(!s.isPlaying) { myHands = []; updateSlots(); } }
 function updateSlots() { document.getElementById('slotArea').innerHTML = myHands.map(h => `<div class="slot">${h.toUpperCase()}</div>`).join(''); }
-function applyDmg(target, val) { target.hp = Math.max(0, target.hp - val); target.shake = 50; }
-async function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+function updateHp() { 
+    document.getElementById('myHp').style.width = s.hp + '%';
+    document.getElementById('enHp').style.width = e.hp + '%';
+}
+function applyDmg(target, val) { target.hp = Math.max(0, target.hp - val); target.shake = 50; updateHp(); }
 
+async function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 async function animateVersus(pX, eX, duration, pPose, ePose) {
     const sX = s.x, eX_s = e.x, start = Date.now();
     while(Date.now() - start < duration) {
@@ -58,17 +73,15 @@ async function resolveBattle() {
     s.isPlaying = true;
     s.y = 200; e.y = 200;
     
-    // 1. 中央へダッシュ
     await animateVersus(300, 460, 300, 'dash', 'dash');
 
     let airCombo = false, airStep = 0;
     for (let i = 0; i < myHands.length; i++) {
         let p = myHands[i];
-        
         if (airCombo) {
             airStep++;
             if (p === 'punch' && airStep <= 3) {
-                if (airStep === 3) { // 3回目（メテオ）
+                if (airStep === 3) {
                     s.pCur = 'knock'; e.pCur = 'damage'; await sleep(500);
                     s.pCur = 'knock2'; applyDmg(e, DMG.METEOR); await sleep(600);
                     airCombo = false;
@@ -76,16 +89,13 @@ async function resolveBattle() {
                     s.pCur = (airStep === 1 ? 'punch' : 'punch2');
                     applyDmg(e, DMG.UPPER); await sleep(300);
                 }
-            } else {
-                airCombo = false; s.y = 200; e.y = 200;
-            }
+            } else { airCombo = false; s.y = 200; e.y = 200; }
             continue;
         }
 
         if (p === 'upper') {
             s.pCur = 'upper'; e.pCur = 'damage'; applyDmg(e, DMG.UPPER);
-            await sleep(300);
-            e.y = 50; 
+            await sleep(300); e.y = 50; 
             if (myHands[i+1] === 'punch') {
                 s.pCur = 'upper2'; s.y = 50; airCombo = true; airStep = 0; await sleep(500);
             } else {
@@ -98,10 +108,12 @@ async function resolveBattle() {
         }
     }
 
-    // 2. 帰還
     await animateVersus(100, 660, 300, 'dash', 'dash');
     s.pCur = 'player'; e.pCur = 'player';
     s.y = 200; e.y = 200;
+    
+    turn++;
+    document.getElementById('turnCounter').innerText = `TURN: ${turn}`;
     s.isPlaying = false;
     resetCmd();
 }
