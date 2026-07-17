@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Combo Clash Tactics - Fixed</title>
+    <title>Combo Clash Tactics - Final Version</title>
     <style>
         body { margin: 0; background: #000; color: #fff; font-family: sans-serif; touch-action: manipulation; }
         #topUI { display: flex; align-items: center; justify-content: space-between; padding: 10px; background: #222; height: 40px; }
@@ -45,8 +45,7 @@ ctx.imageSmoothingEnabled = false;
 let turn = 1;
 const s = { pCur: 'player', x: 100, y: 200, shake: 0, hp: 100, isPlaying: false, lastPunch: 'punch2' };
 const e = { pCur: 'player', x: 660, y: 200, shake: 0, hp: 100 };
-// 画像IDと一致する行動名のみに限定
-const ePatterns = ['punch', 'upper', 'guard']; 
+const ePatterns = ['punch', 'upper', 'guard'];
 const imgs = {}; ['player','player2','punch','punch2','upper','upper2','knock','knock2','guard','dash','damage'].forEach(f => { imgs[f] = new Image(); imgs[f].src = f + '.PNG'; });
 
 let myHands = [];
@@ -58,11 +57,14 @@ function applyDmg(target, val) { target.hp = Math.max(0, target.hp - val); targe
 async function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
 async function animateVersus(pX, eX, duration, pPose, ePose) {
-    const sX = s.x, eX_s = e.x, start = Date.now();
+    const sX = s.x, eX_s = e.x;
+    const start = Date.now();
     while(Date.now() - start < duration) {
         let pr = (Date.now() - start) / duration;
-        s.x = sX + (pX - sX) * pr; e.x = eX_s + (eX - eX_s) * pr;
-        // 描画ステータスを毎フレーム確実に更新
+        let ease = 1 - Math.pow(1 - pr, 3);
+        s.x = sX + (pX - sX) * ease;
+        e.x = eX_s + (eX - eX_s) * ease;
+        if (e.y < 200) e.y = Math.min(200, e.y + 10);
         s.pCur = pPose; e.pCur = ePose; await sleep(16);
     }
 }
@@ -78,23 +80,16 @@ async function resolveBattle() {
         await animateVersus(300, 460, 150, 'dash', 'dash');
 
         if (airCombo) {
-            airStep++;
-            s.y = 50; e.y = 50;
+            airStep++; s.y = 50; e.y = 50;
             let pPose = (s.lastPunch === 'punch') ? 'punch2' : 'punch';
             s.lastPunch = pPose;
-            
             if (p === 'punch' && airStep <= 3) {
                 if (airStep === 3) {
                     s.pCur = 'knock'; e.pCur = 'damage'; await sleep(300);
-                    s.y = 200; e.y = 200; s.pCur = 'knock2'; 
-                    applyDmg(e, DMG.METEOR); await sleep(600);
+                    e.y = 200; s.pCur = 'knock2'; applyDmg(e, DMG.METEOR); await sleep(600);
                     airCombo = false;
-                } else {
-                    applyDmg(e, DMG.UPPER); await sleep(300);
-                }
-            } else {
-                s.y = 200; e.y = 200; airCombo = false;
-            }
+                } else { applyDmg(e, DMG.UPPER); await sleep(300); }
+            } else { e.y = 200; airCombo = false; }
             continue;
         }
 
@@ -103,6 +98,8 @@ async function resolveBattle() {
 
         if (p === 'punch' && eAction === 'upper') applyDmg(e, DMG.PUNCH);
         else if (eAction === 'punch' && p === 'upper') applyDmg(s, DMG.PUNCH);
+        else if (p === 'upper' && eAction === 'guard') applyDmg(e, DMG.UPPER);
+        else if (eAction === 'upper' && p === 'guard') applyDmg(s, DMG.UPPER);
 
         await animateVersus(300, 460, 200, pPose, eAction);
 
