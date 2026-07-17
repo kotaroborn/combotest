@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Combo Clash Tactics - Full Spec</title>
+    <title>Combo Clash Tactics - Fixed</title>
     <style>
         body { margin: 0; background: #000; color: #fff; font-family: sans-serif; touch-action: manipulation; }
         #topUI { display: flex; align-items: center; justify-content: space-between; padding: 10px; background: #222; height: 40px; }
@@ -45,24 +45,24 @@ ctx.imageSmoothingEnabled = false;
 let turn = 1;
 const s = { pCur: 'player', x: 100, y: 200, shake: 0, hp: 100, isPlaying: false, lastPunch: 'punch2' };
 const e = { pCur: 'player', x: 660, y: 200, shake: 0, hp: 100 };
-const ePatterns = ['punch', 'upper', 'guard'];
+// 画像IDと一致する行動名のみに限定
+const ePatterns = ['punch', 'upper', 'guard']; 
 const imgs = {}; ['player','player2','punch','punch2','upper','upper2','knock','knock2','guard','dash','damage'].forEach(f => { imgs[f] = new Image(); imgs[f].src = f + '.PNG'; });
 
 let myHands = [];
 function addCmd(c) { if(myHands.length < 5 && !s.isPlaying) { myHands.push(c); updateSlots(); } }
 function resetCmd() { if(!s.isPlaying) { myHands = []; updateSlots(); } }
 function updateSlots() { document.getElementById('slotArea').innerHTML = myHands.map(h => `<div class="slot">${h.toUpperCase()}</div>`).join(''); }
-function updateHp() { 
-    document.getElementById('myHp').style.width = s.hp + '%';
-    document.getElementById('enHp').style.width = e.hp + '%';
-}
+function updateHp() { document.getElementById('myHp').style.width = s.hp + '%'; document.getElementById('enHp').style.width = e.hp + '%'; }
 function applyDmg(target, val) { target.hp = Math.max(0, target.hp - val); target.shake = 50; updateHp(); }
 async function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
 async function animateVersus(pX, eX, duration, pPose, ePose) {
     const sX = s.x, eX_s = e.x, start = Date.now();
     while(Date.now() - start < duration) {
         let pr = (Date.now() - start) / duration;
         s.x = sX + (pX - sX) * pr; e.x = eX_s + (eX - eX_s) * pr;
+        // 描画ステータスを毎フレーム確実に更新
         s.pCur = pPose; e.pCur = ePose; await sleep(16);
     }
 }
@@ -75,10 +75,8 @@ async function resolveBattle() {
         let p = myHands[i];
         let eAction = ePatterns[eIdx++ % ePatterns.length];
         
-        // --- 接近（DASH） ---
         await animateVersus(300, 460, 150, 'dash', 'dash');
 
-        // --- 空中コンボロジック ---
         if (airCombo) {
             airStep++;
             s.y = 50; e.y = 50;
@@ -86,10 +84,10 @@ async function resolveBattle() {
             s.lastPunch = pPose;
             
             if (p === 'punch' && airStep <= 3) {
-                if (airStep === 3) { // メテオ締め
+                if (airStep === 3) {
                     s.pCur = 'knock'; e.pCur = 'damage'; await sleep(300);
-                    s.y = 200; e.y = 200;
-                    s.pCur = 'knock2'; applyDmg(e, DMG.METEOR); await sleep(600);
+                    s.y = 200; e.y = 200; s.pCur = 'knock2'; 
+                    applyDmg(e, DMG.METEOR); await sleep(600);
                     airCombo = false;
                 } else {
                     applyDmg(e, DMG.UPPER); await sleep(300);
@@ -100,18 +98,11 @@ async function resolveBattle() {
             continue;
         }
 
-        // --- 通常攻撃・三すくみ ---
-        let pPose = p;
-        if (p === 'punch') {
-            pPose = (s.lastPunch === 'punch') ? 'punch2' : 'punch';
-            s.lastPunch = pPose;
-        }
+        let pPose = (p === 'punch') ? ((s.lastPunch === 'punch') ? 'punch2' : 'punch') : p;
+        if (p === 'punch') s.lastPunch = pPose;
 
-        // ダメージ判定
         if (p === 'punch' && eAction === 'upper') applyDmg(e, DMG.PUNCH);
         else if (eAction === 'punch' && p === 'upper') applyDmg(s, DMG.PUNCH);
-        else if (p === 'upper' && eAction === 'guard') applyDmg(e, DMG.UPPER);
-        else if (eAction === 'upper' && p === 'guard') applyDmg(s, DMG.UPPER);
 
         await animateVersus(300, 460, 200, pPose, eAction);
 
@@ -121,14 +112,21 @@ async function resolveBattle() {
             else { e.y = 200; e.pCur = 'knock2'; await sleep(300); }
         }
     }
-    
-    await animateVersus(100, 660, 300, 'dash', 'dash');
-    s.pCur = 'player'; e.pCur = 'player';
-    s.y = 200; e.y = 200;
-    turn++; document.getElementById('turnCounter').innerText = `TURN: ${turn}`;
-    s.isPlaying = false; resetCmd();
+    await animateVersus(100, 660, 300, 'player', 'player');
+    s.y = 200; e.y = 200; turn++; s.isPlaying = false; resetCmd();
 }
-// (loop関数は変更なし)
+
+function loop() {
+    ctx.fillStyle = '#000'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+    [s, e].forEach((obj, idx) => {
+        ctx.save();
+        const img = imgs[obj.pCur] || imgs['player'];
+        if(idx === 1) { ctx.scale(-1, 1); ctx.drawImage(img, -obj.x - 250, obj.y + (Math.random()-0.5)*obj.shake, 250, 250); }
+        else { ctx.drawImage(img, obj.x, obj.y + (Math.random()-0.5)*obj.shake, 250, 250); }
+        ctx.restore(); obj.shake *= 0.85;
+    });
+    requestAnimationFrame(loop);
+}
 loop();
 </script>
 </body>
