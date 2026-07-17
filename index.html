@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Combo Clash Tactics - Polished</title>
+    <title>Combo Clash Tactics - Stable Guard</title>
     <style>
         body { margin: 0; background: #000; color: #fff; font-family: sans-serif; touch-action: manipulation; overflow: hidden; }
         #topUI { display: flex; align-items: center; justify-content: space-between; padding: 10px; background: #222; height: 40px; }
@@ -112,16 +112,16 @@ async function resolveBattle() {
         let pPose = (p === 'punch') ? ((s.lastPunch === 'punch') ? 'punch2' : 'punch') : p;
         if (p === 'punch') { s.lastPunch = pPose; }
 
-        // ガード時の挙動調整
         if (p === 'guard') {
-            s.pCur = 'guard'; s.shake = 150; // ガード時は強く振動
-            if (eAction === 'punch') { applyDmg(s, DMG.PUNCH/2); s.pCur = 'damage'; } // ガード崩し
+            s.pCur = 'guard'; s.shake = 150; 
+            e.pCur = (eAction === 'punch') ? 'punch' : (eAction === 'upper' ? 'upper' : 'player');
+            if (eAction === 'punch' || eAction === 'upper') { applyDmg(s, DMG.PUNCH/2); s.pCur = 'damage'; }
             await sleep(400);
+            e.pCur = 'player';
         } else {
             let playerHit = !(p === 'punch' && eAction === 'guard');
             if (playerHit) { applyDmg(e, (p === 'upper' ? DMG.UPPER : DMG.PUNCH) + (comboCount * 5)); comboCount++; }
             else { comboCount = 0; e.pCur = 'guard'; e.shake = 150; await sleep(400); }
-            
             if (eAction === 'punch' && p === 'upper') applyDmg(s, DMG.PUNCH);
             await animateVersus(300, 460, 200, pPose, eAction);
         }
@@ -140,7 +140,7 @@ async function resolveBattle() {
                     let mY = myJump * Math.sin((j / 20) * Math.PI / 2);
                     e.y = 200 - eY; s.y = 200 - mY; await sleep(20); 
                 }
-                e.y = 200; s.y = 200; s.pCur = 'dash'; // 【修正1】アッパー着地をdashに
+                e.y = 200; s.y = 200; s.pCur = 'dash';
                 await sleep(300); 
             }
         }
