@@ -2,32 +2,44 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Combo Clash Tactics - Symmetric Logic</title>
+    <title>Combo Clash Tactics - Final Polish</title>
     <style>
-        body { margin: 0; background: #000; color: #fff; font-family: monospace; overflow: hidden; display: flex; flex-direction: column; align-items: center; }
+        body { margin: 0; background: #000; color: #fff; font-family: sans-serif; overflow: hidden; display: flex; flex-direction: column; align-items: center; touch-action: manipulation; }
         #gameArea { width: 100vw; height: 50vh; background: #111; position: relative; }
-        canvas { width: 100%; height: 100%; image-rendering: pixelated; }
-        #slotArea { display: flex; gap: 5px; margin: 10px; height: 40px; }
-        .slot { width: 15vw; border: 1px solid #fff; display: flex; align-items: center; justify-content: center; font-size: 10px; background: #222; }
-        #controls { width: 100vw; display: flex; gap: 5px; padding: 5px; box-sizing: border-box; }
-        .btn { flex: 1; height: 15vw; background: #1a2a6c; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: bold; border-radius: 4px; }
+        canvas { width: 100%; height: 100%; object-fit: contain; }
+        .ui { position: absolute; top: 10px; width: 90%; display: flex; justify-content: space-between; gap: 10px; }
+        .hp { flex: 1; height: 20px; border: 2px solid #fff; background: #400; }
+        .bar { height: 100%; background: #f00; width: 100%; }
+        #slotArea { display: flex; gap: 5px; margin: 10px; height: 50px; }
+        .slot { width: 18vw; border: 1px solid #fff; display: flex; align-items: center; justify-content: center; font-size: 12px; background: #222; }
+        #controls { width: 100vw; display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; padding: 15px; box-sizing: border-box; }
+        .btn { padding: 20px; background: #1a2a6c; display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: bold; border-radius: 8px; border: none; color: white; }
+        .sys-btn { grid-column: span 3; padding: 15px; background: #555; }
     </style>
 </head>
 <body>
-<div id="gameArea"><canvas id="gameCanvas" width="960" height="540"></canvas></div>
+
+<div id="gameArea">
+    <div class="ui">
+        <div class="hp"><div id="myBar" class="bar"></div></div>
+        <div class="hp"><div id="enBar" class="bar"></div></div>
+    </div>
+    <canvas id="gameCanvas" width="960" height="540"></canvas>
+</div>
 <div id="slotArea"></div>
 <div id="controls">
-    <div class="btn" onclick="addCmd('punch')">PUNCH</div>
-    <div class="btn" onclick="addCmd('upper')">UPPER</div>
-    <div class="btn" onclick="addCmd('guard')">GUARD</div>
-    <div class="btn" onclick="resetCmd()" style="background:#555;">RESET</div>
-    <div class="btn" onclick="resolveBattle()" style="background:#b00;">GO</div>
+    <button class="btn" onclick="addCmd('punch')">PUNCH</button>
+    <button class="btn" onclick="addCmd('upper')">UPPER</button>
+    <button class="btn" onclick="addCmd('guard')">GUARD</button>
+    <button class="btn sys-btn" onclick="resetCmd()">RESET</button>
+    <button class="btn sys-btn" style="background:#b00;" onclick="resolveBattle()">GO BATTLE</button>
 </div>
+
 <script>
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
-const s = { pCur: 'player', x: 100, y: 200, shake: 0, isPlaying: false };
-const e = { pCur: 'player', x: 660, y: 200, shake: 0 };
+const s = { pCur: 'player', x: 100, y: 200, shake: 0, hp: 100, isPlaying: false };
+const e = { pCur: 'player', x: 660, y: 200, shake: 0, hp: 100 };
 const imgs = {}; ['player','player2','punch','punch2','upper','upper2','knock','knock2','guard','dash','damage'].forEach(f => { imgs[f] = new Image(); imgs[f].src = f + '.PNG'; });
 
 let myHands = []; const ePatterns = ['punch', 'upper', 'guard', 'guard', 'punch'];
@@ -38,14 +50,12 @@ function resetCmd() { if(!s.isPlaying) { myHands = []; pIdx = 0; punchHitCount =
 function updateSlots() { document.getElementById('slotArea').innerHTML = myHands.map(h => `<div class="slot">${h.toUpperCase()}</div>`).join(''); }
 async function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
-// 共通パンチ演出
 async function execPunch(target) {
     punchHitCount++;
     target.pCur = 'dash'; await sleep(50);
     target.pCur = (punchHitCount % 2 === 0) ? 'punch2' : 'punch';
 }
 
-// 共通帰還演出
 async function returnToPosition() {
     s.y = 200; e.y = 200;
     const sX = s.x, eX = e.x, start = Date.now();
@@ -59,42 +69,29 @@ async function returnToPosition() {
 async function resolveBattle() {
     if(myHands.length === 0 || s.isPlaying) return;
     s.isPlaying = true;
-    let mode = null; // 'air', 'ground'
-    let step = 0;
+    let airCombo = false; let airStep = 0;
 
     for (let i = 0; i < myHands.length; i++) {
         let p = myHands[i], eCmd = ePatterns[pIdx++ % ePatterns.length];
-        
-        // 1. ガード判定（コマンド入力がある場合、その場でガードして帰還）
-        if (p === 'guard') {
-            s.pCur = 'guard'; await sleep(400);
-            await returnToPosition();
-            mode = null; step = 0; continue;
+        if (p === 'guard') { s.pCur = 'guard'; await sleep(400); await returnToPosition(); airCombo = false; continue; }
+
+        if (airCombo) {
+            airStep++;
+            if (airStep <= 3) { await execPunch(s); e.pCur = 'damage'; await sleep(300); }
+            else { s.pCur = 'knock'; await sleep(300); s.y = 200; e.y = 200; e.pCur = 'knock2'; e.shake = 50; await sleep(500); airCombo = false; }
+            continue;
         }
 
-        // 2. コンボ中判定
-        if (mode === 'air') {
-            step++;
-            if (step <= 3) { await execPunch(s); e.pCur = 'damage'; await sleep(300); }
-            else { s.pCur = 'knock'; await sleep(300); s.y = 200; e.y = 200; e.pCur = 'knock2'; e.shake = 50; await sleep(500); mode = null; }
-        } else if (mode === 'ground') {
-            await execPunch(s); e.pCur = 'damage'; await sleep(300);
+        await animateVersus(300, 460, 150, 'dash', 'dash');
+        if (p === 'upper' && eCmd === 'punch') {
+            s.pCur = 'upper'; e.pCur = 'damage'; s.y = 50; e.y = 50; airCombo = true; airStep = 0; await sleep(500);
+        } else if (p === 'punch') {
+            await execPunch(s); await sleep(300);
         } else {
-            // 3. 基本三すくみ判定
-            await animateVersus(300, 460, 150, 'dash', 'dash');
-            if (p === 'upper' && eCmd === 'punch') {
-                s.pCur = 'upper'; e.pCur = 'damage'; s.y = 50; e.y = 50;
-                mode = 'air'; step = 0; await sleep(500);
-            } else if (p === 'punch' && eCmd === 'punch') {
-                await execPunch(s); e.pCur = 'damage'; await sleep(300);
-                mode = 'ground';
-            } else {
-                s.pCur = 'player'; e.pCur = 'player'; await sleep(300);
-                await returnToPosition();
-            }
+            s.pCur = 'player'; e.pCur = 'player'; await sleep(300);
         }
+        await returnToPosition();
     }
-    await returnToPosition();
     s.pCur = 'player'; e.pCur = 'player'; s.isPlaying = false; resetCmd();
 }
 
@@ -109,10 +106,12 @@ async function animateVersus(pX, eX, duration, pPose, ePose) {
 
 function loop() {
     ctx.fillStyle = '#0a192f'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+    document.getElementById('myBar').style.width = s.hp + '%';
+    document.getElementById('enBar').style.width = e.hp + '%';
     [s, e].forEach((obj, idx) => {
         ctx.save();
-        if(idx === 1) { ctx.scale(-1, 1); ctx.drawImage(imgs[obj.pCur], -obj.x - 200, obj.y + (Math.random()-0.5)*obj.shake, 200, 200); }
-        else { ctx.drawImage(imgs[obj.pCur], obj.x, obj.y + (Math.random()-0.5)*obj.shake, 200, 200); }
+        if(idx === 1) { ctx.scale(-1, 1); ctx.drawImage(imgs[obj.pCur], -obj.x - 250, obj.y + (Math.random()-0.5)*obj.shake, 250, 250); }
+        else { ctx.drawImage(imgs[obj.pCur], obj.x, obj.y + (Math.random()-0.5)*obj.shake, 250, 250); }
         ctx.restore();
         obj.shake *= 0.85;
     });
