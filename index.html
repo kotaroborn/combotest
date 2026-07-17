@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Combo Clash Tactics - Smooth Air</title>
+    <title>Combo Clash Tactics - Fixed Air Position Final</title>
     <style>
         body { margin: 0; background: #000; color: #fff; font-family: monospace; overflow: hidden; display: flex; flex-direction: column; align-items: center; }
         #gameArea { width: 100vw; height: 50vh; background: #111; position: relative; }
@@ -63,15 +63,6 @@ function resetCmd() { if(!s.isPlaying) { myHands = []; pIdx = 0; updateSlots(); 
 function updateSlots() { document.getElementById('slotArea').innerHTML = myHands.map(h => `<div class="slot">${h.toUpperCase()}</div>`).join(''); }
 async function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
-// ふわっと浮く演出
-async function floatEffect(target, duration) {
-    let startY = target.y;
-    for(let t = 0; t <= 10; t++) {
-        target.y = startY - (100 * Math.sin((t / 10) * Math.PI));
-        await sleep(duration / 10);
-    }
-}
-
 async function animateVersus(pX, eX, duration, pPose, ePose) {
     const sX = s.x; const eX_start = e.x; const start = Date.now();
     while(Date.now() - start < duration) {
@@ -93,39 +84,39 @@ async function resolveBattle() {
         let eCmd = ePatterns[pIdx % ePatterns.length];
         pIdx++;
 
-        // コンボ継続
+        // 1. コンボ中の追撃（位置移動させず、高度だけ維持）
         if (comboCount > 0 && p === 'punch') {
             comboCount++;
             s.pCur = 'punch'; e.pCur = 'damage';
             e.shake = 30;
+            // 位置は300/460に固定したまま
             if (comboCount === 3) {
-                e.pCur = 'knock';
+                e.pCur = 'knock'; 
                 await sleep(500);
-                s.y = 200; e.y = 200; // 着地
+                s.y = 200; e.y = 200; // 地面着地
                 comboCount = 0;
-            } else { await sleep(300); }
-            continue; 
+            } else {
+                await sleep(300);
+            }
+            continue; // 接近・帰還処理をスキップ
         } 
         
-        // コンボ終了時着地
-        if (comboCount > 0) { s.y = 200; e.y = 200; comboCount = 0; }
-
+        // 2. 基本接近（コンボ開始前のみ実行）
         await animateVersus(300, 460, 150, 'dash', 'dash');
 
-        // アッパー成功
+        // 3. アッパー成功（浮かせ）
         if (p === 'upper' && eCmd === 'punch') {
             s.pCur = 'upper'; e.pCur = 'damage';
-            // 自分と相手がふわっと浮く
-            Promise.all([floatEffect(s, 500), floatEffect(e, 500)]);
-            s.y = 100; e.y = 100; 
+            s.y = 50; e.y = 50; // 空中に浮かす
             comboCount = 1;
             await sleep(500);
         } else {
-            // 通常ロジック
+            // 通常の3すくみ処理
             if (p === 'punch' && eCmd === 'punch') { s.pCur = 'punch'; e.pCur = 'punch'; s.shake = 30; e.shake = 30; await sleep(300); }
             else if (p === 'guard' && eCmd === 'punch') { s.pCur = 'damage'; e.pCur = 'punch'; s.guardShift = -20; e.guardShift = 20; await sleep(400); s.guardShift = 0; e.guardShift = 0; }
         }
 
+        // 4. コンボ終了時の帰還
         s.y = 200; e.y = 200;
         await animateVersus(100, 660, 200, 'dash', 'dash');
     }
