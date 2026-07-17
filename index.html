@@ -2,19 +2,19 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Combo Clash Tactics - Final Verified</title>
+    <title>Combo Clash Tactics - Finalized System</title>
     <style>
-        body { margin: 0; background: #000; color: #fff; font-family: sans-serif; overflow: hidden; display: flex; flex-direction: column; align-items: center; touch-action: manipulation; }
+        body { margin: 0; background: #000; color: #fff; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; }
         #gameArea { width: 100vw; height: 50vh; background: #111; position: relative; }
-        canvas { width: 100%; height: 100%; object-fit: contain; image-rendering: pixelated; image-rendering: crisp-edges; }
+        canvas { width: 100%; height: 100%; object-fit: contain; image-rendering: pixelated; }
         .ui { position: absolute; top: 10px; width: 90%; display: flex; justify-content: space-between; gap: 10px; }
         .hp { flex: 1; height: 20px; border: 2px solid #fff; background: #400; }
         .bar { height: 100%; background: #f00; width: 100%; transition: width 0.2s; }
         #slotArea { display: flex; gap: 5px; margin: 10px; height: 50px; }
         .slot { width: 18vw; border: 1px solid #fff; display: flex; align-items: center; justify-content: center; font-size: 12px; background: #222; }
         #controls { width: 100vw; display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; padding: 15px; box-sizing: border-box; }
-        .btn { padding: 20px; background: #1a2a6c; display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: bold; border-radius: 8px; border: none; color: white; }
-        .sys-btn { grid-column: span 3; padding: 15px; background: #555; }
+        .btn { padding: 20px; background: #1a2a6c; border-radius: 8px; border: none; color: white; font-weight: bold; }
+        .sys-btn { grid-column: span 3; background: #555; }
     </style>
 </head>
 <body>
@@ -39,14 +39,12 @@
 const DMG = { PUNCH: 10, UPPER: 5, METEOR: 50, GUARD_CHIP: 2, COUNTER_MULT: 1.5 };
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
-ctx.imageSmoothingEnabled = false;
-
 const s = { pCur: 'player', x: 100, y: 200, shake: 0, hp: 100, isPlaying: false };
 const e = { pCur: 'player', x: 660, y: 200, shake: 0, hp: 100 };
 const imgs = {}; ['player','player2','punch','punch2','upper','upper2','knock','knock2','guard','dash','damage'].forEach(f => { imgs[f] = new Image(); imgs[f].src = f + '.PNG'; });
 
-let myHands = []; const ePatterns = ['punch', 'upper', 'guard', 'guard', 'punch'];
-let pIdx = 0, punchHitCount = 0;
+let myHands = [], pIdx = 0, punchHitCount = 0;
+const ePatterns = ['punch', 'upper', 'guard', 'guard', 'punch'];
 
 function applyDmg(target, val) { target.hp = Math.max(0, target.hp - val); target.shake = 50; }
 function addCmd(c) { if(myHands.length < 5 && !s.isPlaying) { myHands.push(c); updateSlots(); } }
@@ -54,17 +52,14 @@ function resetCmd() { if(!s.isPlaying) { myHands = []; pIdx = 0; punchHitCount =
 function updateSlots() { document.getElementById('slotArea').innerHTML = myHands.map(h => `<div class="slot">${h.toUpperCase()}</div>`).join(''); }
 async function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
-async function execPunch(target) {
-    punchHitCount++;
-    target.pCur = (punchHitCount % 2 === 0) ? 'punch2' : 'punch';
-}
+async function execPunch(target) { punchHitCount++; target.pCur = (punchHitCount % 2 === 0) ? 'punch2' : 'punch'; }
 
 async function returnToPosition() {
     const sX = s.x, eX = e.x, start = Date.now();
     while(Date.now() - start < 200) {
         let pr = (Date.now() - start) / 200;
         s.x = sX + (100 - sX) * pr; e.x = eX + (660 - eX) * pr;
-        s.pCur = 'dash'; e.pCur = 'dash'; await sleep(16);
+        await sleep(16);
     }
     s.pCur = 'player'; e.pCur = 'player';
 }
@@ -75,38 +70,40 @@ async function resolveBattle() {
     const activeHands = [...myHands];
     let airCombo = false, airStep = 0;
 
-    for (let p of activeHands) {
+    for (let i = 0; i < activeHands.length; i++) {
+        let p = activeHands[i], eCmd = ePatterns[pIdx++ % ePatterns.length];
         if (s.hp <= 0 || e.hp <= 0) break;
-        let eCmd = ePatterns[pIdx++ % ePatterns.length];
 
         if (airCombo) {
             airStep++;
-            if (airStep < 3) {
+            if (p === 'punch' && airStep < 4) {
                 await execPunch(s); applyDmg(e, DMG.UPPER); e.pCur = 'damage'; await sleep(300);
+                if (airStep === 3) { // 4手目(3回目のパンチ)でメテオ
+                    s.pCur = 'knock'; e.pCur = 'damage'; await sleep(500);
+                    s.y = 200; e.y = 200; s.pCur = 'knock2'; applyDmg(e, DMG.METEOR);
+                    await sleep(600); airCombo = false; await returnToPosition();
+                }
             } else {
-                s.pCur = 'knock'; e.pCur = 'damage'; await sleep(500);
-                s.y = 200; e.y = 200; s.pCur = 'knock2'; applyDmg(e, DMG.METEOR);
-                await sleep(600); airCombo = false; await returnToPosition();
+                airCombo = false; s.y = 200; e.y = 200; await returnToPosition();
             }
             continue;
         }
 
-        if (p === 'guard') {
-            s.pCur = 'guard'; await sleep(400);
-            if(eCmd === 'upper') applyDmg(e, DMG.UPPER);
-            await returnToPosition(); continue;
-        }
-
-        await animateVersus(300, 460, 150, 'dash', 'dash');
-
-        if (p === 'upper' && eCmd === 'punch') {
-            e.y = 50; await sleep(100); s.pCur = 'upper2'; s.y = 50; await sleep(300);
-            applyDmg(e, DMG.UPPER * DMG.COUNTER_MULT); airCombo = true; airStep = 0; await sleep(500);
-        } else if (p === 'punch') {
-            if(eCmd === 'upper') applyDmg(s, DMG.PUNCH);
-            else { await execPunch(s); applyDmg(e, DMG.PUNCH); }
-            await sleep(300); await returnToPosition();
+        if (p === 'upper') {
+            await animateVersus(300, 460, 150, 'upper', 'damage');
+            applyDmg(e, DMG.UPPER); e.y = 50; 
+            
+            if (activeHands[i+1] === 'punch') {
+                s.pCur = 'upper2'; s.y = 50; airCombo = true; airStep = 0; await sleep(500);
+            } else {
+                await sleep(300); e.y = 200; e.pCur = 'knock2'; await sleep(500);
+                await returnToPosition();
+            }
+        } else if (p === 'guard') {
+            s.pCur = 'guard'; s.shake = 20; await sleep(400); await returnToPosition();
         } else {
+            await animateVersus(300, 460, 150, 'dash', 'dash');
+            await execPunch(s); applyDmg(e, DMG.PUNCH); await sleep(300);
             await returnToPosition();
         }
     }
