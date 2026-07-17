@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Combo Clash Tactics - Synced Logic</title>
+    <title>Combo Clash Tactics - Final Refined Logic</title>
     <style>
         body { margin: 0; background: #000; color: #fff; font-family: monospace; overflow: hidden; display: flex; flex-direction: column; align-items: center; }
         #gameArea { width: 100vw; height: 50vh; background: #111; position: relative; }
@@ -84,34 +84,34 @@ async function resolveBattle() {
         let eCmd = ePatterns[pIdx % ePatterns.length];
         pIdx++;
 
-        // 1. 空中コンボ中の処理
         if (comboCount > 0) {
-            if (p === 'punch') {
+            if (p === 'punch' && comboCount < 4) {
                 comboCount++;
-                s.pCur = 'punch'; e.pCur = 'damage'; // 敵はdamage固定
+                s.pCur = 'punch'; e.pCur = 'damage';
                 s.x = 300; e.x = 460; s.y = 50; e.y = 50;
-                e.shake = 30;
-                
-                if (comboCount === 4) { // メテオ
-                    e.pCur = 'knock'; 
-                    await sleep(500);
-                    s.y = 200; e.y = 200;
-                    comboCount = 0;
-                    await animateVersus(100, 460, 200, 'player', 'knock');
-                } else {
-                    await sleep(300);
-                }
+                await sleep(300);
                 continue; 
             } else {
+                // コンボ終了(メテオ)または中断時の着地演出
+                let isMeteor = (comboCount === 4);
+                s.pCur = 'player'; e.pCur = 'damage';
                 s.y = 200; e.y = 200;
+                e.pCur = 'knock2';
+                e.shake = isMeteor ? 50 : 0; // メテオ時のみ揺れる
+                
+                await sleep(isMeteor ? 500 : 300);
+                
+                s.pCur = 'dash'; e.pCur = 'dash';
+                await animateVersus(100, 660, 200, 'dash', 'dash');
+                
+                s.pCur = 'player'; e.pCur = 'player';
                 comboCount = 0;
+                if (p === 'punch' && comboCount < 4) continue;
             }
         } 
         
-        // 2. 地上接近
         await animateVersus(300, 460, 150, 'dash', 'dash');
 
-        // 3. 行動判定
         if (p === 'upper' && eCmd === 'punch') {
             s.pCur = 'upper'; e.pCur = 'damage';
             s.y = 50; e.y = 50; 
