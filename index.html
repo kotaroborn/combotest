@@ -2,14 +2,15 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Combo Clash Tactics - Final Polish</title>
+    <title>Combo Clash Tactics - Crisp Display</title>
     <style>
         body { margin: 0; background: #000; color: #fff; font-family: sans-serif; overflow: hidden; display: flex; flex-direction: column; align-items: center; touch-action: manipulation; }
         #gameArea { width: 100vw; height: 50vh; background: #111; position: relative; }
-        canvas { width: 100%; height: 100%; object-fit: contain; }
+        /* 【重要】ここを pixelated にすることで画像がボケなくなります */
+        canvas { width: 100%; height: 100%; object-fit: contain; image-rendering: pixelated; image-rendering: crisp-edges; }
         .ui { position: absolute; top: 10px; width: 90%; display: flex; justify-content: space-between; gap: 10px; }
         .hp { flex: 1; height: 20px; border: 2px solid #fff; background: #400; }
-        .bar { height: 100%; background: #f00; width: 100%; }
+        .bar { height: 100%; background: #f00; width: 100%; transition: width 0.2s; }
         #slotArea { display: flex; gap: 5px; margin: 10px; height: 50px; }
         .slot { width: 18vw; border: 1px solid #fff; display: flex; align-items: center; justify-content: center; font-size: 12px; background: #222; }
         #controls { width: 100vw; display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; padding: 15px; box-sizing: border-box; }
@@ -38,6 +39,9 @@
 <script>
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
+// Canvasの描画設定でも補間を無効化
+ctx.imageSmoothingEnabled = false;
+
 const s = { pCur: 'player', x: 100, y: 200, shake: 0, hp: 100, isPlaying: false };
 const e = { pCur: 'player', x: 660, y: 200, shake: 0, hp: 100 };
 const imgs = {}; ['player','player2','punch','punch2','upper','upper2','knock','knock2','guard','dash','damage'].forEach(f => { imgs[f] = new Image(); imgs[f].src = f + '.PNG'; });
@@ -78,21 +82,23 @@ async function resolveBattle() {
         if (airCombo) {
             airStep++;
             if (airStep <= 3) { await execPunch(s); e.pCur = 'damage'; await sleep(300); }
-            else { s.pCur = 'knock'; await sleep(300); s.y = 200; e.y = 200; e.pCur = 'knock2'; e.shake = 50; await sleep(500); airCombo = false; }
+            else { s.pCur = 'knock'; await sleep(300); s.y = 200; e.y = 200; e.pCur = 'knock2'; e.shake = 50; await sleep(500); airCombo = false; await returnToPosition(); }
             continue;
         }
 
         await animateVersus(300, 460, 150, 'dash', 'dash');
         if (p === 'upper' && eCmd === 'punch') {
             s.pCur = 'upper'; e.pCur = 'damage'; s.y = 50; e.y = 50; airCombo = true; airStep = 0; await sleep(500);
+            continue;
         } else if (p === 'punch') {
             await execPunch(s); await sleep(300);
         } else {
             s.pCur = 'player'; e.pCur = 'player'; await sleep(300);
         }
         await returnToPosition();
+        s.pCur = 'player'; e.pCur = 'player';
     }
-    s.pCur = 'player'; e.pCur = 'player'; s.isPlaying = false; resetCmd();
+    s.isPlaying = false; resetCmd();
 }
 
 async function animateVersus(pX, eX, duration, pPose, ePose) {
