@@ -2,21 +2,22 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Combo Clash Tactics - Final Unified Build</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Combo Clash Tactics - Mobile Optimized</title>
     <style>
-        body { margin: 0; background: #000; color: #fff; font-family: sans-serif; touch-action: manipulation; }
+        body { margin: 0; background: #000; color: #fff; font-family: sans-serif; touch-action: manipulation; overflow: hidden; }
         #topUI { display: flex; align-items: center; justify-content: space-between; padding: 10px; background: #222; height: 40px; }
         .hp-container { width: 40%; }
         .hp-bar { height: 12px; background: #400; border: 1px solid #fff; }
         .hp-fill { height: 100%; background: #0f0; width: 100%; transition: width 0.3s; }
         #turnCounter { font-weight: bold; color: #ff0; font-size: 18px; }
-        #gameArea { width: 100%; height: 40vh; background: #111; position: relative; overflow: hidden; }
+        #gameArea { width: 100%; height: 35vh; background: #111; position: relative; overflow: hidden; }
         canvas { width: 100%; height: 100%; object-fit: contain; }
         #slotArea { display: flex; gap: 5px; padding: 10px; height: 50px; justify-content: center; }
         .slot { width: 60px; border: 2px solid #fff; display: flex; align-items: center; justify-content: center; font-size: 12px; background: #222; }
-        #controls { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; padding: 10px; }
-        .btn { height: 60px; background: #224; border: 2px solid #55a; color: white; font-weight: bold; border-radius: 8px; }
-        .sys-btn { grid-column: span 3; background: #b00; height: 50px; }
+        #controls { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; padding: 10px; }
+        .btn { height: 70px; background: #224; border: 2px solid #55a; color: white; font-weight: bold; border-radius: 8px; font-size: 16px; touch-action: manipulation; }
+        .sys-btn { grid-column: span 3; background: #b00; height: 55px; font-size: 18px; }
     </style>
 </head>
 <body>
@@ -36,13 +37,14 @@
 </div>
 
 <script>
+// --- 以下、ロジック部分は先程の完全統合版を維持 ---
 const DMG = { PUNCH: 10, UPPER: 5, METEOR: 50 };
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 ctx.imageSmoothingEnabled = false;
 
 let turn = 1;
-let airCombo = false; // 重力制御用フラグをグローバル管理
+let airCombo = false; 
 
 const s = { pCur: 'player', x: 100, y: 200, shake: 0, hp: 100, isPlaying: false, lastPunch: 'punch2' };
 const e = { pCur: 'player', x: 660, y: 200, shake: 0, hp: 100 };
@@ -57,7 +59,6 @@ function updateHp() { document.getElementById('myHp').style.width = s.hp + '%'; 
 function applyDmg(target, val) { target.hp = Math.max(0, target.hp - val); target.shake = 50; updateHp(); }
 async function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
-// 重力を集中管理するアニメーション関数
 async function animateVersus(pX, eX, duration, pPose, ePose) {
     const sX = s.x, eX_s = e.x;
     const start = Date.now();
@@ -66,12 +67,7 @@ async function animateVersus(pX, eX, duration, pPose, ePose) {
         let ease = 1 - Math.pow(1 - pr, 3);
         s.x = sX + (pX - sX) * ease;
         e.x = eX_s + (eX - eX_s) * ease;
-        
-        // 空中でなければ重力を適用
-        if (!airCombo) {
-            s.y = Math.min(200, s.y + 10);
-            e.y = Math.min(200, e.y + 10);
-        }
+        if (!airCombo) { s.y = Math.min(200, s.y + 10); e.y = Math.min(200, e.y + 10); }
         s.pCur = pPose; e.pCur = ePose; await sleep(16);
     }
 }
@@ -84,12 +80,11 @@ async function resolveBattle() {
     for (let i = 0; i < myHands.length; i++) {
         let p = myHands[i];
         let eAction = ePatterns[eIdx++ % ePatterns.length];
-        
         await animateVersus(300, 460, 150, 'dash', 'dash');
 
         if (airCombo) {
             airStep++;
-            s.y = 50; e.y = 50; // 強制固定
+            s.y = 50; e.y = 50;
             s.pCur = (s.lastPunch === 'punch') ? 'punch2' : 'punch';
             s.lastPunch = s.pCur;
             e.pCur = 'damage';
@@ -97,7 +92,7 @@ async function resolveBattle() {
             if (p === 'punch' && airStep <= 3) {
                 if (airStep === 3) {
                     s.pCur = 'knock'; e.pCur = 'damage'; await sleep(300);
-                    airCombo = false; // 重力復活
+                    airCombo = false;
                     s.y = 200; e.y = 200; s.pCur = 'knock2'; applyDmg(e, DMG.METEOR + (comboCount * 10)); await sleep(600);
                     comboCount = 0;
                 } else { applyDmg(e, DMG.UPPER + (comboCount * 5)); comboCount++; await sleep(300); }
