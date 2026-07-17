@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Combo Clash Tactics - Full Coverage</title>
+    <title>Combo Clash Tactics - Finalized</title>
     <style>
         body { margin: 0; background: #000; color: #fff; font-family: monospace; overflow: hidden; display: flex; flex-direction: column; align-items: center; }
         #gameArea { width: 100vw; height: 50vh; background: #111; position: relative; }
@@ -89,7 +89,7 @@ async function resolveBattle() {
 
         if (p === 'punch') {
             if (eCmd === 'punch') { s.pCur = 'punch'; e.pCur = 'punch'; s.shake = 30; e.shake = 30; await sleep(300); }
-            else if (eCmd === 'upper') { s.pCur = 'knock'; e.pCur = 'upper'; s.shake = 50; await sleep(400); }
+            else if (eCmd === 'upper') { s.pCur = 'damage'; e.pCur = 'upper'; s.shake = 50; await sleep(400); }
             else if (eCmd === 'guard') { s.pCur = 'punch'; e.pCur = 'guard'; s.shake = 20; e.guardShift = 20; await sleep(400); e.guardShift = 0; }
         } else if (p === 'upper') {
             if (eCmd === 'punch') {
@@ -98,9 +98,9 @@ async function resolveBattle() {
                 for(let t=0; t<=20; t++) { e.y = startY - (100 * Math.sin((t/20) * Math.PI)); await sleep(30); }
                 e.y = startY;
             } else if (eCmd === 'upper') { s.pCur = 'upper'; e.pCur = 'upper'; await sleep(300); }
-            else if (eCmd === 'guard') { s.pCur = 'upper'; e.pCur = 'guard'; s.guardShift = -20; e.guardShift = 20; await sleep(400); s.guardShift = 0; e.guardShift = 0; }
+            else if (eCmd === 'guard') { s.pCur = 'damage'; e.pCur = 'guard'; s.guardShift = -20; e.guardShift = 20; await sleep(400); s.guardShift = 0; e.guardShift = 0; }
         } else if (p === 'guard') {
-            if (eCmd === 'punch') { s.pCur = 'guard'; e.pCur = 'punch'; s.guardShift = -20; e.guardShift = 20; await sleep(400); s.guardShift = 0; e.guardShift = 0; }
+            if (eCmd === 'punch') { s.pCur = 'damage'; e.pCur = 'punch'; s.guardShift = -20; e.guardShift = 20; await sleep(400); s.guardShift = 0; e.guardShift = 0; }
             else if (eCmd === 'upper') { s.pCur = 'guard'; e.pCur = 'upper'; s.guardShift = 20; await sleep(400); s.guardShift = 0; }
             else if (eCmd === 'guard') { s.pCur = 'guard'; e.pCur = 'guard'; s.shake = 10; e.shake = 10; await sleep(300); }
         }
