@@ -2,8 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Combo Clash Tactics - Full Engine</title>
+    <title>Combo Clash Tactics - Debug View</title>
     <style>
         body { margin: 0; background: #000; color: #fff; font-family: monospace; overflow: hidden; display: flex; flex-direction: column; align-items: center; }
         #gameArea { width: 100vw; height: 50vh; background: #111; position: relative; }
@@ -49,7 +48,7 @@ const ctx = canvas.getContext('2d');
 ctx.imageSmoothingEnabled = false;
 
 const s = { pCur: 'player', x: 200, y: 200, isAir: false, shake: 0, afterImages: [], guardShift: 0, isPlaying: false };
-const e = { pCur: 'player', x: 750, y: 200, isAir: false, shake: 0, afterImages: [], guardShift: 0 };
+const e = { pCur: 'player', x: 750, y: 200, shake: 0, afterImages: [], guardShift: 0 };
 
 let myHands = [];
 const imgNames = ['player','player2','punch','punch2','upper','upper2','knock','knock2','guard','dash'];
@@ -81,7 +80,8 @@ async function resolveBattle() {
 
     for (let i = 0; i < myHands.length; i++) {
         let pCmd = myHands[i];
-        let eCmd = 'punch'; // 暫定
+        let eCmd = (i % 2 === 0) ? 'punch' : 'guard'; // 偶数は相殺、奇数は攻防
+        
         await animateVersus(400, 550, 150, 'dash', 'dash');
 
         if (pCmd === 'upper') {
