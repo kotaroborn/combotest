@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Combo Clash Tactics - Stable Guard</title>
+    <title>Combo Clash Tactics - Smooth Landing</title>
     <style>
         body { margin: 0; background: #000; color: #fff; font-family: sans-serif; touch-action: manipulation; overflow: hidden; }
         #topUI { display: flex; align-items: center; justify-content: space-between; padding: 10px; background: #222; height: 40px; }
@@ -68,6 +68,16 @@ function updateHp() { document.getElementById('myHp').style.width = s.hp + '%'; 
 function applyDmg(target, val) { target.hp = Math.max(0, target.hp - val); target.shake = 100; updateHp(); }
 async function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
+// 空中からの着地用アニメーション関数
+async function landSmoothly() {
+    for(let j = 20; j >= 0; j--) {
+        let y = 150 * Math.sin((j / 20) * Math.PI / 2);
+        e.y = 200 - y; s.y = 200 - y;
+        await sleep(20);
+    }
+    s.y = 200; e.y = 200; s.pCur = 'dash';
+}
+
 async function animateVersus(pX, eX, duration, pPose, ePose) {
     const sX = s.x, eX_s = e.x;
     const start = Date.now();
@@ -98,19 +108,21 @@ async function resolveBattle() {
             s.lastPunch = s.pCur;
             e.pCur = 'damage';
             s.shake = 50; 
+            
+            // コンボ継続判定
             if (p === 'punch' && airStep <= 3) {
                 if (airStep === 3) {
                     s.pCur = 'knock'; e.pCur = 'damage'; await sleep(300);
-                    airCombo = false; s.y = 200; e.y = 200; s.pCur = 'knock2'; 
+                    airCombo = false; await landSmoothly(); // 着地演出
                     applyDmg(e, DMG.METEOR + (comboCount * 10)); await sleep(600);
                     comboCount = 0;
                 } else { applyDmg(e, DMG.UPPER + (comboCount * 5)); comboCount++; await sleep(300); }
-            } else { airCombo = false; s.y = 200; e.y = 200; comboCount = 0; }
+            } else { 
+                airCombo = false; await landSmoothly(); // コンボ終了時の着地演出
+                comboCount = 0; 
+            }
             continue;
         }
-
-        let pPose = (p === 'punch') ? ((s.lastPunch === 'punch') ? 'punch2' : 'punch') : p;
-        if (p === 'punch') { s.lastPunch = pPose; }
 
         if (p === 'guard') {
             s.pCur = 'guard'; s.shake = 150; 
@@ -123,7 +135,7 @@ async function resolveBattle() {
             if (playerHit) { applyDmg(e, (p === 'upper' ? DMG.UPPER : DMG.PUNCH) + (comboCount * 5)); comboCount++; }
             else { comboCount = 0; e.pCur = 'guard'; e.shake = 150; await sleep(400); }
             if (eAction === 'punch' && p === 'upper') applyDmg(s, DMG.PUNCH);
-            await animateVersus(300, 460, 200, pPose, eAction);
+            await animateVersus(300, 460, 200, p, eAction);
         }
 
         if (p === 'upper' && eAction !== 'punch' && !airCombo) {
@@ -134,17 +146,8 @@ async function resolveBattle() {
                 e.y = 200 - eY; s.y = 200 - mY; e.pCur = 'damage'; await sleep(20); 
             }
             if (myHands[i+1] === 'punch') { airCombo = true; airStep = 0; s.y = 50; e.y = 50; }
-            else { 
-                for(let j = 20; j >= 0; j--) { 
-                    let eY = 150 * Math.sin((j / 20) * Math.PI / 2);
-                    let mY = myJump * Math.sin((j / 20) * Math.PI / 2);
-                    e.y = 200 - eY; s.y = 200 - mY; await sleep(20); 
-                }
-                e.y = 200; s.y = 200; s.pCur = 'dash';
-                await sleep(300); 
-            }
+            else { await landSmoothly(); }
         }
-        if (!airCombo) { s.y = 200; e.y = 200; }
     }
     await animateVersus(100, 660, 300, 'player', 'player');
     s.y = 200; e.y = 200; turn++; s.isPlaying = false; resetCmd();
