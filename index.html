@@ -2,102 +2,100 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Combo Clash Tactics - Continuous Combo</title>
+    <title>Combo Clash Tactics - Symmetric Logic</title>
     <style>
         body { margin: 0; background: #000; color: #fff; font-family: monospace; overflow: hidden; display: flex; flex-direction: column; align-items: center; }
         #gameArea { width: 100vw; height: 50vh; background: #111; position: relative; }
         canvas { width: 100%; height: 100%; image-rendering: pixelated; }
-        .ui { position: absolute; top: 10px; width: 100%; display: flex; justify-content: center; align-items: center; gap: 15px; }
-        .hp { width: 30vw; height: 15px; border: 2px solid #fff; background: #400; }
-        .bar { height: 100%; background: #f00; transition: width 0.2s; width: 100%; }
         #slotArea { display: flex; gap: 5px; margin: 10px; height: 40px; }
         .slot { width: 15vw; border: 1px solid #fff; display: flex; align-items: center; justify-content: center; font-size: 10px; background: #222; }
         #controls { width: 100vw; display: flex; gap: 5px; padding: 5px; box-sizing: border-box; }
-        #actionBtns { flex: 3; display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; }
-        #systemBtns { flex: 2; display: grid; grid-template-columns: repeat(2, 1fr); gap: 5px; }
-        .btn { height: 15vw; background: #1a2a6c; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: bold; border-radius: 4px; }
+        .btn { flex: 1; height: 15vw; background: #1a2a6c; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: bold; border-radius: 4px; }
     </style>
 </head>
 <body>
-
-<div id="gameArea">
-    <canvas id="gameCanvas" width="960" height="540"></canvas>
-</div>
+<div id="gameArea"><canvas id="gameCanvas" width="960" height="540"></canvas></div>
 <div id="slotArea"></div>
 <div id="controls">
-    <div id="actionBtns">
-        <div class="btn" onclick="addCmd('punch')">PUNCH</div>
-        <div class="btn" onclick="addCmd('upper')">UPPER</div>
-        <div class="btn" onclick="addCmd('guard')">GUARD</div>
-    </div>
-    <div id="systemBtns">
-        <div class="btn" onclick="resetCmd()" style="background:#555;">RESET</div>
-        <div class="btn" onclick="resolveBattle()" style="background:#b00;">GO</div>
-    </div>
+    <div class="btn" onclick="addCmd('punch')">PUNCH</div>
+    <div class="btn" onclick="addCmd('upper')">UPPER</div>
+    <div class="btn" onclick="addCmd('guard')">GUARD</div>
+    <div class="btn" onclick="resetCmd()" style="background:#555;">RESET</div>
+    <div class="btn" onclick="resolveBattle()" style="background:#b00;">GO</div>
 </div>
-
 <script>
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
-const s = { pCur: 'player', x: 100, y: 200, shake: 0, guardShift: 0, isPlaying: false };
-const e = { pCur: 'player', x: 660, y: 200, shake: 0, guardShift: 0 };
+const s = { pCur: 'player', x: 100, y: 200, shake: 0, isPlaying: false };
+const e = { pCur: 'player', x: 660, y: 200, shake: 0 };
 const imgs = {}; ['player','player2','punch','punch2','upper','upper2','knock','knock2','guard','dash','damage'].forEach(f => { imgs[f] = new Image(); imgs[f].src = f + '.PNG'; });
 
-let myHands = [];
-const ePatterns = ['punch', 'upper', 'guard', 'guard', 'guard'];
-let pIdx = 0, punchCount = 0;
+let myHands = []; const ePatterns = ['punch', 'upper', 'guard', 'guard', 'punch'];
+let pIdx = 0, punchHitCount = 0;
 
 function addCmd(c) { if(myHands.length < 5 && !s.isPlaying) { myHands.push(c); updateSlots(); } }
-function resetCmd() { if(!s.isPlaying) { myHands = []; pIdx = 0; punchCount = 0; updateSlots(); } }
+function resetCmd() { if(!s.isPlaying) { myHands = []; pIdx = 0; punchHitCount = 0; updateSlots(); } }
 function updateSlots() { document.getElementById('slotArea').innerHTML = myHands.map(h => `<div class="slot">${h.toUpperCase()}</div>`).join(''); }
 async function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+// 共通パンチ演出
+async function execPunch(target) {
+    punchHitCount++;
+    target.pCur = 'dash'; await sleep(50);
+    target.pCur = (punchHitCount % 2 === 0) ? 'punch2' : 'punch';
+}
+
+// 共通帰還演出
+async function returnToPosition() {
+    s.y = 200; e.y = 200;
+    const sX = s.x, eX = e.x, start = Date.now();
+    while(Date.now() - start < 200) {
+        let pr = (Date.now() - start) / 200;
+        s.x = sX + (100 - sX) * pr; e.x = eX + (660 - eX) * pr;
+        s.pCur = 'dash'; e.pCur = 'dash'; await sleep(16);
+    }
+}
 
 async function resolveBattle() {
     if(myHands.length === 0 || s.isPlaying) return;
     s.isPlaying = true;
-    let comboMode = null; // 'air', 'ground'
-    let comboStep = 0;
+    let mode = null; // 'air', 'ground'
+    let step = 0;
 
     for (let i = 0; i < myHands.length; i++) {
-        let p = myHands[i];
-        let eCmd = ePatterns[pIdx++ % ePatterns.length];
+        let p = myHands[i], eCmd = ePatterns[pIdx++ % ePatterns.length];
         
-        // 判定・攻撃実行
-        if (comboMode === 'air') {
-            comboStep++;
-            if (comboStep < 4) { // 空中追撃
-                s.pCur = (comboStep % 2 === 0) ? 'punch2' : 'punch';
-                e.pCur = 'damage';
-                await sleep(300);
-            } else { // メテオ
-                s.pCur = 'knock'; await sleep(300);
-                s.y = 200; e.y = 200; e.pCur = 'knock2'; e.shake = 50;
-                await sleep(500);
-                comboMode = null;
-            }
+        // 1. ガード判定（コマンド入力がある場合、その場でガードして帰還）
+        if (p === 'guard') {
+            s.pCur = 'guard'; await sleep(400);
+            await returnToPosition();
+            mode = null; step = 0; continue;
+        }
+
+        // 2. コンボ中判定
+        if (mode === 'air') {
+            step++;
+            if (step <= 3) { await execPunch(s); e.pCur = 'damage'; await sleep(300); }
+            else { s.pCur = 'knock'; await sleep(300); s.y = 200; e.y = 200; e.pCur = 'knock2'; e.shake = 50; await sleep(500); mode = null; }
+        } else if (mode === 'ground') {
+            await execPunch(s); e.pCur = 'damage'; await sleep(300);
         } else {
+            // 3. 基本三すくみ判定
             await animateVersus(300, 460, 150, 'dash', 'dash');
             if (p === 'upper' && eCmd === 'punch') {
                 s.pCur = 'upper'; e.pCur = 'damage'; s.y = 50; e.y = 50;
-                comboMode = 'air'; comboStep = 1; await sleep(500);
+                mode = 'air'; step = 0; await sleep(500);
             } else if (p === 'punch' && eCmd === 'punch') {
-                punchCount++;
-                s.pCur = 'dash'; await sleep(50);
-                s.pCur = (punchCount % 2 === 0) ? 'punch2' : 'punch';
-                e.pCur = 'punch'; await sleep(300);
-                comboMode = 'ground';
+                await execPunch(s); e.pCur = 'damage'; await sleep(300);
+                mode = 'ground';
             } else {
-                if (p === 'guard' && eCmd === 'punch') { s.pCur = 'damage'; e.pCur = 'punch'; await sleep(400); }
-                s.y = 200; e.y = 200;
-                await animateVersus(100, 660, 200, 'player', 'player');
-                comboMode = null;
+                s.pCur = 'player'; e.pCur = 'player'; await sleep(300);
+                await returnToPosition();
             }
         }
     }
-    // 全コマンド終了後の帰還
-    await animateVersus(100, 660, 200, 'dash', 'dash');
-    s.pCur = 'player'; e.pCur = 'player';
-    s.isPlaying = false; resetCmd();
+    await returnToPosition();
+    s.pCur = 'player'; e.pCur = 'player'; s.isPlaying = false; resetCmd();
 }
 
 async function animateVersus(pX, eX, duration, pPose, ePose) {
