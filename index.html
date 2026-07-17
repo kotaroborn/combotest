@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Combo Clash Tactics - Debugged</title>
+    <title>Combo Clash Tactics - Finalized Meteor</title>
     <style>
         body { margin: 0; background: #000; color: #fff; font-family: sans-serif; overflow: hidden; display: flex; flex-direction: column; align-items: center; touch-action: manipulation; }
         #gameArea { width: 100vw; height: 50vh; background: #111; position: relative; }
@@ -37,7 +37,6 @@
 
 <script>
 const DMG = { PUNCH: 10, UPPER: 5, METEOR: 50, GUARD_CHIP: 2, COUNTER_MULT: 1.5 };
-
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 ctx.imageSmoothingEnabled = false;
@@ -47,21 +46,20 @@ const e = { pCur: 'player', x: 660, y: 200, shake: 0, hp: 100 };
 const imgs = {}; ['player','player2','punch','punch2','upper','upper2','knock','knock2','guard','dash','damage'].forEach(f => { imgs[f] = new Image(); imgs[f].src = f + '.PNG'; });
 
 let myHands = []; const ePatterns = ['punch', 'upper', 'guard', 'guard', 'punch'];
-let pIdx = 0, punchHitCount = 0;
+let pIdx = 0;
 
 function applyDmg(target, val) { target.hp = Math.max(0, target.hp - val); target.shake = 50; }
 function addCmd(c) { if(myHands.length < 5 && !s.isPlaying) { myHands.push(c); updateSlots(); } }
-function resetCmd() { if(!s.isPlaying) { myHands = []; pIdx = 0; punchHitCount = 0; updateSlots(); } }
+function resetCmd() { if(!s.isPlaying) { myHands = []; pIdx = 0; updateSlots(); } }
 function updateSlots() { document.getElementById('slotArea').innerHTML = myHands.map(h => `<div class="slot">${h.toUpperCase()}</div>`).join(''); }
 async function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
 async function returnToPosition() {
-    s.y = 200; e.y = 200;
     const sX = s.x, eX = e.x, start = Date.now();
     while(Date.now() - start < 200) {
         let pr = (Date.now() - start) / 200;
         s.x = sX + (100 - sX) * pr; e.x = eX + (660 - eX) * pr;
-        s.pCur = 'dash'; e.pCur = 'dash'; await sleep(16);
+        await sleep(16);
     }
     s.pCur = 'player'; e.pCur = 'player';
 }
@@ -69,52 +67,55 @@ async function returnToPosition() {
 async function resolveBattle() {
     if(myHands.length === 0 || s.isPlaying) return;
     s.isPlaying = true;
-    pIdx = 0; // バグ修正3: 戦闘開始時にパターンリセット
-    const activeHands = [...myHands]; // バグ修正1: 処理用コピー作成
-    let airCombo = false; let airStep = 0;
+    pIdx = 0;
+    const activeHands = [...myHands];
+    let airCombo = false;
+    let airStep = 0;
 
     for (let i = 0; i < activeHands.length; i++) {
-        if (s.hp <= 0 || e.hp <= 0) break; // バグ修正4: HP判定によるコンボ中断
+        if (s.hp <= 0 || e.hp <= 0) break;
         let p = activeHands[i], eCmd = ePatterns[pIdx++ % ePatterns.length];
-        
-        if (p === 'guard') {
-            s.pCur = 'guard'; await sleep(400); 
-            if(eCmd === 'upper') applyDmg(e, DMG.UPPER); 
-            await returnToPosition(); airCombo = false; continue; 
-        }
 
         if (airCombo) {
             airStep++;
-            if (airStep <= 3) { await execPunch(s); applyDmg(e, DMG.UPPER); e.pCur = 'damage'; await sleep(300); }
-            else { s.pCur = 'knock'; await sleep(300); e.pCur = 'knock2'; applyDmg(e, DMG.METEOR); await sleep(500); airCombo = false; await returnToPosition(); }
+            if (airStep < 3) {
+                s.pCur = 'punch'; await sleep(150);
+                applyDmg(e, DMG.UPPER); e.pCur = 'damage'; await sleep(300);
+            } else {
+                s.pCur = 'knock'; e.pCur = 'damage'; 
+                await sleep(500); // 一時停止（溜め）
+                s.y = 200; e.y = 200; // 急降下
+                s.pCur = 'knock2'; applyDmg(e, DMG.METEOR);
+                await sleep(600);
+                airCombo = false;
+                await returnToPosition();
+            }
             continue; 
+        }
+
+        if (p === 'guard') {
+            s.pCur = 'guard'; await sleep(400);
+            if(eCmd === 'upper') applyDmg(e, DMG.UPPER);
+            await returnToPosition(); continue;
         }
 
         await animateVersus(300, 460, 150, 'dash', 'dash');
 
         if (p === 'upper' && eCmd === 'punch') {
-            s.pCur = 'upper'; e.pCur = 'damage'; s.y = 50; e.y = 50;
-            applyDmg(e, DMG.UPPER * DMG.COUNTER_MULT); 
+            e.y = 50; await sleep(100); 
+            s.pCur = 'upper2'; s.y = 50; await sleep(300);
+            applyDmg(e, DMG.UPPER * DMG.COUNTER_MULT);
             airCombo = true; airStep = 0; await sleep(500);
         } else if (p === 'punch') {
-            if(eCmd === 'upper') { applyDmg(s, DMG.PUNCH); } 
-            else { await execPunch(s); applyDmg(e, DMG.PUNCH); }
+            if(eCmd === 'upper') { applyDmg(s, DMG.PUNCH); }
+            else { s.pCur = 'punch'; await sleep(150); applyDmg(e, DMG.PUNCH); }
             await sleep(300);
-            await returnToPosition(); // バグ修正2: あいこ/ヒット問わず確実に帰還
-        } else if (eCmd === 'guard') {
-            applyDmg(e, DMG.GUARD_CHIP); s.pCur = 'player'; e.pCur = 'guard'; await sleep(300);
             await returnToPosition();
         } else {
-            await returnToPosition(); // バグ修正2: あいこ時も帰還
+            await returnToPosition();
         }
     }
     s.isPlaying = false; resetCmd();
-}
-
-async function execPunch(target) {
-    punchHitCount++;
-    target.pCur = 'dash'; await sleep(50);
-    target.pCur = (punchHitCount % 2 === 0) ? 'punch2' : 'punch';
 }
 
 async function animateVersus(pX, eX, duration, pPose, ePose) {
