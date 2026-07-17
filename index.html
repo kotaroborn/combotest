@@ -3,15 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Combo Clash Tactics - Perfect Control</title>
+    <title>Combo Clash Tactics - Turn System</title>
     <style>
         * { box-sizing: border-box; }
         body { margin: 0; background: #000; color: #fff; font-family: sans-serif; touch-action: manipulation; overflow: hidden; }
-        #topUI { display: flex; align-items: center; justify-content: space-between; padding: 10px; background: #222; height: 50px; }
+        #topUI { display: flex; align-items: center; justify-content: space-between; padding: 10px; background: #222; height: 60px; }
         .hp-container { width: 40%; }
         .hp-bar { height: 16px; background: #400; border: 1px solid #fff; position: relative; width: 100%; }
         .hp-delay { height: 100%; background: #ff0; width: 100%; position: absolute; top:0; left:0; transition: width 0.5s ease-out; }
         .hp-fill { height: 100%; background: #0f0; width: 100%; position: absolute; top:0; left:0; transition: width 0.1s; }
+        
+        /* ターン表示用スタイル */
+        #turnCounter { display: flex; flex-direction: column; align-items: center; font-weight: bold; line-height: 1.1; }
+        #turnLabel { font-size: 10px; }
+        #turnNum { font-size: 16px; }
+
         #gameArea { width: 100%; height: 300px; background: #111; position: relative; overflow: hidden; }
         canvas { width: 100%; height: 100%; image-rendering: pixelated; object-fit: contain; }
         #slotArea { display: flex; gap: 5px; padding: 5px; height: 40px; justify-content: center; }
@@ -24,7 +30,10 @@
 <body>
 <div id="topUI">
     <div class="hp-container"><div class="hp-bar"><div id="myHpDelay" class="hp-delay"></div><div id="myHp" class="hp-fill"></div></div></div>
-    <div id="turnCounter">VS</div>
+    <div id="turnCounter">
+        <div id="turnLabel">TURN</div>
+        <div id="turnNum">01</div>
+    </div>
     <div class="hp-container"><div class="hp-bar"><div id="enHpDelay" class="hp-delay"></div><div id="enHp" class="hp-fill"></div></div></div>
 </div>
 <div id="gameArea"><canvas id="gameCanvas" width="960" height="540"></canvas></div>
@@ -45,10 +54,15 @@ ctx.imageSmoothingEnabled = false;
 const CHAR_SIZE = 250; 
 
 let airCombo = false;
+let turn = 1;
 const s = { pCur: 'player', x: 100, y: 200, shake: 0, hp: 100, isPlaying: false, lastPunch: 'punch2' };
 const e = { pCur: 'player', x: 660, y: 200, shake: 0, hp: 100 };
 const ePatterns = ['punch', 'upper', 'guard'];
 const imgs = {}; 
+
+function updateTurnDisplay() {
+    document.getElementById('turnNum').innerText = String(turn).padStart(2, '0');
+}
 
 async function loadImages() {
     const names = ['player','player2','punch','punch2','upper','upper2','knock','knock2','guard','dash','damage'];
@@ -77,7 +91,6 @@ function applyDmg(target, val, isAttacker = false) {
 
 async function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
-// 座標計算を排除した、純粋な移動関数
 async function animateVersus(pX, eX, duration, pPose, ePose) {
     const sX = s.x, eX_s = e.x;
     const start = Date.now();
@@ -98,10 +111,7 @@ async function resolveBattle() {
     for (let i = 0; i < myHands.length; i++) {
         let p = myHands[i];
         let eAction = ePatterns[Math.floor(Math.random() * ePatterns.length)];
-        
-        // 通常移動時は必ず地上に固定
         if (!airCombo) { s.y = 200; e.y = 200; }
-        
         await animateVersus(300, 460, 150, 'dash', 'dash');
 
         if (airCombo) {
@@ -114,10 +124,8 @@ async function resolveBattle() {
             } else { s.y = 200; e.y = 200; airCombo = false; comboCount = 0; }
             continue;
         }
-
         if (p === 'guard') {
-            s.pCur = 'guard'; s.shake = 150; 
-            e.pCur = (eAction === 'punch') ? 'punch' : 'upper';
+            s.pCur = 'guard'; s.shake = 150; e.pCur = (eAction === 'punch') ? 'punch' : 'upper';
             if (eAction !== 'guard') { applyDmg(s, DMG.PUNCH/2); s.pCur = 'damage'; }
             await sleep(400); e.pCur = 'player';
         } else {
@@ -127,10 +135,9 @@ async function resolveBattle() {
             if (eAction === 'punch' && p === 'upper') applyDmg(s, DMG.PUNCH);
             await animateVersus(300, 460, 200, p, eAction);
         }
-
         if (p === 'upper' && eAction !== 'punch' && !airCombo) {
             for(let j = 0; j <= 20; j++) { 
-                let y = 150 * Math.sin((j / 20) * Math.PI / 2);
+                let y = 80 * Math.sin((j / 20) * Math.PI / 2);
                 e.y = 200 - y; s.y = 200 - y; e.pCur = 'damage'; await sleep(20); 
             }
             if (myHands[i+1] === 'punch') { airCombo = true; airStep = 0; }
@@ -138,7 +145,7 @@ async function resolveBattle() {
         }
     }
     await animateVersus(100, 660, 300, 'player', 'player');
-    s.y = 200; e.y = 200; s.isPlaying = false; resetCmd();
+    s.y = 200; e.y = 200; s.isPlaying = false; turn++; updateTurnDisplay(); resetCmd();
 }
 
 function loop() {
