@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Combo Clash Tactics - Versus Engine</title>
+    <title>Combo Clash Tactics - Full Engine</title>
     <style>
         body { margin: 0; background: #000; color: #fff; font-family: monospace; overflow: hidden; display: flex; flex-direction: column; align-items: center; }
         #gameArea { width: 100vw; height: 50vh; background: #111; position: relative; }
@@ -48,7 +48,7 @@ const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 ctx.imageSmoothingEnabled = false;
 
-const s = { pCur: 'player', x: 200, y: 200, isAir: false, shake: 0, afterImages: [], guardShift: 0 };
+const s = { pCur: 'player', x: 200, y: 200, isAir: false, shake: 0, afterImages: [], guardShift: 0, isPlaying: false };
 const e = { pCur: 'player', x: 750, y: 200, isAir: false, shake: 0, afterImages: [], guardShift: 0 };
 
 let myHands = [];
@@ -61,18 +61,15 @@ function resetCmd() { if(!s.isPlaying) { myHands = []; updateSlots(); } }
 function updateSlots() { document.getElementById('slotArea').innerHTML = myHands.map(h => `<div class="slot">${h.toUpperCase()}</div>`).join(''); }
 async function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
-// 両者を同時に動かす移動関数
-async function animateVersus(pX, eX, duration, pPose, ePose, trail = false) {
+async function animateVersus(pX, eX, duration, pPose, ePose, trailP = 'dash', trailE = 'dash') {
     const sX = s.x; const eX_start = e.x; const start = Date.now();
     while(Date.now() - start < duration) {
         let p = (Date.now() - start) / duration;
         s.x = sX + (pX - sX) * p;
         e.x = eX_start + (eX - eX_start) * p;
         s.pCur = pPose; e.pCur = ePose;
-        if(trail) {
-            s.afterImages.push({x: s.x, y: s.y, alpha: 0.5, img: pPose});
-            e.afterImages.push({x: e.x, y: e.y, alpha: 0.5, img: ePose});
-        }
+        s.afterImages.push({x: s.x, y: s.y, alpha: 0.5, img: trailP});
+        e.afterImages.push({x: e.x, y: e.y, alpha: 0.5, img: trailE});
         await sleep(16);
     }
 }
@@ -80,36 +77,61 @@ async function animateVersus(pX, eX, duration, pPose, ePose, trail = false) {
 async function resolveBattle() {
     if(myHands.length === 0 || s.isPlaying) return;
     s.isPlaying = true;
+    let airPunchCount = 0;
 
     for (let i = 0; i < myHands.length; i++) {
-        let cmd = myHands[i];
-        // 対面位置まで移動
-        await animateVersus(400, 550, 150, 'dash', 'dash', true);
-        
-        // プレイヤーのアクション
-        s.pCur = cmd; e.pCur = cmd; // 暫定で敵も同じアクションを反転して再生
-        s.shake = 20; e.shake = 20;
-        await sleep(400);
-    }
+        let pCmd = myHands[i];
+        let eCmd = 'punch'; // 暫定
+        await animateVersus(400, 550, 150, 'dash', 'dash');
 
-    // 帰還
-    await animateVersus(200, 750, 200, 'dash', 'dash', true);
+        if (pCmd === 'upper') {
+            s.pCur = 'upper'; s.shake = 30; await sleep(500);
+            if (myHands[i+1] === 'punch') {
+                s.isAir = true;
+                await animateVersus(400, 550, 300, 'upper2', 'upper2', 'upper2', 'upper2');
+                await sleep(200);
+            }
+        } else if (pCmd === 'punch') {
+            if (s.isAir) {
+                airPunchCount++;
+                if (airPunchCount < 3) {
+                    s.pCur = (airPunchCount === 1) ? 'punch' : 'punch2';
+                    s.shake = 15; await sleep(400);
+                } else {
+                    s.pCur = 'knock'; s.shake = 10; await sleep(300);
+                    await animateVersus(400, 550, 100, 'knock', 'knock', 'dash', 'dash');
+                    s.pCur = 'knock2'; s.shake = 50; s.isAir = false; await sleep(400);
+                }
+            } else if (eCmd === 'punch') {
+                s.pCur = 'punch'; e.pCur = 'punch'; s.shake = 30; e.shake = 30; await sleep(300);
+                await animateVersus(200, 750, 200, 'dash', 'dash');
+            } else {
+                s.pCur = 'punch'; e.pCur = 'guard'; s.shake = 20; e.guardShift = 20; await sleep(400); e.guardShift = 0;
+            }
+        } else if (pCmd === 'guard') {
+            s.pCur = 'guard'; s.guardShift = -20; await sleep(400); s.guardShift = 0;
+        }
+    }
+    await animateVersus(200, 750, 200, 'dash', 'dash');
     s.pCur = 'player'; e.pCur = 'player';
-    s.isPlaying = false;
-    resetCmd();
+    s.isPlaying = false; resetCmd();
 }
 
 function loop() {
     ctx.fillStyle = '#0a192f'; ctx.fillRect(0, 0, canvas.width, canvas.height);
-    
-    // 描画
     [s, e].forEach((obj, idx) => {
+        obj.afterImages.forEach((img, i) => {
+            ctx.globalAlpha = img.alpha;
+            if(imgs[img.img]) ctx.drawImage(imgs[img.img], img.x, img.y, 200, 200);
+            img.alpha -= 0.07; if(img.alpha <= 0) obj.afterImages.splice(i, 1);
+        });
+        ctx.globalAlpha = 1.0;
         ctx.save();
-        if(idx === 1) { ctx.scale(-1, 1); ctx.drawImage(imgs[obj.pCur], -obj.x - 200, obj.y, 200, 200); }
-        else { ctx.drawImage(imgs[obj.pCur], obj.x, obj.y, 200, 200); }
+        if(idx === 1) { ctx.scale(-1, 1); ctx.drawImage(imgs[obj.pCur], -obj.x - 200 + (Math.random()-0.5)*obj.shake, obj.y + (Math.random()-0.5)*obj.shake + obj.guardShift, 200, 200); }
+        else { ctx.drawImage(imgs[obj.pCur], obj.x + (Math.random()-0.5)*obj.shake, obj.y + (Math.random()-0.5)*obj.shake + obj.guardShift, 200, 200); }
         ctx.restore();
+        obj.shake *= 0.85;
     });
-    
     requestAnimationFrame(loop);
 }
 loop();
