@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Combo Clash Tactics - Perfect Build</title>
+    <title>Combo Clash Tactics - Final Corrected Build</title>
     <style>
         body { margin: 0; background: #000; color: #fff; font-family: sans-serif; touch-action: manipulation; }
         #topUI { display: flex; align-items: center; justify-content: space-between; padding: 10px; background: #222; height: 40px; }
@@ -63,8 +63,8 @@ async function animateVersus(pX, eX, duration, pPose, ePose) {
         let ease = 1 - Math.pow(1 - pr, 3);
         s.x = sX + (pX - sX) * ease;
         e.x = eX_s + (eX - eX_s) * ease;
-        if (s.y < 200) s.y = Math.min(200, s.y + 10);
-        if (e.y < 200) e.y = Math.min(200, e.y + 10);
+        s.y = Math.min(200, s.y + 10);
+        e.y = Math.min(200, e.y + 10);
         s.pCur = pPose; e.pCur = ePose; await sleep(16);
     }
 }
@@ -105,15 +105,29 @@ async function resolveBattle() {
 
         if (p === 'upper' && eAction !== 'punch') {
             for(let j = 0; j <= 20; j++) { e.y = 200 - (150 * Math.sin((j / 20) * Math.PI / 2)); e.pCur = 'damage'; await sleep(20); }
+            for(let j = 20; j >= 0; j--) { e.y = 200 - (150 * Math.sin((j / 20) * Math.PI / 2)); e.pCur = 'damage'; await sleep(20); }
+            e.y = 200;
             if (myHands[i+1] === 'punch') { airCombo = true; airStep = 0; }
-            else { await sleep(300); e.y = 200; e.pCur = 'knock2'; }
+            else { e.pCur = 'knock2'; await sleep(300); }
         }
         s.y = 200; e.y = 200;
     }
     await animateVersus(100, 660, 300, 'player', 'player');
     s.y = 200; e.y = 200; turn++; s.isPlaying = false; resetCmd();
 }
-loop(); // (以下省略：画像ループ関数は前述と同様)
+
+function loop() {
+    ctx.fillStyle = '#000'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+    [s, e].forEach((obj, idx) => {
+        ctx.save();
+        const img = imgs[obj.pCur] || imgs['player'];
+        if(idx === 1) { ctx.scale(-1, 1); ctx.drawImage(img, -obj.x - 250, obj.y + (Math.random()-0.5)*obj.shake, 250, 250); }
+        else { ctx.drawImage(img, obj.x, obj.y + (Math.random()-0.5)*obj.shake, 250, 250); }
+        ctx.restore(); obj.shake *= 0.85;
+    });
+    requestAnimationFrame(loop);
+}
+loop();
 </script>
 </body>
 </html>
