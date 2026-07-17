@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Combo Clash Tactics - Final Version</title>
+    <title>Combo Clash Tactics - Finalized</title>
     <style>
         body { margin: 0; background: #000; color: #fff; font-family: sans-serif; touch-action: manipulation; }
         #topUI { display: flex; align-items: center; justify-content: space-between; padding: 10px; background: #222; height: 40px; }
@@ -64,7 +64,8 @@ async function animateVersus(pX, eX, duration, pPose, ePose) {
         let ease = 1 - Math.pow(1 - pr, 3);
         s.x = sX + (pX - sX) * ease;
         e.x = eX_s + (eX - eX_s) * ease;
-        if (e.y < 200) e.y = Math.min(200, e.y + 10);
+        s.y = Math.min(200, s.y + 10); // 重力補正
+        e.y = Math.min(200, e.y + 10);
         s.pCur = pPose; e.pCur = ePose; await sleep(16);
     }
 }
@@ -86,16 +87,17 @@ async function resolveBattle() {
             if (p === 'punch' && airStep <= 3) {
                 if (airStep === 3) {
                     s.pCur = 'knock'; e.pCur = 'damage'; await sleep(300);
-                    e.y = 200; s.pCur = 'knock2'; applyDmg(e, DMG.METEOR); await sleep(600);
+                    s.y = 200; e.y = 200; s.pCur = 'knock2'; applyDmg(e, DMG.METEOR); await sleep(600);
                     airCombo = false;
                 } else { applyDmg(e, DMG.UPPER); await sleep(300); }
-            } else { e.y = 200; airCombo = false; }
+            } else { s.y = 200; e.y = 200; airCombo = false; }
             continue;
         }
 
         let pPose = (p === 'punch') ? ((s.lastPunch === 'punch') ? 'punch2' : 'punch') : p;
         if (p === 'punch') s.lastPunch = pPose;
 
+        // 三すくみ判定
         if (p === 'punch' && eAction === 'upper') applyDmg(e, DMG.PUNCH);
         else if (eAction === 'punch' && p === 'upper') applyDmg(s, DMG.PUNCH);
         else if (p === 'upper' && eAction === 'guard') applyDmg(e, DMG.UPPER);
@@ -108,6 +110,7 @@ async function resolveBattle() {
             if (myHands[i+1] === 'punch') { airCombo = true; airStep = 0; }
             else { e.y = 200; e.pCur = 'knock2'; await sleep(300); }
         }
+        s.y = 200; e.y = 200; // 強制接地
     }
     await animateVersus(100, 660, 300, 'player', 'player');
     s.y = 200; e.y = 200; turn++; s.isPlaying = false; resetCmd();
