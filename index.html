@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Combo Clash Tactics - Absolute Air Combo</title>
+    <title>Combo Clash Tactics - Synced Logic</title>
     <style>
         body { margin: 0; background: #000; color: #fff; font-family: monospace; overflow: hidden; display: flex; flex-direction: column; align-items: center; }
         #gameArea { width: 100vw; height: 50vh; background: #111; position: relative; }
@@ -84,48 +84,42 @@ async function resolveBattle() {
         let eCmd = ePatterns[pIdx % ePatterns.length];
         pIdx++;
 
-        // 1. 空中コンボ判定
+        // 1. 空中コンボ中の処理
         if (comboCount > 0) {
             if (p === 'punch') {
-                comboCount++; // コマンドカウントを進める
-                s.pCur = 'punch'; e.pCur = 'damage';
-                s.x = 300; e.x = 460; // 距離は密着で固定
-                s.y = 50; e.y = 50;   // 高度を維持
+                comboCount++;
+                s.pCur = 'punch'; e.pCur = 'damage'; // 敵はdamage固定
+                s.x = 300; e.x = 460; s.y = 50; e.y = 50;
                 e.shake = 30;
                 
-                if (comboCount === 4) { // 4発目のコマンドでメテオ（叩き落とし）
+                if (comboCount === 4) { // メテオ
                     e.pCur = 'knock'; 
                     await sleep(500);
-                    s.y = 200; e.y = 200; // 両者着地
-                    comboCount = 0;       // コンボ完全終了（リセット）
-                    await animateVersus(100, 660, 200, 'player', 'player'); // 帰還
+                    s.y = 200; e.y = 200;
+                    comboCount = 0;
+                    await animateVersus(100, 460, 200, 'player', 'knock');
                 } else {
-                    await sleep(300); // 通常の空中追撃の硬直
+                    await sleep(300);
                 }
                 continue; 
             } else {
-                // パンチ以外が選ばれたらコンボ強制中断
                 s.y = 200; e.y = 200;
                 comboCount = 0;
-                await animateVersus(100, 660, 200, 'player', 'player');
             }
         } 
         
-        // 2. 地上通常接近
+        // 2. 地上接近
         await animateVersus(300, 460, 150, 'dash', 'dash');
 
-        // 3. 初撃判定
+        // 3. 行動判定
         if (p === 'upper' && eCmd === 'punch') {
             s.pCur = 'upper'; e.pCur = 'damage';
-            s.y = 50; e.y = 50; // ここでその場上方へ浮く
-            comboCount = 1;     // アッパーを1発目としてカウント
+            s.y = 50; e.y = 50; 
+            comboCount = 1;
             await sleep(500);
         } else {
-            // 通常の地上戦ロジック
             if (p === 'punch' && eCmd === 'punch') { s.pCur = 'punch'; e.pCur = 'punch'; s.shake = 30; e.shake = 30; await sleep(300); }
             else if (p === 'guard' && eCmd === 'punch') { s.pCur = 'damage'; e.pCur = 'punch'; s.guardShift = -20; e.guardShift = 20; await sleep(400); s.guardShift = 0; e.guardShift = 0; }
-            
-            // 通常帰還
             s.y = 200; e.y = 200;
             await animateVersus(100, 660, 200, 'player', 'player');
         }
