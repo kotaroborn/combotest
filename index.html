@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Combo Clash Tactics - Full Spec</title>
+    <title>Combo Clash Tactics - Absolute Final</title>
     <style>
         body { margin: 0; background: #000; color: #fff; font-family: sans-serif; touch-action: manipulation; }
         #topUI { display: flex; align-items: center; justify-content: space-between; padding: 10px; background: #222; height: 40px; }
@@ -81,13 +81,13 @@ async function resolveBattle() {
         await animateVersus(300, 460, 150, 'dash', 'dash');
 
         if (airCombo) {
-            airStep++; s.y = 50; e.y = 50;
-            let pPose = (s.lastPunch === 'punch') ? 'punch2' : 'punch';
-            s.lastPunch = pPose;
+            airStep++;
+            s.pCur = (s.lastPunch === 'punch') ? 'punch2' : 'punch';
+            s.lastPunch = s.pCur;
+            e.pCur = 'damage';
+            s.shake = 50; 
             
-            // 空中コンボ中のPunchと振動
             if (p === 'punch' && airStep <= 3) {
-                s.shake = 50; // 振動発生
                 if (airStep === 3) {
                     s.pCur = 'knock'; e.pCur = 'damage'; await sleep(300);
                     s.y = 200; e.y = 200; s.pCur = 'knock2'; applyDmg(e, DMG.METEOR); await sleep(600);
@@ -98,10 +98,7 @@ async function resolveBattle() {
         }
 
         let pPose = (p === 'punch') ? ((s.lastPunch === 'punch') ? 'punch2' : 'punch') : p;
-        if (p === 'punch') {
-            s.lastPunch = pPose;
-            s.shake = 50; // 地上Punchの振動
-        }
+        if (p === 'punch') { s.lastPunch = pPose; s.shake = 50; }
 
         if (p === 'punch' && eAction === 'upper') applyDmg(e, DMG.PUNCH);
         else if (eAction === 'punch' && p === 'upper') applyDmg(s, DMG.PUNCH);
@@ -111,9 +108,12 @@ async function resolveBattle() {
         await animateVersus(300, 460, 200, pPose, eAction);
 
         if (p === 'upper' && eAction !== 'punch') {
-            e.y = 50; e.pCur = 'damage'; await sleep(300);
+            for(let j = 0; j <= 20; j++) {
+                e.y = 200 - (150 * Math.sin((j / 20) * Math.PI / 2));
+                e.pCur = 'damage'; await sleep(20);
+            }
             if (myHands[i+1] === 'punch') { airCombo = true; airStep = 0; }
-            else { e.y = 200; e.pCur = 'knock2'; await sleep(300); }
+            else { await sleep(300); e.y = 200; e.pCur = 'knock2'; }
         }
         s.y = 200; e.y = 200;
     }
