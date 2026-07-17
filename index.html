@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Combo Clash Tactics - Final Refined Logic</title>
+    <title>Combo Clash Tactics - Final Implementation</title>
     <style>
         body { margin: 0; background: #000; color: #fff; font-family: monospace; overflow: hidden; display: flex; flex-direction: column; align-items: center; }
         #gameArea { width: 100vw; height: 50vh; background: #111; position: relative; }
@@ -47,21 +47,30 @@ const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 ctx.imageSmoothingEnabled = false;
 
-const s = { pCur: 'player', x: 100, y: 200, shake: 0, afterImages: [], guardShift: 0, isPlaying: false };
-const e = { pCur: 'player', x: 660, y: 200, shake: 0, afterImages: [], guardShift: 0 };
+const s = { pCur: 'player', x: 100, y: 200, shake: 0, guardShift: 0, isPlaying: false };
+const e = { pCur: 'player', x: 660, y: 200, shake: 0, guardShift: 0 };
 
 let myHands = [];
 const ePatterns = ['punch', 'upper', 'guard', 'guard', 'guard'];
 let pIdx = 0;
+let punchHitCount = 0; // パンチ交互切り替え用カウンタ
 
 const imgNames = ['player','player2','punch','punch2','upper','upper2','knock','knock2','guard','dash','damage'];
 const imgs = {};
 imgNames.forEach(f => { imgs[f] = new Image(); imgs[f].src = f + '.PNG'; });
 
 function addCmd(c) { if(myHands.length < 5 && !s.isPlaying) { myHands.push(c); updateSlots(); } }
-function resetCmd() { if(!s.isPlaying) { myHands = []; pIdx = 0; updateSlots(); } }
+function resetCmd() { if(!s.isPlaying) { myHands = []; pIdx = 0; punchHitCount = 0; updateSlots(); } }
 function updateSlots() { document.getElementById('slotArea').innerHTML = myHands.map(h => `<div class="slot">${h.toUpperCase()}</div>`).join(''); }
 async function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+// パンチ切り替え用：dashを挟んでpunch/punch2を交互に表示
+async function punchWithDash() {
+    punchHitCount++;
+    s.pCur = 'dash';
+    await sleep(50);
+    s.pCur = (punchHitCount % 2 === 0) ? 'punch2' : 'punch';
+}
 
 async function animateVersus(pX, eX, duration, pPose, ePose) {
     const sX = s.x; const eX_start = e.x; const start = Date.now();
@@ -87,23 +96,23 @@ async function resolveBattle() {
         if (comboCount > 0) {
             if (p === 'punch' && comboCount < 4) {
                 comboCount++;
-                s.pCur = 'punch'; e.pCur = 'damage';
+                await punchWithDash();
+                e.pCur = 'damage';
                 s.x = 300; e.x = 460; s.y = 50; e.y = 50;
                 await sleep(300);
                 continue; 
             } else {
-                // コンボ終了(メテオ)または中断時の着地演出
                 let isMeteor = (comboCount === 4);
-                s.pCur = 'player'; e.pCur = 'damage';
+                if(isMeteor) {
+                    s.pCur = 'knock'; 
+                    await sleep(500);
+                }
                 s.y = 200; e.y = 200;
                 e.pCur = 'knock2';
-                e.shake = isMeteor ? 50 : 0; // メテオ時のみ揺れる
-                
-                await sleep(isMeteor ? 500 : 300);
-                
+                e.shake = isMeteor ? 50 : 0;
+                await sleep(500);
                 s.pCur = 'dash'; e.pCur = 'dash';
                 await animateVersus(100, 660, 200, 'dash', 'dash');
-                
                 s.pCur = 'player'; e.pCur = 'player';
                 comboCount = 0;
                 if (p === 'punch' && comboCount < 4) continue;
@@ -118,13 +127,19 @@ async function resolveBattle() {
             comboCount = 1;
             await sleep(500);
         } else {
-            if (p === 'punch' && eCmd === 'punch') { s.pCur = 'punch'; e.pCur = 'punch'; s.shake = 30; e.shake = 30; await sleep(300); }
-            else if (p === 'guard' && eCmd === 'punch') { s.pCur = 'damage'; e.pCur = 'punch'; s.guardShift = -20; e.guardShift = 20; await sleep(400); s.guardShift = 0; e.guardShift = 0; }
+            if (p === 'punch' && eCmd === 'punch') { 
+                await punchWithDash();
+                e.pCur = 'punch'; s.shake = 30; e.shake = 30; 
+                await sleep(300); 
+            }
+            else if (p === 'guard' && eCmd === 'punch') { 
+                s.pCur = 'damage'; e.pCur = 'punch'; s.guardShift = -20; e.guardShift = 20; 
+                await sleep(400); s.guardShift = 0; e.guardShift = 0; 
+            }
             s.y = 200; e.y = 200;
             await animateVersus(100, 660, 200, 'player', 'player');
         }
     }
-
     s.pCur = 'player'; e.pCur = 'player';
     s.isPlaying = false;
     resetCmd();
