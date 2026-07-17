@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Combo Clash Tactics - Combo System</title>
+    <title>Combo Clash Tactics - Air Combo System</title>
     <style>
         body { margin: 0; background: #000; color: #fff; font-family: monospace; overflow: hidden; display: flex; flex-direction: column; align-items: center; }
         #gameArea { width: 100vw; height: 50vh; background: #111; position: relative; }
@@ -79,44 +79,43 @@ async function animateVersus(pX, eX, duration, pPose, ePose, trailP = 'dash', tr
 async function resolveBattle() {
     if(myHands.length === 0 || s.isPlaying) return;
     s.isPlaying = true;
-    let comboCount = 0; // 空中コンボ用カウンター
+    let comboCount = 0; 
 
     for (let i = 0; i < myHands.length; i++) {
         let p = myHands[i];
         let eCmd = ePatterns[pIdx % ePatterns.length];
         pIdx++;
 
-        // コンボ継続判定（前回の攻撃がアッパーヒット、かつ今回の入力がパンチ）
+        // 空中コンボ処理
         if (comboCount > 0 && comboCount < 3 && p === 'punch') {
-            await animateVersus(300, 460, 100, 'punch', 'damage');
             s.pCur = 'punch'; e.pCur = 'damage';
             e.shake = 30;
             comboCount++;
-            if (comboCount === 3) { // メテオ（3回目）
+            if (comboCount === 3) { // 3回目：メテオ叩き落とし
                 e.pCur = 'knock'; 
-                e.y = 200; // 地面に叩き落とす
                 await sleep(500);
             }
-            continue; // コンボ進行時は通常移動スキップ
-        } else {
-            comboCount = 0; // コンボ中断
+            if (comboCount >= 3) { s.y = 200; e.y = 200; comboCount = 0; }
+            continue; 
+        } else if (comboCount > 0) {
+            s.y = 200; e.y = 200; comboCount = 0;
         }
         
         await animateVersus(300, 460, 150, 'dash', 'dash');
 
-        // 初撃判定
+        // 初撃：アッパーヒット
         if (p === 'upper' && eCmd === 'punch') {
             s.pCur = 'upper'; e.pCur = 'damage';
-            e.y -= 100; // 浮く
+            e.y = 50; s.y = 50; // 空中へ
             comboCount = 1;
             await sleep(500);
         } else {
-            // ...その他既存の3すくみロジック...
+            // 通常の3すくみロジック（簡略化）
             if (p === 'punch' && eCmd === 'punch') { s.pCur = 'punch'; e.pCur = 'punch'; s.shake = 30; e.shake = 30; await sleep(300); }
             else if (p === 'guard' && eCmd === 'punch') { s.pCur = 'damage'; e.pCur = 'punch'; s.guardShift = -20; e.guardShift = 20; await sleep(400); s.guardShift = 0; e.guardShift = 0; }
-            // ...残りの組み合わせは省略していますが、必要に応じて埋め込んでください
         }
 
+        s.y = 200; e.y = 200; // 着地
         await animateVersus(100, 660, 200, 'dash', 'dash');
     }
 
@@ -130,7 +129,7 @@ function loop() {
     [s, e].forEach((obj, idx) => {
         obj.afterImages.forEach((img, i) => {
             ctx.globalAlpha = img.alpha;
-            if(imgs[img.img]) ctx.drawImage(imgs[img.img], img.x, img.y, 200, 200);
+            if(imgs[img.img]) ctx.drawImage(imgs[img.img], obj.x, obj.y, 200, 200);
             img.alpha -= 0.07; if(img.alpha <= 0) obj.afterImages.splice(i, 1);
         });
         ctx.globalAlpha = 1.0;
