@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Combo Clash Tactics - Stable Build</title>
+    <title>Combo Clash Tactics - No Bounce Fix</title>
     <style>
         body { margin: 0; background: #000; color: #fff; font-family: sans-serif; touch-action: manipulation; overflow: hidden; }
         #topUI { display: flex; align-items: center; justify-content: space-between; padding: 10px; background: #222; height: 40px; }
@@ -44,6 +44,7 @@ ctx.imageSmoothingEnabled = false;
 
 let turn = 1;
 let airCombo = false;
+let isRising = false; // 重力補正を停止する追加フラグ
 const s = { pCur: 'player', x: 100, y: 200, shake: 0, hp: 100, isPlaying: false, lastPunch: 'punch2' };
 const e = { pCur: 'player', x: 660, y: 200, shake: 0, hp: 100 };
 const ePatterns = ['punch', 'upper', 'guard'];
@@ -69,13 +70,14 @@ function applyDmg(target, val) { target.hp = Math.max(0, target.hp - val); targe
 async function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
 async function landSmoothly() {
+    isRising = true; // 降下中も重力補正を止める
     for(let j = 20; j >= 0; j--) {
         let y = 150 * Math.sin((j / 20) * Math.PI / 2);
         e.y = 200 - y; s.y = 200 - y;
         await sleep(20);
     }
     s.y = 200; e.y = 200; s.pCur = 'dash'; e.pCur = 'player';
-    airCombo = false;
+    airCombo = false; isRising = false;
 }
 
 async function animateVersus(pX, eX, duration, pPose, ePose) {
@@ -86,7 +88,8 @@ async function animateVersus(pX, eX, duration, pPose, ePose) {
         let ease = 1 - Math.pow(1 - pr, 3);
         s.x = sX + (pX - sX) * ease;
         e.x = eX_s + (eX - eX_s) * ease;
-        if (!airCombo) { s.y = Math.min(200, s.y + 10); e.y = Math.min(200, e.y + 10); }
+        // 重力補正のガードを強化
+        if (!airCombo && !isRising) { s.y = Math.min(200, s.y + 10); e.y = Math.min(200, e.y + 10); }
         s.pCur = pPose; e.pCur = ePose; await sleep(16);
     }
 }
@@ -99,11 +102,8 @@ async function resolveBattle() {
     for (let i = 0; i < myHands.length; i++) {
         let p = myHands[i];
         let eAction = ePatterns[Math.floor(Math.random() * ePatterns.length)];
-        
-        // 1. 基本のアニメーション移動
         await animateVersus(300, 460, 150, 'dash', 'dash');
 
-        // 2. 空中コンボ処理
         if (airCombo) {
             airStep++;
             s.y = 50; e.y = 50;
@@ -122,32 +122,29 @@ async function resolveBattle() {
             continue;
         }
 
-        // 3. 地上戦処理
         if (p === 'guard') {
-            s.pCur = 'guard'; s.shake = 150;
-            e.pCur = (eAction === 'punch') ? 'punch' : 'upper';
+            s.pCur = 'guard'; s.shake = 150; 
+            e.pCur = (eAction === 'punch') ? 'punch' : (eAction === 'upper' ? 'upper' : 'player');
             if (eAction !== 'guard') { applyDmg(s, DMG.PUNCH/2); s.pCur = 'damage'; }
             await sleep(400); e.pCur = 'player';
         } else {
-            // ダメージ計算
             let playerHit = !(p === 'punch' && eAction === 'guard');
             if (playerHit) { applyDmg(e, (p === 'upper' ? DMG.UPPER : DMG.PUNCH) + (comboCount * 5)); comboCount++; }
             else { comboCount = 0; e.pCur = 'guard'; e.shake = 150; await sleep(400); }
-            
             if (eAction === 'punch' && p === 'upper') applyDmg(s, DMG.PUNCH);
             await animateVersus(300, 460, 200, p, eAction);
         }
 
-        // 4. アッパー打ち上げ判定
         if (p === 'upper' && eAction !== 'punch' && !airCombo) {
             let myJump = (myHands[i+1] === 'punch') ? 150 : 50;
-            airCombo = true;
+            isRising = true; // 打ち上げ開始
             for(let j = 0; j <= 20; j++) { 
                 let eY = 150 * Math.sin((j / 20) * Math.PI / 2);
                 let mY = myJump * Math.sin((j / 20) * Math.PI / 2);
                 e.y = 200 - eY; s.y = 200 - mY; e.pCur = 'damage'; await sleep(20); 
             }
-            if (myHands[i+1] !== 'punch') await landSmoothly();
+            if (myHands[i+1] === 'punch') { airCombo = true; airStep = 0; s.y = 50; e.y = 50; isRising = false; }
+            else { await landSmoothly(); }
         }
     }
     await animateVersus(100, 660, 300, 'player', 'player');
@@ -162,8 +159,8 @@ function loop() {
             ctx.save();
             if(idx === 1) { ctx.scale(-1, 1); ctx.drawImage(img, -obj.x - 250, obj.y + (Math.random()-0.5)*obj.shake, 250, 250); }
             else { ctx.drawImage(img, obj.x, obj.y + (Math.random()-0.5)*obj.shake, 250, 250); }
-            ctx.restore();
         }
+        ctx.restore();
         obj.shake *= 0.85;
     });
     requestAnimationFrame(loop);
