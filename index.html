@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Combo Clash Tactics - Final Sync</title>
+    <title>Combo Clash Tactics - Stable Build</title>
     <style>
         body { margin: 0; background: #000; color: #fff; font-family: sans-serif; touch-action: manipulation; overflow: hidden; }
         #topUI { display: flex; align-items: center; justify-content: space-between; padding: 10px; background: #222; height: 40px; }
@@ -47,7 +47,18 @@ let airCombo = false;
 const s = { pCur: 'player', x: 100, y: 200, shake: 0, hp: 100, isPlaying: false, lastPunch: 'punch2' };
 const e = { pCur: 'player', x: 660, y: 200, shake: 0, hp: 100 };
 const ePatterns = ['punch', 'upper', 'guard'];
-const imgs = {}; ['player','player2','punch','punch2','upper','upper2','knock','knock2','guard','dash','damage'].forEach(f => { imgs[f] = new Image(); imgs[f].src = f + '.PNG'; });
+const imgs = {}; 
+
+async function loadImages() {
+    const names = ['player','player2','punch','punch2','upper','upper2','knock','knock2','guard','dash','damage'];
+    await Promise.all(names.map(f => {
+        return new Promise(resolve => {
+            imgs[f] = new Image();
+            imgs[f].src = f + '.PNG';
+            imgs[f].onload = resolve;
+        });
+    }));
+}
 
 let myHands = [];
 function addCmd(c) { if(myHands.length < 5 && !s.isPlaying) { myHands.push(c); updateSlots(); } }
@@ -122,7 +133,23 @@ async function resolveBattle() {
     await animateVersus(100, 660, 300, 'player', 'player');
     s.y = 200; e.y = 200; turn++; s.isPlaying = false; resetCmd();
 }
-loop();
+
+function loop() {
+    ctx.fillStyle = '#000'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+    [s, e].forEach((obj, idx) => {
+        const img = imgs[obj.pCur];
+        if(img && img.complete) {
+            ctx.save();
+            if(idx === 1) { ctx.scale(-1, 1); ctx.drawImage(img, -obj.x - 250, obj.y + (Math.random()-0.5)*obj.shake, 250, 250); }
+            else { ctx.drawImage(img, obj.x, obj.y + (Math.random()-0.5)*obj.shake, 250, 250); }
+            ctx.restore();
+        }
+        obj.shake *= 0.85;
+    });
+    requestAnimationFrame(loop);
+}
+
+loadImages().then(loop);
 </script>
 </body>
 </html>
