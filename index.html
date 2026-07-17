@@ -57,8 +57,8 @@ function updateHp() {
     document.getElementById('enHp').style.width = e.hp + '%';
 }
 function applyDmg(target, val) { target.hp = Math.max(0, target.hp - val); target.shake = 50; updateHp(); }
-
 async function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
 async function animateVersus(pX, eX, duration, pPose, ePose) {
     const sX = s.x, eX_s = e.x, start = Date.now();
     while(Date.now() - start < duration) {
@@ -72,27 +72,38 @@ async function resolveBattle() {
     if(myHands.length === 0 || s.isPlaying) return;
     s.isPlaying = true;
     s.y = 200; e.y = 200;
+    s.lastPunch = 'punch2';
     
     await animateVersus(300, 460, 300, 'dash', 'dash');
 
     let airCombo = false, airStep = 0;
     for (let i = 0; i < myHands.length; i++) {
         let p = myHands[i];
+        
         if (airCombo) {
             airStep++;
+            s.y = 50; e.y = 50;
+            await animateVersus(300, 460, 100, 'dash', 'dash');
+
             if (p === 'punch' && airStep <= 3) {
                 if (airStep === 3) {
-                    s.pCur = 'knock'; e.pCur = 'damage'; await sleep(500);
+                    s.pCur = 'knock'; e.pCur = 'damage'; await sleep(300);
+                    s.y = 200; e.y = 200;
                     s.pCur = 'knock2'; applyDmg(e, DMG.METEOR); await sleep(600);
                     airCombo = false;
                 } else {
-                    s.pCur = (airStep === 1 ? 'punch' : 'punch2');
+                    s.pCur = (s.lastPunch === 'punch') ? 'punch2' : 'punch';
+                    s.lastPunch = s.pCur;
                     applyDmg(e, DMG.UPPER); await sleep(300);
                 }
-            } else { airCombo = false; s.y = 200; e.y = 200; }
+            } else {
+                s.y = 200; e.y = 200;
+                airCombo = false;
+            }
             continue;
         }
 
+        await animateVersus(300, 460, 100, 'dash', 'dash');
         if (p === 'upper') {
             s.pCur = 'upper'; e.pCur = 'damage'; applyDmg(e, DMG.UPPER);
             await sleep(300); e.y = 50; 
@@ -103,15 +114,16 @@ async function resolveBattle() {
             }
         } else if (p === 'guard') {
             s.pCur = 'guard'; s.shake = 20; await sleep(400);
-        } else {
-            s.pCur = 'dash'; applyDmg(e, DMG.PUNCH); await sleep(300);
+        } else if (p === 'punch') {
+            s.pCur = (s.lastPunch === 'punch') ? 'punch2' : 'punch';
+            s.lastPunch = s.pCur;
+            applyDmg(e, DMG.PUNCH); await sleep(300);
         }
     }
 
     await animateVersus(100, 660, 300, 'dash', 'dash');
     s.pCur = 'player'; e.pCur = 'player';
     s.y = 200; e.y = 200;
-    
     turn++;
     document.getElementById('turnCounter').innerText = `TURN: ${turn}`;
     s.isPlaying = false;
