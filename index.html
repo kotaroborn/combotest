@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Combo Clash Tactics - Final Damage Fix</title>
+    <title>Combo Clash Tactics - Polished</title>
     <style>
         body { margin: 0; background: #000; color: #fff; font-family: sans-serif; touch-action: manipulation; overflow: hidden; }
         #topUI { display: flex; align-items: center; justify-content: space-between; padding: 10px; background: #222; height: 40px; }
@@ -65,7 +65,7 @@ function addCmd(c) { if(myHands.length < 5 && !s.isPlaying) { myHands.push(c); u
 function resetCmd() { if(!s.isPlaying) { myHands = []; updateSlots(); } }
 function updateSlots() { document.getElementById('slotArea').innerHTML = myHands.map(h => `<div class="slot">${h.toUpperCase()}</div>`).join(''); }
 function updateHp() { document.getElementById('myHp').style.width = s.hp + '%'; document.getElementById('enHp').style.width = e.hp + '%'; }
-function applyDmg(target, val) { target.hp = Math.max(0, target.hp - val); target.shake = 50; updateHp(); }
+function applyDmg(target, val) { target.hp = Math.max(0, target.hp - val); target.shake = 100; updateHp(); }
 async function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
 async function animateVersus(pX, eX, duration, pPose, ePose) {
@@ -110,20 +110,23 @@ async function resolveBattle() {
         }
 
         let pPose = (p === 'punch') ? ((s.lastPunch === 'punch') ? 'punch2' : 'punch') : p;
-        if (p === 'punch') { s.lastPunch = pPose; s.shake = 50; }
+        if (p === 'punch') { s.lastPunch = pPose; }
 
-        // --- 修正箇所: ここで即時ダメージ適用 ---
-        let playerHit = true; // 基本ヒットとする
-        if (p === 'punch' && eAction === 'guard') playerHit = false;
-        if (playerHit) { applyDmg(e, (p === 'upper' ? DMG.UPPER : DMG.PUNCH) + (comboCount * 5)); comboCount++; }
-        else { comboCount = 0; }
-        
-        if (eAction === 'punch' && p === 'upper') applyDmg(s, DMG.PUNCH);
-        else if (eAction === 'upper' && p === 'guard') applyDmg(s, DMG.UPPER);
+        // ガード時の挙動調整
+        if (p === 'guard') {
+            s.pCur = 'guard'; s.shake = 150; // ガード時は強く振動
+            if (eAction === 'punch') { applyDmg(s, DMG.PUNCH/2); s.pCur = 'damage'; } // ガード崩し
+            await sleep(400);
+        } else {
+            let playerHit = !(p === 'punch' && eAction === 'guard');
+            if (playerHit) { applyDmg(e, (p === 'upper' ? DMG.UPPER : DMG.PUNCH) + (comboCount * 5)); comboCount++; }
+            else { comboCount = 0; e.pCur = 'guard'; e.shake = 150; await sleep(400); }
+            
+            if (eAction === 'punch' && p === 'upper') applyDmg(s, DMG.PUNCH);
+            await animateVersus(300, 460, 200, pPose, eAction);
+        }
 
-        await animateVersus(300, 460, 200, pPose, eAction);
-
-        if (p === 'upper' && eAction !== 'punch') {
+        if (p === 'upper' && eAction !== 'punch' && !airCombo) {
             let myJump = (myHands[i+1] === 'punch') ? 150 : 50;
             for(let j = 0; j <= 20; j++) { 
                 let eY = 150 * Math.sin((j / 20) * Math.PI / 2);
@@ -137,7 +140,8 @@ async function resolveBattle() {
                     let mY = myJump * Math.sin((j / 20) * Math.PI / 2);
                     e.y = 200 - eY; s.y = 200 - mY; await sleep(20); 
                 }
-                e.y = 200; s.y = 200; e.pCur = 'knock2'; await sleep(300); 
+                e.y = 200; s.y = 200; s.pCur = 'dash'; // 【修正1】アッパー着地をdashに
+                await sleep(300); 
             }
         }
         if (!airCombo) { s.y = 200; e.y = 200; }
