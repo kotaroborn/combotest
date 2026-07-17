@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Combo Clash Tactics - Debug View</title>
+    <title>Combo Clash Tactics - Fixed</title>
     <style>
         body { margin: 0; background: #000; color: #fff; font-family: monospace; overflow: hidden; display: flex; flex-direction: column; align-items: center; }
         #gameArea { width: 100vw; height: 50vh; background: #111; position: relative; }
@@ -47,8 +47,9 @@ const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 ctx.imageSmoothingEnabled = false;
 
-const s = { pCur: 'player', x: 200, y: 200, isAir: false, shake: 0, afterImages: [], guardShift: 0, isPlaying: false };
-const e = { pCur: 'player', x: 750, y: 200, shake: 0, afterImages: [], guardShift: 0 };
+// 初期位置を中央に近づける
+const s = { pCur: 'player', x: 100, y: 200, isAir: false, shake: 0, afterImages: [], guardShift: 0, isPlaying: false };
+const e = { pCur: 'player', x: 660, y: 200, shake: 0, afterImages: [], guardShift: 0 };
 
 let myHands = [];
 const imgNames = ['player','player2','punch','punch2','upper','upper2','knock','knock2','guard','dash'];
@@ -80,15 +81,16 @@ async function resolveBattle() {
 
     for (let i = 0; i < myHands.length; i++) {
         let pCmd = myHands[i];
-        let eCmd = (i % 2 === 0) ? 'punch' : 'guard'; // 偶数は相殺、奇数は攻防
+        let eCmd = (i % 2 === 0) ? 'punch' : 'guard';
         
-        await animateVersus(400, 550, 150, 'dash', 'dash');
+        // 中央で対峙する座標
+        await animateVersus(300, 460, 150, 'dash', 'dash');
 
         if (pCmd === 'upper') {
             s.pCur = 'upper'; s.shake = 30; await sleep(500);
             if (myHands[i+1] === 'punch') {
                 s.isAir = true;
-                await animateVersus(400, 550, 300, 'upper2', 'upper2', 'upper2', 'upper2');
+                await animateVersus(300, 460, 300, 'upper2', 'upper2', 'upper2', 'upper2');
                 await sleep(200);
             }
         } else if (pCmd === 'punch') {
@@ -99,12 +101,12 @@ async function resolveBattle() {
                     s.shake = 15; await sleep(400);
                 } else {
                     s.pCur = 'knock'; s.shake = 10; await sleep(300);
-                    await animateVersus(400, 550, 100, 'knock', 'knock', 'dash', 'dash');
+                    await animateVersus(300, 460, 100, 'knock', 'knock', 'dash', 'dash');
                     s.pCur = 'knock2'; s.shake = 50; s.isAir = false; await sleep(400);
                 }
             } else if (eCmd === 'punch') {
                 s.pCur = 'punch'; e.pCur = 'punch'; s.shake = 30; e.shake = 30; await sleep(300);
-                await animateVersus(200, 750, 200, 'dash', 'dash');
+                await animateVersus(100, 660, 200, 'dash', 'dash');
             } else {
                 s.pCur = 'punch'; e.pCur = 'guard'; s.shake = 20; e.guardShift = 20; await sleep(400); e.guardShift = 0;
             }
@@ -112,7 +114,7 @@ async function resolveBattle() {
             s.pCur = 'guard'; s.guardShift = -20; await sleep(400); s.guardShift = 0;
         }
     }
-    await animateVersus(200, 750, 200, 'dash', 'dash');
+    await animateVersus(100, 660, 200, 'dash', 'dash');
     s.pCur = 'player'; e.pCur = 'player';
     s.isPlaying = false; resetCmd();
 }
@@ -127,8 +129,13 @@ function loop() {
         });
         ctx.globalAlpha = 1.0;
         ctx.save();
-        if(idx === 1) { ctx.scale(-1, 1); ctx.drawImage(imgs[obj.pCur], -obj.x - 200 + (Math.random()-0.5)*obj.shake, obj.y + (Math.random()-0.5)*obj.shake + obj.guardShift, 200, 200); }
-        else { ctx.drawImage(imgs[obj.pCur], obj.x + (Math.random()-0.5)*obj.shake, obj.y + (Math.random()-0.5)*obj.shake + obj.guardShift, 200, 200); }
+        
+        // 修正: guardShift は X軸(横)のみに適用
+        let xOffset = (Math.random()-0.5)*obj.shake + obj.guardShift;
+        let yOffset = (Math.random()-0.5)*obj.shake;
+        
+        if(idx === 1) { ctx.scale(-1, 1); ctx.drawImage(imgs[obj.pCur], -obj.x - 200 + xOffset, obj.y + yOffset, 200, 200); }
+        else { ctx.drawImage(imgs[obj.pCur], obj.x + xOffset, obj.y + yOffset, 200, 200); }
         ctx.restore();
         obj.shake *= 0.85;
     });
