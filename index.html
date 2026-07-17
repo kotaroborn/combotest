@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Combo Clash Tactics - Finalized Rules</title>
+    <title>Combo Clash Tactics - Engine v1.0</title>
     <style>
         body { margin: 0; background: #000; color: #fff; font-family: monospace; overflow: hidden; display: flex; flex-direction: column; align-items: center; }
         #gameArea { width: 100vw; height: 50vh; background: #111; position: relative; }
@@ -51,7 +51,9 @@ const s = { pCur: 'player', x: 100, y: 200, isAir: false, shake: 0, afterImages:
 const e = { pCur: 'player', x: 660, y: 200, isAir: false, shake: 0, afterImages: [], guardShift: 0 };
 
 let myHands = [];
-// damage.PNGを追加
+const ePatterns = ['punch', 'upper', 'guard', 'guard', 'guard'];
+let pIdx = 0;
+
 const imgNames = ['player','player2','punch','punch2','upper','upper2','knock','knock2','guard','dash','damage'];
 const imgs = {};
 imgNames.forEach(f => { imgs[f] = new Image(); imgs[f].src = f + '.PNG'; });
@@ -80,30 +82,32 @@ async function resolveBattle() {
 
     for (let i = 0; i < myHands.length; i++) {
         let pCmd = myHands[i];
-        let eCmd = (i % 2 === 0) ? 'punch' : 'guard'; 
+        let eCmd = ePatterns[pIdx % ePatterns.length];
+        pIdx++;
         
         await animateVersus(300, 460, 150, 'dash', 'dash');
 
         if (pCmd === 'upper') {
             if (eCmd === 'punch') {
-                // 1. 対 PUNCH: 勝ち
                 s.pCur = 'upper'; e.pCur = 'damage';
-                e.y -= 50; await sleep(500); e.y += 50;
+                let startY = e.y;
+                for(let t=0; t<=20; t++) {
+                    e.y = startY - (100 * Math.sin((t/20) * Math.PI));
+                    await sleep(30);
+                }
+                e.y = startY;
             } else if (eCmd === 'upper') {
-                // 2. 対 UPPER: 相殺（揺れなし、そのまま帰還）
                 s.pCur = 'upper'; e.pCur = 'upper';
                 await sleep(300);
                 await animateVersus(100, 660, 200, 'dash', 'dash');
                 continue;
             } else if (eCmd === 'guard') {
-                // 3. 対 GUARD: 負け（弾かれる）
                 s.pCur = 'upper'; e.pCur = 'guard';
                 s.guardShift = -20; e.guardShift = 20;
                 await sleep(400);
                 s.guardShift = 0; e.guardShift = 0;
             }
         } else if (pCmd === 'punch') {
-             // 既存のパンチ処理（PUNCH vs PUNCH や PUNCH vs GUARDなど）
              if (eCmd === 'punch') {
                 s.pCur = 'punch'; e.pCur = 'punch'; s.shake = 30; e.shake = 30; await sleep(300);
                 await animateVersus(100, 660, 200, 'dash', 'dash');
@@ -119,7 +123,8 @@ async function resolveBattle() {
     }
 
     s.pCur = 'player'; e.pCur = 'player';
-    s.isPlaying = false; resetCmd();
+    s.isPlaying = false;
+    resetCmd();
 }
 
 function loop() {
