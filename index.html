@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Combo Clash Tactics - Final Corrected Build</title>
+    <title>Combo Clash Tactics - Final Unified Build</title>
     <style>
         body { margin: 0; background: #000; color: #fff; font-family: sans-serif; touch-action: manipulation; }
         #topUI { display: flex; align-items: center; justify-content: space-between; padding: 10px; background: #222; height: 40px; }
@@ -42,6 +42,8 @@ const ctx = canvas.getContext('2d');
 ctx.imageSmoothingEnabled = false;
 
 let turn = 1;
+let airCombo = false; // 重力制御用フラグをグローバル管理
+
 const s = { pCur: 'player', x: 100, y: 200, shake: 0, hp: 100, isPlaying: false, lastPunch: 'punch2' };
 const e = { pCur: 'player', x: 660, y: 200, shake: 0, hp: 100 };
 const ePatterns = ['punch', 'upper', 'guard'];
@@ -55,6 +57,7 @@ function updateHp() { document.getElementById('myHp').style.width = s.hp + '%'; 
 function applyDmg(target, val) { target.hp = Math.max(0, target.hp - val); target.shake = 50; updateHp(); }
 async function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
+// 重力を集中管理するアニメーション関数
 async function animateVersus(pX, eX, duration, pPose, ePose) {
     const sX = s.x, eX_s = e.x;
     const start = Date.now();
@@ -63,24 +66,30 @@ async function animateVersus(pX, eX, duration, pPose, ePose) {
         let ease = 1 - Math.pow(1 - pr, 3);
         s.x = sX + (pX - sX) * ease;
         e.x = eX_s + (eX - eX_s) * ease;
-        s.y = Math.min(200, s.y + 10);
-        e.y = Math.min(200, e.y + 10);
+        
+        // 空中でなければ重力を適用
+        if (!airCombo) {
+            s.y = Math.min(200, s.y + 10);
+            e.y = Math.min(200, e.y + 10);
+        }
         s.pCur = pPose; e.pCur = ePose; await sleep(16);
     }
 }
 
 async function resolveBattle() {
     if(myHands.length === 0 || s.isPlaying) return;
-    s.isPlaying = true; let eIdx = 0; let airCombo = false, airStep = 0;
+    s.isPlaying = true; let eIdx = 0; airCombo = false; let airStep = 0;
     let comboCount = 0; 
     
     for (let i = 0; i < myHands.length; i++) {
         let p = myHands[i];
         let eAction = ePatterns[eIdx++ % ePatterns.length];
+        
         await animateVersus(300, 460, 150, 'dash', 'dash');
 
         if (airCombo) {
             airStep++;
+            s.y = 50; e.y = 50; // 強制固定
             s.pCur = (s.lastPunch === 'punch') ? 'punch2' : 'punch';
             s.lastPunch = s.pCur;
             e.pCur = 'damage';
@@ -88,10 +97,11 @@ async function resolveBattle() {
             if (p === 'punch' && airStep <= 3) {
                 if (airStep === 3) {
                     s.pCur = 'knock'; e.pCur = 'damage'; await sleep(300);
+                    airCombo = false; // 重力復活
                     s.y = 200; e.y = 200; s.pCur = 'knock2'; applyDmg(e, DMG.METEOR + (comboCount * 10)); await sleep(600);
-                    airCombo = false; comboCount = 0;
+                    comboCount = 0;
                 } else { applyDmg(e, DMG.UPPER + (comboCount * 5)); comboCount++; await sleep(300); }
-            } else { s.y = 200; e.y = 200; airCombo = false; comboCount = 0; }
+            } else { airCombo = false; s.y = 200; e.y = 200; comboCount = 0; }
             continue;
         }
 
@@ -108,7 +118,6 @@ async function resolveBattle() {
             for(let j = 20; j >= 0; j--) { e.y = 200 - (150 * Math.sin((j / 20) * Math.PI / 2)); e.pCur = 'damage'; await sleep(20); }
             e.y = 200;
             if (myHands[i+1] === 'punch') { airCombo = true; airStep = 0; }
-            else { e.pCur = 'knock2'; await sleep(300); }
         }
         s.y = 200; e.y = 200;
     }
