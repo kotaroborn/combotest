@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Combo Clash Tactics - Fixed Height</title>
+    <title>Combo Clash Tactics - Damage Guaranteed</title>
     <style>
         body { margin: 0; background: #000; color: #fff; font-family: sans-serif; touch-action: manipulation; overflow: hidden; }
         #topUI { display: flex; align-items: center; justify-content: space-between; padding: 10px; background: #222; height: 40px; }
@@ -112,8 +112,15 @@ async function resolveBattle() {
         let pPose = (p === 'punch') ? ((s.lastPunch === 'punch') ? 'punch2' : 'punch') : p;
         if (p === 'punch') { s.lastPunch = pPose; s.shake = 50; }
 
-        if (p === 'punch' && eAction === 'upper') { applyDmg(e, DMG.PUNCH + (comboCount * 5)); comboCount++; }
-        else { comboCount = 0; if (p === 'upper' && eAction === 'guard') applyDmg(e, DMG.UPPER); else if (eAction === 'punch' && p === 'upper') applyDmg(s, DMG.PUNCH); else if (eAction === 'upper' && eAction === 'guard') applyDmg(s, DMG.UPPER); }
+        // ダメージ判定：ヒットしているかどうかの判定
+        let isHit = false;
+        if (p === 'punch' && eAction === 'upper') isHit = true;
+        else if (p === 'upper' && eAction === 'guard') isHit = true;
+        else if (eAction === 'punch' && p === 'upper') applyDmg(s, DMG.PUNCH); // 敵の反撃
+        else if (eAction === 'upper' && p === 'guard') applyDmg(s, DMG.UPPER); // 敵の反撃
+        
+        if (isHit) { applyDmg(e, (p === 'upper' ? DMG.UPPER : DMG.PUNCH) + (comboCount * 5)); comboCount++; }
+        else { comboCount = 0; }
 
         await animateVersus(300, 460, 200, pPose, eAction);
 
