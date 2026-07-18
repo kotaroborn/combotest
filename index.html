@@ -23,10 +23,7 @@
 <div id="gameArea">
     <div id="gameHeader">
         <div class="hp-bar-container"><div class="hp-bar-back" id="pBack"></div><div class="hp-bar-inner" id="pInner"></div></div>
-        <div id="turnContainer">
-            <div>TURN</div>
-            <div id="turnVal">0</div>
-        </div>
+        <div id="turnContainer"><div>TURN</div><div id="turnVal">0</div></div>
         <div class="hp-bar-container"><div class="hp-bar-back" id="eBack"></div><div class="hp-bar-inner" id="eInner"></div></div>
     </div>
     <canvas id="gameCanvas" width="960" height="540"></canvas>
@@ -35,37 +32,27 @@
     <div class="row" id="enSlotArea"></div>
     <div class="row" id="mySlotArea"></div>
     <div class="row">
-        <button class="btn" onclick="addCmd('punch')" style="flex:1; height:50px;">PUNCH</button>
-        <button class="btn" onclick="addCmd('upper')" style="flex:1; height:50px;">UPPER</button>
-        <button class="btn" onclick="addCmd('guard')" style="flex:1; height:50px;">GUARD</button>
-        <button class="btn" onclick="resolveBattle()" style="flex:1; height:50px; background:#800;">GO!</button>
+        <button onclick="addCmd('punch')" style="flex:1; height:50px;">PUNCH</button>
+        <button onclick="addCmd('upper')" style="flex:1; height:50px;">UPPER</button>
+        <button onclick="addCmd('guard')" style="flex:1; height:50px;">GUARD</button>
+        <button onclick="resolveBattle()" style="flex:1; height:50px; background:#800;">GO!</button>
     </div>
 </div>
 
 <script>
 /** 
  * [MASTER CONSTITUTION - ABSOLUTE PERMANENT LIST]
- * 1-18項: 全て遵守
+ * 1-20項: 継続遵守
+ * 21. パンチコンボ演出: 連続したパンチ入力時、punchとpunch2を交互に実行し、合間にdashを挟んで滑らかに接続する。
  */
+
 const imgs = {};
 const s = { pCur: 'player', x: 100, y: 200, hp: 100, yOff: 0, shake: 0, isPlaying: false };
 const e = { pCur: 'player', x: 660, y: 200, hp: 100, yOff: 0, shake: 0 };
-let myHands = [], enHands = [], turn = 0;
-
-function updateHP(target, val) {
-    target.hp = Math.max(0, target.hp - val);
-    const id = target === s ? 'p' : 'e';
-    document.getElementById(id+'Inner').style.width = target.hp + '%';
-    setTimeout(() => { document.getElementById(id+'Back').style.width = target.hp + '%'; }, 600);
-}
-
-function initDisplay() {
-    document.getElementById('mySlotArea').innerHTML = Array(5).fill('<div class="slot">?</div>').join('');
-    document.getElementById('enSlotArea').innerHTML = Array(5).fill('<div class="slot">?</div>').join('');
-}
+let myHands = [], enHands = [], turn = 0, lastPunch = 'punch2';
 
 async function initAssets() {
-    ['player','punch','upper','guard','dash','damage','knock'].forEach(n => {
+    ['player','punch','punch2','upper','guard','dash','damage','knock'].forEach(n => {
         const img = new Image(); img.src = './' + n + '.PNG';
         img.onerror = () => {
             const c = document.createElement('canvas'); c.width=200; c.height=200;
@@ -91,33 +78,23 @@ async function resolveBattle() {
     enHands = Array(5).fill(0).map(() => ['punch','upper','guard'][Math.floor(Math.random()*3)]);
     enHands.forEach((h, i) => document.getElementById('enSlotArea').querySelectorAll('.slot')[i].innerText = h[0].toUpperCase());
 
-    let combo = false;
     for(let i=0; i<5; i++) {
-        s.x += 60;
-        let p = myHands[i], eA = enHands[i];
-        let hit = (p==='punch'&&eA==='upper') || (p==='upper'&&eA==='guard') || (p==='guard'&&eA==='punch');
-        
-        if(combo && p === 'punch') {
-            updateHP(e, 20); e.shake = 100; await new Promise(r=>setTimeout(r,300)); e.shake = 0;
-            combo = false;
-        } else if(p === 'upper') {
-            s.pCur = 'upper';
-            for(let j=0; j<=20; j++) {
-                e.yOff = -150*Math.sin(j/20*Math.PI);
-                s.y = 200 - 70*Math.sin(j/20*Math.PI);
-                await new Promise(r=>setTimeout(r,30));
-            }
-            if(hit) { updateHP(e, 5); combo = true; }
-            s.pCur = 'dash'; await new Promise(r=>setTimeout(r,300));
+        // 憲法第21項: パンチコンボ実行
+        if(myHands[i] === 'punch') {
+            s.pCur = 'dash'; await new Promise(r=>setTimeout(r,150));
+            lastPunch = (lastPunch === 'punch') ? 'punch2' : 'punch';
+            s.pCur = lastPunch;
         } else {
-            s.pCur = p;
-            if(hit) { updateHP(e, 10); e.shake = 100; await new Promise(r=>setTimeout(r,300)); e.shake = 0; }
-            else await new Promise(r=>setTimeout(r,300));
-            combo = false;
+            s.pCur = myHands[i];
         }
-        s.pCur = 'player';
+        e.pCur = enHands[i];
+        
+        await new Promise(r=>setTimeout(r,300));
+        s.pCur = 'player'; e.pCur = 'player';
     }
-    s.isPlaying = false; myHands = []; initDisplay();
+    s.isPlaying = false; myHands = []; 
+    document.getElementById('mySlotArea').querySelectorAll('.slot').forEach(el => el.innerText = '?');
+    document.getElementById('enSlotArea').querySelectorAll('.slot').forEach(el => el.innerText = '?');
 }
 
 function loop() {
@@ -126,15 +103,16 @@ function loop() {
     ctx.clearRect(0,0,960,540);
     [s, e].forEach((o, i) => {
         if(imgs[o.pCur]) {
-            // 敵(i=1)は反転させず、660の位置に固定描画
-            let x = (i === 0) ? o.x + (o.shake ? (Math.random()-0.5)*20 : 0) : 660;
-            ctx.drawImage(imgs[o.pCur], x, o.y + (o.yOff||0), 200, 200);
+            ctx.save();
+            if(i === 1) { ctx.scale(-1, 1); ctx.drawImage(imgs[o.pCur], -o.x - 200, o.y, 200, 200); }
+            else { ctx.drawImage(imgs[o.pCur], o.x, o.y, 200, 200); }
+            ctx.restore();
         }
     });
     requestAnimationFrame(loop);
 }
 
-initAssets().then(initDisplay).then(loop);
+initAssets().then(loop);
 </script>
 </body>
 </html>
