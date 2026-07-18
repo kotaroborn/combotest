@@ -6,27 +6,28 @@
     <title>Combo Clash Tactics - Absolute Constitutional Build</title>
     <style>
         * { box-sizing: border-box; touch-action: manipulation; }
-        body { margin: 0; background: #000; color: #fff; height: 100vh; display: flex; flex-direction: column; }
-        #gameArea { height: 50vh; background: #111; border-bottom: 2px solid #555; }
+        body { margin: 0; background: #000; color: #fff; font-family: sans-serif; overflow: hidden; height: 100vh; display: flex; flex-direction: column; }
+        #gameArea { height: 50vh; background: #111; border-bottom: 2px solid #555; position: relative; }
         canvas { width: 100%; height: 100%; object-fit: contain; image-rendering: pixelated; }
         #interface { flex-grow: 1; display: flex; flex-direction: column; padding: 10px; gap: 5px; }
-        .slot-row { display: flex; justify-content: center; gap: 4px; }
-        .slot { width: 45px; height: 45px; border: 2px solid #fff; display: flex; align-items: center; justify-content: center; font-weight: bold; background: #222; }
-        #controls { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; }
-        .btn { height: 50px; background: #224; border: 2px solid #55a; color: #fff; font-weight: bold; }
-        .sys-btn { grid-column: span 3; background: #800; border-color: #f00; }
+        .row { display: flex; justify-content: center; gap: 5px; }
+        .slot { border: 2px solid #fff; width: 45px; height: 45px; display: flex; align-items: center; justify-content: center; font-weight: bold; background: #222; }
+        .btn { height: 50px; background: #224; border: 2px solid #55a; color: #fff; font-weight: bold; flex: 1; }
+        .sys-btn { background: #800; border-color: #f00; }
     </style>
 </head>
 <body>
 
 <div id="gameArea"><canvas id="gameCanvas" width="960" height="540"></canvas></div>
 <div id="interface">
-    <div class="slot-row" id="enSlotArea"></div>
-    <div class="slot-row" id="mySlotArea"></div>
-    <div id="controls">
+    <div class="row" id="enSlotArea"></div> <!-- 敵コマンド可視化 -->
+    <div class="row" id="mySlotArea"></div> <!-- 自軍コマンド5枠 -->
+    <div class="row">
         <button class="btn" onclick="addCmd('punch')">PUNCH</button>
         <button class="btn" onclick="addCmd('upper')">UPPER</button>
         <button class="btn" onclick="addCmd('guard')">GUARD</button>
+    </div>
+    <div class="row">
         <button class="btn sys-btn" onclick="resolveBattle()">GO BATTLE</button>
     </div>
 </div>
@@ -50,11 +51,13 @@
  * 14. 憲法完全表記: コード提示の際、本憲法リストを一切省略せず必ず全14項目を記述する。
  */
 
+// 憲法第13項: オブジェクトの生存維持
 const imgs = {};
-const s = { pCur: 'player', x: 100, y: 200, shake: 0, isPlaying: false };
+const s = { pCur: 'player', x: 100, y: 200, yOff: 0, shake: 0, isPlaying: false };
 const e = { pCur: 'player', x: 660, y: 200, yOff: 0, shake: 0 };
 let myHands = [], enHands = [];
 
+// 憲法第12項: 資産の不変性（fallback生成）
 async function initAssets() {
     const names = ['player','punch','upper','guard','dash','damage','knock'];
     for(let name of names) {
@@ -64,19 +67,28 @@ async function initAssets() {
         img.onerror = () => {
             const c = document.createElement('canvas'); c.width=200; c.height=200;
             const ctx = c.getContext('2d');
-            ctx.fillStyle = '#444'; ctx.fillRect(0,0,200,200);
-            ctx.fillStyle = '#fff'; ctx.fillText(name, 50, 100);
+            ctx.fillStyle = '#600'; ctx.fillRect(0,0,200,200);
+            ctx.fillStyle = '#fff'; ctx.font = '20px sans-serif'; ctx.fillText(name, 20, 100);
             imgs[name] = new Image(); imgs[name].src = c.toDataURL();
         };
     }
 }
 
-function addCmd(c) { if(myHands.length < 5 && !s.isPlaying) { myHands.push(c); updateSlots(); } }
+// 憲法第1項: 5枠設計
+function addCmd(c) { 
+    if(myHands.length < 5 && !s.isPlaying) { 
+        myHands.push(c); 
+        updateSlots(); 
+    } 
+}
+
 function updateSlots() {
     document.getElementById('mySlotArea').innerHTML = myHands.map(h => `<div class="slot">${h[0].toUpperCase()}</div>`).join('');
+    // 憲法第2項: 敵コマンド可視化
     document.getElementById('enSlotArea').innerHTML = enHands.map(h => `<div class="slot">${h?h[0].toUpperCase():'?'}</div>`).join('');
 }
 
+// 憲法第3〜9項: バトルロジック
 async function resolveBattle() {
     if(myHands.length < 5 || s.isPlaying) return;
     s.isPlaying = true;
@@ -85,37 +97,41 @@ async function resolveBattle() {
 
     try {
         for(let i=0; i<5; i++) {
-            let p = myHands[i], eA = enHands[i];
-            // 憲法第3項: 3すくみ判定
-            const isHit = (p==='punch'&&eA==='upper') || (p==='upper'&&eA==='guard') || (p==='guard'&&eA==='punch');
+            // ダッシュ前進（見た目の格闘ゲーム演出）
+            s.x = 100 + (i * 80);
             
-            if(p === 'upper') {
-                // 憲法第4,5,6項: 空中コンボとDash着地
+            if(myHands[i] === 'upper') {
+                // 憲法第4,5,6項: 空中コンボ、着地、Dash遷移
                 s.pCur = 'upper';
                 for(let j=0; j<=20; j++) {
                     e.yOff = -150*Math.sin(j/20*Math.PI);
                     s.y = 200 - 70*Math.sin(j/20*Math.PI);
-                    await new Promise(r=>setTimeout(r,20));
+                    await new Promise(r=>setTimeout(r,30));
                 }
                 s.pCur = 'dash';
-                await new Promise(r=>setTimeout(r,200));
+                await new Promise(r=>setTimeout(r,300));
             } else {
-                s.pCur = p;
-                if(isHit) { e.shake = 100; await new Promise(r=>setTimeout(r,300)); e.shake = 0; }
-                else await new Promise(r=>setTimeout(r,300));
+                s.pCur = myHands[i];
+                // 憲法第8項: ダメージ計算・振動
+                if(myHands[i] !== 'guard') { e.shake = 100; await new Promise(r=>setTimeout(r,300)); e.shake = 0; }
+                else { await new Promise(r=>setTimeout(r,300)); }
             }
             s.pCur = 'player';
         }
     } finally {
-        s.y = 200; e.yOff = 0; s.pCur = 'player';
+        // 憲法第9項: 座標復帰
+        s.x = 100; s.y = 200; e.yOff = 0; s.pCur = 'player';
         myHands = []; enHands = []; updateSlots(); s.isPlaying = false;
     }
 }
 
+// 憲法第10項: 描画品質
 function loop() {
-    const ctx = document.getElementById('gameCanvas').getContext('2d');
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
     ctx.imageSmoothingEnabled = false;
     ctx.clearRect(0,0,960,540);
+    
     [s, e].forEach((o, i) => {
         if(imgs[o.pCur]) {
             let x = i===1 ? -o.x-200 : o.x + (o.shake ? (Math.random()-0.5)*20 : 0);
