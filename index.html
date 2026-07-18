@@ -2,32 +2,33 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Combo Clash Tactics - Final Permanent Engine</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Combo Clash Tactics - Permanent Damage Engine</title>
     <style>
-        * { box-sizing: border-box; }
-        body { margin: 0; background: #000; color: #fff; font-family: sans-serif; overflow: hidden; }
-        #topUI { display: flex; align-items: center; justify-content: space-between; padding: 5px 10px; background: #222; height: 45px; }
-        .hp-container { width: 40%; }
-        .hp-bar { height: 12px; background: #400; border: 1px solid #fff; position: relative; }
+        * { box-sizing: border-box; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+        body { margin: 0; background: #000; color: #fff; font-family: sans-serif; overflow: hidden; height: 100vh; display: flex; flex-direction: column; }
+        #topUI { display: flex; align-items: center; justify-content: space-between; padding: 5px; background: #222; height: 40px; flex-shrink: 0; }
+        .hp-container { width: 42%; }
+        .hp-bar { height: 10px; background: #400; border: 1px solid #fff; position: relative; }
         .hp-delay { height: 100%; background: #ff0; width: 100%; position: absolute; top:0; left:0; transition: width 0.5s ease-out; }
         .hp-fill { height: 100%; background: #0f0; width: 100%; position: absolute; top:0; left:0; transition: width 0.1s; }
-        #turnCounter { text-align: center; font-size: 10px; font-weight: bold; line-height: 1.1; }
-        #gameArea { width: 100%; height: 45vh; background: #111; position: relative; }
+        #turnCounter { text-align: center; font-size: 8px; font-weight: bold; line-height: 1; }
+        #gameArea { flex-grow: 1; width: 100%; background: #111; position: relative; overflow: hidden; }
         canvas { width: 100%; height: 100%; image-rendering: pixelated; object-fit: contain; }
-        .slot-container { display: flex; flex-direction: column; gap: 2px; padding: 5px; height: 60px; }
-        .slot-row { display: flex; gap: 2px; justify-content: center; }
-        .slot { width: 18%; max-width: 60px; height: 25px; border: 1px solid #fff; display: flex; align-items: center; justify-content: center; font-size: 10px; }
+        .slot-container { height: 40px; display: flex; flex-direction: column; gap: 1px; padding: 2px; flex-shrink: 0; }
+        .slot-row { display: flex; gap: 1px; justify-content: center; }
+        .slot { width: 18%; max-width: 50px; height: 18px; border: 1px solid #fff; display: flex; align-items: center; justify-content: center; font-size: 8px; }
         .my-slot { background: #222; }
         .en-slot { background: #422; }
-        #controls { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; padding: 5px; }
-        .btn { height: 45px; background: #224; border: 2px solid #55a; color: white; font-weight: bold; border-radius: 4px; font-size: 13px; }
-        .sys-btn { grid-column: span 3; background: #b00; height: 40px; }
+        #controls { display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px; padding: 5px; flex-shrink: 0; }
+        .btn { height: 40px; background: #224; border: 1px solid #55a; color: white; font-weight: bold; border-radius: 4px; font-size: 12px; }
+        .sys-btn { grid-column: span 3; background: #b00; height: 35px; }
     </style>
 </head>
 <body>
 <div id="topUI">
     <div class="hp-container"><div class="hp-bar"><div id="myHpDelay" class="hp-delay"></div><div id="myHp" class="hp-fill"></div></div></div>
-    <div id="turnCounter">TURN<br><span id="turnNum" style="font-size:14px">01</span></div>
+    <div id="turnCounter">TURN<br><span id="turnNum" style="font-size:12px">01</span></div>
     <div class="hp-container"><div class="hp-bar"><div id="enHpDelay" class="hp-delay"></div><div id="enHp" class="hp-fill"></div></div></div>
 </div>
 <div id="gameArea"><canvas id="gameCanvas" width="960" height="540"></canvas></div>
@@ -46,10 +47,12 @@
 <script>
 /** 
  * [永続仕様・動作リスト]
- * 1. ダメージ計算: DMG定数(PUNCH:10, UPPER:5, METEOR:50)を基準とし、空中コンボ段階に応じて増加する。
- * 2. 画像切替: 空中コンボ中の punch/punch2 交互トグル。
- * 3. アッパー: 実行時は必ず画像 'upper' を出力。
- * 4. 物理: 最終的な着地座標 y=200 への復帰を finally で保証。
+ * 1. ダメージ計算: PUNCH(10), UPPER(5), METEOR(50)基準。コンボに応じ補正。ガード時は無効(0)。
+ * 2. ダメージ演出: applyDmg 実行時に必ず target.shake = 100 を設定し画像を揺らすこと。
+ * 3. 画像切替: 空中コンボ中の punch/punch2 交互トグル。
+ * 4. アッパー: 実行時は必ず画像 'upper' を使用。
+ * 5. 物理: 着地座標 y=200 への復帰を finally で保証。
+ * 6. 描画: imageSmoothingEnabled = false で鮮明化。
  */
 const DMG = { PUNCH: 10, UPPER: 5, METEOR: 50 };
 const canvas = document.getElementById('gameCanvas');
@@ -71,9 +74,10 @@ function updateEnSlots() { document.getElementById('enSlotArea').innerHTML = enH
 function addCmd(c) { if(myHands.length < 5 && !s.isPlaying) { myHands.push(c); updateMySlots(); } }
 function resetCmd() { if(!s.isPlaying) { myHands = []; enHands = []; updateMySlots(); updateEnSlots(); } }
 
-function applyDmg(target, val, isAttacker = false) {
-    target.hp = Math.max(0, target.hp - val); target.shake = 100;
-    if(isAttacker) s.shake = 50;
+// [永続仕様] ダメージ時は確定で shake を付与
+function applyDmg(target, val) {
+    target.hp = Math.max(0, target.hp - val); 
+    target.shake = 100; // 確定揺れ
     document.getElementById(target === s ? 'myHp' : 'enHp').style.width = target.hp + '%';
     setTimeout(() => document.getElementById(target === s ? 'myHpDelay' : 'enHpDelay').style.width = target.hp + '%', 500);
 }
@@ -104,10 +108,9 @@ async function resolveBattle() {
                 airStep++; s.y = 50; e.y = 50;
                 s.pCur = (s.lastPunch === 'punch') ? 'punch2' : 'punch';
                 s.lastPunch = s.pCur; e.pCur = 'damage';
-                // [仕様] メテオダメージ計算: 3発目はMETEOR+加算
                 if (p === 'punch' && airStep <= 3) {
-                    if (airStep === 3) { s.pCur = 'knock'; e.pCur = 'damage'; await new Promise(r => setTimeout(r, 300)); s.y = 200; e.y = 200; airCombo = false; applyDmg(e, DMG.METEOR + 10, true); await new Promise(r => setTimeout(r, 600)); }
-                    else { applyDmg(e, DMG.PUNCH + (airStep * 5), true); await new Promise(r => setTimeout(r, 300)); }
+                    if (airStep === 3) { s.pCur = 'knock'; e.pCur = 'damage'; await new Promise(r => setTimeout(r, 300)); s.y = 200; e.y = 200; airCombo = false; applyDmg(e, DMG.METEOR + 10); await new Promise(r => setTimeout(r, 600)); }
+                    else { applyDmg(e, DMG.PUNCH + (airStep * 5)); await new Promise(r => setTimeout(r, 300)); }
                 } else { s.y = 200; e.y = 200; airCombo = false; }
                 continue;
             }
@@ -117,7 +120,7 @@ async function resolveBattle() {
                 for(let j=0; j<=20; j++) { e.y = 200 - (150 * Math.sin((j/20)*Math.PI/2)); s.y = 200 - (30 * Math.sin((j/20)*Math.PI/2)); e.pCur = 'damage'; await new Promise(r => setTimeout(r, 20)); }
                 if (myHands[i+1] === 'punch') { airCombo = true; airStep = 0; } else { s.y = 200; e.y = 200; }
             } else if (p === 'punch' && eA !== 'guard') {
-                s.pCur = 'punch'; applyDmg(e, DMG.PUNCH, true); await new Promise(r => setTimeout(r, 300));
+                s.pCur = 'punch'; applyDmg(e, DMG.PUNCH); await new Promise(r => setTimeout(r, 300));
             } else {
                 s.pCur = 'player'; await new Promise(r => setTimeout(r, 300));
             }
