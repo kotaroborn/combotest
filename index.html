@@ -2,10 +2,11 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Combo Clash Tactics - Final Constitutional Build</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Combo Clash Tactics - Absolute Constitutional Build</title>
     <style>
-        body { margin: 0; background: #000; color: #fff; overflow: hidden; height: 100vh; display: flex; flex-direction: column; }
+        * { box-sizing: border-box; touch-action: manipulation; }
+        body { margin: 0; background: #000; color: #fff; height: 100vh; display: flex; flex-direction: column; }
         #gameArea { height: 50vh; background: #111; border-bottom: 2px solid #555; }
         canvas { width: 100%; height: 100%; object-fit: contain; image-rendering: pixelated; }
         #interface { flex-grow: 1; display: flex; flex-direction: column; padding: 10px; gap: 5px; }
@@ -46,30 +47,27 @@
  * 11. モバイル対応: Flexboxとviewport固定によるレスポンシブ最適化。
  * 12. 描画資産の不変性: 画像が読み込めない場合でも強制的にダミーを生成し、描画を途絶させない。
  * 13. オブジェクトの生存維持: 状態管理オブジェクト(s, e, imgs)は決して再定義・初期化せず、常に参照し続ける。
+ * 14. 憲法完全表記: コード提示の際、本憲法リストを一切省略せず必ず全14項目を記述する。
  */
 
-// 憲法第13項に基づき、一度の宣言で永続的に生存させる
 const imgs = {};
-const s = { pCur: 'player', x: 100, y: 200, hp: 100, shake: 0, isPlaying: false };
-const e = { pCur: 'player', x: 660, y: 200, hp: 100, yOff: 0, shake: 0 };
+const s = { pCur: 'player', x: 100, y: 200, shake: 0, isPlaying: false };
+const e = { pCur: 'player', x: 660, y: 200, yOff: 0, shake: 0 };
 let myHands = [], enHands = [];
 
-// 憲法第12項に基づき、描画の失敗を許容しない
-async function loadEverything() {
+async function initAssets() {
     const names = ['player','punch','upper','guard','dash','damage','knock'];
     for(let name of names) {
-        imgs[name] = await new Promise(resolve => {
-            const img = new Image();
-            img.onload = () => resolve(img);
-            img.onerror = () => {
-                console.error("Asset missing: " + name + ".PNG - Creating fallback.");
-                const c = document.createElement('canvas'); c.width=200; c.height=200;
-                const ctx = c.getContext('2d'); ctx.fillStyle = '#444'; ctx.fillRect(0,0,200,200);
-                ctx.fillStyle = '#fff'; ctx.fillText(name, 50, 100);
-                const d = new Image(); d.src = c.toDataURL(); resolve(d);
-            };
-            img.src = './' + name + '.PNG';
-        });
+        const img = new Image();
+        img.src = './' + name + '.PNG';
+        img.onload = () => imgs[name] = img;
+        img.onerror = () => {
+            const c = document.createElement('canvas'); c.width=200; c.height=200;
+            const ctx = c.getContext('2d');
+            ctx.fillStyle = '#444'; ctx.fillRect(0,0,200,200);
+            ctx.fillStyle = '#fff'; ctx.fillText(name, 50, 100);
+            imgs[name] = new Image(); imgs[name].src = c.toDataURL();
+        };
     }
 }
 
@@ -84,36 +82,50 @@ async function resolveBattle() {
     s.isPlaying = true;
     enHands = Array(5).fill(0).map(() => ['punch','upper','guard'][Math.floor(Math.random()*3)]);
     updateSlots();
-    
-    for(let i=0; i<5; i++) {
-        let p = myHands[i];
-        if(p === 'upper') {
-            s.pCur = 'upper';
-            for(let j=0; j<=20; j++) { e.yOff = -150*Math.sin(j/20*Math.PI); await new Promise(r=>setTimeout(r,20)); }
-            s.pCur = 'dash'; await new Promise(r=>setTimeout(r,200));
-        } else {
-            s.pCur = p;
-            await new Promise(r=>setTimeout(r,300));
+
+    try {
+        for(let i=0; i<5; i++) {
+            let p = myHands[i], eA = enHands[i];
+            // 憲法第3項: 3すくみ判定
+            const isHit = (p==='punch'&&eA==='upper') || (p==='upper'&&eA==='guard') || (p==='guard'&&eA==='punch');
+            
+            if(p === 'upper') {
+                // 憲法第4,5,6項: 空中コンボとDash着地
+                s.pCur = 'upper';
+                for(let j=0; j<=20; j++) {
+                    e.yOff = -150*Math.sin(j/20*Math.PI);
+                    s.y = 200 - 70*Math.sin(j/20*Math.PI);
+                    await new Promise(r=>setTimeout(r,20));
+                }
+                s.pCur = 'dash';
+                await new Promise(r=>setTimeout(r,200));
+            } else {
+                s.pCur = p;
+                if(isHit) { e.shake = 100; await new Promise(r=>setTimeout(r,300)); e.shake = 0; }
+                else await new Promise(r=>setTimeout(r,300));
+            }
+            s.pCur = 'player';
         }
-        s.pCur = 'player';
+    } finally {
+        s.y = 200; e.yOff = 0; s.pCur = 'player';
+        myHands = []; enHands = []; updateSlots(); s.isPlaying = false;
     }
-    s.isPlaying = false; myHands = []; enHands = []; updateSlots();
 }
 
 function loop() {
     const ctx = document.getElementById('gameCanvas').getContext('2d');
     ctx.imageSmoothingEnabled = false;
     ctx.clearRect(0,0,960,540);
-    // 描画の生存維持
     [s, e].forEach((o, i) => {
         if(imgs[o.pCur]) {
-            ctx.drawImage(imgs[o.pCur], i===1?-o.x-200:o.x, o.y + (o.yOff||0), 200, 200);
+            let x = i===1 ? -o.x-200 : o.x + (o.shake ? (Math.random()-0.5)*20 : 0);
+            ctx.drawImage(imgs[o.pCur], x, o.y + (o.yOff||0), 200, 200);
         }
     });
     requestAnimationFrame(loop);
 }
 
-loadEverything().then(loop);
+initAssets().then(loop);
 </script>
 </body>
 </html>
