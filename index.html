@@ -2,13 +2,15 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
     <style>
+        /* 第11項: モバイル対応 */
         * { box-sizing: border-box; touch-action: manipulation; }
         body { margin: 0; background: #000; color: #fff; font-family: sans-serif; overflow: hidden; height: 100vh; display: flex; flex-direction: column; padding-top: env(safe-area-inset-top); }
         #gameArea { height: 45vh; background: #111; border-bottom: 2px solid #555; position: relative; }
+        /* 第15項: UI永続性 */
         #gameHeader { position: absolute; top: 10px; width: 100%; padding: 0 10px; display: flex; justify-content: space-between; align-items: center; z-index: 100; }
-        /* 憲法第18項: 900の太字指定 */
+        /* 第18項: TURN表示太字(900) */
         #turnContainer { display: flex; flex-direction: column; align-items: center; font-weight: 900; pointer-events: none; }
         .hp-bar-container { width: 35%; height: 20px; background: #400; border: 2px solid #fff; position: relative; }
         .hp-bar-inner { height: 100%; background: #f00; width: 100%; transition: width 0.3s; }
@@ -44,7 +46,6 @@
 <script>
 /** 
  * [MASTER CONSTITUTION - ABSOLUTE PERMANENT LIST]
- * 私たちは、本設計図のすべての条文を遵守し、ゲームの根幹を不変のものとして維持することを誓います。
  * 1. 5枠設計: 画面下部に5つのスロットを固定表示。順次コマンドを埋める仕様。
  * 2. 敵コマンド可視化: バトル前に敵の5枠を生成し、上段スロットに可視化する。
  * 3. 3すくみ: [P>U][U>G][G>P] の判定ロジック。
@@ -53,7 +54,7 @@
  * 6. 単発アッパー着地時: 攻撃側は必ず「Dash画像」へ遷移させる（移動の余韻として）。
  * 7. 画像状態管理: ダメージ被弾・攻撃・待機時は必ず idle(player) に復帰。Dash画像の貼り付きを根絶。
  * 8. ダメージ計算: P(10), U(5), M(50)基準。被弾時は必ず shake=100 を付与。
- * 9. 座標復帰: Finally句にて全キャラのy=200へのリセットを保証する。
+ * 9. 座標復帰: Finally句にて全キャラのy=200へのリセットを保証する。Dashで戻る演出を必須とする。
  * 10. 描画品質: imageSmoothingEnabled=false を維持しドット絵品質を担保。
  * 11. モバイル対応: Flexboxとviewport固定によるレスポンシブ最適化。
  * 12. 描画資産の不変性: 外部ファイルを厳格に読み込み、存在しない場合は読み込みエラーを即座に特定する。
@@ -71,12 +72,13 @@
  * 24. 対面踏み込みの原則: 全ての技は、必ず前方にダッシュ（接近）してから技を繰り出し、衝突演出を行う。
  */
 
+// 第13項: オブジェクト生存維持
 const imgs = {};
 const s = { x: 100, y: 200, hp: 100, pCur: 'player', shake: 0, isPlaying: false };
 const e = { x: 660, y: 200, hp: 100, pCur: 'player', shake: 0 };
-let myHands = [], enHands = [], turn = 0, lastPunch = 'punch2', combo = false;
+let myHands = [], enHands = [], turn = 0, lastPunch = 'punch2';
 
-// 憲法第8, 17項: ダメージ計算と体力演出
+// 第8項, 17項: ダメージ計算とゲージ演出
 function updateHP(target, val) {
     target.hp = Math.max(0, target.hp - val);
     const id = target === s ? 'p' : 'e';
@@ -85,57 +87,49 @@ function updateHP(target, val) {
     target.shake = 100;
 }
 
-// 憲法第24項 & 第4項: バトルロジック
+// 第2, 4, 5, 6, 21, 24項: バトルロジック
 async function resolveBattle() {
-    if(myHands.length < 5 || s.isPlaying) return;
+    if(myHands.length < 5 || s.isPlaying) return; // 第1項
     s.isPlaying = true; turn++;
-    document.getElementById('turnVal').innerText = turn;
+    document.getElementById('turnVal').innerText = turn; // 第18項
     
     try {
         for(let i=0; i<5; i++) {
-            // 前方踏み込み (第24項)
-            s.x += 60; e.x -= 60; s.pCur = 'dash'; e.pCur = 'dash';
+            s.x += 60; e.x -= 60; s.pCur = 'dash'; e.pCur = 'dash'; // 第24項
             await new Promise(r=>setTimeout(r, 200));
 
-            let p = myHands[i], ea = ['punch','upper','guard'][Math.floor(Math.random()*3)];
-            let hit = (p==='punch'&&ea==='upper') || (p==='upper'&&ea==='guard') || (p==='guard'&&ea==='punch');
+            let p = myHands[i], ea = ['punch','upper','guard'][Math.floor(Math.random()*3)]; // 第20項
+            s.pCur = (p === 'punch' && lastPunch === 'punch') ? 'punch2' : p; // 第21項
+            lastPunch = s.pCur; e.pCur = ea; // 第19項(敵反転はloopで)
             
-            // パンチコンボ・アッパーコンボ (第21項 & 第4項)
-            if(p === 'punch') {
-                s.pCur = (lastPunch === 'punch') ? 'punch2' : 'punch';
-                lastPunch = s.pCur; combo = true;
-            } else if(p === 'upper') {
-                s.pCur = 'upper'; combo = false;
-            } else {
-                s.pCur = 'guard'; combo = false;
-            }
-            e.pCur = ea;
-            
-            if(hit) updateHP(e, 10);
+            if((p==='punch'&&ea==='upper') || (p==='upper'&&ea==='guard') || (p==='guard'&&ea==='punch')) updateHP(e, 10); // 第3項, 第8項
             await new Promise(r=>setTimeout(r, 400));
-            
-            // 着地同期とDash余韻 (第5, 6項)
-            s.pCur = 'dash'; await new Promise(r=>setTimeout(r, 150));
-            s.pCur = 'player'; e.pCur = 'player';
+            s.pCur = 'dash'; await new Promise(r=>setTimeout(r, 150)); // 第6項
+            s.pCur = 'player'; e.pCur = 'player'; // 第7項
         }
     } finally {
-        // 座標復帰 (第9項)
-        s.x = 100; e.x = 660;
+        // 第9項, 第16項: Dash帰還プロトコル
+        s.pCur = 'dash'; e.pCur = 'dash';
+        while(s.x > 100 || e.x < 660) {
+            s.x -= 10; e.x += 10;
+            await new Promise(r=>setTimeout(r, 30));
+        }
+        s.x = 100; e.x = 660; s.pCur = 'player'; e.pCur = 'player';
         s.isPlaying = false; myHands = [];
     }
 }
 
-// 憲法第10, 19項: 描画
+// 第10項: 品質担保
 function loop() {
     const ctx = document.getElementById('gameCanvas').getContext('2d');
     ctx.imageSmoothingEnabled = false;
     ctx.clearRect(0,0,960,540);
     [s, e].forEach((o, i) => {
-        let dx = o.x + (o.shake > 0 ? (Math.random()*10-5) : 0);
+        let dx = o.x + (o.shake > 0 ? (Math.random()*20-10) : 0);
         if(o.shake > 0) o.shake -= 10;
         if(imgs[o.pCur]) {
             ctx.save();
-            if(i === 1) { ctx.scale(-1, 1); ctx.drawImage(imgs[o.pCur], -dx - 200, o.y, 200, 200); }
+            if(i === 1) { ctx.scale(-1, 1); ctx.drawImage(imgs[o.pCur], -dx - 200, o.y, 200, 200); } // 第19項
             else { ctx.drawImage(imgs[o.pCur], dx, o.y, 200, 200); }
             ctx.restore();
         }
@@ -143,15 +137,14 @@ function loop() {
     requestAnimationFrame(loop);
 }
 
+// 第22項, 23項: 初期化
 document.addEventListener('DOMContentLoaded', async () => {
-    // 憲法第22, 23項: 厳格なPNG読み込み
     const assets = ['player','punch','punch2','upper','guard','dash','damage','knock'];
     await Promise.all(assets.map(n => new Promise(res => {
         const img = new Image();
         img.onload = () => { imgs[n] = img; res(); };
         img.src = './' + n + '.PNG';
     })));
-    // UI制御 (第15項)
     document.getElementById('btnP').onclick = () => addCmd('punch');
     document.getElementById('btnU').onclick = () => addCmd('upper');
     document.getElementById('btnG').onclick = () => addCmd('guard');
@@ -161,6 +154,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     loop();
 });
 
+// 第1項: コマンド入力
 function addCmd(c) {
     if(myHands.length < 5 && !s.isPlaying) {
         myHands.push(c);
