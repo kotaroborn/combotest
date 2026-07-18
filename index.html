@@ -48,6 +48,26 @@
             padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px)); /* 第26条: メニュー回避余白 */
             display: flex; flex-direction: column; gap: 10px;
         }
+        /* ------- シーン管理 (プロローグ / タイトル / バトル) ------- */
+        .scene { display: none; width: 100%; height: 100%; }
+        .scene.active { display: flex; flex-direction: column; }
+        .scene-inner {
+            flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+            gap: 28px; background: #000; padding: 20px; text-align: center;
+        }
+        .prologue-text { color: #999; font-size: 14px; line-height: 1.6; }
+        .title-logo-wrap { max-width: 80%; }
+        #titleLogoImg { max-width: 100%; display: block; image-rendering: pixelated; }
+        .title-logo-fallback { display: none; font-size: 34px; font-weight: 900; letter-spacing: 3px; }
+        .scene-btn { background: #800; color: #fff; border: none; border-radius: 8px; padding: 14px 40px; font-weight: bold; font-size: 16px; cursor: pointer; }
+        .scene-btn:disabled { opacity: 0.4; }
+        #resultOverlay {
+            position: absolute; inset: 0; background: rgba(0,0,0,0.78);
+            display: none; flex-direction: column; align-items: center; justify-content: center; gap: 22px;
+            z-index: 10;
+        }
+        #resultOverlay.show { display: flex; }
+        #resultText { font-size: 46px; font-weight: 900; letter-spacing: 4px; color: #fff; text-shadow: 0 0 14px rgba(255,255,255,0.6); }
         #slots { display: flex; justify-content: center; gap: 5px; height: 50px; }
         .slot { width: 50px; height: 50px; border: 2px solid #fff; display: flex; align-items: center; justify-content: center; font-weight: bold; background:#222; }
         .slot.empty { border-style: dashed; border-color: #888; opacity: 0.5; }
@@ -72,13 +92,13 @@
  * 6. 通常コンボ終了時の演出: 攻撃側は必ずdash.PNGへ、被弾側はdamage.PNGのまま着地させる。
  * 7. 画像状態管理: 待機中は必ず player.PNG / player2.PNG の呼吸(idle)へ復帰する。idle.PNGという単独ファイルは存在しない。
  * 8. ダメージ計算: PUNCH勝利(10), UPPER初撃(5), メテオ(50), 相討ち(3), しびれ被弾時の弱点ダメージ(15)。三すくみに負けた側のみ振動(shake)する。同じ手同士の相討ちの場合は双方が微ダメージを受けて振動し、反動で一歩下がる。味方のPUNCHが敵のGUARDに阻まれた場合、敵は極小ダメージで振動し、味方はダメージなしだがしびれてpunch.PNGのまま振動し、次のコマンドの成功率が1/2になる。しびれで行動失敗した場合、味方はdamage.PNGで振動し、3すくみを無視した弱点ダメージを受ける。
- * 9. 座標復帰: ターン(5枠)全体の処理が完了した時点で、finally句にて必ずホームポジションへ dash.PNG の残像付きで帰還することを保証する。
+ * 9. 座標復帰: ターン(5枠)全体の処理が完了した時点で、finally句にて必ずホームポジションへ dash.PNG の残像付きで帰還することを保証する。ただし体力が0になる最後の一撃を受けた場合は、この通常帰還処理の代わりに専用の決着演出（damage.PNGで点滅→スローに軽くバウンドしながら初期位置へ戻る→down.PNGで倒れる→K.O./YOU WIN表示）を実行する。
  * 10. 描画品質: imageSmoothingEnabled=false を維持しドット絵品質を担保。
  * 11. モバイル対応: Flexboxとviewport固定によるレスポンシブ最適化。UI全体はappRootコンテナで正方形(1:1)に収め、画面中央に配置する。
  * 12. 描画資産の不変性: 外部ファイルを厳格に読み込み、存在しない場合は読み込みエラーを即座に特定する。
  * 13. オブジェクトの生存維持: 状態管理オブジェクト(state, imgs)は決して再定義・初期化せず、常に参照し続ける。
  * 14. 憲法完全表記: コード提示の際、本憲法リストを一切省略せず必ず全条文を記述する。
- * 15. UI永続性: HP・TURN表示は画面上部に固定し、スロットは下部に永続表示する。
+ * 15. UI永続性: HP・TURN表示は画面上部に固定し、スロットは下部に永続表示する。画面はプロローグ→タイトル→バトル→決着(K.O./YOU WIN)→(タイトルへ戻るボタンで)プロローグ、の順で遷移する。
  * 16. 位置保持: 攻防のたびに初期位置へ戻るのではなく、中央で衝突→軽く距離を取る、を繰り返す。ホームポジションへ戻るのはターン完了時のみ。
  * 17. 体力ゲージ演出: ダメージ発生時、現在値が即座に減り、黄色いバーが0.6秒遅れて減少する。
  * 18. TURN表示仕様: 画面上部中央に「TURN」と「数字」を2行で太字(900)表示する。
@@ -93,6 +113,29 @@
  */
 </script>
 <div id="appRoot">
+
+<!-- プロローグシーン: 画像なし、スキップボタンのみ -->
+<div id="scenePrologue" class="scene active">
+    <div class="scene-inner">
+        <p class="prologue-text">（プロローグ演出プレースホルダー：画像は未実装）</p>
+        <button id="skipBtn" class="scene-btn" onclick="goTitle()">SKIP</button>
+    </div>
+</div>
+
+<!-- タイトルシーン: ロゴは仮表示（title_logo.PNGが見つかれば自動で画像に切り替わる） -->
+<div id="sceneTitle" class="scene">
+    <div class="scene-inner">
+        <div class="title-logo-wrap">
+            <img id="titleLogoImg" src="title_logo.PNG" alt="コマンドバトル"
+                 onerror="this.style.display='none'; document.getElementById('titleLogoFallback').style.display='block';">
+            <div id="titleLogoFallback" class="title-logo-fallback">コマンドバトル</div>
+        </div>
+        <button id="startBtn" class="scene-btn" onclick="goBattleStart()" disabled>START</button>
+    </div>
+</div>
+
+<!-- バトルシーン -->
+<div id="sceneBattle" class="scene">
 <div id="gameHeader">
     <div class="hp-wrap">
         <div class="hp-bar-bg"></div>
@@ -109,6 +152,10 @@
 <div id="gameArea">
     <canvas id="cvs" width="960" height="560"></canvas>
     <div id="enemySlots"></div>
+    <div id="resultOverlay">
+        <div id="resultText"></div>
+        <button class="scene-btn" onclick="goPrologue()">タイトルへ戻る</button>
+    </div>
 </div>
 <div id="ui">
     <div id="slots"></div>
@@ -125,10 +172,12 @@
     </div>
 </div>
 </div>
+
+</div>
 <script>
 // 第22条: ファイル名は小文字、拡張子は常に大文字 .PNG
 const DB = {
-    ASSETS: ['player.PNG', 'player2.PNG', 'upper.PNG', 'damage.PNG', 'knock.PNG', 'knock2.PNG', 'dash.PNG', 'punch.PNG', 'punch2.PNG', 'guard.PNG'],
+    ASSETS: ['player.PNG', 'player2.PNG', 'upper.PNG', 'damage.PNG', 'knock.PNG', 'knock2.PNG', 'dash.PNG', 'punch.PNG', 'punch2.PNG', 'guard.PNG', 'down.PNG'],
     POS: {
         GROUND_Y: 240,
         FLOAT_Y: 40,        // 被弾側がふわっと浮く高さ
@@ -195,8 +244,8 @@ DB.ASSETS.forEach(n => {
 function boot() {
     // 第23条: 全画像の読み込み確定を待ってからループ開始・UI有効化
     document.querySelectorAll('.controls button').forEach(b => b.disabled = false);
+    document.getElementById('startBtn').disabled = false;
     draw();
-    startBattle();
 }
 
 // ------- 汎用アクセサ (P/E共通ロジックで扱うためのヘルパー) -------
@@ -312,10 +361,54 @@ function drawEnemySlots() {
     const s = document.getElementById('enemySlots'); s.innerHTML = '';
     state.enemyHands.forEach(h => { const d = document.createElement('div'); d.className = 'slot'; d.innerText = h[0]; s.appendChild(d); });
 }
-function startBattle() {
+
+// ------- シーン管理 (プロローグ → タイトル → バトル) -------
+function showScene(name) {
+    document.querySelectorAll('.scene').forEach(el => el.classList.remove('active'));
+    document.getElementById('scene' + name.charAt(0).toUpperCase() + name.slice(1)).classList.add('active');
+}
+function goPrologue() { hideResult(); showScene('prologue'); }
+function goTitle() { showScene('title'); }
+function goBattleStart() {
+    resetBattleState();
+    showScene('battle');
+}
+
+function resetBattleState() {
+    // 第13条: state自体は再定義せず、プロパティのみ初期値に戻す
+    state.hpP = 100; state.hpE = 100;
+    state.turn = 0;
+    state.hands = new Array(5).fill(null);
+    state.pX = DB.POS.P_HOME_X; state.eX = DB.POS.E_HOME_X;
+    state.pY = DB.POS.GROUND_Y; state.eY = DB.POS.GROUND_Y;
+    state.pAct = 'IDLE'; state.eAct = 'IDLE';
+    state.pShakeUntil = 0; state.eShakeUntil = 0;
+    state.pBlinkUntil = 0; state.eBlinkUntil = 0;
+    state.pLastAtk = null; state.eLastAtk = null;
+    state.pNumbed = false;
+    state.resolving = false;
+    trails = [];
+
+    document.getElementById('hpP').style.width = '100%';
+    document.getElementById('hpP_y').style.width = '100%';
+    document.getElementById('hpE').style.width = '100%';
+    document.getElementById('hpE_y').style.width = '100%';
+    document.getElementById('turnDisplay').innerHTML = 'TURN<br>0';
+    document.querySelectorAll('.controls button').forEach(b => b.disabled = false);
+    hideResult();
+    updateUI();
+
     // 第2条: 敵コマンド可視化 / 第20条: 敵の主体性
     state.enemyHands = randomEnemyHands();
     drawEnemySlots();
+}
+
+function showResult(type) {
+    document.getElementById('resultText').innerText = type === 'KO' ? 'K.O.' : 'YOU WIN';
+    document.getElementById('resultOverlay').classList.add('show');
+}
+function hideResult() {
+    document.getElementById('resultOverlay').classList.remove('show');
 }
 
 // 第3条: 3すくみ判定 P>U, U>G, G>P (プレイヤー視点で 'win'/'lose'/'draw')
@@ -361,6 +454,32 @@ async function waitBothLanded() {
     state.pY = DB.POS.GROUND_Y;
     state.eY = DB.POS.GROUND_Y;
     await wait(50);
+}
+
+// 決着演出: 体力を0にする最後の一撃を受けた側の専用シーケンス
+// 点滅 → ゲーム全体がスローになりつつ軽くバウンドしながら初期位置へ戻る → down.PNGで倒れる → K.O./YOU WIN表示
+async function runFinishSequence(loserSide) {
+    setAct(loserSide, 'damage.PNG');
+    triggerBlink(loserSide, 1300);
+    triggerShake(loserSide, 400);
+    await wait(900); // 一呼吸置いて余韻を出す
+
+    const homeX = loserSide === 'P' ? DB.POS.P_HOME_X : DB.POS.E_HOME_X;
+    const fromX = getX(loserSide);
+    const bounceSteps = 10;
+    for (let s = 1; s <= bounceSteps; s++) {
+        const t = s / bounceSteps;
+        setX(loserSide, fromX + (homeX - fromX) * t);
+        const bounce = Math.abs(Math.sin(t * Math.PI * 3)) * 18 * (1 - t); // 減衰する軽いバウンド
+        setY(loserSide, DB.POS.GROUND_Y - bounce);
+        await wait(140); // スローモーション気味に間隔を長く取る
+    }
+    setX(loserSide, homeX);
+    setY(loserSide, DB.POS.GROUND_Y);
+    setAct(loserSide, 'down.PNG');
+    await wait(700);
+
+    showResult(loserSide === 'P' ? 'KO' : 'WIN');
 }
 
 function nextQueuedMove(side, cursor) {
@@ -524,36 +643,48 @@ async function resolveTurn() {
 
     const cursor = { i: 0 };
     const total = filledCount();
+    let gameOverSide = null; // 'P' または 'E'。体力0になった側
 
     try {
         while (cursor.i < total) {
-            if (state.hpE <= 0 || state.hpP <= 0) break;
+            if (gameOverSide) break;
 
             const pAct = state.hands[cursor.i];
             const eAct = state.enemyHands[cursor.i] || randomEnemyHands()[0];
 
             await resolveExchange(pAct, eAct, cursor);
 
+            if (state.hpP <= 0 || state.hpE <= 0) {
+                gameOverSide = state.hpP <= 0 ? 'P' : 'E';
+                break;
+            }
+
             cursor.i++;
             // 第16条: 攻防のたびに初期位置へ戻るのではなく、軽く距離を取るだけ
-            if (state.hpE > 0 && state.hpP > 0 && cursor.i < total) {
+            if (cursor.i < total) {
                 await retreatSlightly();
             }
         }
     } finally {
-        // 第9条: ターン完了時のみ、残像付きでホームポジションへ確実に帰還する
-        state.pY = DB.POS.GROUND_Y;
-        state.eY = DB.POS.GROUND_Y;
-        await goHome();
-        toIdle();
-        state.hands = new Array(5).fill(null); // 第1条: 5つの空枠に戻す
-        updateUI();
-        if (state.hpE > 0 && state.hpP > 0) {
+        if (gameOverSide) {
+            // 体力を0にする最後の一撃: 通常の帰還処理の代わりに専用の決着演出を実行
+            await runFinishSequence(gameOverSide);
+            state.hands = new Array(5).fill(null);
+            updateUI();
+            state.resolving = false; // バトルは決着済み。ボタンは結果画面から「タイトルへ戻る」でリセットされる
+        } else {
+            // 第9条: ターン完了時のみ、残像付きでホームポジションへ確実に帰還する
+            state.pY = DB.POS.GROUND_Y;
+            state.eY = DB.POS.GROUND_Y;
+            await goHome();
+            toIdle();
+            state.hands = new Array(5).fill(null); // 第1条: 5つの空枠に戻す
+            updateUI();
             state.enemyHands = randomEnemyHands();
             drawEnemySlots();
+            state.resolving = false;
+            document.querySelectorAll('.controls button').forEach(b => b.disabled = false);
         }
-        state.resolving = false;
-        document.querySelectorAll('.controls button').forEach(b => b.disabled = false);
     }
 }
 </script>
