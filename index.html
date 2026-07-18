@@ -1,20 +1,140 @@
-// loop内の描画ロジックを修正
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <style>
+        * { box-sizing: border-box; }
+        body { margin: 0; background: #000; color: #fff; font-family: sans-serif; overflow: hidden; height: 100vh; display: flex; flex-direction: column; }
+        #gameArea { height: 50vh; background: #111; border-bottom: 2px solid #555; position: relative; }
+        #gameHeader { position: absolute; top: 10px; width: 100%; padding: 0 20px; display: flex; justify-content: space-between; align-items: center; z-index: 10; pointer-events: none; }
+        #turnContainer { display: flex; flex-direction: column; align-items: center; font-weight: 900; }
+        .hp-bar-container { width: 35%; height: 25px; background: #400; border: 2px solid #fff; position: relative; }
+        .hp-bar-inner { height: 100%; background: #f00; width: 100%; transition: width 0.3s; }
+        .hp-bar-back { height: 100%; background: #ff0; width: 100%; position: absolute; top: 0; transition: width 0.6s ease-out; }
+        canvas { width: 100%; height: 100%; object-fit: contain; image-rendering: pixelated; }
+        #interface { flex-grow: 1; display: flex; flex-direction: column; padding: 10px; gap: 5px; }
+        .row { display: flex; justify-content: center; gap: 5px; }
+        .slot { border: 2px solid #fff; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; background: #222; font-weight:bold; }
+    </style>
+</head>
+<body>
+
+<div id="gameArea">
+    <div id="gameHeader">
+        <div class="hp-bar-container"><div class="hp-bar-back" id="pBack"></div><div class="hp-bar-inner" id="pInner"></div></div>
+        <div id="turnContainer">
+            <div>TURN</div>
+            <div id="turnVal">0</div>
+        </div>
+        <div class="hp-bar-container"><div class="hp-bar-back" id="eBack"></div><div class="hp-bar-inner" id="eInner"></div></div>
+    </div>
+    <canvas id="gameCanvas" width="960" height="540"></canvas>
+</div>
+<div id="interface">
+    <div class="row" id="enSlotArea"></div>
+    <div class="row" id="mySlotArea"></div>
+    <div class="row">
+        <button class="btn" onclick="addCmd('punch')" style="flex:1; height:50px;">PUNCH</button>
+        <button class="btn" onclick="addCmd('upper')" style="flex:1; height:50px;">UPPER</button>
+        <button class="btn" onclick="addCmd('guard')" style="flex:1; height:50px;">GUARD</button>
+        <button class="btn" onclick="resolveBattle()" style="flex:1; height:50px; background:#800;">GO!</button>
+    </div>
+</div>
+
+<script>
+/** 
+ * [MASTER CONSTITUTION - ABSOLUTE PERMANENT LIST]
+ * 1-18項: 全て遵守
+ */
+const imgs = {};
+const s = { pCur: 'player', x: 100, y: 200, hp: 100, yOff: 0, shake: 0, isPlaying: false };
+const e = { pCur: 'player', x: 660, y: 200, hp: 100, yOff: 0, shake: 0 };
+let myHands = [], enHands = [], turn = 0;
+
+function updateHP(target, val) {
+    target.hp = Math.max(0, target.hp - val);
+    const id = target === s ? 'p' : 'e';
+    document.getElementById(id+'Inner').style.width = target.hp + '%';
+    setTimeout(() => { document.getElementById(id+'Back').style.width = target.hp + '%'; }, 600);
+}
+
+function initDisplay() {
+    document.getElementById('mySlotArea').innerHTML = Array(5).fill('<div class="slot">?</div>').join('');
+    document.getElementById('enSlotArea').innerHTML = Array(5).fill('<div class="slot">?</div>').join('');
+}
+
+async function initAssets() {
+    ['player','punch','upper','guard','dash','damage','knock'].forEach(n => {
+        const img = new Image(); img.src = './' + n + '.PNG';
+        img.onerror = () => {
+            const c = document.createElement('canvas'); c.width=200; c.height=200;
+            const ctx = c.getContext('2d'); ctx.fillStyle = '#600'; ctx.fillRect(0,0,200,200);
+            ctx.fillStyle = '#fff'; ctx.fillText(n, 20, 100);
+            imgs[n] = new Image(); imgs[n].src = c.toDataURL();
+        };
+        img.onload = () => imgs[n] = img;
+    });
+}
+
+function addCmd(c) { 
+    if(myHands.length < 5 && !s.isPlaying) { 
+        myHands.push(c); 
+        document.getElementById('mySlotArea').querySelectorAll('.slot')[myHands.length-1].innerText = c[0].toUpperCase();
+    } 
+}
+
+async function resolveBattle() {
+    if(myHands.length < 5 || s.isPlaying) return;
+    s.isPlaying = true; turn++;
+    document.getElementById('turnVal').innerText = turn;
+    enHands = Array(5).fill(0).map(() => ['punch','upper','guard'][Math.floor(Math.random()*3)]);
+    enHands.forEach((h, i) => document.getElementById('enSlotArea').querySelectorAll('.slot')[i].innerText = h[0].toUpperCase());
+
+    let combo = false;
+    for(let i=0; i<5; i++) {
+        s.x += 60;
+        let p = myHands[i], eA = enHands[i];
+        let hit = (p==='punch'&&eA==='upper') || (p==='upper'&&eA==='guard') || (p==='guard'&&eA==='punch');
+        
+        if(combo && p === 'punch') {
+            updateHP(e, 20); e.shake = 100; await new Promise(r=>setTimeout(r,300)); e.shake = 0;
+            combo = false;
+        } else if(p === 'upper') {
+            s.pCur = 'upper';
+            for(let j=0; j<=20; j++) {
+                e.yOff = -150*Math.sin(j/20*Math.PI);
+                s.y = 200 - 70*Math.sin(j/20*Math.PI);
+                await new Promise(r=>setTimeout(r,30));
+            }
+            if(hit) { updateHP(e, 5); combo = true; }
+            s.pCur = 'dash'; await new Promise(r=>setTimeout(r,300));
+        } else {
+            s.pCur = p;
+            if(hit) { updateHP(e, 10); e.shake = 100; await new Promise(r=>setTimeout(r,300)); e.shake = 0; }
+            else await new Promise(r=>setTimeout(r,300));
+            combo = false;
+        }
+        s.pCur = 'player';
+    }
+    s.isPlaying = false; myHands = []; initDisplay();
+}
+
 function loop() {
     const ctx = document.getElementById('gameCanvas').getContext('2d');
     ctx.imageSmoothingEnabled = false;
     ctx.clearRect(0,0,960,540);
-    
     [s, e].forEach((o, i) => {
         if(imgs[o.pCur]) {
-            // i=0(プレイヤー)は左から、i=1(敵)は右から描画するように修正
-            let x = (i === 0) ? o.x + (o.shake ? (Math.random()-0.5)*20 : 0) : o.x;
-            if(i === 1) {
-                // 敵は反転させず、位置を固定して描画
-                ctx.drawImage(imgs[o.pCur], 660, o.y + (o.yOff||0), 200, 200);
-            } else {
-                ctx.drawImage(imgs[o.pCur], x, o.y + (o.yOff||0), 200, 200);
-            }
+            // 敵(i=1)は反転させず、660の位置に固定描画
+            let x = (i === 0) ? o.x + (o.shake ? (Math.random()-0.5)*20 : 0) : 660;
+            ctx.drawImage(imgs[o.pCur], x, o.y + (o.yOff||0), 200, 200);
         }
     });
     requestAnimationFrame(loop);
 }
+
+initAssets().then(initDisplay).then(loop);
+</script>
+</body>
+</html>
