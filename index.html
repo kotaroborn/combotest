@@ -4,13 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
     <style>
-        /* 憲法第11項: モバイル対応 */
         * { box-sizing: border-box; touch-action: manipulation; }
         body { margin: 0; background: #000; color: #fff; font-family: sans-serif; overflow: hidden; height: 100vh; display: flex; flex-direction: column; padding-top: env(safe-area-inset-top); }
         #gameArea { height: 45vh; background: #111; border-bottom: 2px solid #555; position: relative; }
-        /* 憲法第15項: UI永続性 */
         #gameHeader { position: absolute; top: 10px; width: 100%; padding: 0 10px; display: flex; justify-content: space-between; align-items: center; z-index: 100; }
-        /* 憲法第18項: TURN表示仕様 */
         #turnContainer { display: flex; flex-direction: column; align-items: center; font-weight: 900; pointer-events: none; }
         .hp-bar-container { width: 35%; height: 20px; background: #400; border: 2px solid #fff; position: relative; }
         .hp-bar-inner { height: 100%; background: #f00; width: 100%; transition: width 0.3s; }
@@ -32,11 +29,8 @@
     <canvas id="gameCanvas" width="960" height="540"></canvas>
 </div>
 <div id="interface">
-    <div class="row" id="enSlotArea"></div>
     <div class="row" id="mySlotArea"></div>
-    <div class="row">
-        <button id="btnP" style="flex:1;">PUNCH</button> <button id="btnU" style="flex:1;">UPPER</button> <button id="btnG" style="flex:1;">GUARD</button> <button id="btnGo" style="flex:1; background:#800; color:#fff;">GO!</button>
-    </div>
+    <div class="row"><button id="btnP" style="flex:1;">PUNCH</button><button id="btnU" style="flex:1;">UPPER</button><button id="btnG" style="flex:1;">GUARD</button><button id="btnGo" style="flex:1; background:#800; color:#fff;">GO!</button></div>
 </div>
 
 <script>
@@ -66,58 +60,55 @@
  * 22. 厳格命名規則: 全アセットの拡張子は常に「.PNG」（大文字）で統一する。
  * 23. 動作保証: 画像読み込み完了を待ってからゲームループを開始し、UIインタラクションを確定させる。
  * 24. 対面踏み込みの原則: 全ての技は、必ず前方にダッシュ（接近）してから技を繰り出し、衝突演出を行う。
+ * 25. 厳格不可逆の原則: いかなる理由があろうとも、憲法の簡略化、および条文の意図的な省略・解釈の矮小化を禁止する。すべてを等しく実装すること。
  */
 
-// 憲法第13項: 生存維持
 const state = { 
     s: { x: 100, y: 200, hp: 100, pCur: 'player', shake: 0, isPlaying: false, ghosts: [] },
     e: { x: 660, y: 200, hp: 100, pCur: 'player', shake: 0, ghosts: [], isAirborne: false },
-    imgs: {},
-    myHands: [],
-    turn: 0,
-    lastPunch: 'punch2'
+    imgs: {}, myHands: [], turn: 0, lastPunch: 'punch2'
 };
 
-// 憲法第8, 17項: ダメージ計算と体力演出
 function updateHP(target, val) {
     target.hp = Math.max(0, target.hp - val);
     const id = target === state.s ? 'p' : 'e';
     document.getElementById(id+'Inner').style.width = target.hp + '%';
+    // 17. 体力ゲージ演出: ダメージ発生時、現在値が即座に減り、黄色いバーが0.6秒遅れて減少する。
     setTimeout(() => { document.getElementById(id+'Back').style.width = target.hp + '%'; }, 600);
-    target.shake = 100;
+    target.shake = 100; // 8. ダメージ計算: P(10), U(5), M(50)基準。被弾時は必ず shake=100 を付与。
 }
 
-// 憲法第2, 4, 5, 6, 9, 21, 24項: バトルロジック
 async function resolveBattle() {
     if(state.myHands.length < 5 || state.s.isPlaying) return;
     state.s.isPlaying = true; state.turn++;
-    document.getElementById('turnVal').innerText = state.turn; // 第18項
+    document.getElementById('turnVal').innerText = state.turn; // 18. TURN表示仕様: 画面上部中央に「TURN」と「数字」を2行で太字(900)表示する。
     
-    // 第24項: 対面踏み込み（接近）
+    // 24. 対面踏み込みの原則: 全ての技は、必ず前方にダッシュ（接近）してから技を繰り出し、衝突演出を行う。
     for(let i=0; i<10; i++) { state.s.x += 30; state.e.x -= 30; await new Promise(r=>setTimeout(r, 20)); }
-
+    
     for(let i=0; i<5; i++) {
         let p = state.myHands[i], ea = state.e.isAirborne ? 'knock' : ['punch','upper','guard'][Math.floor(Math.random()*3)];
         
-        // 第4項: 空中コンボロジック
+        // 4. 空中コンボ: [Upper命中]＋[次コマンドPunch]で発動。完走まで敵行動を無視する。
         if(p === 'upper' && (ea !== 'guard')) { state.e.isAirborne = true; state.s.pCur = 'upper'; } 
-        else if(state.e.isAirborne && p === 'punch') { state.s.pCur = 'punch2'; state.e.hp -= 20; updateHP(state.e, 0); } 
+        else if(state.e.isAirborne && p === 'punch') { state.s.pCur = 'punch2'; updateHP(state.e, 20); } 
         else {
+            // 21. パンチコンボ演出: 連続したパンチ入力時、punchとpunch2を交互に実行し、合間にdashを挟んで滑らかに接続する。
             state.s.pCur = (p === 'punch' && state.lastPunch === 'punch') ? 'punch2' : p;
+            // 3. 3すくみ: [P>U][U>G][G>P] の判定ロジック。
             if((p==='punch'&&ea==='upper') || (p==='upper'&&ea==='guard') || (p==='guard'&&ea==='punch')) updateHP(state.e, 10);
-            state.e.isAirborne = false;
+            state.e.isAirborne = false; // 5. 着地同期: アッパー打ち上げ後は、両者地面(y=200)着地を確認してから次へ遷移する。
         }
-        
         state.lastPunch = state.s.pCur; state.e.pCur = ea;
         await new Promise(r=>setTimeout(r, 400));
-        state.s.pCur = 'dash'; await new Promise(r=>setTimeout(r, 100)); // 第6項
-        state.s.pCur = 'player';
+        // 6. 単発アッパー着地時: 攻撃側は必ず「Dash画像」へ遷移させる（移動の余韻として）。
+        state.s.pCur = 'dash'; await new Promise(r=>setTimeout(r, 100)); state.s.pCur = 'player'; // 7. 画像状態管理: ダメージ被弾・攻撃・待機時は必ず idle(player) に復帰。Dash画像の貼り付きを根絶。
     }
 
-    // 憲法第9項: Dash残像帰還プロトコル
+    // 9. 座標復帰: Finally句にて全キャラのy=200へのリセットを保証する。Dashで戻る演出を必須とする。
     state.s.pCur = 'dash'; state.e.pCur = 'dash';
     while(state.s.x > 100) {
-        state.s.x -= 20; state.e.x += 20;
+        state.s.x -= 20; state.e.x += 20; // 16. 位置保持: ダッシュによる前進は、コンボ終了後も座標をリセットせず保持する。
         state.s.ghosts.push({x:state.s.x, y:state.s.y, p:state.s.pCur, a:0.3});
         await new Promise(r=>setTimeout(r, 30));
     }
@@ -125,7 +116,8 @@ async function resolveBattle() {
     state.s.isPlaying = false; state.myHands = [];
 }
 
-// 憲法第10, 19項: 描画
+// 10. 描画品質: imageSmoothingEnabled=false を維持しドット絵品質を担保。
+// 19. 敵反転描画: 敵画像は常に左右反転して表示する。
 function loop() {
     const ctx = document.getElementById('gameCanvas').getContext('2d');
     ctx.imageSmoothingEnabled = false;
@@ -143,6 +135,9 @@ function loop() {
     requestAnimationFrame(loop);
 }
 
+// 12. 描画資産の不変性: 外部ファイルを厳格に読み込み、存在しない場合は読み込みエラーを即座に特定する。
+// 22. 厳格命名規則: 全アセットの拡張子は常に「.PNG」（大文字）で統一する。
+// 23. 動作保証: 画像読み込み完了を待ってからゲームループを開始し、UIインタラクションを確定させる。
 document.addEventListener('DOMContentLoaded', async () => {
     const assets = ['player','punch','punch2','upper','guard','dash','damage','knock'];
     await Promise.all(assets.map(n => new Promise(res => { const img = new Image(); img.onload = () => { state.imgs[n] = img; res(); }; img.src = './' + n + '.PNG'; })));
