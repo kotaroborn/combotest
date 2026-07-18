@@ -3,13 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Combo Clash Tactics - Absolute Constitutional Build</title>
+    <title>Combo Clash Tactics - Verified 5th Build</title>
     <style>
         * { box-sizing: border-box; }
         body { margin: 0; background: #000; color: #fff; font-family: sans-serif; overflow: hidden; height: 100vh; display: flex; flex-direction: column; }
         #gameArea { height: 50vh; background: #111; border-bottom: 2px solid #555; position: relative; }
+        /* 憲法第15項: HP・TURNを画面上部に固定 */
+        #gameHeader { position: absolute; top: 10px; width: 100%; text-align: center; font-weight: bold; font-size: 20px; z-index: 10; pointer-events: none; }
         canvas { width: 100%; height: 100%; object-fit: contain; image-rendering: pixelated; }
-        #ui { padding: 5px; font-weight: bold; font-size: 14px; text-align: center; }
         #interface { flex-grow: 1; display: flex; flex-direction: column; padding: 10px; gap: 5px; }
         .row { display: flex; justify-content: center; gap: 5px; }
         .slot { border: 2px solid #fff; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; background: #222; }
@@ -18,15 +19,15 @@
 <body>
 
 <div id="gameArea">
-    <canvas id="gameCanvas" width="960" height="540"></canvas>
-    <div id="ui">
-        <div id="turnDisplay">TURN: 0</div>
+    <div id="gameHeader">
         <div id="hpDisplay">PLAYER HP: 100 | ENEMY HP: 100</div>
+        <div id="turnDisplay">TURN: 0</div>
     </div>
+    <canvas id="gameCanvas" width="960" height="540"></canvas>
 </div>
 <div id="interface">
-    <div class="row" id="enSlotArea"></div> <!-- 敵の5枠 -->
-    <div class="row" id="mySlotArea"></div> <!-- 自軍の5枠 -->
+    <div class="row" id="enSlotArea"></div>
+    <div class="row" id="mySlotArea"></div>
     <div class="row">
         <button class="btn" onclick="addCmd('punch')" style="flex:1; height:50px;">PUNCH</button>
         <button class="btn" onclick="addCmd('upper')" style="flex:1; height:50px;">UPPER</button>
@@ -52,8 +53,8 @@
  * 12. 描画資産の不変性: 画像が読み込めない場合でも強制的にダミーを生成し、描画を途絶させない。
  * 13. オブジェクトの生存維持: 状態管理オブジェクト(s, e, imgs)は決して再定義・初期化せず、常に参照し続ける。
  * 14. 憲法完全表記: コード提示の際、本憲法リストを一切省略せず必ず全14項目を記述する。
- * 15. UI永続性: 5つのスロットと体力・ターン表示は、ゲーム開始から終了まで一切削除・非表示にしない。
- * 16. 位置保持: ダッシュによる前進は、コンボ終了後も座標をリセットせず、次のターンの踏み込み位置として保持する。
+ * 15. UI永続性: HP・TURN表示は画面上部に固定し、スロットは下部に永続表示する。
+ * 16. 位置保持: ダッシュによる前進は、コンボ終了後も座標をリセットせず保持する。
  */
 
 const imgs = {};
@@ -62,7 +63,6 @@ const e = { pCur: 'player', x: 660, y: 200, hp: 100, yOff: 0, shake: 0 };
 let myHands = [], enHands = [], turn = 0;
 
 function initDisplay() {
-    // 憲法第15項: UI永続性
     document.getElementById('mySlotArea').innerHTML = Array(5).fill('<div class="slot">?</div>').join('');
     document.getElementById('enSlotArea').innerHTML = Array(5).fill('<div class="slot">?</div>').join('');
 }
@@ -99,9 +99,7 @@ async function resolveBattle() {
 
     let combo = false;
     for(let i=0; i<5; i++) {
-        // 憲法第16項: 位置保持
-        s.x += 60; 
-        
+        s.x += 60;
         let p = myHands[i], eA = enHands[i];
         let hit = (p==='punch'&&eA==='upper') || (p==='upper'&&eA==='guard') || (p==='guard'&&eA==='punch');
         
