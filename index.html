@@ -44,12 +44,12 @@
  * 【憲法二十六条：全文】
  * 1. 5枠設計: 画面下部に5つのスロットを固定表示。順次コマンドを埋める仕様。
  * 2. 敵コマンド可視化: バトル前に敵の5枠を生成し、上段スロットに可視化する。
- * 3. 3すくみ: [PUNCH>UPPER][UPPER>GUARD][GUARD>PUNCH] の判定ロジック。勝敗は毎回この判定で決定する。
+ * 3. 3すくみ: [PUNCH>UPPER][UPPER>GUARD][GUARD>PUNCH] の判定ロジック。勝敗は毎回この判定で決定する。同じ手同士がぶつかった場合は相討ちとする。
  * 4. 空中コンボ: 勝者の技がUPPERだった場合に発動。攻撃側の次の入力がPUNCHなら継続し、最大3発まで空中パンチを受け付ける。3発目は自動的にメテオへ変換される。
  * 5. 着地同期: 通常コンボ終了時（メテオに至らない場合）は、攻守双方が地面(y=200)へ着地してから次の演出へ遷移する。
  * 6. 通常コンボ終了時の演出: 攻撃側は必ずdash.PNGへ、被弾側はdamage.PNGのまま着地させる。
  * 7. 画像状態管理: 待機中は必ず player.PNG / player2.PNG の呼吸(idle)へ復帰する。idle.PNGという単独ファイルは存在しない。
- * 8. ダメージ計算: PUNCH勝利(10), UPPER初撃(5), メテオ(50)。三すくみに負けた側のみ振動(shake)する。
+ * 8. ダメージ計算: PUNCH勝利(10), UPPER初撃(5), メテオ(50), 相討ち(3)。三すくみに負けた側のみ振動(shake)する。同じ手同士の相討ちの場合は双方が微ダメージを受けて振動し、反動で一歩下がる。
  * 9. 座標復帰: ターン(5枠)全体の処理が完了した時点で、finally句にて必ずホームポジションへ dash.PNG の残像付きで帰還することを保証する。
  * 10. 描画品質: imageSmoothingEnabled=false を維持しドット絵品質を担保。
  * 11. モバイル対応: Flexboxとviewport固定によるレスポンシブ最適化。
@@ -84,7 +84,7 @@
     </div>
 </div>
 <div id="gameArea">
-    <canvas id="cvs" width="960" height="400"></canvas>
+    <canvas id="cvs" width="960" height="560"></canvas>
     <div id="enemySlots"></div>
 </div>
 <div id="ui">
@@ -106,15 +106,15 @@
 const DB = {
     ASSETS: ['player.PNG', 'player2.PNG', 'upper.PNG', 'damage.PNG', 'knock.PNG', 'knock2.PNG', 'dash.PNG', 'punch.PNG', 'punch2.PNG', 'guard.PNG'],
     POS: {
-        GROUND_Y: 200,
-        FLOAT_Y: 50,        // 被弾側がふわっと浮く高さ
+        GROUND_Y: 240,
+        FLOAT_Y: 40,        // 被弾側がふわっと浮く高さ
         CENTER_X: 480,      // 戦う位置は常に画面中心
-        HOME_HALF: 280,     // 中心からホームポジションまでの距離（両者同一）
-        ATTACK_HALF: 45,    // 中心から攻防の接触位置までの距離（両者同一）
-        RETREAT_HALF: 120   // 攻防のあと軽く距離を取る位置（ホームまでは戻らない）
+        HOME_HALF: 260,     // 中心からホームポジションまでの距離（両者同一）
+        ATTACK_HALF: 100,   // 中心から攻防の接触位置までの距離（両者同一）
+        RETREAT_HALF: 200   // 攻防のあと軽く距離を取る位置（ホームまでは戻らない）
     },
-    IMG_SIZE: 150,
-    DMG: { P: 10, U: 5, M: 50 }, // P:パンチ勝利 / U:アッパー初撃 / M:メテオ
+    IMG_SIZE: 300, // 縦横比2倍（元150→300）。imageSmoothingEnabled=falseのままなのでボケない
+    DMG: { P: 10, U: 5, M: 50, CLASH: 3 }, // P:パンチ勝利 / U:アッパー初撃 / M:メテオ / CLASH:相討ち微ダメージ
     MAX_AIR_PUNCH: 3,
     BREATH_MS: 500 // player.PNG / player2.PNG の呼吸切替間隔
 };
@@ -203,7 +203,7 @@ function toIdle() { state.pAct = 'IDLE'; state.eAct = 'IDLE'; }
 
 function draw(tRaw) {
     const t = tRaw || performance.now();
-    ctx.clearRect(0, 0, 960, 400);
+    ctx.clearRect(0, 0, cvs.width, cvs.height);
 
     // 残像(第24条)を先に描画
     const TRAIL_LIFE = 220;
@@ -408,9 +408,15 @@ async function resolveExchange(pAct, eAct, cursor) {
 
     const result = judge(pAct, eAct);
     if (result === 'draw') {
+        // 相討ち: 同じ手同士がぶつかる場合、双方が微ダメージを受けて振動し、反動で一歩下がる
         state.pAct = moveSprite(pAct);
         state.eAct = moveSprite(eAct);
-        await wait(300);
+        applyDamage('P', DB.DMG.CLASH);
+        applyDamage('E', DB.DMG.CLASH);
+        triggerShake('P', 300);
+        triggerShake('E', 300);
+        await wait(250);
+        await moveBothX(DB.POS.P_RETREAT_X, DB.POS.E_RETREAT_X, 4, 30); // 反動で一歩下がる
         toIdle();
         return;
     }
