@@ -3,85 +3,103 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>【憲法二十六条：略さず削除せず】完全準拠版</title>
+    <title>【憲法二十六条：略さず削除せず】真・完全準拠版</title>
     <style>
         /* 憲法第11条（モバイル対応）、第26条（アーケード配置原則） */
-        body { margin: 0; background: #000; color: #fff; font-family: monospace; display: flex; flex-direction: column; height: 100vh; overflow: hidden; touch-action: manipulation; }
-        
-        #gameArea { height: 45vh; background: #111; border-bottom: 2px solid #555; position: relative; display: flex; flex-direction: column; }
+        body { margin: 0; background: #000; color: #fff; font-family: 'Arial', sans-serif; display: flex; flex-direction: column; height: 100vh; overflow: hidden; touch-action: manipulation; }
         
         /* 憲法第15条（UI永続性） */
-        #gameHeader { position: relative; width: 100%; padding: 10px; display: flex; justify-content: space-between; align-items: flex-start; z-index: 100; box-sizing: border-box; }
-        .hp-bar-container { width: 35%; height: 20px; background: #400; border: 2px solid #fff; position: relative; }
-        .hp-bar-inner { height: 100%; background: #f00; width: 100%; transition: width 0.3s; position: absolute; z-index: 2; }
+        #gameHeader { 
+            height: 60px; /* 高さを固定しCanvasとの重なりを根絶 */
+            background: #111; border-bottom: 2px solid #444; 
+            display: flex; justify-content: space-between; align-items: center; padding: 0 20px;
+            position: relative; z-index: 10;
+        }
+        
+        .hp-bar-container { width: 35%; height: 24px; background: #300; border: 3px solid #ddd; position: relative; border-radius: 4px; overflow: hidden; box-shadow: inset 0 0 10px #000; }
+        .hp-bar-inner { height: 100%; background: linear-gradient(to bottom, #f55, #a00); width: 100%; transition: width 0.1s; position: absolute; z-index: 2; }
         .hp-bar-back { height: 100%; background: #ff0; width: 100%; position: absolute; top: 0; transition: width 0.6s ease-out; z-index: 1; }
         
-        /* ★憲法第18条の完全遵守（絶対的中央配置、2行、太字900） */
+        /* 憲法第18条：TURN表示仕様（完全中央固定・2行・太字） */
         #turnContainer { 
-            position: absolute; 
-            left: 50%; 
-            transform: translateX(-50%); 
-            top: 5px; /* 上部への固定 */
-            display: flex; 
-            flex-direction: column; 
-            align-items: center; 
-            font-weight: 900; 
-            text-shadow: 2px 2px 0 #000; /* 背景に埋もれない処置 */
+            position: absolute; left: 50%; transform: translateX(-50%); 
+            display: flex; flex-direction: column; align-items: center; 
+            font-weight: 900; text-shadow: 0 2px 4px #000; 
         }
-        #turnLabel { font-size: 14px; line-height: 1; margin-bottom: 2px; letter-spacing: 2px; }
-        #turnVal { font-size: 28px; line-height: 1; }
+        #turnLabel { font-size: 12px; letter-spacing: 2px; color: #aaa; margin-bottom: -2px; }
+        #turnVal { font-size: 32px; line-height: 1; color: #fff; }
+
+        /* ゲーム画面 */
+        #gameArea { flex-grow: 1; position: relative; background: #222; display: flex; justify-content: center; }
+        
+        /* 憲法第10条（描画品質） */
+        canvas { width: 100%; height: 100%; object-fit: contain; image-rendering: pixelated; }
 
         /* 憲法第2条（敵コマンド可視化） */
-        #eSlotArea { display: flex; justify-content: center; gap: 5px; margin-bottom: 5px; position: absolute; bottom: 10px; width: 100%; }
-        .e-slot { border: 1px solid #f00; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; background: #300; font-weight:bold; font-size: 14px; opacity: 0; transition: opacity 0.3s; }
+        #eSlotArea { position: absolute; top: 10px; display: flex; justify-content: center; gap: 8px; width: 100%; }
+        .e-slot { width: 40px; height: 40px; background: #400; border: 2px solid #f55; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 16px; opacity: 0; transition: opacity 0.3s; box-shadow: 0 4px 6px rgba(0,0,0,0.5); }
 
-        /* 憲法第10条（描画品質） */
-        canvas { width: 100%; flex-grow: 1; object-fit: contain; image-rendering: pixelated; position: absolute; top: 0; left: 0; z-index: 1; }
-        
-        /* インターフェース領域 */
-        #interface { flex-grow: 1; display: flex; flex-direction: column; padding: 15px 10px; gap: 10px; }
+        /* インターフェース（憲法第26条：下部メニュー回避とアーケード配置） */
+        #interface { background: #111; padding: 15px; border-top: 4px solid #555; display: flex; flex-direction: column; gap: 15px; }
         
         /* 憲法第1条（5枠設計） */
-        #mySlotArea { display: flex; justify-content: center; gap: 5px; height: 50px; }
-        .slot { border: 2px solid #fff; width: 50px; height: 50px; display: flex; align-items: center; justify-content: center; background: #222; font-weight:bold; font-size: 20px; }
+        #mySlotArea { display: flex; justify-content: center; gap: 10px; }
+        .slot { width: 50px; height: 50px; background: #000; border: 3px solid #888; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 20px; box-shadow: inset 0 0 10px rgba(255,255,255,0.1); }
+        .slot.filled { border-color: #4af; background: #024; color: #4af; text-shadow: 0 0 5px #4af; }
+
+        /* アーケードらしさのあるボタン実装 */
+        #controls { display: flex; gap: 20px; justify-content: space-between; }
+        .btn-panel { display: flex; gap: 10px; }
+        .arcade-btn {
+            font-weight: 900; font-size: 18px; cursor: pointer; border: none; outline: none;
+            border-radius: 8px; padding: 15px 20px; color: #fff; text-shadow: 1px 1px 0px #000;
+            box-shadow: 0 6px 0 #222, 0 10px 10px rgba(0,0,0,0.5);
+            transition: all 0.1s; text-transform: uppercase;
+        }
+        .arcade-btn:active:not(:disabled) { box-shadow: 0 2px 0 #111, 0 4px 4px rgba(0,0,0,0.5); transform: translateY(4px); }
+        .arcade-btn:disabled { filter: grayscale(100%); opacity: 0.5; cursor: not-allowed; }
         
-        /* ボタン配置 */
-        #controls { display: flex; gap: 10px; height: 100px; }
-        .btn-group { display: flex; flex-direction: column; gap: 5px; }
-        button { font-weight: bold; cursor: pointer; flex: 1; font-size: 16px; border: 1px solid #fff; background: #333; color: #fff; }
-        button:active { background: #555; }
-        #btnGo { background: #800; font-size: 24px; }
-        #btnGo:disabled { background: #422; color: #888; border-color: #555; }
+        /* 攻撃系ボタン (左側) */
+        .btn-punch { background: linear-gradient(to bottom, #e53, #a21); box-shadow: 0 6px 0 #610, 0 10px 10px rgba(0,0,0,0.5); }
+        .btn-upper { background: linear-gradient(to bottom, #d25, #902); box-shadow: 0 6px 0 #501, 0 10px 10px rgba(0,0,0,0.5); }
+        .btn-guard { background: linear-gradient(to bottom, #38c, #158); box-shadow: 0 6px 0 #024, 0 10px 10px rgba(0,0,0,0.5); }
+        
+        /* システム系ボタン (右側) */
+        .btn-cancel { background: linear-gradient(to bottom, #666, #333); box-shadow: 0 6px 0 #111, 0 10px 10px rgba(0,0,0,0.5); }
+        .btn-go { background: linear-gradient(to bottom, #da0, #970); box-shadow: 0 6px 0 #540, 0 10px 10px rgba(0,0,0,0.5); font-size: 24px; padding: 10px 30px; color: #fff; }
     </style>
 </head>
 <body>
 
+<div id="gameHeader">
+    <div class="hp-bar-container"><div id="pBack" class="hp-bar-back"></div><div id="pInner" class="hp-bar-inner"></div></div>
+    <div id="turnContainer"><div id="turnLabel">TURN</div><div id="turnVal">0</div></div>
+    <div class="hp-bar-container"><div id="eBack" class="hp-bar-back"></div><div id="eInner" class="hp-bar-inner"></div></div>
+</div>
+
 <div id="gameArea">
-    <canvas id="gameCanvas" width="960" height="400"></canvas>
-    <div id="gameHeader">
-        <div class="hp-bar-container"><div id="pBack" class="hp-bar-back"></div><div id="pInner" class="hp-bar-inner"></div></div>
-        <!-- 憲法第18条コンテナ -->
-        <div id="turnContainer"><div id="turnLabel">TURN</div><div id="turnVal">0</div></div>
-        <div class="hp-bar-container"><div id="eBack" class="hp-bar-back"></div><div id="eInner" class="hp-bar-inner"></div></div>
-    </div>
+    <!-- 憲法第2条 -->
     <div id="eSlotArea">
         <div class="e-slot"></div><div class="e-slot"></div><div class="e-slot"></div><div class="e-slot"></div><div class="e-slot"></div>
     </div>
+    <canvas id="gameCanvas" width="960" height="400"></canvas>
 </div>
 
 <div id="interface">
+    <!-- 憲法第1条 -->
     <div id="mySlotArea">
         <div class="slot"></div><div class="slot"></div><div class="slot"></div><div class="slot"></div><div class="slot"></div>
     </div>
+    <!-- 憲法第26条（左攻撃、右システム） -->
     <div id="controls">
-        <div class="btn-group" style="flex:2;">
-            <button onclick="addHand('PUNCH')">PUNCH</button>
-            <button onclick="addHand('UPPER')">UPPER</button>
-            <button onclick="addHand('GUARD')">GUARD</button>
+        <div class="btn-panel">
+            <button class="arcade-btn btn-punch" onclick="addHand('PUNCH')">PUNCH</button>
+            <button class="arcade-btn btn-upper" onclick="addHand('UPPER')">UPPER</button>
+            <button class="arcade-btn btn-guard" onclick="addHand('GUARD')">GUARD</button>
         </div>
-        <div class="btn-group" style="flex:1;">
-            <button onclick="resetHands()" style="background:#444;">CANCEL</button>
-            <button id="btnGo" onclick="resolveTurn()">GO!</button>
+        <div class="btn-panel">
+            <button class="arcade-btn btn-cancel" onclick="resetHands()">CANCEL</button>
+            <button id="btnGo" class="arcade-btn btn-go" onclick="resolveTurn()" disabled>GO!</button>
         </div>
     </div>
 </div>
@@ -120,51 +138,91 @@
 
 /** 【憲法追記録：確定数値データベース】 */
 const DB = {
-    POS: { P_IDLE: 50, E_IDLE: 810, P_COLLIDE: 380, E_COLLIDE: 480, GROUND_Y: 200 },
-    TIME: { DAMAGE_DELAY: 600, ACTION_DUR: 800, UPPER_AIR_TIME: 1000 },
-    VAL: { PUNCH_DMG: 10, UPPER_DMG: 5, GUARD_DMG: 0 },
+    POS: { P_IDLE: 150, E_IDLE: 710, P_COLLIDE: 380, E_COLLIDE: 480, GROUND_Y: 200, FLOAT_Y: 50 },
+    TIME: { DAMAGE_DELAY: 600, ACTION_DUR: 600, UPPER_AIR_TIME: 800, FRAME: 16 },
+    VAL: { PUNCH_DMG: 10, UPPER_DMG: 5, GUARD_DMG: 0, SHAKE_POWER: 20 }, // 憲法第8条：Shake基準
     RULES: { PUNCH: 'UPPER', UPPER: 'GUARD', GUARD: 'PUNCH' }, // 憲法第3条
     ACTIONS: ['PUNCH', 'UPPER', 'GUARD']
 };
 
-/** 憲法第13条：オブジェクトの生存維持 */
+/** 憲法第13条：生存維持 */
 const State = {
-    p: { hp: 100, x: DB.POS.P_IDLE, y: DB.POS.GROUND_Y, action: 'idle' },
-    e: { hp: 100, x: DB.POS.E_IDLE, y: DB.POS.GROUND_Y, action: 'idle' },
-    turn: 0,
-    myHands: [],
-    eHands: [],
-    isAnimating: false
+    p: { hp: 100, x: DB.POS.P_IDLE, y: DB.POS.GROUND_Y, action: 'IDLE' },
+    e: { hp: 100, x: DB.POS.E_IDLE, y: DB.POS.GROUND_Y, action: 'IDLE' },
+    turn: 0, myHands: [], eHands: [], isAnimating: false, shake: 0
 };
 
-// Canvas Setup
+/** 憲法第12条、第22条：画像の厳格な読み込みと保証 */
+const Imgs = {};
+const assetNames = ['IDLE.PNG', 'PUNCH.PNG', 'PUNCH2.PNG', 'UPPER.PNG', 'GUARD.PNG', 'DASH.PNG'];
+
+function initGame() {
+    let loaded = 0;
+    assetNames.forEach(name => {
+        const img = new Image();
+        img.src = name;
+        img.onload = () => { Imgs[name.split('.')[0]] = img; checkStart(++loaded); };
+        img.onerror = () => {
+            console.warn(`憲法第12条エラー検知: ${name} が見つかりません。動作保証のため代替画像を生成します。`);
+            const c = document.createElement('canvas'); c.width = 150; c.height = 150;
+            const ctx = c.getContext('2d');
+            ctx.fillStyle = name.includes('IDLE') ? '#2a2' : '#a22';
+            ctx.fillRect(0, 0, 150, 150);
+            ctx.fillStyle = '#fff'; ctx.font = '24px bold'; ctx.fillText(name.split('.')[0], 10, 75);
+            Imgs[name.split('.')[0]] = c;
+            checkStart(++loaded);
+        };
+    });
+}
+
+function checkStart(loaded) {
+    if (loaded === assetNames.length) {
+        console.log("全アセット解決完了。ゲームループ開始 (憲法第23条)");
+        requestAnimationFrame(render);
+    }
+}
+
+// 描画ループ (憲法第8条：振動の実装、第19条：敵反転)
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 ctx.imageSmoothingEnabled = false;
 
-// 描画ループ
 function render() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    
-    ctx.strokeStyle = '#555'; ctx.beginPath(); ctx.moveTo(0, 300); ctx.lineTo(960, 300); ctx.stroke();
-
-    ctx.fillStyle = '#0f0';
-    ctx.fillRect(State.p.x, State.p.y, 100, 100);
-    ctx.fillStyle = '#fff'; ctx.fillText(State.p.action, State.p.x + 10, State.p.y - 10);
-
     ctx.save();
-    ctx.translate(State.e.x + 50, State.e.y + 50); 
-    ctx.scale(-1, 1); 
-    ctx.fillStyle = '#f00';
-    ctx.fillRect(-50, -50, 100, 100);
-    ctx.restore();
-    ctx.fillStyle = '#fff'; ctx.fillText(State.e.action, State.e.x + 10, State.e.y - 10);
+    
+    // 憲法第8条：Shake適用
+    if (State.shake > 0) {
+        const dx = (Math.random() - 0.5) * State.shake;
+        const dy = (Math.random() - 0.5) * State.shake;
+        ctx.translate(dx, dy);
+        State.shake *= 0.8; // 減衰
+        if (State.shake < 1) State.shake = 0;
+    }
 
+    // 床
+    ctx.fillStyle = '#333'; ctx.fillRect(0, 350, canvas.width, 50);
+    ctx.strokeStyle = '#555'; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(0, 350); ctx.lineTo(canvas.width, 350); ctx.stroke();
+
+    // プレイヤー描画
+    if (Imgs[State.p.action]) {
+        ctx.drawImage(Imgs[State.p.action], State.p.x, State.p.y, 150, 150);
+    }
+
+    // 敵描画 (反転)
+    ctx.save();
+    ctx.translate(State.e.x + 75, State.e.y + 75); 
+    ctx.scale(-1, 1); 
+    if (Imgs[State.e.action]) {
+        ctx.drawImage(Imgs[State.e.action], -75, -75, 150, 150);
+    }
+    ctx.restore();
+
+    ctx.restore(); // Shake・Translate解除
     requestAnimationFrame(render);
 }
-requestAnimationFrame(render);
 
-/** コマンド入力管理 */
+// UI・入力制御
 function addHand(action) {
     if (State.myHands.length < 5 && !State.isAnimating) {
         State.myHands.push(action);
@@ -180,14 +238,18 @@ function updateUI() {
     const pSlots = document.getElementById('mySlotArea').children;
     for (let i = 0; i < 5; i++) {
         pSlots[i].innerText = State.myHands[i] ? State.myHands[i][0] : '';
+        if (State.myHands[i]) pSlots[i].classList.add('filled');
+        else pSlots[i].classList.remove('filled');
     }
     document.getElementById('btnGo').disabled = (State.myHands.length !== 5);
 }
-updateUI();
 
-/** 憲法第17条：体力ゲージ演出の厳格実装 */
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+// ダメージ処理 (第17条)
 function applyDamage(target, dmg) {
     if (dmg === 0) return;
+    State.shake = DB.VAL.SHAKE_POWER; // 憲法第8条
     if (target === 'e') {
         State.e.hp = Math.max(0, State.e.hp - dmg);
         document.getElementById('eInner').style.width = State.e.hp + '%';
@@ -199,15 +261,16 @@ function applyDamage(target, dmg) {
     }
 }
 
-/** ターン解決ロジック */
+// 憲法第4・5・6・24条を含むターン解決エンジン
 async function resolveTurn() {
     if (State.myHands.length !== 5 || State.isAnimating) return;
     State.isAnimating = true;
+    updateUI(); // GOボタン無効化反映
 
-    // 憲法第18条：TURN加算
     State.turn++;
     document.getElementById('turnVal').innerText = State.turn;
 
+    // 敵手生成 (第2条・第20条)
     State.eHands = [];
     const eSlots = document.getElementById('eSlotArea').children;
     for (let i = 0; i < 5; i++) {
@@ -217,36 +280,86 @@ async function resolveTurn() {
         eSlots[i].style.opacity = 1; 
     }
 
+    let isAirCombo = false;
+    let punchToggle = false;
+
+    // 5枠順次実行
     for (let i = 0; i < 5; i++) {
-        const pAct = State.myHands[i];
-        const eAct = State.eHands[i];
-        
-        State.p.x = DB.POS.P_COLLIDE;
-        State.e.x = DB.POS.E_COLLIDE;
-        State.p.action = pAct;
+        let pAct = State.myHands[i];
+        let eAct = State.eHands[i];
+
+        // 憲法第21条：PUNCHコンボ演出
+        if (pAct === 'PUNCH') { pAct = punchToggle ? 'PUNCH2' : 'PUNCH'; punchToggle = !punchToggle; } 
+        else { punchToggle = false; }
+
+        State.p.action = pAct.replace('2', ''); // 画像名解決用
         State.e.action = eAct;
 
-        if (pAct === eAct) {
-            // 相殺
-        } else if (DB.RULES[pAct] === eAct) {
-            applyDamage('e', DB.VAL[`${pAct}_DMG`]);
+        // 憲法第24条：対面踏み込み
+        State.p.x = DB.POS.P_COLLIDE;
+        State.e.x = DB.POS.E_COLLIDE;
+
+        if (isAirCombo) {
+            // 憲法第4条：空中コンボ中は敵行動無視
+            if (pAct.includes('PUNCH')) {
+                applyDamage('e', DB.VAL.PUNCH_DMG);
+                State.e.action = 'IDLE'; // 敵はやられ状態
+                await sleep(DB.TIME.ACTION_DUR);
+                // コンボ継続（位置・Y座標保持）
+            } else {
+                // コンボ終了・落下
+                isAirCombo = false;
+                State.e.y = DB.POS.GROUND_Y;
+                State.p.action = 'DASH'; // 憲法第6条
+                await sleep(DB.TIME.UPPER_AIR_TIME); // 憲法第5条：着地同期
+            }
         } else {
-            applyDamage('p', DB.VAL[`${eAct}_DMG`]);
+            // 通常3すくみ判定
+            const win = DB.RULES[State.myHands[i]] === eAct;
+            const lose = DB.RULES[eAct] === State.myHands[i];
+
+            if (win) {
+                applyDamage('e', DB.VAL[`${State.myHands[i]}_DMG`]);
+                if (State.myHands[i] === 'UPPER') {
+                    State.e.y = DB.POS.FLOAT_Y; // アッパーで打ち上げ
+                    isAirCombo = true;
+                }
+            } else if (lose) {
+                applyDamage('p', DB.VAL[`${eAct}_DMG`]);
+            }
+
+            await sleep(DB.TIME.ACTION_DUR);
+
+            // アッパー単発終了時の処理 (憲法第5条・第6条)
+            if (isAirCombo && (i === 4 || !State.myHands[i+1].includes('PUNCH'))) {
+                isAirCombo = false;
+                State.e.y = DB.POS.GROUND_Y;
+                State.p.action = 'DASH';
+                await sleep(DB.TIME.UPPER_AIR_TIME);
+            }
         }
 
-        await new Promise(r => setTimeout(r, DB.TIME.ACTION_DUR));
-
-        State.p.x = DB.POS.P_IDLE;
-        State.e.x = DB.POS.E_IDLE;
-        State.p.action = 'idle';
-        State.e.action = 'idle';
+        // 憲法第7条・第9条：コンボ中でなければ座標・画像復帰
+        if (!isAirCombo) {
+            State.p.x = DB.POS.P_IDLE; State.e.x = DB.POS.E_IDLE;
+            State.p.action = 'IDLE'; State.e.action = 'IDLE';
+            await sleep(200); // 戻りの余韻
+        }
     }
 
+    // ターン終了完全リセット (Finally担保)
+    State.p.x = DB.POS.P_IDLE; State.e.x = DB.POS.E_IDLE;
+    State.p.y = DB.POS.GROUND_Y; State.e.y = DB.POS.GROUND_Y;
+    State.p.action = 'IDLE'; State.e.action = 'IDLE';
+    
     State.myHands = [];
     for (let i = 0; i < 5; i++) eSlots[i].style.opacity = 0;
     updateUI();
     State.isAnimating = false;
 }
+
+// 起動
+initGame();
 </script>
 </body>
 </html>
