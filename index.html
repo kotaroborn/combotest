@@ -44,28 +44,28 @@
  * 【憲法二十六条：全文】
  * 1. 5枠設計: 画面下部に5つのスロットを固定表示。順次コマンドを埋める仕様。
  * 2. 敵コマンド可視化: バトル前に敵の5枠を生成し、上段スロットに可視化する。
- * 3. 3すくみ: [P>U][U>G][G>P] の判定ロジック。
- * 4. 空中コンボ: [Upper命中]＋[次コマンドPunch]で発動。完走まで敵行動を無視する。
- * 5. 着地同期: アッパー打ち上げ後は、両者地面(y=200)着地を確認してから次へ遷移する。
- * 6. 単発アッパー着地時: 攻撃側は必ず「dash.PNG」へ遷移させる（移動の余韻として）。
- * 7. 画像状態管理: ダメージ被弾・攻撃・待機時は必ず idle(player/player2の呼吸)に復帰。dash.PNGの貼り付きを根絶。
- * 8. ダメージ計算: P(10), U(5), M(50)基準。被弾時は必ず shake=100 を付与。
- * 9. 座標復帰: Finally句にて全キャラのy=200へのリセットを保証する。dashで戻る演出を必須とする。
+ * 3. 3すくみ: [PUNCH>UPPER][UPPER>GUARD][GUARD>PUNCH] の判定ロジック。勝敗は毎回この判定で決定する。
+ * 4. 空中コンボ: 勝者の技がUPPERだった場合に発動。攻撃側の次の入力がPUNCHなら継続し、最大3発まで空中パンチを受け付ける。3発目は自動的にメテオへ変換される。
+ * 5. 着地同期: 通常コンボ終了時（メテオに至らない場合）は、攻守双方が地面(y=200)へ着地してから次の演出へ遷移する。
+ * 6. 通常コンボ終了時の演出: 攻撃側は必ずdash.PNGへ、被弾側はdamage.PNGのまま着地させる。
+ * 7. 画像状態管理: 待機中は必ず player.PNG / player2.PNG の呼吸(idle)へ復帰する。idle.PNGという単独ファイルは存在しない。
+ * 8. ダメージ計算: PUNCH勝利(10), UPPER初撃(5), メテオ(50)。三すくみに負けた側のみ振動(shake)する。
+ * 9. 座標復帰: ターン(5枠)全体の処理が完了した時点で、finally句にて必ずホームポジションへ dash.PNG の残像付きで帰還することを保証する。
  * 10. 描画品質: imageSmoothingEnabled=false を維持しドット絵品質を担保。
  * 11. モバイル対応: Flexboxとviewport固定によるレスポンシブ最適化。
  * 12. 描画資産の不変性: 外部ファイルを厳格に読み込み、存在しない場合は読み込みエラーを即座に特定する。
- * 13. オブジェクトの生存維持: 状態管理オブジェクト(s, e, imgs)は決して再定義・初期化せず、常に参照し続ける。
+ * 13. オブジェクトの生存維持: 状態管理オブジェクト(state, imgs)は決して再定義・初期化せず、常に参照し続ける。
  * 14. 憲法完全表記: コード提示の際、本憲法リストを一切省略せず必ず全条文を記述する。
  * 15. UI永続性: HP・TURN表示は画面上部に固定し、スロットは下部に永続表示する。
- * 16. 位置保持: 攻防後は必ず定位置（中心から等距離のホームポジション）へ dash.PNG で戻り、次の攻防に備える。
+ * 16. 位置保持: 攻防のたびに初期位置へ戻るのではなく、中央で衝突→軽く距離を取る、を繰り返す。ホームポジションへ戻るのはターン完了時のみ。
  * 17. 体力ゲージ演出: ダメージ発生時、現在値が即座に減り、黄色いバーが0.6秒遅れて減少する。
  * 18. TURN表示仕様: 画面上部中央に「TURN」と「数字」を2行で太字(900)表示する。
  * 19. 敵反転描画: 敵画像は常に左右反転して表示する。
  * 20. 敵の主体性: バトル開始時、敵も同様に前進・アクションを実行する。
- * 21. パンチコンボ演出: 連続したパンチ入力時、punchとpunch2を交互に実行し、合間にdashを挟んで滑らかに接続する。
+ * 21. パンチコンボ演出: 空中コンボ中の連続パンチは punch.PNG と punch2.PNG を交互に使用する。
  * 22. 厳格命名規則: 全アセットの拡張子は常に「.PNG」（大文字）で統一する。ファイル名部は小文字。
  * 23. 動作保証: 画像読み込み完了を待ってからゲームループを開始し、UIインタラクションを確定させる。
- * 24. 対面踏み込みの原則: 全ての技は、必ず敵味方双方が画面中央へ dash.PNG で踏み込んでから技を繰り出し、衝突演出を行う。
+ * 24. 対面踏み込みの原則: 技を出す前に必ず双方が残像(afterimage)付きの dash.PNG で画面中央へ踏み込み、衝突地点で技を出し合う。
  * 25. 厳格不可逆の原則: いかなる理由があろうとも、憲法の簡略化、および条文の意図的な省略・解釈の矮小化を禁止する。すべてを等しく実装すること。
  * 26. アーケード配置原則: UIは上部に時計回避余白を、下部にメニュー回避余白を確保し、左に攻撃、右に機能ボタンを配置する。
  */
@@ -104,23 +104,28 @@
 <script>
 // 第22条: ファイル名は小文字、拡張子は常に大文字 .PNG
 const DB = {
-    ASSETS: ['player.PNG', 'player2.PNG', 'upper.PNG', 'damage.PNG', 'knock2.PNG', 'dash.PNG', 'punch.PNG', 'punch2.PNG', 'guard.PNG'],
+    ASSETS: ['player.PNG', 'player2.PNG', 'upper.PNG', 'damage.PNG', 'knock.PNG', 'knock2.PNG', 'dash.PNG', 'punch.PNG', 'punch2.PNG', 'guard.PNG'],
     POS: {
-        GROUND_Y: 200, FLOAT_Y: 50, P_JUMP: 133,
+        GROUND_Y: 200,
+        FLOAT_Y: 50,        // 被弾側がふわっと浮く高さ
         CENTER_X: 480,      // 戦う位置は常に画面中心
         HOME_HALF: 280,     // 中心からホームポジションまでの距離（両者同一）
-        ATTACK_HALF: 45     // 中心から攻防時の接触位置までの距離（両者同一）
+        ATTACK_HALF: 45,    // 中心から攻防の接触位置までの距離（両者同一）
+        RETREAT_HALF: 120   // 攻防のあと軽く距離を取る位置（ホームまでは戻らない）
     },
     IMG_SIZE: 150,
-    DMG: { P: 10, U: 5, M: 50 }, // M: 予約定数（第25条により保持。UI未実装の特殊技用）
-    HITSHAKE: 100,
+    DMG: { P: 10, U: 5, M: 50 }, // P:パンチ勝利 / U:アッパー初撃 / M:メテオ
+    MAX_AIR_PUNCH: 3,
     BREATH_MS: 500 // player.PNG / player2.PNG の呼吸切替間隔
 };
-// ホームポジション・攻防位置は中心から等距離になるよう自動算出
+DB.POS.HOP_Y = DB.POS.GROUND_Y - Math.round((DB.POS.GROUND_Y - DB.POS.FLOAT_Y) / 3); // 打つ方の初撃の小ホップ(1/3)
+DB.POS.AIR_FOLLOW_Y = DB.POS.FLOAT_Y + 20; // コンボ継続中、打つ方が追従して浮く高さ
 DB.POS.P_HOME_X = DB.POS.CENTER_X - DB.POS.HOME_HALF - DB.IMG_SIZE / 2;
 DB.POS.E_HOME_X = DB.POS.CENTER_X + DB.POS.HOME_HALF - DB.IMG_SIZE / 2;
 DB.POS.P_ATTACK_X = DB.POS.CENTER_X - DB.POS.ATTACK_HALF - DB.IMG_SIZE / 2;
 DB.POS.E_ATTACK_X = DB.POS.CENTER_X + DB.POS.ATTACK_HALF - DB.IMG_SIZE / 2;
+DB.POS.P_RETREAT_X = DB.POS.CENTER_X - DB.POS.RETREAT_HALF - DB.IMG_SIZE / 2;
+DB.POS.E_RETREAT_X = DB.POS.CENTER_X + DB.POS.RETREAT_HALF - DB.IMG_SIZE / 2;
 
 // 第13条: この state オブジェクトは以後、再定義・再初期化しない。常にプロパティを書き換えて参照し続ける。
 let state = {
@@ -130,10 +135,12 @@ let state = {
     turn: 0,
     hands: [], enemyHands: [],
     pAct: 'IDLE', eAct: 'IDLE', // 'IDLE' は player.PNG / player2.PNG の呼吸表現を意味するマーカー
-    shake: 0,
-    lastPlayerAtk: null,
+    pShakeUntil: 0, eShakeUntil: 0,
+    pBlinkUntil: 0, eBlinkUntil: 0,
+    pLastAtk: null, eLastAtk: null,
     resolving: false
 };
+let trails = []; // 第24条: dash.PNGの残像
 
 const cvs = document.getElementById('cvs');
 const ctx = cvs.getContext('2d');
@@ -167,6 +174,24 @@ function boot() {
     startBattle();
 }
 
+// ------- 汎用アクセサ (P/E共通ロジックで扱うためのヘルパー) -------
+function setAct(side, v) { if (side === 'P') state.pAct = v; else state.eAct = v; }
+function getX(side) { return side === 'P' ? state.pX : state.eX; }
+function setX(side, v) { if (side === 'P') state.pX = v; else state.eX = v; }
+function setY(side, v) { if (side === 'P') state.pY = v; else state.eY = v; }
+function triggerShake(side, ms) { const until = performance.now() + ms; if (side === 'P') state.pShakeUntil = until; else state.eShakeUntil = until; }
+function triggerBlink(side, ms) { const until = performance.now() + ms; if (side === 'P') state.pBlinkUntil = until; else state.eBlinkUntil = until; }
+function nextPunchSprite(side) {
+    const key = side === 'P' ? 'pLastAtk' : 'eLastAtk';
+    state[key] = state[key] === 'punch.PNG' ? 'punch2.PNG' : 'punch.PNG'; // 第21条
+    return state[key];
+}
+function moveSprite(move) {
+    if (move === 'GUARD') return 'guard.PNG';
+    if (move === 'UPPER') return 'upper.PNG';
+    return 'punch.PNG';
+}
+
 // 第7条: idleマーカーの時は player.PNG / player2.PNG を時間で交互に呼吸させる
 function breathSprite(t) {
     return (Math.floor(t / DB.BREATH_MS) % 2 === 0) ? 'player.PNG' : 'player2.PNG';
@@ -174,29 +199,54 @@ function breathSprite(t) {
 function spriteFor(act, t) {
     return act === 'IDLE' ? breathSprite(t) : act;
 }
+function toIdle() { state.pAct = 'IDLE'; state.eAct = 'IDLE'; }
 
-function draw(t) {
-    t = t || performance.now();
+function draw(tRaw) {
+    const t = tRaw || performance.now();
     ctx.clearRect(0, 0, 960, 400);
-    const shakeX = state.shake > 0 ? (Math.random() * 8 - 4) : 0;
-    const shakeY = state.shake > 0 ? (Math.random() * 8 - 4) : 0;
-    if (state.shake > 0) state.shake -= 16;
 
-    ctx.save();
-    ctx.translate(shakeX, shakeY);
+    // 残像(第24条)を先に描画
+    const TRAIL_LIFE = 220;
+    trails = trails.filter(tr => (t - tr.born) < TRAIL_LIFE);
+    trails.forEach(tr => {
+        const age = t - tr.born;
+        const alpha = 0.35 * (1 - age / TRAIL_LIFE);
+        const img = imgs['dash.PNG'];
+        if (!img || alpha <= 0) return;
+        ctx.save();
+        ctx.globalAlpha = alpha;
+        if (tr.side === 'E') {
+            ctx.scale(-1, 1);
+            ctx.drawImage(img, -tr.x - DB.IMG_SIZE, tr.y, DB.IMG_SIZE, DB.IMG_SIZE);
+        } else {
+            ctx.drawImage(img, tr.x, tr.y, DB.IMG_SIZE, DB.IMG_SIZE);
+        }
+        ctx.restore();
+    });
 
+    // プレイヤー(振動・点滅対応)
+    const pJit = t < state.pShakeUntil ? (Math.random() * 6 - 3) : 0;
+    const pAlpha = t < state.pBlinkUntil ? ((Math.floor((state.pBlinkUntil - t) / 80) % 2 === 0) ? 1 : 0.25) : 1;
     const pImg = imgs[spriteFor(state.pAct, t)];
-    if (pImg) ctx.drawImage(pImg, state.pX, state.pY, DB.IMG_SIZE, DB.IMG_SIZE);
+    ctx.save();
+    ctx.globalAlpha = pAlpha;
+    if (pImg) ctx.drawImage(pImg, state.pX + pJit, state.pY + pJit, DB.IMG_SIZE, DB.IMG_SIZE);
     else { ctx.fillStyle = '#0f0'; ctx.fillRect(state.pX, state.pY, DB.IMG_SIZE, DB.IMG_SIZE); }
+    ctx.restore();
 
+    // 敵(振動・点滅・反転対応)
+    const eJit = t < state.eShakeUntil ? (Math.random() * 6 - 3) : 0;
+    const eAlpha = t < state.eBlinkUntil ? ((Math.floor((state.eBlinkUntil - t) / 80) % 2 === 0) ? 1 : 0.25) : 1;
     const eImg = imgs[spriteFor(state.eAct, t)];
+    ctx.save();
+    ctx.globalAlpha = eAlpha;
     if (eImg) {
         ctx.save(); ctx.scale(-1, 1); // 第19条: 敵は常に反転
-        ctx.drawImage(eImg, -state.eX - DB.IMG_SIZE, state.eY, DB.IMG_SIZE, DB.IMG_SIZE);
+        ctx.drawImage(eImg, -(state.eX + eJit) - DB.IMG_SIZE, state.eY + eJit, DB.IMG_SIZE, DB.IMG_SIZE);
         ctx.restore();
     } else { ctx.fillStyle = '#f00'; ctx.fillRect(state.eX, state.eY, DB.IMG_SIZE, DB.IMG_SIZE); }
-
     ctx.restore();
+
     requestAnimationFrame(draw);
 }
 
@@ -223,7 +273,7 @@ function startBattle() {
     drawEnemySlots();
 }
 
-// 第3条: 3すくみ判定 P>U, U>G, G>P
+// 第3条: 3すくみ判定 P>U, U>G, G>P (プレイヤー視点で 'win'/'lose'/'draw')
 function judge(p, e) {
     if (p === e) return 'draw';
     const beats = { PUNCH: 'UPPER', UPPER: 'GUARD', GUARD: 'PUNCH' };
@@ -240,33 +290,140 @@ function applyDamage(target, amount) {
         document.getElementById('hpP').style.width = state.hpP + '%';
         setTimeout(() => { document.getElementById('hpP_y').style.width = state.hpP + '%'; }, 0);
     }
-    state.shake = DB.HITSHAKE; // 第8条
 }
 
 function wait(ms) { return new Promise(r => setTimeout(r, ms)); }
 
-async function dashToCenter() {
-    // 第24条: 敵味方が共に中央へ dash.PNG で踏み込む
-    state.pAct = 'dash.PNG'; state.pX = DB.POS.P_ATTACK_X;
-    state.eAct = 'dash.PNG'; state.eX = DB.POS.E_ATTACK_X;
-    await wait(300);
+// 第24条: 双方が残像付きのdash.PNGでX座標を目標地点まで移動する汎用関数
+async function moveBothX(pTo, eTo, steps = 6, stepMs = 40) {
+    state.pAct = 'dash.PNG'; state.eAct = 'dash.PNG';
+    const pFrom = state.pX, eFrom = state.eX;
+    for (let s = 1; s <= steps; s++) {
+        const t = s / steps;
+        state.pX = pFrom + (pTo - pFrom) * t;
+        state.eX = eFrom + (eTo - eFrom) * t;
+        trails.push({ side: 'P', x: state.pX, y: state.pY, born: performance.now() });
+        trails.push({ side: 'E', x: state.eX, y: state.eY, born: performance.now() });
+        await wait(stepMs);
+    }
 }
-async function dashToHome() {
-    // 第16条: 攻防後は必ず中心から等距離のホームポジションへ dash.PNG で戻る
-    state.pAct = 'dash.PNG'; state.pX = DB.POS.P_HOME_X;
-    state.eAct = 'dash.PNG'; state.eX = DB.POS.E_HOME_X;
-    await wait(300);
-}
+async function approachCenter() { await moveBothX(DB.POS.P_ATTACK_X, DB.POS.E_ATTACK_X); }
+async function retreatSlightly() { await moveBothX(DB.POS.P_RETREAT_X, DB.POS.E_RETREAT_X, 4, 35); }
+async function goHome() { await moveBothX(DB.POS.P_HOME_X, DB.POS.E_HOME_X); }
+
 async function waitBothLanded() {
     // 第5条: 着地同期
     state.pY = DB.POS.GROUND_Y;
     state.eY = DB.POS.GROUND_Y;
     await wait(50);
 }
-function toIdle() {
-    // 第7条: 待機時は必ず呼吸(idle)へ復帰
-    state.pAct = 'IDLE';
-    state.eAct = 'IDLE';
+
+function nextQueuedMove(side, cursor) {
+    const idx = cursor.i + 1;
+    return side === 'P' ? state.hands[idx] : state.enemyHands[idx];
+}
+
+// 通常のヒット(GUARD/PUNCHが勝った場合)。負けた側だけが振動する。
+async function runNormalHit(winner, loser, move) {
+    setAct(winner, moveSprite(move));
+    setAct(loser, 'damage.PNG');
+    applyDamage(loser, DB.DMG.P);
+    triggerShake(loser, 350); // 第8条: 負けた側のみ振動
+    await wait(500);
+    toIdle();
+}
+
+// メテオ(空中3発目)演出
+async function runMeteor(attacker, defender) {
+    applyDamage(defender, DB.DMG.M);
+    setAct(attacker, 'knock.PNG');
+    setAct(defender, 'damage.PNG');
+    await wait(400); // 一時停止
+
+    // 打たれる方が先に地面へ落下
+    const fallSteps = 5;
+    for (let s = 1; s <= fallSteps; s++) {
+        setY(defender, DB.POS.FLOAT_Y + (DB.POS.GROUND_Y - DB.POS.FLOAT_Y) * (s / fallSteps));
+        await wait(30);
+    }
+    setY(defender, DB.POS.GROUND_Y);
+    triggerShake(defender, 500);
+    triggerBlink(defender, 900); // 振動＋点滅
+
+    await wait(60); // 打つ方は少し遅れて急降下開始
+    const atkFallSteps = 6;
+    for (let s = 1; s <= atkFallSteps; s++) {
+        setY(attacker, DB.POS.AIR_FOLLOW_Y + (DB.POS.GROUND_Y - DB.POS.AIR_FOLLOW_Y) * (s / atkFallSteps));
+        await wait(35);
+    }
+    setY(attacker, DB.POS.GROUND_Y);
+    setAct(attacker, 'knock2.PNG');
+    triggerShake(attacker, 350);
+    await wait(500);
+    toIdle();
+}
+
+// UPPERが勝った場合の空中コンボ一式
+async function runUpperCombo(attacker, defender, cursor) {
+    // 初撃: 打つ方は1/3だけホップ、受ける方はふわっと大きく浮く
+    setAct(attacker, 'upper.PNG');
+    setAct(defender, 'damage.PNG');
+    setY(defender, DB.POS.FLOAT_Y);
+    setY(attacker, DB.POS.HOP_Y);
+    applyDamage(defender, DB.DMG.U);
+    triggerShake(defender, 300);
+    await wait(700);
+
+    let airPunches = 0;
+    while (true) {
+        const next = nextQueuedMove(attacker, cursor);
+        if (next !== 'PUNCH') break;
+        cursor.i++; // 次のコマンドを消費してコンボ継続
+        airPunches++;
+
+        if (airPunches < DB.MAX_AIR_PUNCH) {
+            // 通常の空中パンチ: 打つ方が追従して浮き、空中で殴る
+            setY(attacker, DB.POS.AIR_FOLLOW_Y);
+            setAct(attacker, nextPunchSprite(attacker)); // 第21条
+            applyDamage(defender, DB.DMG.P);
+            triggerShake(defender, 200);
+            await wait(500);
+        } else {
+            // 3発目: メテオへ変換
+            await runMeteor(attacker, defender);
+            return;
+        }
+    }
+
+    // コンボ終了(メテオに至らない場合): 双方着地
+    await waitBothLanded();
+    setAct(attacker, 'dash.PNG'); // 第6条
+    setAct(defender, 'damage.PNG'); // 第6条
+    await wait(300);
+    toIdle();
+}
+
+async function resolveExchange(pAct, eAct, cursor) {
+    await approachCenter(); // 第24条: 残像付きで中央へ踏み込む
+
+    const result = judge(pAct, eAct);
+    if (result === 'draw') {
+        state.pAct = moveSprite(pAct);
+        state.eAct = moveSprite(eAct);
+        await wait(300);
+        toIdle();
+        return;
+    }
+
+    const winner = result === 'win' ? 'P' : 'E';
+    const loser = winner === 'P' ? 'E' : 'P';
+    const winnerMove = winner === 'P' ? pAct : eAct;
+
+    if (winnerMove === 'UPPER') {
+        await runUpperCombo(winner, loser, cursor);
+    } else {
+        await runNormalHit(winner, loser, winnerMove);
+    }
 }
 
 async function resolveTurn() {
@@ -277,96 +434,28 @@ async function resolveTurn() {
     state.turn++;
     document.getElementById('turnDisplay').innerHTML = `TURN<br>${state.turn}`;
 
-    let isAirCombo = false;
+    const cursor = { i: 0 };
 
     try {
-        for (let i = 0; i < state.hands.length; i++) {
+        while (cursor.i < state.hands.length) {
             if (state.hpE <= 0 || state.hpP <= 0) break;
 
-            const pAct = state.hands[i];
-            const eAct = state.enemyHands[i] || randomEnemyHands()[0];
+            const pAct = state.hands[cursor.i];
+            const eAct = state.enemyHands[cursor.i] || randomEnemyHands()[0];
 
-            // 第4条: 空中コンボ中は敵行動を無視し、PUNCHでコンボ継続
-            if (isAirCombo && pAct === 'PUNCH') {
-                // コンボ中も一度離れているので再度中央へ踏み込む
-                await dashToCenter();
-                // 第21条: パンチ連打は punch / punch2 を交互に
-                state.lastPlayerAtk = state.lastPlayerAtk === 'punch.PNG' ? 'punch2.PNG' : 'punch.PNG';
-                state.pAct = imgs[state.lastPlayerAtk] ? state.lastPlayerAtk : 'punch.PNG';
-                applyDamage('E', DB.DMG.P);
-                await wait(600);
-                continue;
+            await resolveExchange(pAct, eAct, cursor);
+
+            cursor.i++;
+            // 第16条: 攻防のたびに初期位置へ戻るのではなく、軽く距離を取るだけ
+            if (state.hpE > 0 && state.hpP > 0 && cursor.i < state.hands.length) {
+                await retreatSlightly();
             }
-
-            if (isAirCombo && pAct !== 'PUNCH') {
-                // 空中コンボがPUNCH以外で途切れる場合は着地→ホームへ戻してから通常処理
-                await waitBothLanded();
-                await dashToHome();
-                toIdle();
-                isAirCombo = false;
-            }
-
-            // 第24条: 双方が中央へ dash.PNG で踏み込んでから技を出す
-            await dashToCenter();
-
-            if (pAct === 'UPPER') {
-                state.pAct = 'upper.PNG';
-                state.eAct = 'damage.PNG';
-                state.pY = DB.POS.P_JUMP;
-                state.eY = DB.POS.FLOAT_Y;
-                applyDamage('E', DB.DMG.U);
-                state.lastPlayerAtk = null;
-                isAirCombo = true;
-                await wait(1000);
-
-                const nextIsPunch = state.hands[i + 1] === 'PUNCH';
-                if (!nextIsPunch) {
-                    // 第9条+第6条: 単発アッパーは着地同期後、必ずdash.PNGを経由してホーム＆idleへ
-                    await waitBothLanded();
-                    await dashToHome();
-                    toIdle();
-                    isAirCombo = false;
-                }
-                continue;
-            }
-
-            if (pAct === 'GUARD') {
-                state.pAct = 'guard.PNG';
-                const result = judge(pAct, eAct);
-                if (result === 'lose') {
-                    state.eAct = (imgs[eAct.toLowerCase() + '.PNG'] ? eAct.toLowerCase() : 'punch') + '.PNG';
-                    applyDamage('P', eAct === 'UPPER' ? DB.DMG.U : DB.DMG.P);
-                } else {
-                    // ガード成功: 被ダメージを大幅軽減
-                    applyDamage('P', Math.round(DB.DMG.P * 0.2));
-                }
-                await wait(600);
-            } else if (pAct === 'PUNCH') {
-                state.pAct = 'punch.PNG';
-                state.lastPlayerAtk = 'punch.PNG';
-                const result = judge(pAct, eAct);
-                if (result !== 'lose') {
-                    state.eAct = 'damage.PNG';
-                    applyDamage('E', DB.DMG.P);
-                } else {
-                    state.eAct = (imgs[eAct.toLowerCase() + '.PNG'] ? eAct.toLowerCase() : 'punch') + '.PNG';
-                    applyDamage('P', DB.DMG.U);
-                }
-                await wait(600);
-            }
-
-            state.pY = DB.POS.GROUND_Y; state.eY = DB.POS.GROUND_Y;
-            await wait(200);
-            // 第16条: 攻防後は必ずホームポジションへ dash.PNG で戻る
-            await dashToHome();
-            toIdle(); // 第7条
         }
     } finally {
-        // 第9条: 必ずy座標を地面に復帰。第16条によりホームポジションへ確実に戻す。
+        // 第9条: ターン完了時のみ、残像付きでホームポジションへ確実に帰還する
         state.pY = DB.POS.GROUND_Y;
         state.eY = DB.POS.GROUND_Y;
-        state.pX = DB.POS.P_HOME_X;
-        state.eX = DB.POS.E_HOME_X;
+        await goHome();
         toIdle();
         state.hands = [];
         updateUI();
