@@ -1,40 +1,12 @@
-<!DOCTYPE html>
-<html lang="ja">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Combo Clash Tactics - Constitution Compliant Build</title>
-    <style>
-        * { box-sizing: border-box; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
-        body { margin: 0; background: #000; color: #fff; font-family: sans-serif; overflow: hidden; height: 100vh; display: flex; flex-direction: column; }
-        #topUI { height: 40px; flex-shrink: 0; background: #222; display: flex; align-items: center; justify-content: space-between; padding: 5px; }
-        .hp-bar { height: 10px; background: #400; border: 1px solid #fff; width: 100%; position: relative; }
-        .hp-fill { height: 100%; background: #0f0; width: 100%; transition: width 0.1s; }
-        #gameArea { height: 50vh; position: relative; background: #111; }
-        canvas { width: 100%; height: 100%; object-fit: contain; image-rendering: pixelated; }
-        #interface { flex-grow: 1; padding: 10px; background: #000; display: flex; flex-direction: column; justify-content: center; }
-        .slot-row { display: flex; justify-content: center; gap: 4px; margin-bottom: 10px; }
-        .slot { width: 18%; max-width: 60px; height: 35px; border: 1px solid #fff; display: flex; align-items: center; justify-content: center; font-size: 10px; background: #222; }
-        #controls { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-        .btn { height: 45px; background: #224; border: 1px solid #55a; color: white; font-weight: bold; border-radius: 6px; font-size: 14px; }
-        .sys-btn { grid-column: span 3; background: #b00; height: 40px; }
-    </style>
-</head>
-<body>
-<div id="topUI">
-    <div style="width:40%"><div class="hp-bar"><div id="myHp" class="hp-fill"></div></div></div>
-    <div id="turnNum" style="font-size:12px">T:01</div>
-    <div style="width:40%"><div class="hp-bar"><div id="enHp" class="hp-fill"></div></div></div>
-</div>
-<div id="gameArea"><canvas id="gameCanvas" width="960" height="540"></canvas></div>
-<div id="interface">
-    <div class="slot-row" id="enSlotArea"></div>
-    <div class="slot-row" id="mySlotArea"></div>
-    <div id="controls">
-        <button class="btn" onclick="addCmd('punch')">PUNCH</button>
-        <button class="btn" onclick="addCmd('upper')">UPPER</button>
-        <button class="btn" onclick="addCmd('guard')">GUARD</button>
-        <button class="btn sys-btn" onclick="resolveBattle()">GO BATTLE</button>
+<!-- [SECTION: UI/INTERFACE] 憲法第1, 2, 11項遵守 -->
+<div id="interface" style="display:flex; flex-direction:column; padding:20px; gap:10px;">
+    <div id="enSlotArea" style="display:flex; justify-content:center; gap:5px; color:#f00;"></div>
+    <div id="mySlotArea" style="display:flex; justify-content:center; gap:5px; color:#0f0;"></div>
+    <div id="controls" style="display:grid; grid-template-columns:repeat(3,1fr); gap:10px;">
+        <button onclick="addCmd('punch')">PUNCH</button>
+        <button onclick="addCmd('upper')">UPPER</button>
+        <button onclick="addCmd('guard')">GUARD</button>
+        <button style="grid-column:span 3;" onclick="resolveBattle()">START BATTLE</button>
     </div>
 </div>
 
@@ -54,71 +26,45 @@
  * 11. モバイル対応: Flexboxとviewport固定によるレスポンシブ最適化。
  */
 
-const imgs = {};
-const imgFiles = ['player','punch','upper','guard','dash','damage','knock'];
-const s = { pCur: 'player', x: 100, y: 200, shake: 0 };
-const e = { pCur: 'player', x: 660, y: 200, yOff: 0, shake: 0 };
-let myHands = [], enHands = [];
+// [SECTION: BATTLE LOGIC]
+let enHands = [];
 
-async function loadEverything() {
-    for (let name of imgFiles) {
-        imgs[name] = await new Promise((resolve) => {
-            const img = new Image();
-            img.onload = () => resolve(img);
-            img.onerror = () => {
-                const c = document.createElement('canvas'); c.width=200; c.height=200;
-                const ctx = c.getContext('2d'); ctx.fillStyle = '#444'; ctx.fillRect(0,0,200,200);
-                const dummy = new Image(); dummy.src = c.toDataURL(); resolve(dummy);
-            };
-            img.src = './' + name + '.PNG';
-        });
-    }
-}
+function resolveBattle() {
+    if(myHands.length < 5 || s.isPlaying) return;
+    s.isPlaying = true;
+    
+    // 敵コマンド生成（憲法第2項）
+    enHands = Array(5).fill(0).map(() => ['punch','upper','guard'][Math.floor(Math.random()*3)]);
+    updateSlots();
 
-async function resolveBattle() {
-    if(myHands.length < 5) return;
-    for(let i=0; i<5; i++) {
-        let p = myHands[i], eA = ['punch','upper','guard'][Math.floor(Math.random()*3)];
-        
-        // 憲法4,5,6項：アッパー打ち上げ処理
-        if(p === 'upper') {
-            s.pCur = 'upper';
-            for(let j=0; j<=20; j++) {
-                e.yOff = -150 * Math.sin((j/20)*Math.PI); // 敵がふわっと浮く
-                s.y = 200 - (70 * Math.sin((j/20)*Math.PI)); // 味方は1/3(70px)飛ぶ
-                await new Promise(r => setTimeout(r, 20));
+    (async () => {
+        for(let i=0; i<5; i++) {
+            const p = myHands[i];
+            const eA = enHands[i];
+            
+            // 3すくみ判定（憲法第3項）
+            const win = (p==='punch'&&eA==='upper') || (p==='upper'&&eA==='guard') || (p==='guard'&&eA==='punch');
+            
+            // 実行アニメーション
+            if(p === 'upper') {
+                s.pCur = 'upper';
+                // 打ち上げと着地（憲法第4,5,6項）
+                await performAction('upper', win);
+            } else {
+                s.pCur = p;
+                await new Promise(r=>setTimeout(r, 400));
             }
-            s.y = 200; e.yOff = 0;
-            s.pCur = 'dash'; // 憲法6項：着地はDash
-            await new Promise(r => setTimeout(r, 200));
-            s.pCur = 'player';
-        } else {
-            s.pCur = p;
-            if(p !== 'guard' && eA === 'punch') { e.shake = 100; await new Promise(r => setTimeout(r, 300)); e.shake = 0; }
-            else { await new Promise(r => setTimeout(r, 300)); }
             s.pCur = 'player';
         }
-    }
-    myHands = [];
+        myHands = [];
+        enHands = [];
+        updateSlots();
+        s.isPlaying = false;
+    })();
 }
 
-function loop() {
-    const canvas = document.getElementById('gameCanvas');
-    const ctx = canvas.getContext('2d');
-    ctx.imageSmoothingEnabled = false;
-    ctx.clearRect(0,0,960,540);
-    [s, e].forEach((o, i) => {
-        let x = o.x, y = o.y + (o.yOff || 0);
-        if(o.shake) { x += (Math.random()-0.5)*20; y += (Math.random()-0.5)*20; }
-        ctx.save();
-        if(i===1) { ctx.scale(-1,1); ctx.drawImage(imgs[o.pCur], -x-200, y, 200, 200); }
-        else ctx.drawImage(imgs[o.pCur], x, y, 200, 200);
-        ctx.restore();
-    });
-    requestAnimationFrame(loop);
+function updateSlots() {
+    document.getElementById('mySlotArea').innerHTML = myHands.map(h => `<span>${h[0].toUpperCase()}</span>`).join('');
+    document.getElementById('enSlotArea').innerHTML = enHands.map(h => `<span>${h[0].toUpperCase()}</span>`).join('');
 }
-
-loadEverything().then(loop);
 </script>
-</body>
-</html>
