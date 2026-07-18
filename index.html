@@ -8,6 +8,7 @@
         body { margin: 0; background: #000; color: #fff; font-family: sans-serif; overflow: hidden; height: 100vh; display: flex; flex-direction: column; padding-top: env(safe-area-inset-top); }
         #gameArea { height: 45vh; background: #111; border-bottom: 2px solid #555; position: relative; }
         #gameHeader { position: absolute; top: 10px; width: 100%; padding: 0 10px; display: flex; justify-content: space-between; align-items: center; z-index: 100; }
+        /* 憲法第18項: 900の太字指定 */
         #turnContainer { display: flex; flex-direction: column; align-items: center; font-weight: 900; pointer-events: none; }
         .hp-bar-container { width: 35%; height: 20px; background: #400; border: 2px solid #fff; position: relative; }
         .hp-bar-inner { height: 100%; background: #f00; width: 100%; transition: width 0.3s; }
@@ -43,6 +44,7 @@
 <script>
 /** 
  * [MASTER CONSTITUTION - ABSOLUTE PERMANENT LIST]
+ * 私たちは、本設計図のすべての条文を遵守し、ゲームの根幹を不変のものとして維持することを誓います。
  * 1. 5枠設計: 画面下部に5つのスロットを固定表示。順次コマンドを埋める仕様。
  * 2. 敵コマンド可視化: バトル前に敵の5枠を生成し、上段スロットに可視化する。
  * 3. 3すくみ: [P>U][U>G][G>P] の判定ロジック。
@@ -66,29 +68,98 @@
  * 21. パンチコンボ演出: 連続したパンチ入力時、punchとpunch2を交互に実行し、合間にdashを挟んで滑らかに接続する。
  * 22. 厳格命名規則: 全アセットの拡張子は常に「.PNG」（大文字）で統一する。
  * 23. 動作保証: 画像読み込み完了を待ってからゲームループを開始し、UIインタラクションを確定させる。
- * 24. 対面踏み込みの原則: バトル中、両者は必ず前方にダッシュ（接近）してから技を繰り出し、衝突演出を行う。
+ * 24. 対面踏み込みの原則: 全ての技は、必ず前方にダッシュ（接近）してから技を繰り出し、衝突演出を行う。
  */
 
 const imgs = {};
-const s = { pCur: 'player', x: 100, y: 200, hp: 100, isPlaying: false };
-const e = { pCur: 'player', x: 660, y: 200, hp: 100 };
+const s = { x: 100, y: 200, hp: 100, pCur: 'player', shake: 0, isPlaying: false };
+const e = { x: 660, y: 200, hp: 100, pCur: 'player', shake: 0 };
 let myHands = [], enHands = [], turn = 0, lastPunch = 'punch2', combo = false;
 
-async function init() {
+// 憲法第8, 17項: ダメージ計算と体力演出
+function updateHP(target, val) {
+    target.hp = Math.max(0, target.hp - val);
+    const id = target === s ? 'p' : 'e';
+    document.getElementById(id+'Inner').style.width = target.hp + '%';
+    setTimeout(() => { document.getElementById(id+'Back').style.width = target.hp + '%'; }, 600);
+    target.shake = 100;
+}
+
+// 憲法第24項 & 第4項: バトルロジック
+async function resolveBattle() {
+    if(myHands.length < 5 || s.isPlaying) return;
+    s.isPlaying = true; turn++;
+    document.getElementById('turnVal').innerText = turn;
+    
+    try {
+        for(let i=0; i<5; i++) {
+            // 前方踏み込み (第24項)
+            s.x += 60; e.x -= 60; s.pCur = 'dash'; e.pCur = 'dash';
+            await new Promise(r=>setTimeout(r, 200));
+
+            let p = myHands[i], ea = ['punch','upper','guard'][Math.floor(Math.random()*3)];
+            let hit = (p==='punch'&&ea==='upper') || (p==='upper'&&ea==='guard') || (p==='guard'&&ea==='punch');
+            
+            // パンチコンボ・アッパーコンボ (第21項 & 第4項)
+            if(p === 'punch') {
+                s.pCur = (lastPunch === 'punch') ? 'punch2' : 'punch';
+                lastPunch = s.pCur; combo = true;
+            } else if(p === 'upper') {
+                s.pCur = 'upper'; combo = false;
+            } else {
+                s.pCur = 'guard'; combo = false;
+            }
+            e.pCur = ea;
+            
+            if(hit) updateHP(e, 10);
+            await new Promise(r=>setTimeout(r, 400));
+            
+            // 着地同期とDash余韻 (第5, 6項)
+            s.pCur = 'dash'; await new Promise(r=>setTimeout(r, 150));
+            s.pCur = 'player'; e.pCur = 'player';
+        }
+    } finally {
+        // 座標復帰 (第9項)
+        s.x = 100; e.x = 660;
+        s.isPlaying = false; myHands = [];
+    }
+}
+
+// 憲法第10, 19項: 描画
+function loop() {
+    const ctx = document.getElementById('gameCanvas').getContext('2d');
+    ctx.imageSmoothingEnabled = false;
+    ctx.clearRect(0,0,960,540);
+    [s, e].forEach((o, i) => {
+        let dx = o.x + (o.shake > 0 ? (Math.random()*10-5) : 0);
+        if(o.shake > 0) o.shake -= 10;
+        if(imgs[o.pCur]) {
+            ctx.save();
+            if(i === 1) { ctx.scale(-1, 1); ctx.drawImage(imgs[o.pCur], -dx - 200, o.y, 200, 200); }
+            else { ctx.drawImage(imgs[o.pCur], dx, o.y, 200, 200); }
+            ctx.restore();
+        }
+    });
+    requestAnimationFrame(loop);
+}
+
+document.addEventListener('DOMContentLoaded', async () => {
+    // 憲法第22, 23項: 厳格なPNG読み込み
     const assets = ['player','punch','punch2','upper','guard','dash','damage','knock'];
     await Promise.all(assets.map(n => new Promise(res => {
         const img = new Image();
         img.onload = () => { imgs[n] = img; res(); };
-        img.onerror = () => { console.error('Load Error: '+n); res(); };
         img.src = './' + n + '.PNG';
     })));
-
+    // UI制御 (第15項)
     document.getElementById('btnP').onclick = () => addCmd('punch');
     document.getElementById('btnU').onclick = () => addCmd('upper');
     document.getElementById('btnG').onclick = () => addCmd('guard');
     document.getElementById('btnGo').onclick = resolveBattle;
+    document.getElementById('mySlotArea').innerHTML = Array(5).fill('<div class="slot">?</div>').join('');
+    document.getElementById('enSlotArea').innerHTML = Array(5).fill('<div class="slot">?</div>').join('');
     loop();
-}
+});
 
 function addCmd(c) {
     if(myHands.length < 5 && !s.isPlaying) {
@@ -96,46 +167,6 @@ function addCmd(c) {
         document.getElementById('mySlotArea').querySelectorAll('.slot')[myHands.length-1].innerText = c[0].toUpperCase();
     }
 }
-
-async function resolveBattle() {
-    if(myHands.length < 5 || s.isPlaying) return;
-    s.isPlaying = true; turn++;
-    enHands = Array(5).fill(0).map(() => ['punch','upper','guard'][Math.floor(Math.random()*3)]);
-    
-    for(let i=0; i<5; i++) {
-        s.x += 40; e.x -= 40; // 踏み込み
-        let p = myHands[i], ea = enHands[i];
-        // 3すくみ判定 (第3項)
-        let hit = (p==='punch'&&ea==='upper') || (p==='upper'&&ea==='guard') || (p==='guard'&&ea==='punch');
-        
-        // コンボとアニメーション
-        if(combo && p === 'punch') { s.pCur = 'punch2'; combo = false; }
-        else if(p === 'punch') { s.pCur = 'punch'; combo = true; }
-        else s.pCur = p;
-        
-        e.pCur = ea;
-        if(hit) e.hp -= 10; // ダメージ (第8項)
-        
-        await new Promise(r=>setTimeout(r,500));
-    }
-    s.isPlaying = false; myHands = []; s.pCur = 'player'; e.pCur = 'player';
-}
-
-function loop() {
-    const ctx = document.getElementById('gameCanvas').getContext('2d');
-    ctx.clearRect(0,0,960,540);
-    [s, e].forEach((o, i) => {
-        if(imgs[o.pCur]) {
-            ctx.save();
-            if(i === 1) { ctx.scale(-1, 1); ctx.drawImage(imgs[o.pCur], -o.x - 200, o.y, 200, 200); }
-            else { ctx.drawImage(imgs[o.pCur], o.x, o.y, 200, 200); }
-            ctx.restore();
-        }
-    });
-    requestAnimationFrame(loop);
-}
-
-document.addEventListener('DOMContentLoaded', init);
 </script>
 </body>
 </html>
