@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Combo Clash Tactics - Absolute Permanent Build</title>
+    <title>Combo Clash Tactics - Final State Control</title>
     <style>
         * { box-sizing: border-box; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
         body { margin: 0; background: #000; color: #fff; font-family: sans-serif; overflow: hidden; height: 100vh; display: flex; flex-direction: column; }
@@ -46,7 +46,7 @@
  * 2. 3すくみ: [P>U][U>G][G>P]。
  * 3. 空中コンボ: [Upper命中]＋[次コマンドPunch]で発動。完走まで敵行動無視。
  * 4. 着地同期: アッパー打ち上げ後は、両者地面(y=200)着地を確認してから次へ。
- * 5. 画像状態管理: 全アクションで pCur を個別更新。Dash固定を禁止。
+ * 5. 画像状態管理: 全アクションの終了時に pCur を必ず player に戻し、Dash等の「状態置き去り」を根絶。
  * 6. ダメージ計算: P(10), U(5), M(50)基準。被弾時は必ず shake=100。
  * 7. 座標復帰: Finallyでy=200へ強制リセット。
  * 8. 描画: imageSmoothingEnabled=false維持。
@@ -112,7 +112,7 @@ async function resolveBattle() {
                 if (p === 'punch' && airStep <= 3) {
                     if (airStep === 3) { s.pCur = 'knock'; e.pCur = 'damage'; await new Promise(r => setTimeout(r, 300)); s.y = 200; e.y = 200; airCombo = false; applyDmg(e, DMG.METEOR + 10); await new Promise(r => setTimeout(r, 600)); }
                     else { applyDmg(e, DMG.PUNCH + (airStep * 5)); await new Promise(r => setTimeout(r, 300)); }
-                } else { s.y = 200; e.y = 200; airCombo = false; }
+                } else { s.y = 200; e.y = 200; airCombo = false; s.pCur = 'player'; e.pCur = 'player'; }
             } else {
                 if (p === 'upper' && eA !== 'guard') {
                     s.pCur = 'upper'; e.pCur = 'damage';
@@ -126,8 +126,10 @@ async function resolveBattle() {
                     if (myHands[i+1] === 'punch') { airCombo = true; airStep = 0; }
                 } else if (p === 'punch' && eA !== 'guard') {
                     s.pCur = 'punch'; e.pCur = 'damage'; applyDmg(e, DMG.PUNCH); await new Promise(r => setTimeout(r, 300));
+                    s.pCur = 'player'; e.pCur = 'player'; // 完了後のリセット
                 } else if (p === 'guard' || eA === 'guard') {
                     s.pCur = 'guard'; e.pCur = 'guard'; await new Promise(r => setTimeout(r, 300));
+                    s.pCur = 'player'; e.pCur = 'player'; // 完了後のリセット
                 } else {
                     s.pCur = 'player'; e.pCur = 'player'; await new Promise(r => setTimeout(r, 300));
                 }
