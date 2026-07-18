@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Combo Clash Tactics - Absolute Final</title>
+    <title>Combo Clash Tactics - Full Restoration</title>
     <style>
         * { box-sizing: border-box; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
         body { margin: 0; background: #000; color: #fff; font-family: sans-serif; overflow: hidden; }
@@ -73,17 +73,16 @@ function updateUI() {
     document.getElementById('enSlotArea').innerHTML = enHands.map(h => `<div class="slot en-slot">${h.toUpperCase()}</div>`).join('');
 }
 
-async function move(char, tx, ty, dur) {
-    const sx = char.x, sy = char.y;
-    const start = Date.now();
+// ダッシュ接近用アニメーション
+async function animateVersus(pX, eX, dur, pP, eP) {
+    const sX = s.x, eX_s = e.x, start = Date.now();
     while (Date.now() - start < dur) {
-        let p = (Date.now() - start) / dur;
-        char.x = sx + (tx - sx) * p;
-        char.y = sy + (ty - sy) * p;
+        let pr = (Date.now() - start) / dur, ease = 1 - Math.pow(1 - pr, 3);
+        s.x = sX + (pX - sX) * ease;
+        e.x = eX_s + (eX - eX_s) * ease;
+        s.p = pP; e.p = eP;
         await new Promise(r => setTimeout(r, 16));
     }
-    char.x = tx;
-    char.y = ty;
 }
 
 async function resolveBattle() {
@@ -95,16 +94,18 @@ async function resolveBattle() {
     for (let i = 0; i < myHands.length; i++) {
         let p = myHands[i], ea = enHands[i];
         
-        await move(s, 300, 200, 150);
+        // ダッシュによる接近
+        await animateVersus(300, 460, 200, 'dash', 'dash');
         
+        // 敵の行動
         if (ea === 'guard') {
             e.p = 'guard';
             await new Promise(r => setTimeout(r, 400));
         } else if (ea === 'upper') {
             e.p = 'upper';
-            for (let j = 0; j <= 10; j++) {
-                e.y = 200 - (100 * Math.sin(j / 10 * Math.PI));
-                s.y = 200 - (50 * Math.sin(j / 10 * Math.PI));
+            for (let j = 0; j <= 20; j++) {
+                e.y = 200 - (50 * Math.sin((j / 20) * Math.PI));
+                s.y = 200 - (150 * Math.sin((j / 20) * Math.PI));
                 s.p = 'damage';
                 await new Promise(r => setTimeout(r, 30));
             }
@@ -114,19 +115,26 @@ async function resolveBattle() {
             await new Promise(r => setTimeout(r, 200));
         }
 
+        // プレイヤーの行動
         if (p === 'upper' && ea !== 'guard') {
             s.p = 'upper'; e.p = 'damage';
-            for (let j = 0; j <= 10; j++) {
-                e.y = 200 - (150 * Math.sin(j / 10 * Math.PI));
+            for (let j = 0; j <= 20; j++) {
+                e.y = 200 - (150 * Math.sin((j / 20) * Math.PI));
                 await new Promise(r => setTimeout(r, 30));
             }
-            await move(e, 660, 200, 200);
+            // 落下処理
+            for (let j = 0; j <= 10; j++) {
+                e.y = 50 + (150 * (j / 10));
+                await new Promise(r => setTimeout(r, 20));
+            }
+            e.y = 200;
         } else if (p === 'punch' && ea !== 'guard') {
             e.p = 'damage';
             await new Promise(r => setTimeout(r, 200));
         }
 
-        await move(s, 100, 200, 200);
+        // 復帰（ダッシュで戻る）
+        await animateVersus(100, 660, 300, 'player', 'player');
         s.p = 'player'; e.p = 'player';
     }
     turn++;
