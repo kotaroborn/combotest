@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Combo Clash Tactics - Full Restoration</title>
+    <title>Combo Clash Tactics - Perfected Engine</title>
     <style>
         * { box-sizing: border-box; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
         body { margin: 0; background: #000; color: #fff; font-family: sans-serif; overflow: hidden; }
@@ -54,7 +54,7 @@ const ctx = canvas.getContext('2d');
 const s = { x: 100, y: 200, p: 'player', hp: 100, isPlaying: false };
 const e = { x: 660, y: 200, p: 'player', hp: 100 };
 const imgs = {};
-let myHands = [], enHands = [], turn = 1;
+let myHands = [], enHands = [], turn = 1, airCombo = false, airStep = 0;
 
 async function loadImages() {
     const names = ['player', 'player2', 'punch', 'punch2', 'upper', 'upper2', 'knock', 'knock2', 'guard', 'dash', 'damage'];
@@ -73,16 +73,17 @@ function updateUI() {
     document.getElementById('enSlotArea').innerHTML = enHands.map(h => `<div class="slot en-slot">${h.toUpperCase()}</div>`).join('');
 }
 
-// ダッシュ接近用アニメーション
-async function animateVersus(pX, eX, dur, pP, eP) {
-    const sX = s.x, eX_s = e.x, start = Date.now();
+async function move(char, tx, ty, dur) {
+    const sx = char.x, sy = char.y;
+    const start = Date.now();
     while (Date.now() - start < dur) {
-        let pr = (Date.now() - start) / dur, ease = 1 - Math.pow(1 - pr, 3);
-        s.x = sX + (pX - sX) * ease;
-        e.x = eX_s + (eX - eX_s) * ease;
-        s.p = pP; e.p = eP;
+        let p = (Date.now() - start) / dur;
+        char.x = sx + (tx - sx) * p;
+        char.y = sy + (ty - sy) * p;
         await new Promise(r => setTimeout(r, 16));
     }
+    char.x = tx;
+    char.y = ty;
 }
 
 async function resolveBattle() {
@@ -90,51 +91,59 @@ async function resolveBattle() {
     s.isPlaying = true;
     enHands = myHands.map(() => ['punch', 'upper', 'guard'][Math.floor(Math.random() * 3)]);
     updateUI();
+    airCombo = false; airStep = 0;
 
     for (let i = 0; i < myHands.length; i++) {
         let p = myHands[i], ea = enHands[i];
         
-        // ダッシュによる接近
-        await animateVersus(300, 460, 200, 'dash', 'dash');
-        
-        // 敵の行動
-        if (ea === 'guard') {
-            e.p = 'guard';
-            await new Promise(r => setTimeout(r, 400));
-        } else if (ea === 'upper') {
-            e.p = 'upper';
-            for (let j = 0; j <= 20; j++) {
-                e.y = 200 - (50 * Math.sin((j / 20) * Math.PI));
-                s.y = 200 - (150 * Math.sin((j / 20) * Math.PI));
-                s.p = 'damage';
-                await new Promise(r => setTimeout(r, 30));
-            }
-            e.y = 200; s.y = 200;
-        } else {
-            e.p = 'punch';
-            await new Promise(r => setTimeout(r, 200));
+        if (!airCombo) {
+            await move(s, 300, 200, 150);
+            await move(e, 460, 200, 150);
         }
 
-        // プレイヤーの行動
-        if (p === 'upper' && ea !== 'guard') {
-            s.p = 'upper'; e.p = 'damage';
-            for (let j = 0; j <= 20; j++) {
-                e.y = 200 - (150 * Math.sin((j / 20) * Math.PI));
-                await new Promise(r => setTimeout(r, 30));
-            }
-            // 落下処理
-            for (let j = 0; j <= 10; j++) {
-                e.y = 50 + (150 * (j / 10));
-                await new Promise(r => setTimeout(r, 20));
-            }
-            e.y = 200;
-        } else if (p === 'punch' && ea !== 'guard') {
+        if (airCombo) {
+            airStep++;
+            s.y = 50; e.y = 50;
+            s.p = (airStep % 2 === 0) ? 'punch2' : 'punch';
             e.p = 'damage';
-            await new Promise(r => setTimeout(r, 200));
+            if (airStep >= 3) {
+                s.p = 'knock';
+                await new Promise(r => setTimeout(r, 300));
+                await move(e, 660, 200, 300);
+                airCombo = false;
+            }
+            await new Promise(r => setTimeout(r, 300));
+        } else {
+            if (ea === 'upper') {
+                e.p = 'upper';
+                for (let j = 0; j <= 10; j++) {
+                    e.y = 200 - (100 * Math.sin(j / 10 * Math.PI));
+                    s.y = 200 - (50 * Math.sin(j / 10 * Math.PI));
+                    s.p = 'damage';
+                    await new Promise(r => setTimeout(r, 30));
+                }
+                e.y = 200; s.y = 200;
+            } else if (ea === 'guard') {
+                e.p = 'guard';
+                await new Promise(r => setTimeout(r, 300));
+            } else {
+                e.p = 'punch';
+                await new Promise(r => setTimeout(r, 300));
+            }
+
+            if (p === 'upper' && ea !== 'guard') {
+                s.p = 'upper'; e.p = 'damage';
+                for (let j = 0; j <= 10; j++) {
+                    e.y = 200 - (150 * Math.sin(j / 10 * Math.PI));
+                    await new Promise(r => setTimeout(r, 30));
+                }
+                if (myHands[i + 1] === 'punch') { airCombo = true; airStep = 0; }
+                else { await move(e, 660, 200, 200); }
+            }
         }
 
-        // 復帰（ダッシュで戻る）
-        await animateVersus(100, 660, 300, 'player', 'player');
+        await move(s, 100, 200, 200);
+        await move(e, 660, 200, 200);
         s.p = 'player'; e.p = 'player';
     }
     turn++;
@@ -144,24 +153,13 @@ async function resolveBattle() {
     updateUI();
 }
 
-function addCmd(c) {
-    if (myHands.length < 5) {
-        myHands.push(c);
-        updateUI();
-    }
-}
-
-function resetCmd() {
-    myHands = [];
-    enHands = [];
-    updateUI();
-}
+function addCmd(c) { if (myHands.length < 5) { myHands.push(c); updateUI(); } }
+function resetCmd() { myHands = []; enHands = []; updateUI(); }
 
 function loop() {
     ctx.imageSmoothingEnabled = false;
     ctx.fillStyle = '#000';
     ctx.fillRect(0, 0, 960, 540);
-    
     [s, e].forEach((o, idx) => {
         if (imgs[o.p]) {
             ctx.save();
@@ -173,10 +171,7 @@ function loop() {
     requestAnimationFrame(loop);
 }
 
-loadImages().then(() => {
-    updateUI();
-    loop();
-});
+loadImages().then(() => { updateUI(); loop(); });
 </script>
 </body>
 </html>
