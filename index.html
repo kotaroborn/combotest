@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Combo Clash Tactics - Permanent Damage Engine</title>
+    <title>Combo Clash Tactics - Fully Animated Engine</title>
     <style>
         * { box-sizing: border-box; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
         body { margin: 0; background: #000; color: #fff; font-family: sans-serif; overflow: hidden; height: 100vh; display: flex; flex-direction: column; }
@@ -47,10 +47,10 @@
 <script>
 /** 
  * [永続仕様・動作リスト]
- * 1. ダメージ計算: PUNCH(10), UPPER(5), METEOR(50)基準。コンボに応じ補正。ガード時は無効(0)。
- * 2. ダメージ演出: applyDmg 実行時に必ず target.shake = 100 を設定し画像を揺らすこと。
- * 3. 画像切替: 空中コンボ中の punch/punch2 交互トグル。
- * 4. アッパー: 実行時は必ず画像 'upper' を使用。
+ * 1. アニメーション管理: 全アクション時に必ず pCur を該当画像キーに切り替えること（dashの固定化を禁止）。
+ * 2. ダメージ計算: PUNCH(10), UPPER(5), METEOR(50)基準。段階補正あり。ガード時は0。
+ * 3. ダメージ時演出: applyDmg 実行時に必ず target.shake = 100 を設定。
+ * 4. 画像トグル: 空中コンボ中の punch/punch2 交互切替。
  * 5. 物理: 着地座標 y=200 への復帰を finally で保証。
  * 6. 描画: imageSmoothingEnabled = false で鮮明化。
  */
@@ -74,10 +74,9 @@ function updateEnSlots() { document.getElementById('enSlotArea').innerHTML = enH
 function addCmd(c) { if(myHands.length < 5 && !s.isPlaying) { myHands.push(c); updateMySlots(); } }
 function resetCmd() { if(!s.isPlaying) { myHands = []; enHands = []; updateMySlots(); updateEnSlots(); } }
 
-// [永続仕様] ダメージ時は確定で shake を付与
 function applyDmg(target, val) {
     target.hp = Math.max(0, target.hp - val); 
-    target.shake = 100; // 確定揺れ
+    target.shake = 100;
     document.getElementById(target === s ? 'myHp' : 'enHp').style.width = target.hp + '%';
     setTimeout(() => document.getElementById(target === s ? 'myHpDelay' : 'enHpDelay').style.width = target.hp + '%', 500);
 }
@@ -101,7 +100,8 @@ async function resolveBattle() {
         airCombo = false; let airStep = 0;
         for (let i = 0; i < myHands.length; i++) {
             let p = myHands[i], eA = enHands[i];
-            if (!airCombo) { s.y = 200; e.y = 200; }
+            
+            // アプローチ
             await animateVersus(300, 460, 150, 'dash', 'dash');
 
             if (airCombo) {
@@ -115,12 +115,15 @@ async function resolveBattle() {
                 continue;
             }
 
+            // 行動判定後の画像更新を徹底
             if (p === 'upper' && eA !== 'guard') {
-                s.pCur = 'upper'; 
+                s.pCur = 'upper';
                 for(let j=0; j<=20; j++) { e.y = 200 - (150 * Math.sin((j/20)*Math.PI/2)); s.y = 200 - (30 * Math.sin((j/20)*Math.PI/2)); e.pCur = 'damage'; await new Promise(r => setTimeout(r, 20)); }
-                if (myHands[i+1] === 'punch') { airCombo = true; airStep = 0; } else { s.y = 200; e.y = 200; }
+                if (myHands[i+1] === 'punch') { airCombo = true; airStep = 0; } else { s.y = 200; e.y = 200; s.pCur = 'player'; }
             } else if (p === 'punch' && eA !== 'guard') {
                 s.pCur = 'punch'; applyDmg(e, DMG.PUNCH); await new Promise(r => setTimeout(r, 300));
+            } else if (p === 'guard') {
+                s.pCur = 'guard'; await new Promise(r => setTimeout(r, 300));
             } else {
                 s.pCur = 'player'; await new Promise(r => setTimeout(r, 300));
             }
