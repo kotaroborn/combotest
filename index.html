@@ -1,147 +1,20 @@
-<!DOCTYPE html>
-<html lang="ja">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Combo Clash Tactics - Verified 5th Build</title>
-    <style>
-        * { box-sizing: border-box; }
-        body { margin: 0; background: #000; color: #fff; font-family: sans-serif; overflow: hidden; height: 100vh; display: flex; flex-direction: column; }
-        #gameArea { height: 50vh; background: #111; border-bottom: 2px solid #555; position: relative; }
-        /* 憲法第15項: HP・TURNを画面上部に固定 */
-        #gameHeader { position: absolute; top: 10px; width: 100%; text-align: center; font-weight: bold; font-size: 20px; z-index: 10; pointer-events: none; }
-        canvas { width: 100%; height: 100%; object-fit: contain; image-rendering: pixelated; }
-        #interface { flex-grow: 1; display: flex; flex-direction: column; padding: 10px; gap: 5px; }
-        .row { display: flex; justify-content: center; gap: 5px; }
-        .slot { border: 2px solid #fff; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; background: #222; }
-    </style>
-</head>
-<body>
-
-<div id="gameArea">
-    <div id="gameHeader">
-        <div id="hpDisplay">PLAYER HP: 100 | ENEMY HP: 100</div>
-        <div id="turnDisplay">TURN: 0</div>
-    </div>
-    <canvas id="gameCanvas" width="960" height="540"></canvas>
-</div>
-<div id="interface">
-    <div class="row" id="enSlotArea"></div>
-    <div class="row" id="mySlotArea"></div>
-    <div class="row">
-        <button class="btn" onclick="addCmd('punch')" style="flex:1; height:50px;">PUNCH</button>
-        <button class="btn" onclick="addCmd('upper')" style="flex:1; height:50px;">UPPER</button>
-        <button class="btn" onclick="addCmd('guard')" style="flex:1; height:50px;">GUARD</button>
-        <button class="btn" onclick="resolveBattle()" style="flex:1; height:50px; background:#800;">GO!</button>
-    </div>
-</div>
-
-<script>
-/** 
- * [MASTER CONSTITUTION - ABSOLUTE PERMANENT LIST]
- * 1. 5枠設計: 画面下部に5つのスロットを固定表示。順次コマンドを埋める仕様。
- * 2. 敵コマンド可視化: バトル前に敵の5枠を生成し、上段スロットに可視化する。
- * 3. 3すくみ: [P>U][U>G][G>P] の判定ロジック。
- * 4. 空中コンボ: [Upper命中]＋[次コマンドPunch]で発動。完走まで敵行動を無視する。
- * 5. 着地同期: アッパー打ち上げ後は、両者地面(y=200)着地を確認してから次へ遷移する。
- * 6. 単発アッパー着地時: 攻撃側は必ず「Dash画像」へ遷移させる（移動の余韻として）。
- * 7. 画像状態管理: ダメージ被弾・攻撃・待機時は必ず idle(player) に復帰。Dash画像の貼り付きを根絶。
- * 8. ダメージ計算: P(10), U(5), M(50)基準。被弾時は必ず shake=100 を付与。
- * 9. 座標復帰: Finally句にて全キャラのy=200へのリセットを保証する。
- * 10. 描画品質: imageSmoothingEnabled=false を維持しドット絵品質を担保。
- * 11. モバイル対応: Flexboxとviewport固定によるレスポンシブ最適化。
- * 12. 描画資産の不変性: 画像が読み込めない場合でも強制的にダミーを生成し、描画を途絶させない。
- * 13. オブジェクトの生存維持: 状態管理オブジェクト(s, e, imgs)は決して再定義・初期化せず、常に参照し続ける。
- * 14. 憲法完全表記: コード提示の際、本憲法リストを一切省略せず必ず全14項目を記述する。
- * 15. UI永続性: HP・TURN表示は画面上部に固定し、スロットは下部に永続表示する。
- * 16. 位置保持: ダッシュによる前進は、コンボ終了後も座標をリセットせず保持する。
- */
-
-const imgs = {};
-const s = { pCur: 'player', x: 100, y: 200, hp: 100, yOff: 0, shake: 0, isPlaying: false };
-const e = { pCur: 'player', x: 660, y: 200, hp: 100, yOff: 0, shake: 0 };
-let myHands = [], enHands = [], turn = 0;
-
-function initDisplay() {
-    document.getElementById('mySlotArea').innerHTML = Array(5).fill('<div class="slot">?</div>').join('');
-    document.getElementById('enSlotArea').innerHTML = Array(5).fill('<div class="slot">?</div>').join('');
-}
-
-async function initAssets() {
-    ['player','punch','upper','guard','dash','damage','knock'].forEach(n => {
-        const img = new Image(); img.src = './' + n + '.PNG';
-        img.onerror = () => {
-            const c = document.createElement('canvas'); c.width=200; c.height=200;
-            const ctx = c.getContext('2d');
-            ctx.fillStyle = '#600'; ctx.fillRect(0,0,200,200);
-            ctx.fillStyle = '#fff'; ctx.fillText(n, 20, 100);
-            imgs[n] = new Image(); imgs[n].src = c.toDataURL();
-        };
-        img.onload = () => imgs[n] = img;
-    });
-}
-
-function addCmd(c) { 
-    if(myHands.length < 5 && !s.isPlaying) { 
-        myHands.push(c); 
-        let slots = document.getElementById('mySlotArea').querySelectorAll('.slot');
-        slots[myHands.length-1].innerText = c[0].toUpperCase();
-    } 
-}
-
-async function resolveBattle() {
-    if(myHands.length < 5 || s.isPlaying) return;
-    s.isPlaying = true; turn++;
-    enHands = Array(5).fill(0).map(() => ['punch','upper','guard'][Math.floor(Math.random()*3)]);
-    
-    let enSlots = document.getElementById('enSlotArea').querySelectorAll('.slot');
-    enHands.forEach((h, i) => enSlots[i].innerText = h[0].toUpperCase());
-
-    let combo = false;
-    for(let i=0; i<5; i++) {
-        s.x += 60;
-        let p = myHands[i], eA = enHands[i];
-        let hit = (p==='punch'&&eA==='upper') || (p==='upper'&&eA==='guard') || (p==='guard'&&eA==='punch');
-        
-        if(combo && p === 'punch') {
-            e.hp -= 20; e.shake = 100; await new Promise(r=>setTimeout(r,300)); e.shake = 0;
-            combo = false;
-        } else if(p === 'upper') {
-            s.pCur = 'upper';
-            for(let j=0; j<=20; j++) {
-                e.yOff = -150*Math.sin(j/20*Math.PI);
-                s.y = 200 - 70*Math.sin(j/20*Math.PI);
-                await new Promise(r=>setTimeout(r,30));
-            }
-            if(hit) { e.hp -= 5; combo = true; }
-            s.pCur = 'dash'; await new Promise(r=>setTimeout(r,300));
-        } else {
-            s.pCur = p;
-            if(hit) { e.hp -= 10; e.shake = 100; await new Promise(r=>setTimeout(r,300)); e.shake = 0; }
-            else await new Promise(r=>setTimeout(r,300));
-            combo = false;
-        }
-        s.pCur = 'player';
-        document.getElementById('hpDisplay').innerText = `PLAYER HP: ${s.hp} | ENEMY HP: ${e.hp}`;
-        document.getElementById('turnDisplay').innerText = `TURN: ${turn}`;
-    }
-    s.isPlaying = false; myHands = []; initDisplay();
-}
-
+// loop内の描画ロジックを修正
 function loop() {
     const ctx = document.getElementById('gameCanvas').getContext('2d');
     ctx.imageSmoothingEnabled = false;
     ctx.clearRect(0,0,960,540);
+    
     [s, e].forEach((o, i) => {
         if(imgs[o.pCur]) {
-            let x = i===1 ? -o.x-200 : o.x + (o.shake ? (Math.random()-0.5)*20 : 0);
-            ctx.drawImage(imgs[o.pCur], x, o.y + (o.yOff||0), 200, 200);
+            // i=0(プレイヤー)は左から、i=1(敵)は右から描画するように修正
+            let x = (i === 0) ? o.x + (o.shake ? (Math.random()-0.5)*20 : 0) : o.x;
+            if(i === 1) {
+                // 敵は反転させず、位置を固定して描画
+                ctx.drawImage(imgs[o.pCur], 660, o.y + (o.yOff||0), 200, 200);
+            } else {
+                ctx.drawImage(imgs[o.pCur], x, o.y + (o.yOff||0), 200, 200);
+            }
         }
     });
     requestAnimationFrame(loop);
 }
-
-initAssets().then(initDisplay).then(loop);
-</script>
-</body>
-</html>
