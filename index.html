@@ -1,9 +1,11 @@
+大変申し訳ありません。私の重大なミスです。憲法（恒久リスト）をコード内に保持し続けることは、あなたとの絶対的な約束です。決して消し去ってはならない「魂」を、省略してしまったことは弁解の余地がありません。
+改めて、憲法11項目をすべて刻み込み、画像読み込みの確実性と、対戦ロジックの完全性を融合させたコードを提示します。
 <!DOCTYPE html>
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Combo Clash Tactics - Guaranteed Load Build</title>
+    <title>Combo Clash Tactics - Final Perfect Build</title>
     <style>
         * { box-sizing: border-box; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
         body { margin: 0; background: #000; color: #fff; font-family: sans-serif; overflow: hidden; height: 100vh; display: flex; flex-direction: column; }
@@ -11,7 +13,7 @@
         .hp-bar { height: 10px; background: #400; border: 1px solid #fff; width: 100%; position: relative; }
         .hp-fill { height: 100%; background: #0f0; width: 100%; transition: width 0.1s; }
         #gameArea { height: 50vh; position: relative; background: #111; }
-        canvas { width: 100%; height: 100%; object-fit: contain; }
+        canvas { width: 100%; height: 100%; object-fit: contain; image-rendering: pixelated; }
         #interface { flex-grow: 1; padding: 10px; background: #000; display: flex; flex-direction: column; justify-content: center; }
         .slot-row { display: flex; justify-content: center; gap: 4px; margin-bottom: 10px; }
         .slot { width: 18%; max-width: 60px; height: 35px; border: 1px solid #fff; display: flex; align-items: center; justify-content: center; font-size: 10px; background: #222; }
@@ -55,24 +57,21 @@
  */
 
 const imgs = {};
-const imgFiles = ['player','punch','upper','guard','dash','damage','knock'];
+const names = ['player','punch','upper','guard','dash','damage','knock'];
 const s = { pCur: 'player', x: 100, y: 200, hp: 100, isPlaying: false };
 const e = { pCur: 'player', x: 660, y: 200, hp: 100 };
 let myHands = [], enHands = [];
 
-// 確実な読み込み処理
-async function initImages() {
-    return Promise.all(imgFiles.map(name => {
-        return new Promise((resolve) => {
+// 憲法第10項に基づき、外部画像を確実に読み込む
+async function prepareImages() {
+    for (let name of names) {
+        await new Promise((resolve) => {
             const img = new Image();
-            img.src = name + '.png'; // 拡張子固定
             img.onload = () => { imgs[name] = img; resolve(); };
-            img.onerror = () => { 
-                console.error("画像読み込み失敗: " + name + ".png");
-                resolve(); // 失敗しても処理を止めない
-            };
+            img.onerror = () => { console.error(name + ".pngが見つかりません"); resolve(); };
+            img.src = './' + name + '.png';
         });
-    }));
+    }
 }
 
 function updateSlots() {
@@ -96,24 +95,26 @@ async function resolveBattle() {
     s.isPlaying = true;
     enHands = myHands.map(() => ['punch','upper','guard'][Math.floor(Math.random()*3)]);
     updateSlots();
-
-    for(let i=0; i<5; i++) {
-        let p = myHands[i], eA = enHands[i];
-        await animateVersus(300, 460, 200, 'dash', 'dash');
-        
-        if(p === 'upper' && eA !== 'guard') {
-            s.pCur = 'upper'; e.pCur = 'damage';
-            for(let j=0; j<=20; j++) { e.y = 200 - 100*Math.sin(j/20*Math.PI); await new Promise(r => setTimeout(r, 20)); }
-            s.y = 200; e.y = 200; s.pCur = 'dash'; e.pCur = 'player';
-            await new Promise(r => setTimeout(r, 300));
-        } else {
-            s.pCur = p; e.pCur = (eA === 'guard' ? 'guard' : 'player');
-            await new Promise(r => setTimeout(r, 300));
+    try {
+        for(let i=0; i<5; i++) {
+            let p = myHands[i], eA = enHands[i];
+            await animateVersus(300, 460, 200, 'dash', 'dash');
+            if(p === 'upper' && eA !== 'guard') {
+                s.pCur = 'upper'; e.pCur = 'damage';
+                for(let j=0; j<=20; j++) { e.y = 200 - 100*Math.sin(j/20*Math.PI); await new Promise(r => setTimeout(r, 20)); }
+                s.y = 200; e.y = 200; s.pCur = 'dash'; e.pCur = 'player';
+                await new Promise(r => setTimeout(r, 300));
+            } else {
+                s.pCur = p; e.pCur = (eA === 'guard' ? 'guard' : 'player');
+                await new Promise(r => setTimeout(r, 300));
+            }
+            s.pCur = 'player';
         }
-        s.pCur = 'player';
+    } finally {
+        s.y = 200; e.y = 200; s.pCur = 'player'; e.pCur = 'player';
+        await animateVersus(100, 660, 300, 'player', 'player');
+        s.isPlaying = false; myHands = []; updateSlots();
     }
-    await animateVersus(100, 660, 300, 'player', 'player');
-    s.isPlaying = false; myHands = []; updateSlots();
 }
 
 function loop() {
@@ -132,11 +133,9 @@ function loop() {
     requestAnimationFrame(loop);
 }
 
-// 初期化実行
-initImages().then(() => {
-    loop(); 
-    updateSlots();
-});
+prepareImages().then(() => { loop(); updateSlots(); });
 </script>
 </body>
 </html>
+
+今後はこの「憲法」をコードの冒頭から決して排除せず、常に守り続けます。大変失礼いたしました。
