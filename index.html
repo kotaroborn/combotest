@@ -3,119 +3,346 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>【憲法二十六条：完全実働版】</title>
+    <title>【憲法二十六条：全文保持】マスター管理コード</title>
     <style>
         * { box-sizing: border-box; touch-action: manipulation; }
-        body { margin: 0; background: #000; color: #fff; font-family: sans-serif; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
-        #gameHeader { height: 60px; background: #111; display: flex; justify-content: space-between; align-items: center; padding: 0 10px; border-bottom: 2px solid #555; }
-        .hp-bar { width: 35%; height: 20px; background: #400; border: 2px solid #fff; }
-        #hpP, #hpE { height: 100%; background: #f00; width: 100%; transition: width 0.3s; }
-        #gameArea { flex: 1; position: relative; background: #222; }
-        canvas { width: 100%; height: 100%; object-fit: contain; image-rendering: pixelated; }
-        #ui { height: 220px; background: #111; padding: 10px; display: flex; flex-direction: column; gap: 10px; }
+        html, body { margin: 0; height: 100%; }
+        body { background: #000; color: #fff; font-family: sans-serif; display: flex; flex-direction: column; overflow: hidden; }
+        #gameHeader {
+            height: 60px;
+            padding-top: env(safe-area-inset-top, 0px); /* 第26条: 時計回避余白 */
+            background: #111; display: flex; justify-content: space-between; align-items: center;
+            padding-left: 10px; padding-right: 10px; border-bottom: 2px solid #555;
+        }
+        .hp-wrap { width: 35%; height: 20px; position: relative; }
+        .hp-bar-bg { position:absolute; inset:0; background:#400; border: 2px solid #fff; }
+        .hp-yellow { position:absolute; top:0; left:0; height:100%; background:#dd0; transition: width 0.6s linear; }
+        .hp-red { position:absolute; top:0; left:0; height:100%; background:#f00; transition: width 0.05s linear; }
+        #turnDisplay { text-align:center; font-weight:900; line-height:1.1; }
+        #gameArea { flex: 1; position: relative; background: #222; min-height: 0; }
+        canvas { width: 100%; height: 100%; object-fit: contain; image-rendering: pixelated; display:block; }
+        #enemySlots { position:absolute; top:6px; left:50%; transform:translateX(-50%); display:flex; gap:4px; }
+        #enemySlots .slot { width:28px; height:28px; font-size:12px; }
+        #ui {
+            background: #111; padding: 10px;
+            padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px)); /* 第26条: メニュー回避余白 */
+            display: flex; flex-direction: column; gap: 10px;
+        }
         #slots { display: flex; justify-content: center; gap: 5px; height: 50px; }
-        .slot { width: 50px; height: 50px; border: 2px solid #fff; display: flex; align-items: center; justify-content: center; font-weight: bold; }
-        .controls { display: flex; gap: 5px; flex: 1; }
-        button { flex: 1; background: #444; border: none; color: #fff; font-weight: bold; border-radius: 5px; cursor: pointer; }
+        .slot { width: 50px; height: 50px; border: 2px solid #fff; display: flex; align-items: center; justify-content: center; font-weight: bold; background:#222; }
+        .controls { display: flex; gap: 5px; }
+        .atk-group { display:flex; gap:5px; flex:2; } /* 第26条: 左に攻撃ボタン */
+        .fn-group { display:flex; gap:5px; flex:1; }  /* 第26条: 右に機能ボタン */
+        button { flex: 1; background: #444; border: none; color: #fff; font-weight: bold; border-radius: 5px; padding: 12px 0; cursor: pointer; }
+        button:disabled { opacity: 0.4; }
+        #goBtn { background:#800; }
     </style>
 </head>
 <body>
+<script>
+/** 
+ * 【憲法二十六条：全文】
+ * 1. 5枠設計: 画面下部に5つのスロットを固定表示。順次コマンドを埋める仕様。
+ * 2. 敵コマンド可視化: バトル前に敵の5枠を生成し、上段スロットに可視化する。
+ * 3. 3すくみ: [P>U][U>G][G>P] の判定ロジック。
+ * 4. 空中コンボ: [Upper命中]＋[次コマンドPunch]で発動。完走まで敵行動を無視する。
+ * 5. 着地同期: アッパー打ち上げ後は、両者地面(y=200)着地を確認してから次へ遷移する。
+ * 6. 単発アッパー着地時: 攻撃側は必ず「Dash画像」へ遷移させる（移動の余韻として）。
+ * 7. 画像状態管理: ダメージ被弾・攻撃・待機時は必ず idle(player) に復帰。Dash画像の貼り付きを根絶。
+ * 8. ダメージ計算: P(10), U(5), M(50)基準。被弾時は必ず shake=100 を付与。
+ * 9. 座標復帰: Finally句にて全キャラのy=200へのリセットを保証する。Dashで戻る演出を必須とする。
+ * 10. 描画品質: imageSmoothingEnabled=false を維持しドット絵品質を担保。
+ * 11. モバイル対応: Flexboxとviewport固定によるレスポンシブ最適化。
+ * 12. 描画資産の不変性: 外部ファイルを厳格に読み込み、存在しない場合は読み込みエラーを即座に特定する。
+ * 13. オブジェクトの生存維持: 状態管理オブジェクト(s, e, imgs)は決して再定義・初期化せず、常に参照し続ける。
+ * 14. 憲法完全表記: コード提示の際、本憲法リストを一切省略せず必ず全条文を記述する。
+ * 15. UI永続性: HP・TURN表示は画面上部に固定し、スロットは下部に永続表示する。
+ * 16. 位置保持: ダッシュによる前進は、コンボ終了後も座標をリセットせず保持する。
+ * 17. 体力ゲージ演出: ダメージ発生時、現在値が即座に減り、黄色いバーが0.6秒遅れて減少する。
+ * 18. TURN表示仕様: 画面上部中央に「TURN」と「数字」を2行で太字(900)表示する。
+ * 19. 敵反転描画: 敵画像は常に左右反転して表示する。
+ * 20. 敵の主体性: バトル開始時、敵も同様に前進・アクションを実行する。
+ * 21. パンチコンボ演出: 連続したパンチ入力時、punchとpunch2を交互に実行し、合間にdashを挟んで滑らかに接続する。
+ * 22. 厳格命名規則: 全アセットの拡張子は常に「.PNG」（大文字）で統一する。
+ * 23. 動作保証: 画像読み込み完了を待ってからゲームループを開始し、UIインタラクションを確定させる。
+ * 24. 対面踏み込みの原則: 全ての技は、必ず前方にダッシュ（接近）してから技を繰り出し、衝突演出を行う。
+ * 25. 厳格不可逆の原則: いかなる理由があろうとも、憲法の簡略化、および条文の意図的な省略・解釈の矮小化を禁止する。すべてを等しく実装すること。
+ * 26. アーケード配置原則: UIは上部に時計回避余白を、下部にメニュー回避余白を確保し、左に攻撃、右に機能ボタンを配置する。
+ */
+</script>
 <div id="gameHeader">
-    <div class="hp-bar"><div id="hpP"></div></div>
-    <div id="turnDisplay" style="text-align:center;">TURN<br>0</div>
-    <div class="hp-bar"><div id="hpE"></div></div>
+    <div class="hp-wrap">
+        <div class="hp-bar-bg"></div>
+        <div class="hp-yellow" id="hpP_y" style="width:100%"></div>
+        <div class="hp-red" id="hpP" style="width:100%"></div>
+    </div>
+    <div id="turnDisplay">TURN<br>0</div>
+    <div class="hp-wrap">
+        <div class="hp-bar-bg"></div>
+        <div class="hp-yellow" id="hpE_y" style="width:100%"></div>
+        <div class="hp-red" id="hpE" style="width:100%"></div>
+    </div>
 </div>
-<div id="gameArea"><canvas id="cvs" width="960" height="400"></canvas></div>
+<div id="gameArea">
+    <canvas id="cvs" width="960" height="400"></canvas>
+    <div id="enemySlots"></div>
+</div>
 <div id="ui">
     <div id="slots"></div>
     <div class="controls">
-        <button onclick="addHand('PUNCH')">PUNCH</button>
-        <button onclick="addHand('UPPER')">UPPER</button>
-        <button onclick="addHand('GUARD')">GUARD</button>
-        <button onclick="resolveTurn()" style="background:#800;">GO!</button>
-        <button onclick="resetHands()">CLR</button>
+        <div class="atk-group">
+            <button onclick="addHand('PUNCH')" id="btnP">PUNCH</button>
+            <button onclick="addHand('UPPER')" id="btnU">UPPER</button>
+            <button onclick="addHand('GUARD')" id="btnG">GUARD</button>
+        </div>
+        <div class="fn-group">
+            <button onclick="resolveTurn()" id="goBtn">GO!</button>
+            <button onclick="resetHands()" id="clrBtn">CLR</button>
+        </div>
     </div>
 </div>
 <script>
-/** 
- * 【憲法二十六条：全文保持】
- * (1-26条の条文に基づく実装コード)
- */
 const DB = {
-    ASSETS: ['IDLE.PNG', 'UPPER.PNG', 'DAMAGE.PNG', 'KNOCK2.PNG', 'DASH.PNG', 'PUNCH.PNG'],
-    POS: { GROUND_Y: 200, FLOAT_Y: 50, P_JUMP: 133, P_X: 100, E_X: 600 },
-    IMG_SIZE: 150
+    ASSETS: ['IDLE.PNG', 'UPPER.PNG', 'DAMAGE.PNG', 'KNOCK2.PNG', 'DASH.PNG', 'PUNCH.PNG', 'PUNCH2.PNG', 'GUARD.PNG'],
+    POS: { GROUND_Y: 200, FLOAT_Y: 50, P_JUMP: 133, P_X: 100, E_X: 600, STEP_X: 60 },
+    IMG_SIZE: 150,
+    DMG: { P: 10, U: 5, M: 50 }, // M: 予約定数（第25条により定数として保持。UI未実装の特殊技用）
+    HITSHAKE: 100
 };
-let state = { pY: 200, eY: 200, hpP: 100, hpE: 100, turn: 0, hands: [], pAct: 'IDLE.PNG', eAct: 'IDLE.PNG' };
+
+// 第13条: この state オブジェクトは以後、再定義・再初期化しない。常にプロパティを書き換えて参照し続ける。
+let state = {
+    pY: DB.POS.GROUND_Y, eY: DB.POS.GROUND_Y,
+    pX: DB.POS.P_X, eX: DB.POS.E_X,
+    hpP: 100, hpE: 100,
+    turn: 0,
+    hands: [], enemyHands: [],
+    pAct: 'IDLE.PNG', eAct: 'IDLE.PNG',
+    shake: 0,
+    lastPlayerAtk: null,
+    resolving: false
+};
+
 const cvs = document.getElementById('cvs');
 const ctx = cvs.getContext('2d');
-const imgs = {};
+ctx.imageSmoothingEnabled = false; // 第10条
 
-// 画像読み込み
-DB.ASSETS.forEach(n => { const i = new Image(); i.src = n; i.onload = () => imgs[n] = i; });
+const imgs = {}; // 第13条: 再初期化しない
+let loadedCount = 0;
+let loadFailed = [];
+
+document.querySelectorAll('.controls button').forEach(b => b.disabled = true);
+
+function checkAllSettled() {
+    if (loadedCount + loadFailed.length === DB.ASSETS.length) {
+        if (loadFailed.length > 0) {
+            console.error('第12条違反: 以下のアセットが読み込めませんでした →', loadFailed.join(', '));
+        }
+        boot();
+    }
+}
+DB.ASSETS.forEach(n => {
+    const i = new Image();
+    i.onload = () => { imgs[n] = i; loadedCount++; checkAllSettled(); };
+    i.onerror = () => { loadFailed.push(n); checkAllSettled(); };
+    i.src = n;
+});
+
+function boot() {
+    // 第23条: 全画像の読み込み確定を待ってからループ開始・UI有効化
+    document.querySelectorAll('.controls button').forEach(b => b.disabled = false);
+    draw();
+    startBattle();
+}
 
 function draw() {
-    ctx.clearRect(0,0,960,400);
-    // 描画: 画像が存在すれば表示、なければ矩形で位置を明示（憲法第10, 12, 19条）
-    if(imgs[state.pAct]) ctx.drawImage(imgs[state.pAct], DB.POS.P_X, state.pY, DB.IMG_SIZE, DB.IMG_SIZE);
-    else { ctx.fillStyle='#0f0'; ctx.fillRect(DB.POS.P_X, state.pY, DB.IMG_SIZE, DB.IMG_SIZE); }
-    
-    if(imgs[state.eAct]) {
-        ctx.save();
-        ctx.scale(-1, 1);
-        ctx.drawImage(imgs[state.eAct], -DB.POS.E_X - DB.IMG_SIZE, state.eY, DB.IMG_SIZE, DB.IMG_SIZE);
+    ctx.clearRect(0, 0, 960, 400);
+    const shakeX = state.shake > 0 ? (Math.random() * 8 - 4) : 0;
+    const shakeY = state.shake > 0 ? (Math.random() * 8 - 4) : 0;
+    if (state.shake > 0) state.shake -= 16;
+
+    ctx.save();
+    ctx.translate(shakeX, shakeY);
+
+    if (imgs[state.pAct]) ctx.drawImage(imgs[state.pAct], state.pX, state.pY, DB.IMG_SIZE, DB.IMG_SIZE);
+    else { ctx.fillStyle = '#0f0'; ctx.fillRect(state.pX, state.pY, DB.IMG_SIZE, DB.IMG_SIZE); }
+
+    if (imgs[state.eAct]) {
+        ctx.save(); ctx.scale(-1, 1); // 第19条: 敵は常に反転
+        ctx.drawImage(imgs[state.eAct], -state.eX - DB.IMG_SIZE, state.eY, DB.IMG_SIZE, DB.IMG_SIZE);
         ctx.restore();
-    } else { ctx.fillStyle='#f00'; ctx.fillRect(DB.POS.E_X, state.eY, DB.IMG_SIZE, DB.IMG_SIZE); }
+    } else { ctx.fillStyle = '#f00'; ctx.fillRect(state.eX, state.eY, DB.IMG_SIZE, DB.IMG_SIZE); }
+
+    ctx.restore();
     requestAnimationFrame(draw);
 }
-draw();
 
-function addHand(a) { if(state.hands.length < 5) { state.hands.push(a); updateUI(); } }
-function resetHands() { state.hands = []; updateUI(); }
+function addHand(a) { if (state.hands.length < 5 && !state.resolving) { state.hands.push(a); updateUI(); } }
+function resetHands() { if (!state.resolving) { state.hands = []; updateUI(); } }
 function updateUI() {
     const s = document.getElementById('slots'); s.innerHTML = '';
-    state.hands.forEach(h => { const d=document.createElement('div'); d.className='slot'; d.innerText=h[0]; s.appendChild(d); });
+    state.hands.forEach(h => { const d = document.createElement('div'); d.className = 'slot'; d.innerText = h[0]; s.appendChild(d); });
 }
 
-// コンボ処理・物理挙動の核心（憲法第4, 5, 6, 24条）
+function randomEnemyHands() {
+    const opts = ['PUNCH', 'UPPER', 'GUARD'];
+    const arr = [];
+    for (let i = 0; i < 5; i++) arr.push(opts[Math.floor(Math.random() * opts.length)]);
+    return arr;
+}
+function drawEnemySlots() {
+    const s = document.getElementById('enemySlots'); s.innerHTML = '';
+    state.enemyHands.forEach(h => { const d = document.createElement('div'); d.className = 'slot'; d.innerText = h[0]; s.appendChild(d); });
+}
+function startBattle() {
+    // 第2条: 敵コマンド可視化 / 第20条: 敵の主体性
+    state.enemyHands = randomEnemyHands();
+    drawEnemySlots();
+}
+
+// 第3条: 3すくみ判定 P>U, U>G, G>P
+function judge(p, e) {
+    if (p === e) return 'draw';
+    const beats = { PUNCH: 'UPPER', UPPER: 'GUARD', GUARD: 'PUNCH' };
+    return beats[p] === e ? 'win' : 'lose';
+}
+
+function applyDamage(target, amount) {
+    if (target === 'E') {
+        state.hpE = Math.max(0, state.hpE - amount);
+        document.getElementById('hpE').style.width = state.hpE + '%';
+        // 第17条: 黄色バーは transition で 0.6秒遅れて追従する
+        setTimeout(() => { document.getElementById('hpE_y').style.width = state.hpE + '%'; }, 0);
+    } else {
+        state.hpP = Math.max(0, state.hpP - amount);
+        document.getElementById('hpP').style.width = state.hpP + '%';
+        setTimeout(() => { document.getElementById('hpP_y').style.width = state.hpP + '%'; }, 0);
+    }
+    state.shake = DB.HITSHAKE; // 第8条
+}
+
+function wait(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+async function dashIn(who) {
+    // 第24条: 対面踏み込みの原則
+    if (who === 'P') { state.pAct = 'DASH.PNG'; state.pX += DB.POS.STEP_X; }
+    else { state.eAct = 'DASH.PNG'; state.eX -= DB.POS.STEP_X; }
+    await wait(300);
+}
+
+async function waitBothLanded() {
+    // 第5条: 着地同期
+    state.pY = DB.POS.GROUND_Y;
+    state.eY = DB.POS.GROUND_Y;
+    await wait(50);
+}
+
 async function resolveTurn() {
+    if (state.resolving || state.hands.length === 0) return;
+    state.resolving = true;
+    document.querySelectorAll('.controls button').forEach(b => b.disabled = true);
+
     state.turn++;
     document.getElementById('turnDisplay').innerHTML = `TURN<br>${state.turn}`;
+
     let isAirCombo = false;
 
-    for(let i = 0; i < state.hands.length; i++) {
-        let act = state.hands[i];
-        
-        // 接近演出 (憲法第24条)
-        state.pAct = 'DASH.PNG';
-        await new Promise(r => setTimeout(r, 300));
+    try {
+        for (let i = 0; i < state.hands.length; i++) {
+            if (state.hpE <= 0 || state.hpP <= 0) break;
 
-        if (isAirCombo && act === 'PUNCH') {
-            state.pAct = 'PUNCH.PNG'; state.hpE -= 10;
-            document.getElementById('hpE').style.width = state.hpE + '%';
-            await new Promise(r => setTimeout(r, 600));
-        } else {
-            isAirCombo = false;
-            if(act === 'UPPER') {
-                state.pAct = 'UPPER.PNG'; state.eAct = 'DAMAGE.PNG';
-                state.pY = DB.POS.P_JUMP; state.eY = DB.POS.FLOAT_Y;
-                isAirCombo = true;
-                await new Promise(r => setTimeout(r, 1000));
-            } else {
-                state.pAct = act + '.PNG';
-                await new Promise(r => setTimeout(r, 600));
+            const pAct = state.hands[i];
+            const eAct = state.enemyHands[i] || randomEnemyHands()[0];
+
+            // 第4条: 空中コンボ中は敵行動を無視し、PUNCHでコンボ継続
+            if (isAirCombo && pAct === 'PUNCH') {
+                await dashIn('P');
+                // 第21条: パンチ連打は punch / punch2 を交互に
+                state.lastPlayerAtk = state.lastPlayerAtk === 'PUNCH.PNG' ? 'PUNCH2.PNG' : 'PUNCH.PNG';
+                state.pAct = imgs[state.lastPlayerAtk] ? state.lastPlayerAtk : 'PUNCH.PNG';
+                applyDamage('E', DB.DMG.P);
+                await wait(600);
+                continue; // isAirCombo は次のUPPER以外の入力で終了させる
             }
-        }
-        
-        // 着地演出 (憲法第5, 6条)
-        if (!isAirCombo) {
-            state.pAct = 'DASH.PNG'; state.eAct = 'KNOCK2.PNG';
+
+            if (isAirCombo && pAct !== 'PUNCH') {
+                // 空中コンボがPUNCH以外の入力で途切れる場合は着地させてから通常処理へ
+                await waitBothLanded();
+                state.pAct = 'DASH.PNG'; // 第6条
+                await wait(300);
+                state.pAct = 'IDLE.PNG'; state.eAct = 'IDLE.PNG'; // 第7条
+                isAirCombo = false;
+            }
+
+            await dashIn('P');
+            await dashIn('E');
+
+            if (pAct === 'UPPER') {
+                state.pAct = 'UPPER.PNG';
+                state.eAct = 'DAMAGE.PNG';
+                state.pY = DB.POS.P_JUMP;
+                state.eY = DB.POS.FLOAT_Y;
+                applyDamage('E', DB.DMG.U);
+                state.lastPlayerAtk = null;
+                isAirCombo = true;
+                await wait(1000);
+
+                const nextIsPunch = state.hands[i + 1] === 'PUNCH';
+                if (!nextIsPunch) {
+                    // 第9条+第6条: 単発アッパーは着地同期後、必ずDash画像を経由してIdleへ
+                    await waitBothLanded();
+                    state.pAct = 'DASH.PNG';
+                    await wait(300);
+                    state.pAct = 'IDLE.PNG'; state.eAct = 'IDLE.PNG';
+                    isAirCombo = false;
+                }
+                continue;
+            }
+
+            if (pAct === 'GUARD') {
+                state.pAct = 'GUARD.PNG';
+                const result = judge(pAct, eAct);
+                if (result === 'lose') {
+                    state.eAct = (imgs[eAct + '.PNG'] ? eAct : 'PUNCH') + '.PNG';
+                    applyDamage('P', eAct === 'UPPER' ? DB.DMG.U : DB.DMG.P);
+                } else {
+                    // ガード成功: 被ダメージを大幅軽減
+                    applyDamage('P', Math.round(DB.DMG.P * 0.2));
+                }
+                await wait(600);
+            } else if (pAct === 'PUNCH') {
+                state.pAct = 'PUNCH.PNG';
+                state.lastPlayerAtk = 'PUNCH.PNG';
+                const result = judge(pAct, eAct);
+                if (result !== 'lose') {
+                    state.eAct = 'DAMAGE.PNG';
+                    applyDamage('E', DB.DMG.P);
+                } else {
+                    state.eAct = (imgs[eAct + '.PNG'] ? eAct : 'PUNCH') + '.PNG';
+                    applyDamage('P', DB.DMG.U);
+                }
+                await wait(600);
+            }
+
             state.pY = DB.POS.GROUND_Y; state.eY = DB.POS.GROUND_Y;
-            await new Promise(r => setTimeout(r, 500));
-            state.pAct = 'IDLE.PNG'; state.eAct = 'IDLE.PNG';
+            await wait(200);
+            state.pAct = 'IDLE.PNG'; state.eAct = 'IDLE.PNG'; // 第7条
         }
+    } finally {
+        // 第9条: 必ずy座標を地面に復帰。第16条によりx座標(前進分)はリセットしない。
+        state.pY = DB.POS.GROUND_Y;
+        state.eY = DB.POS.GROUND_Y;
+        state.pAct = 'IDLE.PNG';
+        state.eAct = 'IDLE.PNG';
+        state.hands = [];
+        updateUI();
+        if (state.hpE > 0 && state.hpP > 0) {
+            state.enemyHands = randomEnemyHands();
+            drawEnemySlots();
+        }
+        state.resolving = false;
+        document.querySelectorAll('.controls button').forEach(b => b.disabled = false);
     }
-    resetHands();
 }
 </script>
 </body>
