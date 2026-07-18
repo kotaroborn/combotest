@@ -3,22 +3,27 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Combo Clash Tactics - Constitutional Absolute Implementation</title>
+    <title>Combo Clash Tactics - Verified 3rd Build</title>
     <style>
-        * { box-sizing: border-box; touch-action: manipulation; }
-        body { margin: 0; background: #000; color: #fff; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+        * { box-sizing: border-box; }
+        body { margin: 0; background: #000; color: #fff; font-family: sans-serif; overflow: hidden; height: 100vh; display: flex; flex-direction: column; }
         #gameArea { height: 50vh; background: #111; border-bottom: 2px solid #555; position: relative; }
         canvas { width: 100%; height: 100%; object-fit: contain; image-rendering: pixelated; }
+        #ui { padding: 5px; font-weight: bold; font-size: 14px; text-align: center; }
         #interface { flex-grow: 1; display: flex; flex-direction: column; padding: 10px; gap: 5px; }
         .row { display: flex; justify-content: center; gap: 5px; }
-        .slot { border: 2px solid #fff; width: 45px; height: 45px; display: flex; align-items: center; justify-content: center; font-weight: bold; background: #222; }
-        .btn { height: 50px; background: #224; border: 2px solid #55a; color: #fff; font-weight: bold; flex: 1; }
-        .sys-btn { background: #800; border-color: #f00; }
+        .slot { border: 2px solid #fff; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; background: #222; }
     </style>
 </head>
 <body>
 
-<div id="gameArea"><canvas id="gameCanvas" width="960" height="540"></canvas></div>
+<div id="gameArea">
+    <canvas id="gameCanvas" width="960" height="540"></canvas>
+    <div id="ui">
+        <div id="turnDisplay">TURN: 0</div>
+        <div id="hpDisplay">PLAYER HP: 100 | ENEMY HP: 100</div>
+    </div>
+</div>
 <div id="interface">
     <div class="row" id="enSlotArea"></div>
     <div class="row" id="mySlotArea"></div>
@@ -26,9 +31,7 @@
         <button class="btn" onclick="addCmd('punch')">PUNCH</button>
         <button class="btn" onclick="addCmd('upper')">UPPER</button>
         <button class="btn" onclick="addCmd('guard')">GUARD</button>
-    </div>
-    <div class="row">
-        <button class="btn sys-btn" onclick="resolveBattle()">GO BATTLE</button>
+        <button class="btn" onclick="resolveBattle()" style="background:#800;">GO!</button>
     </div>
 </div>
 
@@ -52,74 +55,72 @@
  */
 
 const imgs = {};
-const s = { pCur: 'player', x: 100, y: 200, yOff: 0, shake: 0, isPlaying: false };
-const e = { pCur: 'player', x: 660, y: 200, yOff: 0, shake: 0 };
-let myHands = [], enHands = [];
+const s = { pCur: 'player', x: 100, y: 200, hp: 100, yOff: 0, shake: 0, isPlaying: false };
+const e = { pCur: 'player', x: 660, y: 200, hp: 100, yOff: 0, shake: 0 };
+let myHands = [], enHands = [], turn = 0;
 
 async function initAssets() {
-    const names = ['player','punch','upper','guard','dash','damage','knock'];
-    for(let name of names) {
-        const img = new Image();
-        img.src = './' + name + '.PNG'; // 憲法第12項: 資産の不変性
-        img.onload = () => imgs[name] = img;
+    ['player','punch','upper','guard','dash','damage','knock'].forEach(n => {
+        const img = new Image(); img.src = './' + n + '.PNG';
         img.onerror = () => {
-            console.error("Missing asset: " + name + ".PNG");
             const c = document.createElement('canvas'); c.width=200; c.height=200;
             const ctx = c.getContext('2d');
             ctx.fillStyle = '#600'; ctx.fillRect(0,0,200,200);
-            ctx.fillStyle = '#fff'; ctx.fillText(name, 20, 100);
-            imgs[name] = new Image(); imgs[name].src = c.toDataURL();
+            ctx.fillStyle = '#fff'; ctx.fillText(n, 20, 100);
+            imgs[n] = new Image(); imgs[n].src = c.toDataURL();
         };
-    }
+        img.onload = () => imgs[n] = img;
+    });
 }
 
 function addCmd(c) { if(myHands.length < 5 && !s.isPlaying) { myHands.push(c); updateSlots(); } }
-
 function updateSlots() {
     document.getElementById('mySlotArea').innerHTML = myHands.map(h => `<div class="slot">${h[0].toUpperCase()}</div>`).join('');
     document.getElementById('enSlotArea').innerHTML = enHands.map(h => `<div class="slot">${h?h[0].toUpperCase():'?'}</div>`).join('');
+    document.getElementById('turnDisplay').innerText = `TURN: ${turn}`;
+    document.getElementById('hpDisplay').innerText = `PLAYER HP: ${s.hp} | ENEMY HP: ${e.hp}`;
 }
 
 async function resolveBattle() {
     if(myHands.length < 5 || s.isPlaying) return;
-    s.isPlaying = true;
+    s.isPlaying = true; turn++;
     enHands = Array(5).fill(0).map(() => ['punch','upper','guard'][Math.floor(Math.random()*3)]);
     updateSlots();
 
-    try {
-        for(let i=0; i<5; i++) {
-            // 前進ダッシュアクション：コマンドに合わせて座標を更新
-            s.x = 100 + (i * 80);
-            
-            // 憲法第4,5,6項：アッパー打ち上げアクション
-            if(myHands[i] === 'upper') {
-                s.pCur = 'upper';
-                for(let j=0; j<=20; j++) {
-                    e.yOff = -150*Math.sin(j/20*Math.PI);
-                    s.y = 200 - 70*Math.sin(j/20*Math.PI);
-                    await new Promise(r=>setTimeout(r,30));
-                }
-                s.pCur = 'dash'; // Dash画像へ遷移
-                await new Promise(r=>setTimeout(r,300));
-            } else {
-                s.pCur = myHands[i];
-                if(myHands[i] !== 'guard') { e.shake = 100; await new Promise(r=>setTimeout(r,300)); e.shake = 0; }
-                else { await new Promise(r=>setTimeout(r,300)); }
+    let combo = false;
+    for(let i=0; i<5; i++) {
+        s.x = 100 + (i * 80);
+        let p = myHands[i], eA = enHands[i];
+        let hit = (p==='punch'&&eA==='upper') || (p==='upper'&&eA==='guard') || (p==='guard'&&eA==='punch');
+        
+        // 憲法第4項: 空中コンボロジック
+        if(combo && p === 'punch') {
+            e.hp -= 20; e.shake = 100; await new Promise(r=>setTimeout(r,300)); e.shake = 0;
+            combo = false;
+        } else if(p === 'upper') {
+            s.pCur = 'upper';
+            for(let j=0; j<=20; j++) {
+                e.yOff = -150*Math.sin(j/20*Math.PI);
+                s.y = 200 - 70*Math.sin(j/20*Math.PI);
+                await new Promise(r=>setTimeout(r,30));
             }
-            s.pCur = 'player'; // 憲法第7項：待機状態への復帰
+            if(hit) { e.hp -= 5; combo = true; }
+            s.pCur = 'dash'; await new Promise(r=>setTimeout(r,300));
+        } else {
+            s.pCur = p;
+            if(hit) { e.hp -= 10; e.shake = 100; await new Promise(r=>setTimeout(r,300)); e.shake = 0; }
+            else await new Promise(r=>setTimeout(r,300));
+            combo = false;
         }
-    } finally {
-        s.x = 100; s.y = 200; e.yOff = 0; s.pCur = 'player';
-        myHands = []; enHands = []; updateSlots(); s.isPlaying = false;
+        s.pCur = 'player';
     }
+    s.x = 100; s.y = 200; s.isPlaying = false; myHands = []; enHands = []; updateSlots();
 }
 
 function loop() {
-    const canvas = document.getElementById('gameCanvas');
-    const ctx = canvas.getContext('2d');
+    const ctx = document.getElementById('gameCanvas').getContext('2d');
     ctx.imageSmoothingEnabled = false;
     ctx.clearRect(0,0,960,540);
-    
     [s, e].forEach((o, i) => {
         if(imgs[o.pCur]) {
             let x = i===1 ? -o.x-200 : o.x + (o.shake ? (Math.random()-0.5)*20 : 0);
