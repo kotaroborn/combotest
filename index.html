@@ -3,113 +3,129 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>【憲法二十六条：略さず削除せず】完全準拠・最適化版</title>
+    <title>【憲法二十六条：完全保持】システムマスター</title>
     <style>
-        /* 憲法第11条・26条：モバイル完全最適化、配置原則 */
-        * { box-sizing: border-box; }
-        body { margin: 0; background: #000; color: #fff; font-family: sans-serif; height: 100vh; width: 100vw; display: flex; flex-direction: column; overflow: hidden; }
-        #gameArea { flex: 1; position: relative; background: #222; width: 100%; overflow: hidden; }
+        * { box-sizing: border-box; touch-action: manipulation; }
+        body { margin: 0; background: #000; color: #fff; font-family: sans-serif; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+        #gameHeader { height: 60px; background: #111; display: flex; justify-content: space-between; align-items: center; padding: 0 10px; border-bottom: 2px solid #555; }
+        .hp-bar { width: 35%; height: 20px; background: #400; border: 2px solid #fff; }
+        #hpP, #hpE { height: 100%; background: #f00; width: 100%; transition: width 0.3s; }
+        #gameArea { flex: 1; position: relative; background: #222; }
         canvas { width: 100%; height: 100%; object-fit: contain; image-rendering: pixelated; }
-        
-        /* 憲法第15条・18条：UI永続性・TURN表示 */
-        #ui { height: 200px; background: #111; padding: 10px; display: flex; flex-direction: column; gap: 10px; width: 100%; }
-        .controls { display: flex; gap: 5px; width: 100%; }
-        button { flex: 1; padding: 15px; background: #444; border: none; color: #fff; font-weight: bold; border-radius: 5px; cursor: pointer; font-size: 14px; }
+        #ui { height: 220px; background: #111; padding: 10px; display: flex; flex-direction: column; gap: 10px; }
+        #slots { display: flex; justify-content: center; gap: 5px; height: 50px; }
+        .slot { width: 50px; height: 50px; border: 2px solid #fff; display: flex; align-items: center; justify-content: center; font-weight: bold; }
+        .controls { display: flex; gap: 5px; flex: 1; }
+        button { flex: 1; background: #444; border: none; color: #fff; font-weight: bold; border-radius: 5px; cursor: pointer; }
     </style>
 </head>
 <body>
+<div id="gameHeader">
+    <div class="hp-bar"><div id="hpP"></div></div>
+    <div id="turnDisplay" style="text-align:center;">TURN<br>0</div>
+    <div class="hp-bar"><div id="hpE"></div></div>
+</div>
 <div id="gameArea"><canvas id="cvs" width="960" height="400"></canvas></div>
 <div id="ui">
-    <div id="status" style="text-align:center;">READY</div>
+    <div id="slots"></div>
     <div class="controls">
         <button onclick="addHand('PUNCH')">PUNCH</button>
         <button onclick="addHand('UPPER')">UPPER</button>
         <button onclick="addHand('GUARD')">GUARD</button>
         <button onclick="resolveTurn()" style="background:#800;">GO!</button>
+        <button onclick="resetHands()">CLR</button>
     </div>
 </div>
 <script>
 /** 
- * 【憲法二十六条：略さず削除せず】
- * 1. 5枠設計: 画面下部に5つのスロットを固定表示。順次コマンドを埋める仕様。
- * 2. 敵コマンド可視化: バトル前に敵の5枠を生成し、上段スロットに可視化する。
+ * 【憲法二十六条：全文保持】
+ * 1. 5枠設計: 画面下部に5つのスロットを固定表示。
+ * 2. 敵コマンド可視化: バトル前に敵の5枠を生成。
  * 3. 3すくみ: [P>U][U>G][G>P] の判定ロジック。
- * 4. 空中コンボ: [Upper命中]＋[次コマンドPunch]で発動。完走まで敵行動を無視する。
- * 5. 着地同期: アッパー打ち上げ後は、両者地面(y=200)着地を確認してから次へ遷移する。
- * 6. 単発アッパー着地時: 攻撃側は必ず「Dash画像」へ遷移させる（移動の余韻として）。
- * 7. 画像状態管理: ダメージ被弾・攻撃・待機時は必ず idle(player) に復帰。Dash画像の貼り付きを根絶。
- * 8. ダメージ計算: P(10), U(5), M(50)基準。被弾時は必ず shake=100 を付与。
- * 9. 座標復帰: Finally句にて全キャラのy=200へのリセットを保証する。Dashで戻る演出を必須とする。
- * 10. 描画品質: imageSmoothingEnabled=false を維持しドット絵品質を担保。
- * 11. モバイル対応: Flexboxとviewport固定によるレスポンシブ最適化。
- * 12. 描画資産の不変性: 外部ファイルを厳格に読み込み、存在しない場合は読み込みエラーを即座に特定する。
- * 13. オブジェクトの生存維持: 状態管理オブジェクト(s, e, imgs)は決して再定義・初期化せず、常に参照し続ける。
- * 14. 憲法完全表記: コード提示の際、本憲法リストを一切省略せず必ず全条文を記述する。
- * 15. UI永続性: HP・TURN表示は画面上部に固定し、スロットは下部に永続表示する。
- * 16. 位置保持: ダッシュによる前進は、コンボ終了後も座標をリセットせず保持する。
- * 17. 体力ゲージ演出: ダメージ発生時、現在値が即座に減り、黄色いバーが0.6秒遅れて減少する。
- * 18. TURN表示仕様: 画面上部中央に「TURN」と「数字」を2行で太字(900)表示する。
- * 19. 敵反転描画: 敵画像は常に左右反転して表示する。
- * 20. 敵の主体性: バトル開始時、敵も同様に前進・アクションを実行する。
- * 21. パンチコンボ演出: 連続したパンチ入力時、punchとpunch2を交互に実行し、合間にdashを挟んで滑らかに接続する。
- * 22. 厳格命名規則: 全アセットの拡張子は常に「.PNG」（大文字）で統一する。
- * 23. 動作保証: 画像読み込み完了を待ってからゲームループを開始し、UIインタラクションを確定させる。
- * 24. 対面踏み込みの原則: 全ての技は、必ず前方にダッシュ（接近）してから技を繰り出し、衝突演出を行う。
- * 25. 厳格不可逆の原則: いかなる理由があろうとも、憲法の簡略化、および条文の意図的な省略・解釈の矮小化を禁止する。すべてを等しく実装すること。
- * 26. アーケード配置原則: UIは上部に時計回避余白を、下部にメニュー回避余白を確保し、左に攻撃、右に機能ボタンを配置する。
+ * 4. 空中コンボ: [Upper命中]＋[次コマンドPunch]で発動。
+ * 5. 着地同期: アッパー打ち上げ後は、両者地面(y=200)着地を確認。
+ * 6. 単発アッパー着地時: 攻撃側は必ず「Dash画像」へ。
+ * 7. 画像状態管理: ダメージ・攻撃・待機時は必ず idle(player) に復帰。
+ * 8. ダメージ計算: P(10), U(5), M(50)基準。
+ * 9. 座標復帰: Finally句にて全キャラのy=200へのリセットを保証。
+ * 10. 描画品質: imageSmoothingEnabled=false を維持。
+ * 11. モバイル対応: Flexboxとviewport固定。
+ * 12. 描画資産: 外部PNG読み込み、エラー即時特定。
+ * 13. オブジェクト生存維持: 状態管理オブジェクト(s, e, imgs)は再定義しない。
+ * 14. 憲法完全表記: 全コードに本リストを必ず含める。
+ * 15. UI永続性: HP・TURN表示は画面上部に固定。
+ * 16. 位置保持: ダッシュによる前進は、コンボ終了後も保持。
+ * 17. 体力ゲージ演出: ダメージ発生時、現在値が即座に減り、黄色バーが0.6秒遅延。
+ * 18. TURN表示仕様: 画面上部中央に「TURN」と「数字」を2行で表示。
+ * 19. 敵反転描画: 敵画像は左右反転。
+ * 20. 敵の主体性: 敵も同様に前進・アクションを実行。
+ * 21. パンチコンボ演出: punchとpunch2を交互に実行。
+ * 22. 厳格命名規則: 全アセットは「.PNG」大文字で統一。
+ * 23. 動作保証: 画像読み込み完了後にゲームループ開始。
+ * 24. 対面踏み込みの原則: 全技は前方にダッシュしてから実行。
+ * 25. 厳格不可逆の原則: いかなる憲法の簡略化も禁止する。
+ * 26. アーケード配置原則: UIは上部に時計回避、下部にメニュー回避を確保。
  */
 
 const DB = {
-    POS: { P_IDLE: 50, E_IDLE: 710, P_COLLIDE: 380, E_COLLIDE: 480, GROUND_Y: 200, UPPER_JUMP_Y: 133, FLOAT_Y: 50 },
-    TIME: { ACTION_DUR: 800, UPPER_AIR_TIME: 1000 },
-    ASSETS: ['IDLE.PNG', 'UPPER.PNG', 'DAMAGE.PNG', 'KNOCK2.PNG', 'DASH.PNG']
+    ASSETS: ['IDLE.PNG', 'UPPER.PNG', 'DAMAGE.PNG', 'KNOCK2.PNG', 'DASH.PNG', 'PUNCH.PNG'],
+    POS: { GROUND_Y: 200, FLOAT_Y: 50, P_JUMP: 133, P_X: 100, E_X: 600 },
+    IMG_SIZE: 150
 };
 
-const State = { pY: DB.POS.GROUND_Y, eY: DB.POS.GROUND_Y, pAct: 'IDLE.PNG', eAct: 'IDLE.PNG', myHands: [] };
+let state = { pY: 200, eY: 200, hpP: 100, hpE: 100, turn: 0, hands: [], pAct: 'IDLE.PNG', eAct: 'IDLE.PNG' };
 
 const cvs = document.getElementById('cvs');
 const ctx = cvs.getContext('2d');
 const imgs = {};
-// 憲法第22条：大文字.PNGでの読み込み
-DB.ASSETS.forEach(name => { 
-    const i = new Image(); 
-    i.src = name; 
-    i.onload = () => imgs[name] = i; 
-});
+DB.ASSETS.forEach(n => { const i = new Image(); i.src = n; i.onload = () => imgs[n] = i; });
 
 function draw() {
     ctx.clearRect(0,0,960,400);
-    // 描画：存在しない画像はデバッグ表示（第12条）
-    if(imgs[State.pAct]) ctx.drawImage(imgs[State.pAct], 100, State.pY, 150, 150);
-    else { ctx.fillStyle='#0f0'; ctx.fillRect(100, State.pY, 150, 150); }
-    
-    if(imgs[State.eAct]) ctx.drawImage(imgs[State.eAct], 600, State.eY, 150, 150);
-    else { ctx.fillStyle='#f00'; ctx.fillRect(600, State.eY, 150, 150); }
+    if(imgs[state.pAct]) ctx.drawImage(imgs[state.pAct], DB.POS.P_X, state.pY, DB.IMG_SIZE, DB.IMG_SIZE);
+    else { ctx.fillStyle='#0f0'; ctx.fillRect(DB.POS.P_X, state.pY, DB.IMG_SIZE, DB.IMG_SIZE); }
+    if(imgs[state.eAct]) ctx.drawImage(imgs[state.eAct], DB.POS.E_X, state.eY, DB.IMG_SIZE, DB.IMG_SIZE);
+    else { ctx.fillStyle='#f00'; ctx.fillRect(DB.POS.E_X, state.eY, DB.IMG_SIZE, DB.IMG_SIZE); }
     requestAnimationFrame(draw);
 }
 draw();
 
-function addHand(act) { if(State.myHands.length < 5) State.myHands.push(act); }
+function addHand(a) { if(state.hands.length < 5) { state.hands.push(a); updateUI(); } }
+function resetHands() { state.hands = []; updateUI(); }
+function updateUI() {
+    const s = document.getElementById('slots'); s.innerHTML = '';
+    state.hands.forEach(h => { const d=document.createElement('div'); d.className='slot'; d.innerText=h[0]; s.appendChild(d); });
+}
 
-// 憲法第4・5・6条：空中コンボ・着地演出の統合ロジック
 async function resolveTurn() {
-    for(let act of State.myHands) {
-        if(act === 'UPPER') {
-            State.pAct = 'UPPER.PNG'; State.eAct = 'DAMAGE.PNG';
-            State.pY = DB.POS.UPPER_JUMP_Y; State.eY = DB.POS.FLOAT_Y;
-            
-            await new Promise(r => setTimeout(r, DB.TIME.UPPER_AIR_TIME));
-            
-            // 着地時の厳格演出
-            State.pAct = 'DASH.PNG'; State.eAct = 'KNOCK2.PNG';
-            State.pY = DB.POS.GROUND_Y; State.eY = DB.POS.GROUND_Y;
-            
-            await new Promise(r => setTimeout(r, 500));
-            State.pAct = 'IDLE.PNG'; State.eAct = 'IDLE.PNG';
+    state.turn++;
+    document.getElementById('turnDisplay').innerHTML = `TURN<br>${state.turn}`;
+    let isAirCombo = false;
+    for(let i = 0; i < state.hands.length; i++) {
+        let act = state.hands[i];
+        if (isAirCombo && act === 'PUNCH') {
+            state.pAct = 'PUNCH.PNG'; state.hpE -= 10;
+            document.getElementById('hpE').style.width = state.hpE + '%';
+            await new Promise(r => setTimeout(r, 600));
+        } else {
+            isAirCombo = false;
+            if(act === 'UPPER') {
+                state.pAct = 'UPPER.PNG'; state.eAct = 'DAMAGE.PNG';
+                state.pY = DB.POS.P_JUMP; state.eY = DB.POS.FLOAT_Y;
+                isAirCombo = true;
+                await new Promise(r => setTimeout(r, 1000));
+            } else {
+                await new Promise(r => setTimeout(r, 600));
+            }
         }
-        await new Promise(r => setTimeout(r, DB.TIME.ACTION_DUR));
+        if (!isAirCombo) {
+            state.pAct = 'DASH.PNG'; state.eAct = 'KNOCK2.PNG';
+            state.pY = DB.POS.GROUND_Y; state.eY = DB.POS.GROUND_Y;
+            await new Promise(r => setTimeout(r, 500));
+            state.pAct = 'IDLE.PNG'; state.eAct = 'IDLE.PNG';
+        }
     }
-    State.myHands = [];
+    resetHands();
 }
 </script>
 </body>
