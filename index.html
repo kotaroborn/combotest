@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Combo Clash Tactics - Absolute Permanent Build</title>
+    <title>Combo Clash Tactics - Corrected Extension Build</title>
     <style>
         * { box-sizing: border-box; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
         body { margin: 0; background: #000; color: #fff; font-family: sans-serif; overflow: hidden; height: 100vh; display: flex; flex-direction: column; }
@@ -57,12 +57,15 @@
 const imgs = {};
 const imgFiles = ['player','punch','upper','guard','dash','damage','knock'];
 
+// 画像読み込み：拡張子を .PNG に復元
 async function loadEverything() {
     for (let name of imgFiles) {
         imgs[name] = await new Promise((resolve) => {
             const img = new Image();
             img.onload = () => resolve(img);
             img.onerror = () => {
+                // ロード失敗時はデバッグ用にコンソールへ通知し、代替生成
+                console.warn("読み込み失敗: " + name + ".PNG");
                 const c = document.createElement('canvas'); c.width=200; c.height=200;
                 const ctx = c.getContext('2d');
                 ctx.fillStyle = '#444'; ctx.fillRect(0,0,200,200);
@@ -70,11 +73,13 @@ async function loadEverything() {
                 const dummy = new Image(); dummy.src = c.toDataURL();
                 resolve(dummy);
             };
-            img.src = './' + name + '.png';
+            // 拡張子を .PNG に修正
+            img.src = './' + name + '.PNG';
         });
     }
 }
 
+// （以下、以前の対戦ロジックをそのまま保持）
 const s = { pCur: 'player', x: 100, y: 200, hp: 100, isPlaying: false };
 const e = { pCur: 'player', x: 660, y: 200, hp: 100 };
 let myHands = [], enHands = [];
