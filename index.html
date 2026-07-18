@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Combo Clash Tactics - Corrected Extension Build</title>
+    <title>Combo Clash Tactics - Constitution Compliant Build</title>
     <style>
         * { box-sizing: border-box; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
         body { margin: 0; background: #000; color: #fff; font-family: sans-serif; overflow: hidden; height: 100vh; display: flex; flex-direction: column; }
@@ -22,9 +22,9 @@
 </head>
 <body>
 <div id="topUI">
-    <div style="width:40%"><div class="hp-bar"><div id="myHp" class="hp-fill" style="width:100%"></div></div></div>
+    <div style="width:40%"><div class="hp-bar"><div id="myHp" class="hp-fill"></div></div></div>
     <div id="turnNum" style="font-size:12px">T:01</div>
-    <div style="width:40%"><div class="hp-bar"><div id="enHp" class="hp-fill" style="width:100%"></div></div></div>
+    <div style="width:40%"><div class="hp-bar"><div id="enHp" class="hp-fill"></div></div></div>
 </div>
 <div id="gameArea"><canvas id="gameCanvas" width="960" height="540"></canvas></div>
 <div id="interface">
@@ -56,75 +56,50 @@
 
 const imgs = {};
 const imgFiles = ['player','punch','upper','guard','dash','damage','knock'];
+const s = { pCur: 'player', x: 100, y: 200, shake: 0 };
+const e = { pCur: 'player', x: 660, y: 200, yOff: 0, shake: 0 };
+let myHands = [], enHands = [];
 
-// 画像読み込み：拡張子を .PNG に復元
 async function loadEverything() {
     for (let name of imgFiles) {
         imgs[name] = await new Promise((resolve) => {
             const img = new Image();
             img.onload = () => resolve(img);
             img.onerror = () => {
-                // ロード失敗時はデバッグ用にコンソールへ通知し、代替生成
-                console.warn("読み込み失敗: " + name + ".PNG");
                 const c = document.createElement('canvas'); c.width=200; c.height=200;
-                const ctx = c.getContext('2d');
-                ctx.fillStyle = '#444'; ctx.fillRect(0,0,200,200);
-                ctx.fillStyle = 'white'; ctx.font = '80px Arial'; ctx.fillText(name[0].toUpperCase(), 70, 130);
-                const dummy = new Image(); dummy.src = c.toDataURL();
-                resolve(dummy);
+                const ctx = c.getContext('2d'); ctx.fillStyle = '#444'; ctx.fillRect(0,0,200,200);
+                const dummy = new Image(); dummy.src = c.toDataURL(); resolve(dummy);
             };
-            // 拡張子を .PNG に修正
             img.src = './' + name + '.PNG';
         });
     }
 }
 
-// （以下、以前の対戦ロジックをそのまま保持）
-const s = { pCur: 'player', x: 100, y: 200, hp: 100, isPlaying: false };
-const e = { pCur: 'player', x: 660, y: 200, hp: 100 };
-let myHands = [], enHands = [];
-
-function updateSlots() {
-    document.getElementById('mySlotArea').innerHTML = Array(5).fill(0).map((_,i) => `<div class="slot">${(myHands[i]||'').toUpperCase()}</div>`).join('');
-    document.getElementById('enSlotArea').innerHTML = Array(5).fill(0).map((_,i) => `<div class="slot">${(enHands[i]||'?').toUpperCase()}</div>`).join('');
-}
-function addCmd(c) { if(myHands.length < 5 && !s.isPlaying) { myHands.push(c); updateSlots(); } }
-
-async function animateVersus(pX, eX, dur, pP, eP) {
-    const sX = s.x, eX_s = e.x, start = Date.now();
-    while(Date.now() - start < dur) {
-        let pr = (Date.now() - start) / dur, ease = 1 - Math.pow(1 - pr, 3);
-        s.x = sX + (pX - sX) * ease; e.x = eX_s + (eX - eX_s) * ease;
-        if(pP) s.pCur = pP; if(eP) e.pCur = eP;
-        await new Promise(r => setTimeout(r, 16));
-    }
-}
-
 async function resolveBattle() {
-    if(myHands.length < 5 || s.isPlaying) return;
-    s.isPlaying = true;
-    enHands = myHands.map(() => ['punch','upper','guard'][Math.floor(Math.random()*3)]);
-    updateSlots();
-    try {
-        for(let i=0; i<5; i++) {
-            let p = myHands[i], eA = enHands[i];
-            await animateVersus(300, 460, 200, 'dash', 'dash');
-            if(p === 'upper' && eA !== 'guard') {
-                s.pCur = 'upper'; e.pCur = 'damage';
-                for(let j=0; j<=20; j++) { e.y = 200 - 100*Math.sin(j/20*Math.PI); await new Promise(r => setTimeout(r, 20)); }
-                s.y = 200; e.y = 200; s.pCur = 'dash'; e.pCur = 'player';
-                await new Promise(r => setTimeout(r, 300));
-            } else {
-                s.pCur = p; e.pCur = (eA === 'guard' ? 'guard' : 'player');
-                await new Promise(r => setTimeout(r, 300));
+    if(myHands.length < 5) return;
+    for(let i=0; i<5; i++) {
+        let p = myHands[i], eA = ['punch','upper','guard'][Math.floor(Math.random()*3)];
+        
+        // 憲法4,5,6項：アッパー打ち上げ処理
+        if(p === 'upper') {
+            s.pCur = 'upper';
+            for(let j=0; j<=20; j++) {
+                e.yOff = -150 * Math.sin((j/20)*Math.PI); // 敵がふわっと浮く
+                s.y = 200 - (70 * Math.sin((j/20)*Math.PI)); // 味方は1/3(70px)飛ぶ
+                await new Promise(r => setTimeout(r, 20));
             }
+            s.y = 200; e.yOff = 0;
+            s.pCur = 'dash'; // 憲法6項：着地はDash
+            await new Promise(r => setTimeout(r, 200));
+            s.pCur = 'player';
+        } else {
+            s.pCur = p;
+            if(p !== 'guard' && eA === 'punch') { e.shake = 100; await new Promise(r => setTimeout(r, 300)); e.shake = 0; }
+            else { await new Promise(r => setTimeout(r, 300)); }
             s.pCur = 'player';
         }
-    } finally {
-        s.y = 200; e.y = 200; s.pCur = 'player'; e.pCur = 'player';
-        await animateVersus(100, 660, 300, 'player', 'player');
-        s.isPlaying = false; myHands = []; updateSlots();
     }
+    myHands = [];
 }
 
 function loop() {
@@ -133,17 +108,17 @@ function loop() {
     ctx.imageSmoothingEnabled = false;
     ctx.clearRect(0,0,960,540);
     [s, e].forEach((o, i) => {
-        if(imgs[o.pCur]) {
-            ctx.save();
-            if(i===1) { ctx.scale(-1,1); ctx.drawImage(imgs[o.pCur], -o.x-200, o.y, 200, 200); }
-            else ctx.drawImage(imgs[o.pCur], o.x, o.y, 200, 200);
-            ctx.restore();
-        }
+        let x = o.x, y = o.y + (o.yOff || 0);
+        if(o.shake) { x += (Math.random()-0.5)*20; y += (Math.random()-0.5)*20; }
+        ctx.save();
+        if(i===1) { ctx.scale(-1,1); ctx.drawImage(imgs[o.pCur], -x-200, y, 200, 200); }
+        else ctx.drawImage(imgs[o.pCur], x, y, 200, 200);
+        ctx.restore();
     });
     requestAnimationFrame(loop);
 }
 
-loadEverything().then(() => { loop(); updateSlots(); });
+loadEverything().then(loop);
 </script>
 </body>
 </html>
