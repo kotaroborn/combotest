@@ -3,55 +3,78 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Combo Clash Tactics - Final Restored</title>
+    <title>Combo Clash Tactics - Finalized</title>
     <style>
-        * { box-sizing: border-box; touch-action: manipulation; }
+        * { box-sizing: border-box; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
         body { margin: 0; background: #000; color: #fff; font-family: sans-serif; overflow: hidden; }
+        
         #topUI { display: flex; align-items: center; justify-content: space-between; padding: 5px 10px; background: #222; height: 50px; }
         .hp-container { width: 40%; }
         .hp-bar { height: 12px; background: #400; border: 1px solid #fff; position: relative; }
         .hp-fill { height: 100%; background: #0f0; width: 100%; position: absolute; top:0; left:0; transition: width 0.1s; }
-        #gameArea { width: 100%; height: 50vh; background: #111; position: relative; }
-        canvas { width: 100%; height: 100%; object-fit: contain; }
-        .slot-row { display: flex; gap: 2px; justify-content: center; height: 30px; }
+        
+        /* ターン表示：TURNと数字の2列指示を厳守 */
+        #turnCounter { text-align: center; font-size: 10px; font-weight: bold; line-height: 1.1; }
+        #turnNum { font-size: 16px; }
+        
+        #gameArea { width: 100%; height: 45vh; background: #111; position: relative; }
+        canvas { width: 100%; height: 100%; image-rendering: pixelated; object-fit: contain; }
+        
+        .slot-container { display: flex; flex-direction: column; gap: 2px; padding: 5px; height: 60px; }
+        .slot-row { display: flex; gap: 2px; justify-content: center; }
         .slot { width: 18%; max-width: 60px; height: 25px; border: 1px solid #fff; display: flex; align-items: center; justify-content: center; font-size: 10px; }
+        .my-slot { background: #222; } .en-slot { background: #422; }
+        
         #controls { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; padding: 10px; }
-        button { height: 40px; background: #224; border: 1px solid #55a; color: #fff; border-radius: 4px; }
+        button { height: 45px; background: #224; border: 1px solid #55a; color: #fff; border-radius: 4px; font-weight: bold; }
+        .sys-btn { grid-column: span 3; }
     </style>
 </head>
 <body>
 <div id="topUI">
     <div class="hp-container"><div class="hp-bar"><div id="myHp" class="hp-fill"></div></div></div>
-    <div id="turnNum">01</div>
+    <!-- 2列表示のターンUI -->
+    <div id="turnCounter">TURN<br><span id="turnNum">01</span></div>
     <div class="hp-container"><div class="hp-bar"><div id="enHp" class="hp-fill"></div></div></div>
 </div>
 <div id="gameArea"><canvas id="gameCanvas" width="960" height="540"></canvas></div>
-<div id="mySlotArea" class="slot-row"></div>
-<div id="enSlotArea" class="slot-row"></div>
+<div class="slot-container">
+    <div id="mySlotArea" class="slot-row"></div>
+    <div id="enSlotArea" class="slot-row"></div>
+</div>
 <div id="controls">
     <button onclick="addCmd('punch')">PUNCH</button>
     <button onclick="addCmd('upper')">UPPER</button>
     <button onclick="addCmd('guard')">GUARD</button>
-    <button style="grid-column: span 3; background: #800;" onclick="resolveBattle()">GO BATTLE</button>
+    <button class="sys-btn" onclick="resolveBattle()">GO BATTLE</button>
+    <button class="sys-btn" style="background:#555;" onclick="resetCmd()">RESET</button>
 </div>
 
 <script>
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
+
 const s = { x: 100, y: 200, pCur: 'player', hp: 100, isPlaying: false };
 const e = { x: 660, y: 200, pCur: 'player', hp: 100 };
 const imgs = {};
-let myHands = [], enHands = [], isReady = false;
+let myHands = [], enHands = [], turn = 1;
 
 async function loadImages() {
     const names = ['player','player2','punch','punch2','upper','upper2','knock','knock2','guard','dash','damage'];
     await Promise.all(names.map(n => new Promise(r => { 
         const i = new Image(); i.src = n + '.PNG'; i.onload = () => { imgs[n] = i; r(); }; 
     })));
-    isReady = true;
 }
 
-// 共通移動関数：これが落下と踏み込みを保証する
+function updateUI() {
+    // ターン表示の更新
+    document.getElementById('turnNum').innerText = String(turn).padStart(2, '0');
+    document.getElementById('myHp').style.width = s.hp + '%';
+    document.getElementById('enHp').style.width = e.hp + '%';
+    document.getElementById('mySlotArea').innerHTML = myHands.map(h => `<div class="slot my-slot">${h.toUpperCase()}</div>`).join('');
+    document.getElementById('enSlotArea').innerHTML = enHands.map(h => `<div class="slot en-slot">${h.toUpperCase()}</div>`).join('');
+}
+
 async function moveChar(char, targetX, targetY, duration) {
     const startX = char.x, startY = char.y;
     const start = Date.now();
@@ -65,31 +88,25 @@ async function moveChar(char, targetX, targetY, duration) {
 }
 
 async function resolveBattle() {
-    if(s.isPlaying || !isReady) return;
+    if(s.isPlaying || myHands.length === 0) return;
     s.isPlaying = true;
     
     for(let i=0; i<myHands.length; i++) {
-        // 攻撃前進
         await moveChar(s, 300, 200, 150);
-        
-        // UPPER 処理 (打ち上げと落下)
         if(myHands[i] === 'upper') {
             s.pCur = 'upper'; e.pCur = 'damage';
-            // 打ち上げ
-            for(let j=0; j<=10; j++) { e.y = 200 - (100 * Math.sin(j/10 * Math.PI)); await new Promise(r=>setTimeout(r,30)); }
-            // 落下保証
+            for(let j=0; j<=10; j++) { e.y = 200 - (150 * Math.sin(j/10 * Math.PI)); await new Promise(r=>setTimeout(r,30)); }
             await moveChar(e, 660, 200, 200);
         }
-        
-        // ターン終了後復帰
         await moveChar(s, 100, 200, 200);
         s.pCur = 'player'; e.pCur = 'player';
     }
-    s.isPlaying = false;
-    myHands = [];
+    turn++; s.isPlaying = false; myHands = []; updateUI();
 }
 
 function loop() {
+    // 描画のたびに強制指定
+    ctx.imageSmoothingEnabled = false;
     ctx.fillStyle = '#000'; ctx.fillRect(0,0,960,540);
     [s, e].forEach((o, idx) => {
         if(imgs[o.pCur]) {
@@ -102,8 +119,10 @@ function loop() {
     requestAnimationFrame(loop);
 }
 
-loadImages().then(loop);
-function addCmd(c) { myHands.push(c); /* スロット更新処理 */ }
+function addCmd(c) { if(myHands.length < 5) { myHands.push(c); updateUI(); } }
+function resetCmd() { myHands = []; updateUI(); }
+
+loadImages().then(() => { updateUI(); loop(); });
 </script>
 </body>
 </html>
