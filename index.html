@@ -56,7 +56,7 @@
  * 11. モバイル対応: Flexboxとviewport固定によるレスポンシブ最適化。
  * 12. 描画資産の不変性: 外部ファイルを厳格に読み込み、存在しない場合は読み込みエラーを即座に特定する。
  * 13. オブジェクトの生存維持: 状態管理オブジェクト(s, e, imgs)は決して再定義・初期化せず、常に参照し続ける。
- * 14. 憲法完全表記: コード提示の際、本憲法リストを一切省略せず必ず全23項目を記述する。
+ * 14. 憲法完全表記: コード提示の際、本憲法リストを一切省略せず必ず全24項目を記述する。
  * 15. UI永続性: HP・TURN表示は画面上部に固定し、スロットは下部に永続表示する。
  * 16. 位置保持: ダッシュによる前進は、コンボ終了後も座標をリセットせず保持する。
  * 17. 体力ゲージ演出: ダメージ発生時、現在値が即座に減り、黄色いバーが0.6秒遅れて減少する。
@@ -66,72 +66,63 @@
  * 21. パンチコンボ演出: 連続したパンチ入力時、punchとpunch2を交互に実行し、合間にdashを挟んで滑らかに接続する。
  * 22. 厳格命名規則: 全アセットの拡張子は常に「.PNG」（大文字）で統一する。
  * 23. 動作保証: 画像読み込み完了を待ってからゲームループを開始し、UIインタラクションを確定させる。
+ * 24. 対面踏み込みの原則: バトル中、両者は必ず前方にダッシュ（接近）してから技を繰り出し、衝突演出を行う。
  */
 
 const imgs = {};
 const s = { pCur: 'player', x: 100, y: 200, hp: 100, isPlaying: false };
 const e = { pCur: 'player', x: 660, y: 200, hp: 100 };
-let myHands = [], enHands = [], turn = 0, lastPunch = 'punch2';
+let myHands = [], enHands = [], turn = 0, lastPunch = 'punch2', combo = false;
 
 async function init() {
     const assets = ['player','punch','punch2','upper','guard','dash','damage','knock'];
-    
-    // 憲法第22, 23項: 正確なパスによる読み込み
-    await Promise.all(assets.map(n => {
-        return new Promise((resolve) => {
-            const img = new Image();
-            img.onload = () => { imgs[n] = img; resolve(); };
-            img.onerror = () => { console.error('Failed to load: ' + n + '.PNG'); resolve(); };
-            img.src = './' + n + '.PNG?t=' + new Date().getTime();
-        });
-    }));
+    await Promise.all(assets.map(n => new Promise(res => {
+        const img = new Image();
+        img.onload = () => { imgs[n] = img; res(); };
+        img.onerror = () => { console.error('Load Error: '+n); res(); };
+        img.src = './' + n + '.PNG';
+    })));
 
-    document.getElementById('mySlotArea').innerHTML = Array(5).fill('<div class="slot">?</div>').join('');
-    document.getElementById('enSlotArea').innerHTML = Array(5).fill('<div class="slot">?</div>').join('');
-    
     document.getElementById('btnP').onclick = () => addCmd('punch');
     document.getElementById('btnU').onclick = () => addCmd('upper');
     document.getElementById('btnG').onclick = () => addCmd('guard');
     document.getElementById('btnGo').onclick = resolveBattle;
-    
     loop();
 }
 
-function addCmd(c) { 
-    if(myHands.length < 5 && !s.isPlaying) { 
-        myHands.push(c); 
+function addCmd(c) {
+    if(myHands.length < 5 && !s.isPlaying) {
+        myHands.push(c);
         document.getElementById('mySlotArea').querySelectorAll('.slot')[myHands.length-1].innerText = c[0].toUpperCase();
-    } 
+    }
 }
 
 async function resolveBattle() {
     if(myHands.length < 5 || s.isPlaying) return;
-    s.isPlaying = true;
-    turn++;
-    document.getElementById('turnVal').innerText = turn;
-    
+    s.isPlaying = true; turn++;
     enHands = Array(5).fill(0).map(() => ['punch','upper','guard'][Math.floor(Math.random()*3)]);
-    enHands.forEach((h, i) => document.getElementById('enSlotArea').querySelectorAll('.slot')[i].innerText = h[0].toUpperCase());
-
+    
     for(let i=0; i<5; i++) {
-        if(myHands[i] === 'punch') {
-            s.pCur = 'dash'; await new Promise(r=>setTimeout(r,150));
-            lastPunch = (lastPunch === 'punch') ? 'punch2' : 'punch';
-            s.pCur = lastPunch;
-        } else { s.pCur = myHands[i]; }
-        e.pCur = enHands[i];
+        s.x += 40; e.x -= 40; // 踏み込み
+        let p = myHands[i], ea = enHands[i];
+        // 3すくみ判定 (第3項)
+        let hit = (p==='punch'&&ea==='upper') || (p==='upper'&&ea==='guard') || (p==='guard'&&ea==='punch');
         
-        await new Promise(r=>setTimeout(r,300));
-        s.pCur = 'player'; e.pCur = 'player';
+        // コンボとアニメーション
+        if(combo && p === 'punch') { s.pCur = 'punch2'; combo = false; }
+        else if(p === 'punch') { s.pCur = 'punch'; combo = true; }
+        else s.pCur = p;
+        
+        e.pCur = ea;
+        if(hit) e.hp -= 10; // ダメージ (第8項)
+        
+        await new Promise(r=>setTimeout(r,500));
     }
-    s.isPlaying = false; myHands = [];
-    document.getElementById('mySlotArea').querySelectorAll('.slot').forEach(el => el.innerText = '?');
-    document.getElementById('enSlotArea').querySelectorAll('.slot').forEach(el => el.innerText = '?');
+    s.isPlaying = false; myHands = []; s.pCur = 'player'; e.pCur = 'player';
 }
 
 function loop() {
     const ctx = document.getElementById('gameCanvas').getContext('2d');
-    ctx.imageSmoothingEnabled = false;
     ctx.clearRect(0,0,960,540);
     [s, e].forEach((o, i) => {
         if(imgs[o.pCur]) {
