@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Combo Clash Tactics - Verified 3rd Build</title>
+    <title>Combo Clash Tactics - Absolute Constitutional Build</title>
     <style>
         * { box-sizing: border-box; }
         body { margin: 0; background: #000; color: #fff; font-family: sans-serif; overflow: hidden; height: 100vh; display: flex; flex-direction: column; }
@@ -25,13 +25,13 @@
     </div>
 </div>
 <div id="interface">
-    <div class="row" id="enSlotArea"></div>
-    <div class="row" id="mySlotArea"></div>
+    <div class="row" id="enSlotArea"></div> <!-- 敵の5枠 -->
+    <div class="row" id="mySlotArea"></div> <!-- 自軍の5枠 -->
     <div class="row">
-        <button class="btn" onclick="addCmd('punch')">PUNCH</button>
-        <button class="btn" onclick="addCmd('upper')">UPPER</button>
-        <button class="btn" onclick="addCmd('guard')">GUARD</button>
-        <button class="btn" onclick="resolveBattle()" style="background:#800;">GO!</button>
+        <button class="btn" onclick="addCmd('punch')" style="flex:1; height:50px;">PUNCH</button>
+        <button class="btn" onclick="addCmd('upper')" style="flex:1; height:50px;">UPPER</button>
+        <button class="btn" onclick="addCmd('guard')" style="flex:1; height:50px;">GUARD</button>
+        <button class="btn" onclick="resolveBattle()" style="flex:1; height:50px; background:#800;">GO!</button>
     </div>
 </div>
 
@@ -52,12 +52,20 @@
  * 12. 描画資産の不変性: 画像が読み込めない場合でも強制的にダミーを生成し、描画を途絶させない。
  * 13. オブジェクトの生存維持: 状態管理オブジェクト(s, e, imgs)は決して再定義・初期化せず、常に参照し続ける。
  * 14. 憲法完全表記: コード提示の際、本憲法リストを一切省略せず必ず全14項目を記述する。
+ * 15. UI永続性: 5つのスロットと体力・ターン表示は、ゲーム開始から終了まで一切削除・非表示にしない。
+ * 16. 位置保持: ダッシュによる前進は、コンボ終了後も座標をリセットせず、次のターンの踏み込み位置として保持する。
  */
 
 const imgs = {};
 const s = { pCur: 'player', x: 100, y: 200, hp: 100, yOff: 0, shake: 0, isPlaying: false };
 const e = { pCur: 'player', x: 660, y: 200, hp: 100, yOff: 0, shake: 0 };
 let myHands = [], enHands = [], turn = 0;
+
+function initDisplay() {
+    // 憲法第15項: UI永続性
+    document.getElementById('mySlotArea').innerHTML = Array(5).fill('<div class="slot">?</div>').join('');
+    document.getElementById('enSlotArea').innerHTML = Array(5).fill('<div class="slot">?</div>').join('');
+}
 
 async function initAssets() {
     ['player','punch','upper','guard','dash','damage','knock'].forEach(n => {
@@ -73,27 +81,30 @@ async function initAssets() {
     });
 }
 
-function addCmd(c) { if(myHands.length < 5 && !s.isPlaying) { myHands.push(c); updateSlots(); } }
-function updateSlots() {
-    document.getElementById('mySlotArea').innerHTML = myHands.map(h => `<div class="slot">${h[0].toUpperCase()}</div>`).join('');
-    document.getElementById('enSlotArea').innerHTML = enHands.map(h => `<div class="slot">${h?h[0].toUpperCase():'?'}</div>`).join('');
-    document.getElementById('turnDisplay').innerText = `TURN: ${turn}`;
-    document.getElementById('hpDisplay').innerText = `PLAYER HP: ${s.hp} | ENEMY HP: ${e.hp}`;
+function addCmd(c) { 
+    if(myHands.length < 5 && !s.isPlaying) { 
+        myHands.push(c); 
+        let slots = document.getElementById('mySlotArea').querySelectorAll('.slot');
+        slots[myHands.length-1].innerText = c[0].toUpperCase();
+    } 
 }
 
 async function resolveBattle() {
     if(myHands.length < 5 || s.isPlaying) return;
     s.isPlaying = true; turn++;
     enHands = Array(5).fill(0).map(() => ['punch','upper','guard'][Math.floor(Math.random()*3)]);
-    updateSlots();
+    
+    let enSlots = document.getElementById('enSlotArea').querySelectorAll('.slot');
+    enHands.forEach((h, i) => enSlots[i].innerText = h[0].toUpperCase());
 
     let combo = false;
     for(let i=0; i<5; i++) {
-        s.x = 100 + (i * 80);
+        // 憲法第16項: 位置保持
+        s.x += 60; 
+        
         let p = myHands[i], eA = enHands[i];
         let hit = (p==='punch'&&eA==='upper') || (p==='upper'&&eA==='guard') || (p==='guard'&&eA==='punch');
         
-        // 憲法第4項: 空中コンボロジック
         if(combo && p === 'punch') {
             e.hp -= 20; e.shake = 100; await new Promise(r=>setTimeout(r,300)); e.shake = 0;
             combo = false;
@@ -113,8 +124,10 @@ async function resolveBattle() {
             combo = false;
         }
         s.pCur = 'player';
+        document.getElementById('hpDisplay').innerText = `PLAYER HP: ${s.hp} | ENEMY HP: ${e.hp}`;
+        document.getElementById('turnDisplay').innerText = `TURN: ${turn}`;
     }
-    s.x = 100; s.y = 200; s.isPlaying = false; myHands = []; enHands = []; updateSlots();
+    s.isPlaying = false; myHands = []; initDisplay();
 }
 
 function loop() {
@@ -130,7 +143,7 @@ function loop() {
     requestAnimationFrame(loop);
 }
 
-initAssets().then(loop);
+initAssets().then(initDisplay).then(loop);
 </script>
 </body>
 </html>
