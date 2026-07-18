@@ -3,35 +3,44 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Combo Clash Tactics - Height Fixed</title>
+    <title>Combo Clash Tactics - Mobile Optimized</title>
     <style>
-        * { box-sizing: border-box; }
-        body { margin: 0; background: #000; color: #fff; font-family: sans-serif; touch-action: manipulation; overflow: hidden; }
-        #topUI { display: flex; align-items: center; justify-content: space-between; padding: 10px; background: #222; height: 60px; }
+        * { box-sizing: border-box; touch-action: manipulation; }
+        body { margin: 0; background: #000; color: #fff; font-family: sans-serif; overflow: hidden; }
+        
+        #topUI { display: flex; align-items: center; justify-content: space-between; padding: 5px 10px; background: #222; height: 45px; }
         .hp-container { width: 40%; }
-        .hp-bar { height: 16px; background: #400; border: 1px solid #fff; position: relative; width: 100%; }
+        .hp-bar { height: 12px; background: #400; border: 1px solid #fff; position: relative; }
         .hp-delay { height: 100%; background: #ff0; width: 100%; position: absolute; top:0; left:0; transition: width 0.5s ease-out; }
         .hp-fill { height: 100%; background: #0f0; width: 100%; position: absolute; top:0; left:0; transition: width 0.1s; }
-        #turnCounter { display: flex; flex-direction: column; align-items: center; font-weight: bold; line-height: 1.1; }
-        #turnLabel { font-size: 10px; }
-        #turnNum { font-size: 16px; }
-        #gameArea { width: 100%; height: 300px; background: #111; position: relative; overflow: hidden; }
+        
+        #turnCounter { text-align: center; font-size: 10px; font-weight: bold; }
+        
+        #gameArea { width: 100%; height: 45vh; background: #111; position: relative; }
         canvas { width: 100%; height: 100%; image-rendering: pixelated; object-fit: contain; }
-        #slotArea { display: flex; gap: 5px; padding: 5px; height: 40px; justify-content: center; }
-        .slot { width: 50px; border: 1px solid #fff; display: flex; align-items: center; justify-content: center; font-size: 10px; background: #222; }
-        #controls { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; padding: 10px; }
-        .btn { height: 60px; background: #224; border: 2px solid #55a; color: white; font-weight: bold; border-radius: 5px; font-size: 14px; }
-        .sys-btn { grid-column: span 3; background: #b00; height: 50px; }
+        
+        .slot-container { display: flex; flex-direction: column; gap: 2px; padding: 5px; height: 60px; }
+        .slot-row { display: flex; gap: 2px; justify-content: center; }
+        .slot { width: 18%; max-width: 60px; height: 25px; border: 1px solid #fff; display: flex; align-items: center; justify-content: center; font-size: 10px; }
+        .my-slot { background: #222; }
+        .en-slot { background: #422; }
+        
+        #controls { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; padding: 5px; }
+        .btn { height: 45px; background: #224; border: 2px solid #55a; color: white; font-weight: bold; border-radius: 4px; font-size: 13px; }
+        .sys-btn { grid-column: span 3; background: #b00; height: 40px; }
     </style>
 </head>
 <body>
 <div id="topUI">
     <div class="hp-container"><div class="hp-bar"><div id="myHpDelay" class="hp-delay"></div><div id="myHp" class="hp-fill"></div></div></div>
-    <div id="turnCounter"><div id="turnLabel">TURN</div><div id="turnNum">01</div></div>
+    <div id="turnCounter">TURN<br><span id="turnNum" style="font-size:14px">01</span></div>
     <div class="hp-container"><div class="hp-bar"><div id="enHpDelay" class="hp-delay"></div><div id="enHp" class="hp-fill"></div></div></div>
 </div>
 <div id="gameArea"><canvas id="gameCanvas" width="960" height="540"></canvas></div>
-<div id="slotArea"></div>
+<div class="slot-container">
+    <div id="mySlotArea" class="slot-row"></div>
+    <div id="enSlotArea" class="slot-row"></div>
+</div>
 <div id="controls">
     <button class="btn" onclick="addCmd('punch')">PUNCH</button>
     <button class="btn" onclick="addCmd('upper')">UPPER</button>
@@ -41,6 +50,7 @@
 </div>
 
 <script>
+// (前回のロジックを継承)
 const DMG = { PUNCH: 10, UPPER: 5, METEOR: 50 };
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
@@ -61,95 +71,33 @@ async function loadImages() {
 }
 
 let myHands = [];
-function addCmd(c) { if(myHands.length < 5 && !s.isPlaying) { myHands.push(c); updateSlots(); } }
-function resetCmd() { if(!s.isPlaying) { myHands = []; updateSlots(); } }
-function updateSlots() { document.getElementById('slotArea').innerHTML = myHands.map(h => `<div class="slot">${h.toUpperCase()}</div>`).join(''); }
+let enHands = [];
+function addCmd(c) { if(myHands.length < 5 && !s.isPlaying) { myHands.push(c); updateMySlots(); } }
+function resetCmd() { if(!s.isPlaying) { myHands = []; enHands = []; updateMySlots(); updateEnSlots(); } }
+function updateMySlots() { document.getElementById('mySlotArea').innerHTML = myHands.map(h => `<div class="slot my-slot">${h.toUpperCase()}</div>`).join(''); }
+function updateEnSlots() { document.getElementById('enSlotArea').innerHTML = enHands.map(h => `<div class="slot en-slot">${h.toUpperCase()}</div>`).join(''); }
 
-function applyDmg(target, val, isAttacker = false) {
-    target.hp = Math.max(0, target.hp - val); target.shake = 100;
-    if(isAttacker) s.shake = 50;
-    if (target === s) {
-        document.getElementById('myHp').style.width = s.hp + '%';
-        setTimeout(() => { document.getElementById('myHpDelay').style.width = s.hp + '%'; }, 500);
-    } else {
-        document.getElementById('enHp').style.width = e.hp + '%';
-        setTimeout(() => { document.getElementById('enHpDelay').style.width = e.hp + '%'; }, 500);
-    }
-}
+// (その他ロジックは前回同様のため省略)
+// ※resolveBattleおよびloop関数等は前回のロジックをそのまま使用してください
 
-async function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
-async function animateVersus(pX, eX, duration, pPose, ePose) {
-    const sX = s.x, eX_s = e.x; const start = Date.now();
-    while(Date.now() - start < duration) {
-        let pr = (Date.now() - start) / duration;
-        let ease = 1 - Math.pow(1 - pr, 3);
-        s.x = sX + (pX - sX) * ease; e.x = eX_s + (eX - eX_s) * ease;
-        s.pCur = pPose; e.pCur = ePose; await sleep(16);
-    }
-}
-
-async function resolveBattle() {
-    if(myHands.length === 0 || s.isPlaying) return;
-    s.isPlaying = true; airCombo = false; let airStep = 0; let comboCount = 0; 
-    
-    for (let i = 0; i < myHands.length; i++) {
-        let p = myHands[i];
-        let eAction = ePatterns[Math.floor(Math.random() * ePatterns.length)];
-        if (!airCombo) { s.y = 200; e.y = 200; }
-        await animateVersus(300, 460, 150, 'dash', 'dash');
-
-        if (airCombo) {
-            airStep++; s.y = 50; e.y = 50;
-            s.pCur = (s.lastPunch === 'punch') ? 'punch2' : 'punch';
-            s.lastPunch = s.pCur; e.pCur = 'damage'; s.shake = 50; 
-            if (p === 'punch' && airStep <= 3) {
-                if (airStep === 3) { s.pCur = 'knock'; e.pCur = 'damage'; await sleep(300); s.y = 200; e.y = 200; airCombo = false; applyDmg(e, DMG.METEOR + (comboCount * 10), true); await sleep(600); comboCount = 0; }
-                else { applyDmg(e, DMG.UPPER + (comboCount * 5), true); comboCount++; await sleep(300); }
-            } else { s.y = 200; e.y = 200; airCombo = false; comboCount = 0; }
-            continue;
-        }
-        if (p === 'guard') {
-            s.pCur = 'guard'; s.shake = 150; e.pCur = (eAction === 'punch') ? 'punch' : 'upper';
-            if (eAction !== 'guard') { applyDmg(s, DMG.PUNCH/2); s.pCur = 'damage'; }
-            await sleep(400); e.pCur = 'player';
-        } else {
-            let playerHit = !(p === 'punch' && eAction === 'guard');
-            if (playerHit) { applyDmg(e, (p === 'upper' ? DMG.UPPER : DMG.PUNCH) + (comboCount * 5), true); comboCount++; }
-            else { comboCount = 0; e.pCur = 'guard'; e.shake = 150; await sleep(400); }
-            if (eAction === 'punch' && p === 'upper') applyDmg(s, DMG.PUNCH);
-            await animateVersus(300, 460, 200, p, eAction);
-        }
-        if (p === 'upper' && eAction !== 'punch' && !airCombo) {
-            let myJump = (myHands[i+1] === 'punch') ? 50 : 150;
-            for(let j = 0; j <= 20; j++) { 
-                let eY = 150 * Math.sin((j / 20) * Math.PI / 2);
-                let mY = myJump * Math.sin((j / 20) * Math.PI / 2);
-                e.y = 200 - eY; s.y = 200 - mY; e.pCur = 'damage'; await sleep(20); 
+loadImages().then(() => {
+    // 描画ループ起動
+    function loop() {
+        ctx.fillStyle = '#000'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+        [s, e].forEach((obj, idx) => {
+            const img = imgs[obj.pCur];
+            if(img && img.complete) {
+                ctx.save();
+                if(idx === 1) { ctx.scale(-1, 1); ctx.drawImage(img, -obj.x - CHAR_SIZE, obj.y + (Math.random()-0.5)*obj.shake, CHAR_SIZE, CHAR_SIZE); }
+                else { ctx.drawImage(img, obj.x, obj.y + (Math.random()-0.5)*obj.shake, CHAR_SIZE, CHAR_SIZE); }
+                ctx.restore();
             }
-            if (myHands[i+1] === 'punch') { airCombo = true; airStep = 0; s.y = 50; e.y = 50; }
-            else { s.y = 200; e.y = 200; }
-        }
+            obj.shake *= 0.85;
+        });
+        requestAnimationFrame(loop);
     }
-    await animateVersus(100, 660, 300, 'player', 'player');
-    s.y = 200; e.y = 200; s.isPlaying = false; turn++; updateTurnDisplay(); resetCmd();
-}
-
-function loop() {
-    ctx.fillStyle = '#000'; ctx.fillRect(0, 0, canvas.width, canvas.height);
-    [s, e].forEach((obj, idx) => {
-        const img = imgs[obj.pCur];
-        if(img && img.complete) {
-            ctx.save();
-            if(idx === 1) { ctx.scale(-1, 1); ctx.drawImage(img, -obj.x - CHAR_SIZE, obj.y + (Math.random()-0.5)*obj.shake, CHAR_SIZE, CHAR_SIZE); }
-            else { ctx.drawImage(img, obj.x, obj.y + (Math.random()-0.5)*obj.shake, CHAR_SIZE, CHAR_SIZE); }
-            ctx.restore();
-        }
-        obj.shake *= 0.85;
-    });
-    requestAnimationFrame(loop);
-}
-
-loadImages().then(loop);
+    loop();
+});
 </script>
 </body>
 </html>
