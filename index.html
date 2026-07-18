@@ -10,22 +10,33 @@
         
         #gameArea { height: 45vh; background: #111; border-bottom: 2px solid #555; position: relative; display: flex; flex-direction: column; }
         
-        /* 憲法第15条（UI永続性）、第18条（TURN表示仕様） */
-        #gameHeader { padding: 10px; display: flex; justify-content: space-between; align-items: center; z-index: 100; }
+        /* 憲法第15条（UI永続性） */
+        #gameHeader { position: relative; width: 100%; padding: 10px; display: flex; justify-content: space-between; align-items: flex-start; z-index: 100; box-sizing: border-box; }
         .hp-bar-container { width: 35%; height: 20px; background: #400; border: 2px solid #fff; position: relative; }
         .hp-bar-inner { height: 100%; background: #f00; width: 100%; transition: width 0.3s; position: absolute; z-index: 2; }
         .hp-bar-back { height: 100%; background: #ff0; width: 100%; position: absolute; top: 0; transition: width 0.6s ease-out; z-index: 1; }
         
-        #turnContainer { display: flex; flex-direction: column; align-items: center; font-weight: 900; }
-        #turnLabel { font-size: 10px; }
-        #turnVal { font-size: 20px; }
+        /* ★憲法第18条の完全遵守（絶対的中央配置、2行、太字900） */
+        #turnContainer { 
+            position: absolute; 
+            left: 50%; 
+            transform: translateX(-50%); 
+            top: 5px; /* 上部への固定 */
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            font-weight: 900; 
+            text-shadow: 2px 2px 0 #000; /* 背景に埋もれない処置 */
+        }
+        #turnLabel { font-size: 14px; line-height: 1; margin-bottom: 2px; letter-spacing: 2px; }
+        #turnVal { font-size: 28px; line-height: 1; }
 
         /* 憲法第2条（敵コマンド可視化） */
         #eSlotArea { display: flex; justify-content: center; gap: 5px; margin-bottom: 5px; position: absolute; bottom: 10px; width: 100%; }
         .e-slot { border: 1px solid #f00; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; background: #300; font-weight:bold; font-size: 14px; opacity: 0; transition: opacity 0.3s; }
 
         /* 憲法第10条（描画品質） */
-        canvas { width: 100%; flex-grow: 1; object-fit: contain; image-rendering: pixelated; }
+        canvas { width: 100%; flex-grow: 1; object-fit: contain; image-rendering: pixelated; position: absolute; top: 0; left: 0; z-index: 1; }
         
         /* インターフェース領域 */
         #interface { flex-grow: 1; display: flex; flex-direction: column; padding: 15px 10px; gap: 10px; }
@@ -46,12 +57,13 @@
 <body>
 
 <div id="gameArea">
+    <canvas id="gameCanvas" width="960" height="400"></canvas>
     <div id="gameHeader">
         <div class="hp-bar-container"><div id="pBack" class="hp-bar-back"></div><div id="pInner" class="hp-bar-inner"></div></div>
+        <!-- 憲法第18条コンテナ -->
         <div id="turnContainer"><div id="turnLabel">TURN</div><div id="turnVal">0</div></div>
         <div class="hp-bar-container"><div id="eBack" class="hp-bar-back"></div><div id="eInner" class="hp-bar-inner"></div></div>
     </div>
-    <canvas id="gameCanvas" width="960" height="400"></canvas>
     <div id="eSlotArea">
         <div class="e-slot"></div><div class="e-slot"></div><div class="e-slot"></div><div class="e-slot"></div><div class="e-slot"></div>
     </div>
@@ -125,27 +137,24 @@ const State = {
     isAnimating: false
 };
 
-// Canvas Setup (憲法第10条：描画品質)
+// Canvas Setup
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 ctx.imageSmoothingEnabled = false;
 
-// 描画ループ (ダミー描画で動作を保証)
+// 描画ループ
 function render() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     
-    // 地面
     ctx.strokeStyle = '#555'; ctx.beginPath(); ctx.moveTo(0, 300); ctx.lineTo(960, 300); ctx.stroke();
 
-    // プレイヤー描画
     ctx.fillStyle = '#0f0';
     ctx.fillRect(State.p.x, State.p.y, 100, 100);
     ctx.fillStyle = '#fff'; ctx.fillText(State.p.action, State.p.x + 10, State.p.y - 10);
 
-    // 敵描画 (憲法第19条：敵反転描画の枠組み)
     ctx.save();
-    ctx.translate(State.e.x + 50, State.e.y + 50); // 中心へ
-    ctx.scale(-1, 1); // 左右反転
+    ctx.translate(State.e.x + 50, State.e.y + 50); 
+    ctx.scale(-1, 1); 
     ctx.fillStyle = '#f00';
     ctx.fillRect(-50, -50, 100, 100);
     ctx.restore();
@@ -153,7 +162,7 @@ function render() {
 
     requestAnimationFrame(render);
 }
-requestAnimationFrame(render); // ループ開始 (憲法第23条の簡易版)
+requestAnimationFrame(render);
 
 /** コマンド入力管理 */
 function addHand(action) {
@@ -190,7 +199,7 @@ function applyDamage(target, dmg) {
     }
 }
 
-/** ターン解決ロジック（非同期制御） */
+/** ターン解決ロジック */
 async function resolveTurn() {
     if (State.myHands.length !== 5 || State.isAnimating) return;
     State.isAnimating = true;
@@ -199,52 +208,42 @@ async function resolveTurn() {
     State.turn++;
     document.getElementById('turnVal').innerText = State.turn;
 
-    // 憲法第2条・第20条：敵コマンドの生成と可視化
     State.eHands = [];
     const eSlots = document.getElementById('eSlotArea').children;
     for (let i = 0; i < 5; i++) {
         const randAct = DB.ACTIONS[Math.floor(Math.random() * 3)];
         State.eHands.push(randAct);
         eSlots[i].innerText = randAct[0];
-        eSlots[i].style.opacity = 1; // 可視化
+        eSlots[i].style.opacity = 1; 
     }
 
-    // 5枠の順次実行
     for (let i = 0; i < 5; i++) {
         const pAct = State.myHands[i];
         const eAct = State.eHands[i];
         
-        // 憲法第24条：対面踏み込み
         State.p.x = DB.POS.P_COLLIDE;
         State.e.x = DB.POS.E_COLLIDE;
         State.p.action = pAct;
         State.e.action = eAct;
 
-        // 憲法第3条：3すくみ判定
         if (pAct === eAct) {
-            console.log(`枠${i+1}: ${pAct} vs ${eAct} -> 相殺`);
+            // 相殺
         } else if (DB.RULES[pAct] === eAct) {
-            console.log(`枠${i+1}: ${pAct} vs ${eAct} -> プレイヤー勝利`);
             applyDamage('e', DB.VAL[`${pAct}_DMG`]);
-            // ※ここで憲法第4条・5条(アッパー挙動)を将来的にフックする
         } else {
-            console.log(`枠${i+1}: ${pAct} vs ${eAct} -> 敵勝利`);
             applyDamage('p', DB.VAL[`${eAct}_DMG`]);
         }
 
-        // アクション表示待機
         await new Promise(r => setTimeout(r, DB.TIME.ACTION_DUR));
 
-        // 憲法第9条：座標復帰
         State.p.x = DB.POS.P_IDLE;
         State.e.x = DB.POS.E_IDLE;
         State.p.action = 'idle';
         State.e.action = 'idle';
     }
 
-    // ターン終了処理
     State.myHands = [];
-    for (let i = 0; i < 5; i++) eSlots[i].style.opacity = 0; // 敵スロット隠す
+    for (let i = 0; i < 5; i++) eSlots[i].style.opacity = 0;
     updateUI();
     State.isAnimating = false;
 }
