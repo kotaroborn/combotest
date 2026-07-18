@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Combo Clash Tactics - Final Perfect Build</title>
+    <title>Combo Clash Tactics - Absolute Permanent Build</title>
     <style>
         * { box-sizing: border-box; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
         body { margin: 0; background: #000; color: #fff; font-family: sans-serif; overflow: hidden; height: 100vh; display: flex; flex-direction: column; }
@@ -55,22 +55,29 @@
  */
 
 const imgs = {};
-const names = ['player','punch','upper','guard','dash','damage','knock'];
-const s = { pCur: 'player', x: 100, y: 200, hp: 100, isPlaying: false };
-const e = { pCur: 'player', x: 660, y: 200, hp: 100 };
-let myHands = [], enHands = [];
+const imgFiles = ['player','punch','upper','guard','dash','damage','knock'];
 
-// 憲法第10項に基づき、外部画像を確実に読み込む
-async function prepareImages() {
-    for (let name of names) {
-        await new Promise((resolve) => {
+async function loadEverything() {
+    for (let name of imgFiles) {
+        imgs[name] = await new Promise((resolve) => {
             const img = new Image();
-            img.onload = () => { imgs[name] = img; resolve(); };
-            img.onerror = () => { console.error(name + ".pngが見つかりません"); resolve(); };
+            img.onload = () => resolve(img);
+            img.onerror = () => {
+                const c = document.createElement('canvas'); c.width=200; c.height=200;
+                const ctx = c.getContext('2d');
+                ctx.fillStyle = '#444'; ctx.fillRect(0,0,200,200);
+                ctx.fillStyle = 'white'; ctx.font = '80px Arial'; ctx.fillText(name[0].toUpperCase(), 70, 130);
+                const dummy = new Image(); dummy.src = c.toDataURL();
+                resolve(dummy);
+            };
             img.src = './' + name + '.png';
         });
     }
 }
+
+const s = { pCur: 'player', x: 100, y: 200, hp: 100, isPlaying: false };
+const e = { pCur: 'player', x: 660, y: 200, hp: 100 };
+let myHands = [], enHands = [];
 
 function updateSlots() {
     document.getElementById('mySlotArea').innerHTML = Array(5).fill(0).map((_,i) => `<div class="slot">${(myHands[i]||'').toUpperCase()}</div>`).join('');
@@ -131,7 +138,7 @@ function loop() {
     requestAnimationFrame(loop);
 }
 
-prepareImages().then(() => { loop(); updateSlots(); });
+loadEverything().then(() => { loop(); updateSlots(); });
 </script>
 </body>
 </html>
