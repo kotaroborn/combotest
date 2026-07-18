@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Combo Clash Tactics - Final Unified</title>
+    <title>Combo Clash Tactics - Fixed</title>
     <style>
         * { box-sizing: border-box; touch-action: manipulation; }
         body { margin: 0; background: #000; color: #fff; font-family: sans-serif; overflow: hidden; }
@@ -93,29 +93,45 @@ async function resolveBattle() {
         airCombo = false; let airStep = 0, comboCount = 0;
         for (let i = 0; i < myHands.length; i++) {
             let p = myHands[i], eA = enHands[i];
-            if (!airCombo) { s.y = 200; e.y = 200; }
+            
+            // 攻撃時の前進・後退
             await animateVersus(300, 460, 150, 'dash', 'dash');
 
+            // 空中コンボロジック
             if (airCombo) {
                 airStep++; s.y = 50; e.y = 50;
                 s.pCur = (s.lastPunch === 'punch') ? 'punch2' : 'punch';
-                s.lastPunch = s.pCur; e.pCur = 'damage'; s.shake = 50;
+                s.lastPunch = s.pCur; e.pCur = 'damage';
                 if (p === 'punch' && airStep <= 3) {
-                    if (airStep === 3) { s.pCur = 'knock'; e.pCur = 'damage'; await new Promise(r => setTimeout(r, 300)); s.y = 200; e.y = 200; airCombo = false; applyDmg(e, DMG.METEOR + (comboCount * 10), true); await new Promise(r => setTimeout(r, 600)); comboCount = 0; }
-                    else { applyDmg(e, DMG.UPPER + (comboCount * 5), true); comboCount++; await new Promise(r => setTimeout(r, 300)); }
-                } else { s.y = 200; e.y = 200; airCombo = false; comboCount = 0; }
+                    if (airStep === 3) { s.pCur = 'knock'; e.pCur = 'damage'; await new Promise(r => setTimeout(r, 300)); s.y = 200; e.y = 200; airCombo = false; applyDmg(e, DMG.METEOR, true); await new Promise(r => setTimeout(r, 600)); }
+                    else { applyDmg(e, DMG.UPPER, true); await new Promise(r => setTimeout(r, 300)); }
+                } else { s.y = 200; e.y = 200; airCombo = false; }
                 continue;
             }
 
-            if (eA === 'guard') { e.pCur = 'guard'; e.shake = 150; if (p !== 'guard') comboCount = 0; await new Promise(r => setTimeout(r, 400)); }
-            else if (eA === 'punch') { await animateVersus(460, 300, 150, 'damage', 'punch'); if (p !== 'guard') applyDmg(s, DMG.PUNCH); await new Promise(r => setTimeout(r, 200)); }
-            else if (eA === 'upper') { e.pCur = 'upper'; for(let j=0; j<=20; j++) { e.y = 200 - (50 * Math.sin((j/20)*Math.PI/2)); s.y = 200 - (150 * Math.sin((j/20)*Math.PI/2)); await new Promise(r => setTimeout(r, 20)); } e.y = 200; s.y = 200; e.pCur = 'player'; }
+            // 敵の行動
+            if (eA === 'upper') {
+                e.pCur = 'upper';
+                for(let j=0; j<=20; j++) { 
+                    e.y = 200 - (50 * Math.sin((j/20)*Math.PI/2)); 
+                    s.y = 200 - (150 * Math.sin((j/20)*Math.PI/2)); 
+                    s.pCur = 'damage'; await new Promise(r => setTimeout(r, 20)); 
+                }
+                e.y = 200; s.y = 200; e.pCur = 'player'; s.pCur = 'player';
+            }
             
+            // プレイヤー攻撃
             if (p === 'upper' && eA !== 'guard' && !airCombo) {
-                let mJ = (myHands[i+1] === 'punch') ? 30 : 50;
-                for(let j=0; j<=20; j++) { e.y = 200 - (150 * Math.sin((j/20)*Math.PI/2)); s.y = 200 - (mJ * Math.sin((j/20)*Math.PI/2)); e.pCur = 'damage'; await new Promise(r => setTimeout(r, 20)); }
-                if (myHands[i+1] === 'punch') { airCombo = true; airStep = 0; s.y = 50; e.y = 50; } else { s.y = 200; e.y = 200; }
-            } else if (p === 'punch' && eA !== 'guard') { applyDmg(e, DMG.PUNCH + (comboCount * 5), true); comboCount++; }
+                for(let j=0; j<=20; j++) { 
+                    e.y = 200 - (150 * Math.sin((j/20)*Math.PI/2)); 
+                    s.y = 200 - (50 * Math.sin((j/20)*Math.PI/2)); 
+                    e.pCur = 'damage'; s.pCur = 'upper'; await new Promise(r => setTimeout(r, 20)); 
+                }
+                if (myHands[i+1] === 'punch') { airCombo = true; airStep = 0; s.y = 50; e.y = 50; }
+                else { s.y = 200; e.y = 200; s.pCur = 'player'; }
+            } else if (p === 'punch' && eA !== 'guard') {
+                e.pCur = 'damage'; applyDmg(e, DMG.PUNCH, true); await new Promise(r => setTimeout(r, 300)); e.pCur = 'player';
+            }
         }
     } finally {
         await animateVersus(100, 660, 300, 'player', 'player');
