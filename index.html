@@ -2,12 +2,37 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
     <style>
         * { box-sizing: border-box; touch-action: manipulation; }
-        body { margin: 0; background: #000; color: #fff; height: 100vh; display: flex; flex-direction: column; }
+        body { margin: 0; background: #000; color: #fff; font-family: sans-serif; overflow: hidden; height: 100vh; display: flex; flex-direction: column; }
+        #gameArea { height: 45vh; background: #111; border-bottom: 2px solid #555; position: relative; }
+        #gameHeader { position: absolute; top: 10px; width: 100%; padding: 0 10px; display: flex; justify-content: space-between; align-items: center; z-index: 100; }
+        #turnContainer { display: flex; flex-direction: column; align-items: center; font-weight: 900; }
+        .hp-bar-container { width: 35%; height: 20px; background: #400; border: 2px solid #fff; position: relative; }
+        .hp-bar-inner { height: 100%; background: #f00; width: 100%; transition: width 0.3s; }
+        .hp-bar-back { height: 100%; background: #ff0; width: 100%; position: absolute; top: 0; transition: width 0.6s ease-out; }
+        canvas { width: 100%; height: 100%; object-fit: contain; image-rendering: pixelated; }
+        #interface { flex-grow: 1; display: flex; flex-direction: column; padding: 10px; gap: 5px; justify-content: flex-end; }
+        .row { display: flex; justify-content: center; gap: 5px; }
+        .slot { border: 2px solid #fff; width: 50px; height: 50px; display: flex; align-items: center; justify-content: center; background: #222; font-weight:bold; font-size: 20px; }
+        button { height: 60px; font-weight: bold; cursor: pointer; }
     </style>
 </head>
 <body>
+<div id="gameArea">
+    <div id="gameHeader">
+        <div class="hp-bar-container"><div class="hp-bar-back" id="pBack"></div><div class="hp-bar-inner" id="pInner"></div></div>
+        <div id="turnContainer"><div style="font-size:12px;">TURN</div><div id="turnVal">0</div></div>
+        <div class="hp-bar-container"><div class="hp-bar-back" id="eBack"></div><div class="hp-bar-inner" id="eInner"></div></div>
+    </div>
+    <canvas id="gameCanvas" width="960" height="540"></canvas>
+</div>
+<div id="interface">
+    <div class="row" id="mySlotArea"></div>
+    <div class="row"><button id="btnP" style="flex:1;">PUNCH</button><button id="btnU" style="flex:1;">UPPER</button><button id="btnG" style="flex:1;">GUARD</button><button id="btnGo" style="flex:1; background:#800; color:#fff;">GO!</button></div>
+</div>
+
 <script>
 /**
  * 【憲法全二十五条：全文】
@@ -38,31 +63,27 @@
  * 25. 厳格不可逆の原則: いかなる理由があろうとも、憲法の簡略化、および条文の意図的な省略・解釈の矮小化を禁止する。すべてを等しく実装すること。
  */
 
-// 憲法第13項(生存維持)に基づき、状態管理オブジェクトを定義
 const state = { 
     s: { x: 100, y: 200, hp: 100, pCur: 'player', shake: 0, isPlaying: false, ghosts: [] },
     e: { x: 660, y: 200, hp: 100, pCur: 'player', shake: 0, ghosts: [], isAirborne: false, yOffset: 0 },
     imgs: {}, myHands: [], turn: 0, lastPunch: 'punch2'
 };
 
-// 憲法第8項(ダメージ計算)、第17項(体力ゲージ演出)を完全に履行する関数
+const COLLISION_X = 380;
+
 function updateHP(target, val) {
     target.hp = Math.max(0, target.hp - val);
     const id = target === state.s ? 'p' : 'e';
     document.getElementById(id+'Inner').style.width = target.hp + '%';
-    // 憲法第17項に基づき、0.6秒の遅延減少を厳格に守る
     setTimeout(() => { document.getElementById(id+'Back').style.width = target.hp + '%'; }, 600);
     target.shake = 100;
 }
 
-// 憲法第24項(踏み込み)、第4項(空中コンボ)、第9項(座標復帰)の実装
 async function resolveBattle() {
     if(state.myHands.length < 5 || state.s.isPlaying) return;
     state.s.isPlaying = true; state.turn++;
     document.getElementById('turnVal').innerText = state.turn;
     
-    // 憲法第24項に基づき衝突位置(380)へ踏み込む
-    const COLLISION_X = 380;
     const distS = COLLISION_X - state.s.x;
     const distE = (COLLISION_X + 200) - state.e.x;
     for(let i=0; i<15; i++) { 
@@ -71,41 +92,60 @@ async function resolveBattle() {
         await new Promise(r=>setTimeout(r, 20)); 
     }
     
-    // 憲法第4項に基づきコンボを完走させる
     for(let i=0; i<5; i++) {
         let p = state.myHands[i], ea = state.e.isAirborne ? 'knock' : ['punch','upper','guard'][Math.floor(Math.random()*3)];
-        
-        if(p === 'upper' && (ea !== 'guard')) { 
-            state.e.isAirborne = true; 
-            state.e.yOffset = -250; 
-            state.s.pCur = 'upper'; 
-        } 
-        else if(state.e.isAirborne && p === 'punch') { 
-            state.s.pCur = 'punch2'; 
-            updateHP(state.e, 20); 
-            state.e.yOffset = -300; 
-        } 
+        if(p === 'upper' && (ea !== 'guard')) { state.e.isAirborne = true; state.e.yOffset = -250; state.s.pCur = 'upper'; } 
+        else if(state.e.isAirborne && p === 'punch') { state.s.pCur = 'punch2'; updateHP(state.e, 20); state.e.yOffset = -300; } 
         else {
-            state.s.pCur = (p === 'punch' && state.lastPunch === 'punch') ? 'punch2' : p; // 憲法第21項
-            if((p==='punch'&&ea==='upper') || (p==='upper'&&ea==='guard') || (p==='guard'&&ea==='punch')) updateHP(state.e, 10); // 憲法第3項
-            state.e.isAirborne = false; 
-            state.e.yOffset = 0; // 憲法第5項
+            state.s.pCur = (p === 'punch' && state.lastPunch === 'punch') ? 'punch2' : p;
+            if((p==='punch'&&ea==='upper') || (p==='upper'&&ea==='guard') || (p==='guard'&&ea==='punch')) updateHP(state.e, 10);
+            state.e.isAirborne = false; state.e.yOffset = 0;
         }
         state.lastPunch = state.s.pCur; state.e.pCur = ea;
         await new Promise(r=>setTimeout(r, 400));
-        state.s.pCur = 'dash'; await new Promise(r=>setTimeout(r, 100)); state.s.pCur = 'player'; // 憲法第6, 7項
+        state.s.pCur = 'dash'; await new Promise(r=>setTimeout(r, 100)); state.s.pCur = 'player';
     }
-    
-    // 憲法第9項に基づき帰還を保証
+
     state.s.pCur = 'dash'; state.e.pCur = 'dash'; state.e.yOffset = 0;
     while(state.s.x > 100) {
-        state.s.x -= (state.s.x - 100) / 10;
-        state.e.x -= (state.e.x - 660) / 10;
+        state.s.x -= 20; state.e.x += 20;
+        state.s.ghosts.push({x:state.s.x, y:state.s.y, p:state.s.pCur, a:0.3});
         await new Promise(r=>setTimeout(r, 30));
     }
     state.s.x = 100; state.e.x = 660; state.s.pCur = 'player'; state.e.pCur = 'player'; state.e.isAirborne = false;
     state.s.isPlaying = false; state.myHands = [];
 }
+
+function loop() {
+    const ctx = document.getElementById('gameCanvas').getContext('2d');
+    ctx.imageSmoothingEnabled = false;
+    ctx.clearRect(0,0,960,540);
+    [state.s, state.e].forEach(o => {
+        o.ghosts.forEach((g, idx) => { ctx.globalAlpha = g.a; ctx.drawImage(state.imgs[g.p] || state.imgs.player, g.x, g.y, 200, 200); if(idx % 3 == 0) o.ghosts.splice(idx, 1); });
+        ctx.globalAlpha = 1.0;
+        let dx = o.x + (o.shake > 0 ? (Math.random()*20-10) : 0);
+        let dy = o.y + (o === state.e ? o.yOffset : 0);
+        if(o.shake > 0) o.shake -= 10;
+        ctx.save();
+        if(o === state.e) { ctx.scale(-1, 1); ctx.drawImage(state.imgs[o.pCur], -dx - 200, dy, 200, 200); }
+        else { ctx.drawImage(state.imgs[o.pCur], dx, dy, 200, 200); }
+        ctx.restore();
+    });
+    requestAnimationFrame(loop);
+}
+
+document.addEventListener('DOMContentLoaded', async () => {
+    const assets = ['player','punch','punch2','upper','guard','dash','damage','knock'];
+    await Promise.all(assets.map(n => new Promise(res => { 
+        const img = new Image(); img.onload = () => { state.imgs[n] = img; res(); }; img.src = './' + n + '.PNG'; 
+    })));
+    document.getElementById('btnP').onclick = () => state.myHands.length < 5 && state.myHands.push('punch') && (document.getElementById('mySlotArea').children[state.myHands.length-1].innerText = 'P');
+    document.getElementById('btnU').onclick = () => state.myHands.length < 5 && state.myHands.push('upper') && (document.getElementById('mySlotArea').children[state.myHands.length-1].innerText = 'U');
+    document.getElementById('btnG').onclick = () => state.myHands.length < 5 && state.myHands.push('guard') && (document.getElementById('mySlotArea').children[state.myHands.length-1].innerText = 'G');
+    document.getElementById('btnGo').onclick = resolveBattle;
+    document.getElementById('mySlotArea').innerHTML = Array(5).fill('<div class="slot">?</div>').join('');
+    loop();
+});
 </script>
 </body>
 </html>
