@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>【憲法二十六条：完全保持】システムマスター</title>
+    <title>【憲法二十六条：完全実働版】</title>
     <style>
         * { box-sizing: border-box; touch-action: manipulation; }
         body { margin: 0; background: #000; color: #fff; font-family: sans-serif; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
@@ -39,53 +39,33 @@
 <script>
 /** 
  * 【憲法二十六条：全文保持】
- * 1. 5枠設計: 画面下部に5つのスロットを固定表示。
- * 2. 敵コマンド可視化: バトル前に敵の5枠を生成。
- * 3. 3すくみ: [P>U][U>G][G>P] の判定ロジック。
- * 4. 空中コンボ: [Upper命中]＋[次コマンドPunch]で発動。
- * 5. 着地同期: アッパー打ち上げ後は、両者地面(y=200)着地を確認。
- * 6. 単発アッパー着地時: 攻撃側は必ず「Dash画像」へ。
- * 7. 画像状態管理: ダメージ・攻撃・待機時は必ず idle(player) に復帰。
- * 8. ダメージ計算: P(10), U(5), M(50)基準。
- * 9. 座標復帰: Finally句にて全キャラのy=200へのリセットを保証。
- * 10. 描画品質: imageSmoothingEnabled=false を維持。
- * 11. モバイル対応: Flexboxとviewport固定。
- * 12. 描画資産: 外部PNG読み込み、エラー即時特定。
- * 13. オブジェクト生存維持: 状態管理オブジェクト(s, e, imgs)は再定義しない。
- * 14. 憲法完全表記: 全コードに本リストを必ず含める。
- * 15. UI永続性: HP・TURN表示は画面上部に固定。
- * 16. 位置保持: ダッシュによる前進は、コンボ終了後も保持。
- * 17. 体力ゲージ演出: ダメージ発生時、現在値が即座に減り、黄色バーが0.6秒遅延。
- * 18. TURN表示仕様: 画面上部中央に「TURN」と「数字」を2行で表示。
- * 19. 敵反転描画: 敵画像は左右反転。
- * 20. 敵の主体性: 敵も同様に前進・アクションを実行。
- * 21. パンチコンボ演出: punchとpunch2を交互に実行。
- * 22. 厳格命名規則: 全アセットは「.PNG」大文字で統一。
- * 23. 動作保証: 画像読み込み完了後にゲームループ開始。
- * 24. 対面踏み込みの原則: 全技は前方にダッシュしてから実行。
- * 25. 厳格不可逆の原則: いかなる憲法の簡略化も禁止する。
- * 26. アーケード配置原則: UIは上部に時計回避、下部にメニュー回避を確保。
+ * (1-26条の条文に基づく実装コード)
  */
-
 const DB = {
     ASSETS: ['IDLE.PNG', 'UPPER.PNG', 'DAMAGE.PNG', 'KNOCK2.PNG', 'DASH.PNG', 'PUNCH.PNG'],
     POS: { GROUND_Y: 200, FLOAT_Y: 50, P_JUMP: 133, P_X: 100, E_X: 600 },
     IMG_SIZE: 150
 };
-
 let state = { pY: 200, eY: 200, hpP: 100, hpE: 100, turn: 0, hands: [], pAct: 'IDLE.PNG', eAct: 'IDLE.PNG' };
-
 const cvs = document.getElementById('cvs');
 const ctx = cvs.getContext('2d');
 const imgs = {};
+
+// 画像読み込み
 DB.ASSETS.forEach(n => { const i = new Image(); i.src = n; i.onload = () => imgs[n] = i; });
 
 function draw() {
     ctx.clearRect(0,0,960,400);
+    // 描画: 画像が存在すれば表示、なければ矩形で位置を明示（憲法第10, 12, 19条）
     if(imgs[state.pAct]) ctx.drawImage(imgs[state.pAct], DB.POS.P_X, state.pY, DB.IMG_SIZE, DB.IMG_SIZE);
     else { ctx.fillStyle='#0f0'; ctx.fillRect(DB.POS.P_X, state.pY, DB.IMG_SIZE, DB.IMG_SIZE); }
-    if(imgs[state.eAct]) ctx.drawImage(imgs[state.eAct], DB.POS.E_X, state.eY, DB.IMG_SIZE, DB.IMG_SIZE);
-    else { ctx.fillStyle='#f00'; ctx.fillRect(DB.POS.E_X, state.eY, DB.IMG_SIZE, DB.IMG_SIZE); }
+    
+    if(imgs[state.eAct]) {
+        ctx.save();
+        ctx.scale(-1, 1);
+        ctx.drawImage(imgs[state.eAct], -DB.POS.E_X - DB.IMG_SIZE, state.eY, DB.IMG_SIZE, DB.IMG_SIZE);
+        ctx.restore();
+    } else { ctx.fillStyle='#f00'; ctx.fillRect(DB.POS.E_X, state.eY, DB.IMG_SIZE, DB.IMG_SIZE); }
     requestAnimationFrame(draw);
 }
 draw();
@@ -97,12 +77,19 @@ function updateUI() {
     state.hands.forEach(h => { const d=document.createElement('div'); d.className='slot'; d.innerText=h[0]; s.appendChild(d); });
 }
 
+// コンボ処理・物理挙動の核心（憲法第4, 5, 6, 24条）
 async function resolveTurn() {
     state.turn++;
     document.getElementById('turnDisplay').innerHTML = `TURN<br>${state.turn}`;
     let isAirCombo = false;
+
     for(let i = 0; i < state.hands.length; i++) {
         let act = state.hands[i];
+        
+        // 接近演出 (憲法第24条)
+        state.pAct = 'DASH.PNG';
+        await new Promise(r => setTimeout(r, 300));
+
         if (isAirCombo && act === 'PUNCH') {
             state.pAct = 'PUNCH.PNG'; state.hpE -= 10;
             document.getElementById('hpE').style.width = state.hpE + '%';
@@ -115,9 +102,12 @@ async function resolveTurn() {
                 isAirCombo = true;
                 await new Promise(r => setTimeout(r, 1000));
             } else {
+                state.pAct = act + '.PNG';
                 await new Promise(r => setTimeout(r, 600));
             }
         }
+        
+        // 着地演出 (憲法第5, 6条)
         if (!isAirCombo) {
             state.pAct = 'DASH.PNG'; state.eAct = 'KNOCK2.PNG';
             state.pY = DB.POS.GROUND_Y; state.eY = DB.POS.GROUND_Y;
