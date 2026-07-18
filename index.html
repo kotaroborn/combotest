@@ -3,11 +3,27 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>【憲法二十六条：全文保持】マスター管理コード</title>
+    <title>コマンドバトル</title>
     <style>
         * { box-sizing: border-box; touch-action: manipulation; }
         html, body { margin: 0; height: 100%; }
-        body { background: #000; color: #fff; font-family: sans-serif; display: flex; flex-direction: column; overflow: hidden; }
+        body {
+            background: #000; color: #fff; font-family: sans-serif;
+            width: 100vw; height: 100vh;
+            display: flex; align-items: center; justify-content: center;
+            overflow: hidden;
+        }
+        #appRoot {
+            width: min(100vw, 100vh);
+            height: min(100vw, 100vh);
+            max-width: 600px;
+            max-height: 600px;
+            display: flex; flex-direction: column;
+            background: #000;
+            overflow: hidden;
+            position: relative;
+            box-shadow: 0 0 24px rgba(0,0,0,0.8);
+        }
         #gameHeader {
             height: 60px;
             padding-top: env(safe-area-inset-top, 0px); /* 第26条: 時計回避余白 */
@@ -19,8 +35,12 @@
         .hp-yellow { position:absolute; top:0; left:0; height:100%; background:#dd0; transition: width 0.6s linear; }
         .hp-red { position:absolute; top:0; left:0; height:100%; background:#f00; transition: width 0.05s linear; }
         #turnDisplay { text-align:center; font-weight:900; line-height:1.1; }
-        #gameArea { flex: 1; position: relative; background: #222; min-height: 0; }
-        canvas { width: 100%; height: 100%; object-fit: contain; image-rendering: pixelated; display:block; }
+        #gameArea {
+            flex: 1; position: relative; min-height: 0;
+            background: #222 url('bg.PNG') center center / cover no-repeat; /* 背景画像 */
+            image-rendering: pixelated;
+        }
+        canvas { width: 100%; height: 100%; object-fit: contain; image-rendering: pixelated; display:block; background: transparent; }
         #enemySlots { position:absolute; top:6px; left:50%; transform:translateX(-50%); display:flex; gap:4px; }
         #enemySlots .slot { width:28px; height:28px; font-size:12px; }
         #ui {
@@ -54,7 +74,7 @@
  * 8. ダメージ計算: PUNCH勝利(10), UPPER初撃(5), メテオ(50), 相討ち(3), しびれ被弾時の弱点ダメージ(15)。三すくみに負けた側のみ振動(shake)する。同じ手同士の相討ちの場合は双方が微ダメージを受けて振動し、反動で一歩下がる。味方のPUNCHが敵のGUARDに阻まれた場合、敵は極小ダメージで振動し、味方はダメージなしだがしびれてpunch.PNGのまま振動し、次のコマンドの成功率が1/2になる。しびれで行動失敗した場合、味方はdamage.PNGで振動し、3すくみを無視した弱点ダメージを受ける。
  * 9. 座標復帰: ターン(5枠)全体の処理が完了した時点で、finally句にて必ずホームポジションへ dash.PNG の残像付きで帰還することを保証する。
  * 10. 描画品質: imageSmoothingEnabled=false を維持しドット絵品質を担保。
- * 11. モバイル対応: Flexboxとviewport固定によるレスポンシブ最適化。
+ * 11. モバイル対応: Flexboxとviewport固定によるレスポンシブ最適化。UI全体はappRootコンテナで正方形(1:1)に収め、画面中央に配置する。
  * 12. 描画資産の不変性: 外部ファイルを厳格に読み込み、存在しない場合は読み込みエラーを即座に特定する。
  * 13. オブジェクトの生存維持: 状態管理オブジェクト(state, imgs)は決して再定義・初期化せず、常に参照し続ける。
  * 14. 憲法完全表記: コード提示の際、本憲法リストを一切省略せず必ず全条文を記述する。
@@ -72,6 +92,7 @@
  * 26. アーケード配置原則: UIは上部に時計回避余白を、下部にメニュー回避余白を確保し、左に攻撃、右に機能ボタンを配置する。
  */
 </script>
+<div id="appRoot">
 <div id="gameHeader">
     <div class="hp-wrap">
         <div class="hp-bar-bg"></div>
@@ -102,6 +123,7 @@
             <button onclick="resetHands()" id="clrBtn">CLR</button>
         </div>
     </div>
+</div>
 </div>
 <script>
 // 第22条: ファイル名は小文字、拡張子は常に大文字 .PNG
