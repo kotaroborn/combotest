@@ -37,17 +37,9 @@
         #turnDisplay { text-align:center; font-weight:900; line-height:1.1; }
         #gameArea {
             flex: 1; position: relative; min-height: 0;
-            background: #000; /* 開始時は真っ暗 */
+            background: #000; /* canvas側で背景を描くまでは真っ暗 */
             overflow: hidden;
         }
-        #bgReveal {
-            position: absolute; inset: 0; z-index: 1;
-            background: lightblue url('bg.PNG') center center / cover no-repeat; /* 読み込み失敗時は水色にフォールバック */
-            image-rendering: pixelated;
-            clip-path: circle(0% at 50% 50%);
-            transition: clip-path 1.2s ease-out;
-        }
-        #bgReveal.revealed { clip-path: circle(150% at 50% 50%); }
         canvas { width: 100%; height: 100%; object-fit: contain; image-rendering: pixelated; display:block; background: transparent; position: relative; z-index: 2; }
         #enemySlots { position:absolute; top:6px; left:50%; transform:translateX(-50%); display:flex; gap:4px; z-index: 3; }
         #enemySlots .slot { width:28px; height:28px; font-size:12px; }
@@ -138,17 +130,17 @@
  * 2. 敵コマンド可視化: バトル前に敵の5枠を生成し、上段スロットに可視化する。
  * 3. 3すくみ: [PUNCH>UPPER][UPPER>GUARD][GUARD>PUNCH] の判定ロジック。勝敗は毎回この判定で決定する。同じ手同士がぶつかった場合は相討ちとする。
  * 4. 空中コンボ: 勝者の技がUPPERだった場合に発動。攻撃側の次の入力がPUNCHなら継続し、最大3発まで空中パンチを受け付ける。3発目は自動的にメテオへ変換される。
- * 5. 着地同期: 通常コンボ終了時（メテオに至らない場合）は、攻守双方が地面(y=200)へ着地してから次の演出へ遷移する。
+ * 5. 着地同期: 通常コンボ終了時（メテオに至らない場合）は、攻守双方が地面(GROUND_Y)へ着地してから次の演出へ遷移する。
  * 6. 通常コンボ終了時の演出: 攻撃側は必ずdash.PNGへ、被弾側はdamage.PNGのまま着地させる。
  * 7. 画像状態管理: 待機中は必ず player.PNG / player2.PNG の呼吸(idle)へ復帰する。idle.PNGという単独ファイルは存在しない。
  * 8. ダメージ計算: PUNCH勝利(10), UPPER初撃(5), メテオ(50), 相討ち(3), しびれ被弾時の弱点ダメージ(15)。三すくみに負けた側のみ振動(shake)する。同じ手同士の相討ちの場合は双方が微ダメージを受けて振動し、反動で一歩下がる。味方のPUNCHが敵のGUARDに阻まれた場合、敵は極小ダメージで振動し、味方はダメージなしだがしびれてpunch.PNGのまま振動し、次のコマンドの成功率が1/2になる。しびれで行動失敗した場合、味方はdamage.PNGで振動し、3すくみを無視した弱点ダメージを受ける。
  * 9. 座標復帰: ターン(5枠)全体の処理が完了した時点で、finally句にて必ずホームポジションへ dash.PNG の残像付きで帰還することを保証する。ただし体力が0になる最後の一撃を受けた場合は、この通常帰還処理の代わりに専用の決着演出（damage.PNGで点滅→スローに軽くバウンドしながら初期位置へ戻る→down.PNGで倒れる→K.O./YOU WIN表示）を実行する。
- * 10. 描画品質: imageSmoothingEnabled=false を維持しドット絵品質を担保。
+ * 10. 描画品質: imageSmoothingEnabled=false を維持しドット絵品質を担保。背景(bg.PNG)もキャラと同じcanvas上に同一の拡大率(SCALE)で描画し、ピクセルのズレを起こさない。
  * 11. モバイル対応: Flexboxとviewport固定によるレスポンシブ最適化。UI全体はappRootコンテナで正方形(1:1)に収め、画面中央に配置する。
- * 12. 描画資産の不変性: 外部ファイルを厳格に読み込み、存在しない場合は読み込みエラーを即座に特定する。ただし敵専用グラフィック(enemy_〇〇.PNG)は任意の差し替え用アセットであり、存在しなくてもエラー扱いにせずプレイヤー画像へフォールバックする。
+ * 12. 描画資産の不変性: 外部ファイルを厳格に読み込み、存在しない場合は読み込みエラーを即座に特定する。ただし敵専用グラフィック(enemy_〇〇.PNG)と背景(bg.PNG)は任意の差し替え用アセットであり、存在しなくてもエラー扱いにせず、敵はプレイヤー画像へ、背景は水色の塗りつぶしへフォールバックする。
  * 13. オブジェクトの生存維持: 状態管理オブジェクト(state, imgs)は決して再定義・初期化せず、常に参照し続ける。
  * 14. 憲法完全表記: コード提示の際、本憲法リストを一切省略せず必ず全条文を記述する。
- * 15. UI永続性: HP・TURN表示は画面上部に固定し、スロットは下部に永続表示する。画面はプロローグ→タイトル→バトル→決着(K.O./YOU WIN)→(タイトルへ戻るボタンで)プロローグ、の順で遷移する。バトル開始時は暗転→味方/敵のフェードイン→背景(bg.PNG)が中心から拡大表示→「BATTLE START」が左からディゾルブで入り中央で静止した後、拡大しながら消える演出を経てから操作可能になる。背景画像が読み込めない場合は水色にフォールバックする。
+ * 15. UI永続性: HP・TURN表示は画面上部に固定し、スロットは下部に永続表示する。画面はプロローグ→タイトル→バトル→決着(K.O./YOU WIN)→(タイトルへ戻るボタンで)プロローグ、の順で遷移する。バトル開始時は暗転→味方/敵のフェードイン→背景(bg.PNG)がcanvas上で中心から円形に拡大表示→「BATTLE START」が左からディゾルブで入り中央で静止した後、拡大しながら消える演出を経てから操作可能になる。
  * 16. 位置保持: 攻防のたびに初期位置へ戻るのではなく、中央で衝突→軽く距離を取る、を繰り返す。ホームポジションへ戻るのはターン完了時のみ。
  * 17. 体力ゲージ演出: ダメージ発生時、現在値が即座に減り、黄色いバーが0.6秒遅れて減少する。
  * 18. TURN表示仕様: 画面上部中央に「TURN」と「数字」を2行で太字(900)表示する。
@@ -200,7 +192,6 @@
     </div>
 </div>
 <div id="gameArea">
-    <div id="bgReveal"></div>
     <canvas id="cvs" width="960" height="560"></canvas>
     <div id="enemySlots"></div>
     <div id="battleStartText">BATTLE START</div>
@@ -230,19 +221,23 @@
 // 第22条: ファイル名は小文字、拡張子は常に大文字 .PNG
 const DB = {
     ASSETS: ['player.PNG', 'player2.PNG', 'upper.PNG', 'damage.PNG', 'knock.PNG', 'knock2.PNG', 'dash.PNG', 'punch.PNG', 'punch2.PNG', 'guard.PNG', 'down.PNG'],
+    SRC_PX: 32,   // キャラのソース解像度(32×32px)
+    SCALE: 10,    // ソース1pxをcanvas上で何ユニットに拡大するか(キリのいい整数倍で崩れを防ぐ)
     POS: {
-        GROUND_Y: 240,
-        FLOAT_Y: 40,        // 被弾側がふわっと浮く高さ
         CENTER_X: 480,      // 戦う位置は常に画面中心
         HOME_HALF: 260,     // 中心からホームポジションまでの距離（両者同一）
         ATTACK_HALF: 100,   // 中心から攻防の接触位置までの距離（両者同一）
-        RETREAT_HALF: 200   // 攻防のあと軽く距離を取る位置（ホームまでは戻らない）
+        RETREAT_HALF: 200,  // 攻防のあと軽く距離を取る位置（ホームまでは戻らない）
+        GROUND_MARGIN_PX: 3 // 地面バンドの高さ(ソースpx換算。キャラ下部3px想定)
     },
-    IMG_SIZE: 300, // 縦横比2倍（元150→300）。imageSmoothingEnabled=falseのままなのでボケない
     DMG: { P: 10, U: 5, M: 50, CLASH: 3, TINY: 1, WEAK: 15 }, // P:パンチ勝利 / U:アッパー初撃 / M:メテオ / CLASH:相討ち微ダメージ / TINY:ガードされたパンチの反撃 / WEAK:しびれ被弾の弱点ダメージ
     MAX_AIR_PUNCH: 3,
     BREATH_MS: 500 // player.PNG / player2.PNG の呼吸切替間隔
 };
+DB.IMG_SIZE = DB.SRC_PX * DB.SCALE; // 32×10=320。ソースpxとcanvasユニットの対応が常に整数になる
+// 地面バンド(3px)ぶんの余白を残して、キャラの足元が浮かないギリギリの高さにGROUND_Yを置く
+DB.POS.GROUND_Y = 560 - DB.IMG_SIZE - (DB.POS.GROUND_MARGIN_PX * DB.SCALE); // 560 - 320 - 30 = 210
+DB.POS.FLOAT_Y = DB.POS.GROUND_Y - 200; // 被弾側がふわっと浮く高さ
 DB.POS.HOP_Y = DB.POS.GROUND_Y - Math.round((DB.POS.GROUND_Y - DB.POS.FLOAT_Y) / 3); // 打つ方の初撃の小ホップ(1/3)
 DB.POS.AIR_FOLLOW_Y = DB.POS.FLOAT_Y + 20; // コンボ継続中、打つ方が追従して浮く高さ
 DB.POS.P_HOME_X = DB.POS.CENTER_X - DB.POS.HOME_HALF - DB.IMG_SIZE / 2;
@@ -251,6 +246,9 @@ DB.POS.P_ATTACK_X = DB.POS.CENTER_X - DB.POS.ATTACK_HALF - DB.IMG_SIZE / 2;
 DB.POS.E_ATTACK_X = DB.POS.CENTER_X + DB.POS.ATTACK_HALF - DB.IMG_SIZE / 2;
 DB.POS.P_RETREAT_X = DB.POS.CENTER_X - DB.POS.RETREAT_HALF - DB.IMG_SIZE / 2;
 DB.POS.E_RETREAT_X = DB.POS.CENTER_X + DB.POS.RETREAT_HALF - DB.IMG_SIZE / 2;
+// 背景アート推奨解像度: canvas(960×560)をSCALEで割った値 = 96×56px。1px=キャラの1pxと完全に一致する。
+DB.BG_SRC_W = 960 / DB.SCALE; // 96
+DB.BG_SRC_H = 560 / DB.SCALE; // 56
 
 // 第13条: この state オブジェクトは以後、再定義・再初期化しない。常にプロパティを書き換えて参照し続ける。
 let state = {
@@ -265,6 +263,7 @@ let state = {
     pLastAtk: null, eLastAtk: null,
     pNumbed: false, // しびれフラグ: 次のコマンドの成功率が1/2になる
     introCharAlpha: 1, // バトル開始演出: 味方/敵のフェードイン係数(0〜1)
+    bgRevealRadius: 0, // バトル開始演出: 背景を中心から広げる円形クリップの半径(0で真っ暗)
     resolving: false
 };
 let trails = []; // 第24条: dash.PNGの残像
@@ -276,11 +275,12 @@ ctx.imageSmoothingEnabled = false; // 第10条
 const imgs = {}; // 第13条: 再初期化しない
 let loadedCount = 0;
 let loadFailed = [];
+let bgSettled = false; // bg.PNGは任意アセット。成功/失敗に関わらず「決着」したらtrue
 
 document.querySelectorAll('.controls button').forEach(b => b.disabled = true);
 
 function checkAllSettled() {
-    if (loadedCount + loadFailed.length === DB.ASSETS.length) {
+    if (loadedCount + loadFailed.length === DB.ASSETS.length && bgSettled) {
         if (loadFailed.length > 0) {
             console.error('第12条違反: 以下のアセットが読み込めませんでした →', loadFailed.join(', '));
         }
@@ -293,6 +293,13 @@ DB.ASSETS.forEach(n => {
     i.onerror = () => { loadFailed.push(n); checkAllSettled(); };
     i.src = n;
 });
+
+// 背景(bg.PNG)はcanvasに直接描画するため、他アセットと同じ拡大パイプラインに乗る。
+// 任意アセット扱いとし、読み込めなくてもエラーにせずdraw()側でフォールバック色を使う。
+const bgImgLoader = new Image();
+bgImgLoader.onload = () => { imgs['bg.PNG'] = bgImgLoader; bgSettled = true; checkAllSettled(); };
+bgImgLoader.onerror = () => { bgSettled = true; checkAllSettled(); };
+bgImgLoader.src = 'bg.PNG';
 
 // ------- 敵専用グラフィックの差し替え余地(任意) -------
 // 第19条: 将来 enemy_〇〇.PNG を用意すれば自動的にそちらを優先して使用する。
@@ -350,6 +357,22 @@ function toIdle() { state.pAct = 'IDLE'; state.eAct = 'IDLE'; }
 function draw(tRaw) {
     const t = tRaw || performance.now();
     ctx.clearRect(0, 0, cvs.width, cvs.height);
+
+    // 背景(bg.PNG): キャラと同じ nearest-neighbor 拡大で描画。中心から広がる円形クリップで演出する。
+    if (state.bgRevealRadius > 0) {
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(cvs.width / 2, cvs.height / 2, state.bgRevealRadius, 0, Math.PI * 2);
+        ctx.clip();
+        const bgImg = imgs['bg.PNG'];
+        if (bgImg) {
+            ctx.drawImage(bgImg, 0, 0, cvs.width, cvs.height);
+        } else {
+            ctx.fillStyle = '#8fe0f0'; // bg.PNGが読み込めない場合の水色フォールバック
+            ctx.fillRect(0, 0, cvs.width, cvs.height);
+        }
+        ctx.restore();
+    }
 
     // 残像(第24条)を先に描画
     const TRAIL_LIFE = 220;
@@ -462,6 +485,7 @@ function resetBattleState() {
     state.pLastAtk = null; state.eLastAtk = null;
     state.pNumbed = false;
     state.introCharAlpha = 0; // 開始演出でふわっと表示するため、まずは透明から
+    state.bgRevealRadius = 0; // 背景も真っ暗な状態からスタート
     state.resolving = false;
     trails = [];
 
@@ -471,7 +495,6 @@ function resetBattleState() {
     document.getElementById('hpE_y').style.width = '100%';
     document.getElementById('turnDisplay').innerHTML = 'TURN<br>0';
     document.querySelectorAll('.controls button').forEach(b => b.disabled = true); // 演出完了までは操作不可
-    document.getElementById('bgReveal').classList.remove('revealed');
     const bst = document.getElementById('battleStartText');
     bst.classList.remove('enter', 'exit');
     hideResult();
@@ -495,9 +518,14 @@ async function playBattleIntro() {
     state.introCharAlpha = 1;
     await wait(200);
 
-    // 背景が中心から広がるように表示される
-    document.getElementById('bgReveal').classList.add('revealed');
-    await wait(1300);
+    // 背景が中心から広がるように表示される(canvas上を円形クリップで拡大)
+    const maxRadius = Math.hypot(cvs.width / 2, cvs.height / 2) + 20; // 対角線の半分+余裕分で確実に全面を覆う
+    const revealSteps = 16;
+    for (let s = 1; s <= revealSteps; s++) {
+        state.bgRevealRadius = maxRadius * (s / revealSteps);
+        await wait(1300 / revealSteps);
+    }
+    state.bgRevealRadius = maxRadius;
 
     // BATTLE START: 左からディゾルブして中央で停止
     const bst = document.getElementById('battleStartText');
