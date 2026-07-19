@@ -75,7 +75,7 @@
             display: flex; flex-direction: column; gap: 10px;
         }
         /* ------- シーン管理 (プロローグ / タイトル / バトル) ------- */
-        .scene { display: none; width: 100%; height: 100%; }
+        .scene { display: none; width: 100%; height: 100%; position: relative; }
         .scene.active { display: flex; flex-direction: column; }
         .scene-inner {
             flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -85,15 +85,39 @@
         .title-logo-wrap { max-width: 80%; }
         #titleLogoImg { max-width: 100%; display: block; image-rendering: pixelated; }
         .title-logo-fallback { display: none; font-size: 34px; font-weight: 900; letter-spacing: 3px; }
+
+        /* ボックスなし・テキストのみのボタン(SKIP/START) */
+        .text-btn {
+            background: none; border: none; color: #fff; font-weight: bold; cursor: pointer;
+            padding: 6px; letter-spacing: 1px;
+        }
+        .text-btn:disabled { opacity: 0.4; }
+        #skipBtn {
+            position: absolute; right: 14px; bottom: 14px;
+            font-size: 13px; color: #eee;
+        }
+        #startBtn {
+            position: absolute; left: 50%; bottom: 22%; transform: translateX(-50%);
+            font-size: 20px; letter-spacing: 4px;
+        }
+
         .scene-btn { background: #800; color: #fff; border: none; border-radius: 8px; padding: 14px 40px; font-weight: bold; font-size: 16px; cursor: pointer; }
         .scene-btn:disabled { opacity: 0.4; }
         #resultOverlay {
-            position: absolute; inset: 0; background: rgba(0,0,0,0.78);
-            display: none; flex-direction: column; align-items: center; justify-content: center; gap: 22px;
-            z-index: 10;
+            position: absolute; inset: 0; background: rgba(0,0,0,0.35); /* キャラが見えるよう薄めに */
+            display: none; z-index: 10;
         }
-        #resultOverlay.show { display: flex; }
-        #resultText { font-size: 46px; font-weight: 900; letter-spacing: 4px; color: #fff; text-shadow: 0 0 14px rgba(255,255,255,0.6); }
+        #resultOverlay.show { display: block; }
+        #resultText {
+            position: absolute; top: 30%; left: 50%; transform: translate(-50%, -50%);
+            font-size: 46px; font-weight: 900; letter-spacing: 4px; color: #fff;
+            text-shadow: 0 0 14px rgba(255,255,255,0.7); white-space: nowrap;
+        }
+        #backTitleBtn {
+            position: absolute; left: 50%; bottom: 6%; transform: translateX(-50%);
+            background: transparent; border: 1px solid rgba(255,255,255,0.55); color: #eee;
+            padding: 8px 22px; font-size: 12px; letter-spacing: 1px; border-radius: 6px; cursor: pointer;
+        }
         #slots { display: flex; justify-content: center; gap: 5px; height: 50px; }
         .slot { width: 50px; height: 50px; border: 2px solid #fff; display: flex; align-items: center; justify-content: center; font-weight: bold; background:#222; }
         .slot.empty { border-style: dashed; border-color: #888; opacity: 0.5; }
@@ -144,20 +168,20 @@
 <div id="scenePrologue" class="scene active">
     <div class="scene-inner">
         <p class="prologue-text">（プロローグ演出プレースホルダー：画像は未実装）</p>
-        <button id="skipBtn" class="scene-btn" onclick="goTitle()">SKIP</button>
     </div>
+    <button id="skipBtn" class="text-btn" onclick="goTitle()">▶︎SKIP</button>
 </div>
 
 <!-- タイトルシーン: ロゴは仮表示（title_logo.PNGが見つかれば自動で画像に切り替わる） -->
 <div id="sceneTitle" class="scene">
-    <div class="scene-inner">
+    <div class="scene-inner" style="justify-content:flex-start; padding-top:18%;">
         <div class="title-logo-wrap">
             <img id="titleLogoImg" src="title_logo.PNG" alt="コマンドバトル"
                  onerror="this.style.display='none'; document.getElementById('titleLogoFallback').style.display='block';">
             <div id="titleLogoFallback" class="title-logo-fallback">コマンドバトル</div>
         </div>
-        <button id="startBtn" class="scene-btn" onclick="goBattleStart()" disabled>START</button>
     </div>
+    <button id="startBtn" class="text-btn" onclick="goBattleStart()" disabled>START</button>
 </div>
 
 <!-- バトルシーン -->
@@ -182,7 +206,7 @@
     <div id="battleStartText">BATTLE START</div>
     <div id="resultOverlay">
         <div id="resultText"></div>
-        <button class="scene-btn" onclick="goPrologue()">タイトルへ戻る</button>
+        <button id="backTitleBtn" onclick="goPrologue()">タイトルへ戻る</button>
     </div>
 </div>
 <div id="ui">
