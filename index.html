@@ -37,12 +37,38 @@
         #turnDisplay { text-align:center; font-weight:900; line-height:1.1; }
         #gameArea {
             flex: 1; position: relative; min-height: 0;
-            background: #222 url('bg.PNG') center center / cover no-repeat; /* 背景画像 */
-            image-rendering: pixelated;
+            background: #000; /* 開始時は真っ暗 */
+            overflow: hidden;
         }
-        canvas { width: 100%; height: 100%; object-fit: contain; image-rendering: pixelated; display:block; background: transparent; }
-        #enemySlots { position:absolute; top:6px; left:50%; transform:translateX(-50%); display:flex; gap:4px; }
+        #bgReveal {
+            position: absolute; inset: 0; z-index: 1;
+            background: lightblue url('bg.PNG') center center / cover no-repeat; /* 読み込み失敗時は水色にフォールバック */
+            image-rendering: pixelated;
+            clip-path: circle(0% at 50% 50%);
+            transition: clip-path 1.2s ease-out;
+        }
+        #bgReveal.revealed { clip-path: circle(150% at 50% 50%); }
+        canvas { width: 100%; height: 100%; object-fit: contain; image-rendering: pixelated; display:block; background: transparent; position: relative; z-index: 2; }
+        #enemySlots { position:absolute; top:6px; left:50%; transform:translateX(-50%); display:flex; gap:4px; z-index: 3; }
         #enemySlots .slot { width:28px; height:28px; font-size:12px; }
+        #battleStartText {
+            position: absolute; top: 50%; left: -80%;
+            transform: translate(-50%, -50%) scale(1);
+            opacity: 0;
+            font-size: 40px; font-weight: 900; letter-spacing: 2px; color: #fff;
+            text-shadow: 0 0 14px rgba(255,255,255,0.8);
+            white-space: nowrap; z-index: 20; pointer-events: none;
+        }
+        #battleStartText.enter {
+            transition: left 0.65s ease-out, opacity 0.65s ease-out;
+            left: 50%;
+            opacity: 1;
+        }
+        #battleStartText.exit {
+            transition: transform 0.55s ease-in, opacity 0.55s ease-in;
+            transform: translate(-50%, -50%) scale(2.4);
+            opacity: 0;
+        }
         #ui {
             background: #111; padding: 10px;
             padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px)); /* 第26条: メニュー回避余白 */
@@ -95,14 +121,14 @@
  * 9. 座標復帰: ターン(5枠)全体の処理が完了した時点で、finally句にて必ずホームポジションへ dash.PNG の残像付きで帰還することを保証する。ただし体力が0になる最後の一撃を受けた場合は、この通常帰還処理の代わりに専用の決着演出（damage.PNGで点滅→スローに軽くバウンドしながら初期位置へ戻る→down.PNGで倒れる→K.O./YOU WIN表示）を実行する。
  * 10. 描画品質: imageSmoothingEnabled=false を維持しドット絵品質を担保。
  * 11. モバイル対応: Flexboxとviewport固定によるレスポンシブ最適化。UI全体はappRootコンテナで正方形(1:1)に収め、画面中央に配置する。
- * 12. 描画資産の不変性: 外部ファイルを厳格に読み込み、存在しない場合は読み込みエラーを即座に特定する。
+ * 12. 描画資産の不変性: 外部ファイルを厳格に読み込み、存在しない場合は読み込みエラーを即座に特定する。ただし敵専用グラフィック(enemy_〇〇.PNG)は任意の差し替え用アセットであり、存在しなくてもエラー扱いにせずプレイヤー画像へフォールバックする。
  * 13. オブジェクトの生存維持: 状態管理オブジェクト(state, imgs)は決して再定義・初期化せず、常に参照し続ける。
  * 14. 憲法完全表記: コード提示の際、本憲法リストを一切省略せず必ず全条文を記述する。
- * 15. UI永続性: HP・TURN表示は画面上部に固定し、スロットは下部に永続表示する。画面はプロローグ→タイトル→バトル→決着(K.O./YOU WIN)→(タイトルへ戻るボタンで)プロローグ、の順で遷移する。
+ * 15. UI永続性: HP・TURN表示は画面上部に固定し、スロットは下部に永続表示する。画面はプロローグ→タイトル→バトル→決着(K.O./YOU WIN)→(タイトルへ戻るボタンで)プロローグ、の順で遷移する。バトル開始時は暗転→味方/敵のフェードイン→背景(bg.PNG)が中心から拡大表示→「BATTLE START」が左からディゾルブで入り中央で静止した後、拡大しながら消える演出を経てから操作可能になる。背景画像が読み込めない場合は水色にフォールバックする。
  * 16. 位置保持: 攻防のたびに初期位置へ戻るのではなく、中央で衝突→軽く距離を取る、を繰り返す。ホームポジションへ戻るのはターン完了時のみ。
  * 17. 体力ゲージ演出: ダメージ発生時、現在値が即座に減り、黄色いバーが0.6秒遅れて減少する。
  * 18. TURN表示仕様: 画面上部中央に「TURN」と「数字」を2行で太字(900)表示する。
- * 19. 敵反転描画: 敵画像は常に左右反転して表示する。
+ * 19. 敵反転描画: 敵画像は常に左右反転して表示する。将来的に敵専用グラフィック(enemy_〇〇.PNG)を用意すれば自動的にそちらを優先して使用し、未用意の場合はプレイヤーと同じ画像にフォールバックする。
  * 20. 敵の主体性: バトル開始時、敵も同様に前進・アクションを実行する。
  * 21. パンチコンボ演出: 空中コンボ中の連続パンチは punch.PNG と punch2.PNG を交互に使用する。
  * 22. 厳格命名規則: 全アセットの拡張子は常に「.PNG」（大文字）で統一する。ファイル名部は小文字。
@@ -150,8 +176,10 @@
     </div>
 </div>
 <div id="gameArea">
+    <div id="bgReveal"></div>
     <canvas id="cvs" width="960" height="560"></canvas>
     <div id="enemySlots"></div>
+    <div id="battleStartText">BATTLE START</div>
     <div id="resultOverlay">
         <div id="resultText"></div>
         <button class="scene-btn" onclick="goPrologue()">タイトルへ戻る</button>
@@ -212,6 +240,7 @@ let state = {
     pBlinkUntil: 0, eBlinkUntil: 0,
     pLastAtk: null, eLastAtk: null,
     pNumbed: false, // しびれフラグ: 次のコマンドの成功率が1/2になる
+    introCharAlpha: 1, // バトル開始演出: 味方/敵のフェードイン係数(0〜1)
     resolving: false
 };
 let trails = []; // 第24条: dash.PNGの残像
@@ -240,6 +269,25 @@ DB.ASSETS.forEach(n => {
     i.onerror = () => { loadFailed.push(n); checkAllSettled(); };
     i.src = n;
 });
+
+// ------- 敵専用グラフィックの差し替え余地(任意) -------
+// 第19条: 将来 enemy_〇〇.PNG を用意すれば自動的にそちらを優先して使用する。
+// 未用意でも起動やUIをブロックせず、404になっても黙ってプレイヤー画像にフォールバックする。
+const ENEMY_PREFIX = 'enemy_';
+const ENEMY_OPTIONAL_KEYS = ['player', 'player2', 'upper', 'damage', 'knock', 'knock2', 'dash', 'punch', 'punch2', 'guard', 'down'];
+ENEMY_OPTIONAL_KEYS.forEach(key => {
+    const fname = ENEMY_PREFIX + key + '.PNG';
+    const i = new Image();
+    i.onload = () => { imgs[fname] = i; }; // 用意されていれば以後自動的にこちらが使われる
+    i.onerror = () => { /* 任意アセットのため未用意でもエラー扱いにしない */ };
+    i.src = fname;
+});
+// 敵側の描画名を解決する。enemy_〇〇.PNGが読み込み済みならそちらを、なければプレイヤー画像を返す。
+function enemySpriteName(baseName) {
+    const key = baseName.replace('.PNG', '');
+    const enemyName = ENEMY_PREFIX + key + '.PNG';
+    return imgs[enemyName] ? enemyName : baseName;
+}
 
 function boot() {
     // 第23条: 全画像の読み込み確定を待ってからループ開始・UI有効化
@@ -285,7 +333,7 @@ function draw(tRaw) {
     trails.forEach(tr => {
         const age = t - tr.born;
         const alpha = 0.35 * (1 - age / TRAIL_LIFE);
-        const img = imgs['dash.PNG'];
+        const img = imgs[tr.side === 'E' ? enemySpriteName('dash.PNG') : 'dash.PNG'];
         if (!img || alpha <= 0) return;
         ctx.save();
         ctx.globalAlpha = alpha;
@@ -300,7 +348,8 @@ function draw(tRaw) {
 
     // プレイヤー(振動・点滅対応)
     const pJit = t < state.pShakeUntil ? (Math.random() * 6 - 3) : 0;
-    const pAlpha = t < state.pBlinkUntil ? ((Math.floor((state.pBlinkUntil - t) / 80) % 2 === 0) ? 1 : 0.25) : 1;
+    const pBlinkA = t < state.pBlinkUntil ? ((Math.floor((state.pBlinkUntil - t) / 80) % 2 === 0) ? 1 : 0.25) : 1;
+    const pAlpha = pBlinkA * state.introCharAlpha;
     const pImg = imgs[spriteFor(state.pAct, t)];
     ctx.save();
     ctx.globalAlpha = pAlpha;
@@ -310,8 +359,9 @@ function draw(tRaw) {
 
     // 敵(振動・点滅・反転対応)
     const eJit = t < state.eShakeUntil ? (Math.random() * 6 - 3) : 0;
-    const eAlpha = t < state.eBlinkUntil ? ((Math.floor((state.eBlinkUntil - t) / 80) % 2 === 0) ? 1 : 0.25) : 1;
-    const eImg = imgs[spriteFor(state.eAct, t)];
+    const eBlinkA = t < state.eBlinkUntil ? ((Math.floor((state.eBlinkUntil - t) / 80) % 2 === 0) ? 1 : 0.25) : 1;
+    const eAlpha = eBlinkA * state.introCharAlpha;
+    const eImg = imgs[enemySpriteName(spriteFor(state.eAct, t))];
     ctx.save();
     ctx.globalAlpha = eAlpha;
     if (eImg) {
@@ -372,6 +422,7 @@ function goTitle() { showScene('title'); }
 function goBattleStart() {
     resetBattleState();
     showScene('battle');
+    playBattleIntro();
 }
 
 function resetBattleState() {
@@ -386,6 +437,7 @@ function resetBattleState() {
     state.pBlinkUntil = 0; state.eBlinkUntil = 0;
     state.pLastAtk = null; state.eLastAtk = null;
     state.pNumbed = false;
+    state.introCharAlpha = 0; // 開始演出でふわっと表示するため、まずは透明から
     state.resolving = false;
     trails = [];
 
@@ -394,7 +446,10 @@ function resetBattleState() {
     document.getElementById('hpE').style.width = '100%';
     document.getElementById('hpE_y').style.width = '100%';
     document.getElementById('turnDisplay').innerHTML = 'TURN<br>0';
-    document.querySelectorAll('.controls button').forEach(b => b.disabled = false);
+    document.querySelectorAll('.controls button').forEach(b => b.disabled = true); // 演出完了までは操作不可
+    document.getElementById('bgReveal').classList.remove('revealed');
+    const bst = document.getElementById('battleStartText');
+    bst.classList.remove('enter', 'exit');
     hideResult();
     updateUI();
 
@@ -402,6 +457,38 @@ function resetBattleState() {
     state.enemyHands = randomEnemyHands();
     drawEnemySlots();
 }
+
+// バトル開始演出: 暗転 → 味方/敵がふわっと表示 → 背景が中心から拡大表示 → BATTLE START(左からディゾルブ→中央停止→拡大しつつ消える)
+async function playBattleIntro() {
+    await wait(300); // 真っ暗な状態を一瞬見せる
+
+    // 味方と敵をふわっとフェードイン
+    const fadeSteps = 10;
+    for (let s = 1; s <= fadeSteps; s++) {
+        state.introCharAlpha = s / fadeSteps;
+        await wait(50);
+    }
+    state.introCharAlpha = 1;
+    await wait(200);
+
+    // 背景が中心から広がるように表示される
+    document.getElementById('bgReveal').classList.add('revealed');
+    await wait(1300);
+
+    // BATTLE START: 左からディゾルブして中央で停止
+    const bst = document.getElementById('battleStartText');
+    bst.classList.add('enter');
+    await wait(650);
+    await wait(450); // 中央で少し静止
+
+    // 拡大しながら消える
+    bst.classList.add('exit');
+    await wait(550);
+    bst.classList.remove('enter', 'exit');
+
+    document.querySelectorAll('.controls button').forEach(b => b.disabled = false);
+}
+
 
 function showResult(type) {
     document.getElementById('resultText').innerText = type === 'KO' ? 'K.O.' : 'YOU WIN';
