@@ -452,6 +452,7 @@ let loadFailed = [];
 let bgSettled = false; // bg.PNGは任意アセット。成功/失敗に関わらず「決着」したらtrue
 
 document.querySelectorAll('.controls button').forEach(b => b.disabled = true);
+document.getElementById('howToBtn').disabled = false; // HOW TOはゲーム状態に関係なく常に押せるようにする
 
 function checkAllSettled() {
     if (loadedCount + loadFailed.length === DB.ASSETS.length && bgSettled) {
@@ -647,11 +648,12 @@ function updateHandUI() {
         const d = document.createElement('div');
         d.className = 'card ' + (card ? 'filled' : 'empty');
         applyCardVisual(d, card); // card_p/u/G.PNGがあれば画像、無ければP/U/Gの文字
-        // 扇形配置: 中心ほど高く、左右にいくほど下がりつつ上が外を向くよう回転する
+        // 高さは margin-top (レイアウト値) で確定させ、回転(transform)の影響を一切受けないようにする
         const offset = idx - mid; // -2, -1, 0, 1, 2
-        const ty = Math.abs(offset) * 8; // px (下がる量)
-        const angle = offset * 9; // deg (外側ほど上が外向きに傾く)
-        d.style.transform = `translateY(${ty}px) rotate(${angle}deg)`;
+        const ty = Math.abs(offset) * 8; // px (中心=0が最も高く、外側ほど下がる)
+        const angle = offset * 9; // deg (外側ほど上が外向きに傾く。見た目の傾きのみ)
+        d.style.marginTop = ty + 'px';
+        d.style.transform = `rotate(${angle}deg)`;
         if (card) d.onclick = () => playCard(idx);
         s.appendChild(d);
     });
@@ -743,6 +745,7 @@ function resetBattleState() {
     document.getElementById('hpE_y').style.width = '100%';
     document.getElementById('turnDisplay').innerHTML = 'TURN<br>0';
     document.querySelectorAll('.controls button').forEach(b => b.disabled = true); // 演出完了までは操作不可
+    document.getElementById('howToBtn').disabled = false; // HOW TOは常に押せる
     const bst = document.getElementById('battleStartText');
     bst.classList.remove('enter', 'exit');
     hideResult();
@@ -1040,6 +1043,7 @@ async function resolveTurn() {
     if (state.resolving || !state.battleReady || filledCount() === 0) return;
     state.resolving = true;
     document.querySelectorAll('.controls button').forEach(b => b.disabled = true);
+    document.getElementById('howToBtn').disabled = false; // HOW TOは解決中でも常に押せる
 
     state.turn++;
     document.getElementById('turnDisplay').innerHTML = `TURN<br>${state.turn}`;
