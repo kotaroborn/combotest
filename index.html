@@ -14,14 +14,14 @@
             overflow: hidden;
         }
         #appRoot {
-            width: min(100vw, 100vh);
-            height: min(100vw, 100vh);
-            max-width: 600px;
-            max-height: 600px;
+            /* 正方形制約は廃止。gameAreaがcanvasと同じ縦横比(960:560)を持つので、
+               幅を決めればheader/ui分を差し引いた高さが自然に決まり、左右の黒帯が出ない */
+            width: min(100vw, 520px, calc((100vh - 230px) * 960 / 560));
             display: flex; flex-direction: column;
             background: #000;
             overflow: hidden;
             position: relative;
+            margin: auto;
             box-shadow: 0 0 24px rgba(0,0,0,0.8);
         }
         #gameHeader {
@@ -36,13 +36,15 @@
         .hp-red { position:absolute; top:0; left:0; height:100%; background:#f00; transition: width 0.05s linear; }
         #turnDisplay { text-align:center; font-weight:900; line-height:1.1; }
         #gameArea {
-            flex: 1; position: relative; min-height: 0;
+            width: 100%;
+            aspect-ratio: 960 / 560; /* canvas内部解像度と完全に一致させ、左右の黒帯を無くす */
+            flex: none; position: relative;
             background: #000; /* canvas側で背景を描くまでは真っ暗 */
             overflow: hidden;
         }
         canvas { width: 100%; height: 100%; object-fit: contain; image-rendering: pixelated; display:block; background: transparent; position: relative; z-index: 2; }
         #enemySlots { position:absolute; top:6px; left:50%; transform:translateX(-50%); display:flex; gap:4px; z-index: 3; }
-        #enemySlots .slot { width:28px; height:28px; font-size:12px; }
+        #enemySlots .slot { width:18px; height:26px; font-size:10px; }
         #battleStartText {
             position: absolute; top: 50%; left: -80%;
             transform: translate(-50%, -50%) scale(1);
@@ -107,14 +109,25 @@
             font-size: 20px; letter-spacing: 4px;
         }
 
-        /* ------- 手札(カード)UI ------- */
-        #handRow { display: flex; justify-content: center; gap: 5px; height: 50px; }
+        /* ------- 手札(カード)UI: 扇形に配置 ------- */
+        #handWrap { position: relative; height: 92px; }
+        #handRow { position: relative; width: 100%; height: 100%; }
+        .card {
+            position: absolute; left: 50%; bottom: 0;
+            width: 42px; height: 60px;
+            border: 2px solid #fff; border-radius: 4px;
+            display: flex; align-items: center; justify-content: center;
+            font-weight: bold; font-size: 16px; background: #345; color: #fff;
+            transform-origin: 50% 100%; /* 下端中央を軸に扇状に開く */
+        }
+        .card.empty { border-style: dashed; border-color: #888; opacity: 0.4; background: #222; }
+        .card.filled { cursor: pointer; }
 
-        /* ------- デッキ残数表示(小さく) ------- */
+        /* ------- デッキ残数表示(枚数のみ・手札の右下) ------- */
         #deckInfo {
-            position: absolute; top: 6px; left: 8px; z-index: 3;
-            font-size: 10px; color: #ccc; line-height: 1.4;
-            background: rgba(0,0,0,0.4); padding: 3px 6px; border-radius: 4px;
+            position: absolute; right: 2px; bottom: -2px; z-index: 5;
+            font-size: 11px; color: #ccc;
+            background: rgba(0,0,0,0.45); padding: 2px 7px; border-radius: 4px;
         }
 
         .scene-btn { background: #800; color: #fff; border: none; border-radius: 8px; padding: 14px 40px; font-weight: bold; font-size: 16px; cursor: pointer; }
@@ -134,8 +147,8 @@
             background: transparent; border: 1px solid rgba(255,255,255,0.55); color: #eee;
             padding: 8px 22px; font-size: 12px; letter-spacing: 1px; border-radius: 6px; cursor: pointer;
         }
-        #slots { display: flex; justify-content: center; gap: 5px; height: 50px; }
-        .slot { width: 50px; height: 50px; border: 2px solid #fff; display: flex; align-items: center; justify-content: center; font-weight: bold; background:#222; }
+        #slots { display: flex; justify-content: center; gap: 5px; height: 60px; }
+        .slot { width: 42px; height: 60px; border: 2px solid #fff; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-weight: bold; background:#222; }
         .slot.empty { border-style: dashed; border-color: #888; opacity: 0.5; }
         .slot.filled { border-style: solid; border-color: #fff; background:#345; }
         .controls { display: flex; gap: 5px; }
@@ -244,7 +257,6 @@
 <div id="gameArea">
     <canvas id="cvs" width="960" height="560"></canvas>
     <div id="enemySlots"></div>
-    <div id="deckInfo"></div>
     <div id="battleStartText">BATTLE START</div>
     <div id="resultOverlay">
         <div id="resultText"></div>
@@ -253,7 +265,10 @@
 </div>
 <div id="ui">
     <div id="slots"></div>
-    <div id="handRow"></div>
+    <div id="handWrap">
+        <div id="handRow"></div>
+        <div id="deckInfo">DECK 21/21</div>
+    </div>
     <div class="controls">
         <div class="fn-group">
             <button onclick="resolveTurn()" id="goBtn">GO!</button>
@@ -347,9 +362,7 @@ function drawCard() {
 function updateDeckCountDisplay() {
     const el = document.getElementById('deckInfo');
     if (!el) return;
-    const c = { PUNCH: 0, UPPER: 0, GUARD: 0 };
-    state.playerDeck.forEach(x => c[x]++);
-    el.innerText = `山札 P:${c.PUNCH} U:${c.UPPER} G:${c.GUARD}`;
+    el.innerText = `DECK ${state.playerDeck.length}/${DB.DECK_TOTAL}`;
 }
 
 // ------- デッキ編成画面 -------
@@ -552,11 +565,21 @@ function resetHands() {
 }
 function updateHandUI() {
     const s = document.getElementById('handRow'); s.innerHTML = '';
+    const n = state.playerHand.length; // 5
+    const mid = (n - 1) / 2; // 中央インデックス(2)
     state.playerHand.forEach((card, idx) => {
         const d = document.createElement('div');
-        d.className = 'slot ' + (card ? 'filled' : 'empty');
-        d.innerText = card ? card[0] : '';
-        if (card) { d.style.cursor = 'pointer'; d.onclick = () => playCard(idx); }
+        d.className = 'card ' + (card ? 'filled' : 'empty');
+        d.innerText = card ? card[0] : ''; // 今は仮でP/U/Gの文字。将来はここをpng画像に差し替え可能
+        // 扇形配置: 中央(idx=2)を基準に左右へ回転・水平移動・わずかな上下オフセット
+        const offset = idx - mid; // -2, -1, 0, 1, 2
+        const angle = offset * 11; // 度
+        const tx = offset * 32;    // px
+        const ty = Math.abs(offset) * -5; // 外側ほどわずかに持ち上げる
+        d.style.left = '50%';
+        d.style.transform = `translateX(calc(-50% + ${tx}px)) translateY(${ty}px) rotate(${angle}deg)`;
+        d.style.zIndex = String(10 + idx); // 右側のカードほど手前に重なる
+        if (card) { d.onclick = () => playCard(idx); }
         s.appendChild(d);
     });
 }
