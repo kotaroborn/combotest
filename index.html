@@ -167,11 +167,13 @@
         .fn-group button { flex: 1; }
         button:active:not(:disabled) { transform: scale(0.93); } /* 押した反応 */
         button:disabled { opacity: 0.35; cursor: default; }
-        #howToBtn {
-            flex: 0 0 48px; width: 48px;
+        .howto-btn {
             border-radius: 8px; /* HOW TOだけ四角いブロック */
-            background: #333; font-size: 10px; line-height: 1.15; padding: 0;
+            background: #333; color: #fff; font-size: 10px; line-height: 1.15; padding: 0;
+            width: 48px; height: 48px;
         }
+        #howToBtn { flex: 0 0 48px; } /* バトル画面ではcontrols行の一部 */
+        .howto-corner { position: absolute; left: 14px; bottom: 14px; } /* タイトル/デッキ編成では画面左下に固定 */
         #clrBtn { flex: 0 0 76px; background: #444; font-size: 13px; } /* 縮小してGO寄りに */
         #goBtn { background: #a00; } /* 押せる時は赤のまま */
         #goBtn:disabled, #clrBtn:disabled { background: #333; }
@@ -252,6 +254,7 @@
         </div>
     </div>
     <button id="startBtn" class="text-btn" onclick="goDeckBuild()" disabled>START</button>
+    <button class="howto-btn howto-corner" onclick="openHowTo()">HOW<br>TO</button>
 </div>
 
 <!-- デッキ編成シーン: 21枚固定・内訳自由 -->
@@ -279,6 +282,7 @@
         <p id="deckTotalText">合計 21 / 21</p>
     </div>
     <button id="deckConfirmBtn" class="text-btn" onclick="goBattleStart()">FIGHT</button>
+    <button class="howto-btn howto-corner" onclick="openHowTo()">HOW<br>TO</button>
 </div>
 
 <!-- バトルシーン -->
@@ -312,13 +316,16 @@
         <div id="deckInfo">DECK 21/21</div>
     </div>
     <div class="controls">
-        <button id="howToBtn" onclick="openHowTo()">HOW<br>TO</button>
+        <button id="howToBtn" class="howto-btn" onclick="openHowTo()">HOW<br>TO</button>
         <div class="fn-group">
             <button onclick="resetHands()" id="clrBtn" disabled>CANCEL</button>
             <button onclick="resolveTurn()" id="goBtn" disabled>GO!</button>
         </div>
     </div>
 </div>
+</div>
+
+<!-- HOW TOポップアップ: appRoot直下に置き、どのシーンからでも表示できるようにする -->
 <div id="howToOverlay" class="popup-overlay" onclick="closeHowToBackdrop(event)">
     <div class="popup-panel">
         <button class="popup-close" onclick="closeHowTo()">×</button>
@@ -330,7 +337,6 @@
             <p style="color:#888;">(テキスト・図解は準備中です。ここに差し替え予定)</p>
         </div>
     </div>
-</div>
 </div>
 
 </div>
@@ -640,7 +646,8 @@ function resetHands() {
     updateHandUI();
     updateUI();
 }
-function updateHandUI() {
+function updateHandUI(animateIndices) {
+    animateIndices = animateIndices || [];
     const s = document.getElementById('handRow'); s.innerHTML = '';
     const n = state.playerHand.length; // 5
     const mid = (n - 1) / 2; // 中央インデックス(2)
@@ -653,9 +660,26 @@ function updateHandUI() {
         const ty = Math.abs(offset) * 8; // px (中心=0が最も高く、外側ほど下がる)
         const angle = offset * 9; // deg (外側ほど上が外向きに傾く。見た目の傾きのみ)
         d.style.marginTop = ty + 'px';
-        d.style.transform = `rotate(${angle}deg)`;
         if (card) d.onclick = () => playCard(idx);
-        s.appendChild(d);
+
+        if (animateIndices.includes(idx)) {
+            // 補充されたカードは画面下から少し回転しながら手札へ滑り込む
+            const fromAngle = angle + (offset >= 0 ? 20 : -20);
+            d.style.transition = 'none';
+            d.style.transform = `translateY(90px) rotate(${fromAngle}deg)`;
+            d.style.opacity = '0';
+            s.appendChild(d);
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    d.style.transition = 'transform 0.35s ease-out, opacity 0.3s ease-out';
+                    d.style.transform = `rotate(${angle}deg)`;
+                    d.style.opacity = '1';
+                });
+            });
+        } else {
+            d.style.transform = `rotate(${angle}deg)`;
+            s.appendChild(d);
+        }
     });
 }
 function filledCount() {
@@ -1086,10 +1110,14 @@ async function resolveTurn() {
         for (let i = 0; i < total; i++) {
             if (state.hands[i]) state.playerDiscard.push(state.hands[i]);
         }
+        const drawnIndices = [];
         for (let i = 0; i < state.playerHand.length; i++) {
-            if (state.playerHand[i] === null) state.playerHand[i] = drawCard();
+            if (state.playerHand[i] === null) {
+                state.playerHand[i] = drawCard();
+                drawnIndices.push(i);
+            }
         }
-        updateHandUI();
+        updateHandUI(drawnIndices); // 補充分だけ画面下から回転しつつ登場するアニメーション
         updateDeckCountDisplay();
 
         if (gameOverSide) {
