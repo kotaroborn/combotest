@@ -13,10 +13,15 @@
             display: flex; align-items: center; justify-content: center;
             overflow: hidden;
         }
+        :root {
+            --hdr-h: 60px; /* gameHeaderの高さ */
+            --ui-h: 250px; /* ui(slots+handWrap+controls+padding)のおおよその高さ */
+            --app-w: min(100vw, 520px, calc((100vh - var(--hdr-h) - var(--ui-h)) * 960 / 560));
+        }
         #appRoot {
-            /* 正方形制約は廃止。gameAreaがcanvasと同じ縦横比(960:560)を持つので、
-               幅を決めればheader/ui分を差し引いた高さが自然に決まり、左右の黒帯が出ない */
-            width: min(100vw, 520px, calc((100vh - 230px) * 960 / 560));
+            /* 幅を基準にcanvas比率(960:560)から高さを算出し、全シーンで同じサイズになるよう固定する */
+            width: var(--app-w);
+            height: calc(var(--hdr-h) + var(--app-w) * 560 / 960 + var(--ui-h));
             display: flex; flex-direction: column;
             background: #000;
             overflow: hidden;
@@ -109,18 +114,18 @@
             font-size: 20px; letter-spacing: 4px;
         }
 
-        /* ------- 手札(カード)UI: 扇形に配置 ------- */
-        #handWrap { position: relative; height: 92px; }
-        #handRow { position: relative; width: 100%; height: 100%; }
+        /* ------- 手札(カード)UI: 重ならない横並び。中心ほど高く、左右ほど下がる ------- */
+        #handWrap { position: relative; height: 90px; }
+        #handRow { display: flex; justify-content: center; align-items: flex-start; gap: 9px; height: 100%; }
         .card {
-            position: absolute; left: 50%; bottom: 0;
             width: 42px; height: 60px;
             border: 2px solid #fff; border-radius: 4px;
             display: flex; align-items: center; justify-content: center;
             font-weight: bold; font-size: 16px; background: #345; color: #fff;
-            transform-origin: 50% 100%; /* 下端中央を軸に扇状に開く */
+            background-size: cover; background-position: center; image-rendering: pixelated;
+            transform-origin: 50% 50%; /* 中心を軸に回転させ、高さ(translateY)への干渉を無くす */
         }
-        .card.empty { border-style: dashed; border-color: #888; opacity: 0.4; background: #222; }
+        .card.empty { border-style: dashed; border-color: #888; opacity: 0.4; background-color: #222; }
         .card.filled { cursor: pointer; }
 
         /* ------- デッキ残数表示(枚数のみ・手札の右下) ------- */
@@ -148,14 +153,51 @@
             padding: 8px 22px; font-size: 12px; letter-spacing: 1px; border-radius: 6px; cursor: pointer;
         }
         #slots { display: flex; justify-content: center; gap: 5px; height: 60px; }
-        .slot { width: 42px; height: 60px; border: 2px solid #fff; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-weight: bold; background:#222; }
+        .slot { width: 42px; height: 60px; border: 2px solid #fff; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-weight: bold; background:#222; background-size: cover; background-position: center; image-rendering: pixelated; }
         .slot.empty { border-style: dashed; border-color: #888; opacity: 0.5; }
         .slot.filled { border-style: solid; border-color: #fff; background:#345; }
-        .controls { display: flex; gap: 5px; }
-        .fn-group { display:flex; gap:5px; flex:1; }  /* 第26条: 右に機能ボタン */
-        button { flex: 1; background: #444; border: none; color: #fff; font-weight: bold; border-radius: 5px; padding: 12px 0; cursor: pointer; }
-        button:disabled { opacity: 0.4; }
-        #goBtn { background:#800; }
+        .controls { display: flex; gap: 8px; align-items: stretch; }
+        .fn-group { display:flex; gap:8px; flex:1; }  /* 第26条: 右に機能ボタン */
+        button {
+            border: none; color: #fff; font-weight: bold; font-size: 15px;
+            border-radius: 999px; /* 左右を丸くしてボタンらしく */
+            padding: 13px 0; cursor: pointer;
+            transition: transform 0.08s ease, background-color 0.15s ease, opacity 0.15s ease;
+        }
+        .fn-group button { flex: 1; }
+        button:active:not(:disabled) { transform: scale(0.93); } /* 押した反応 */
+        button:disabled { opacity: 0.35; cursor: default; }
+        #howToBtn {
+            flex: 0 0 48px; width: 48px;
+            border-radius: 8px; /* HOW TOだけ四角いブロック */
+            background: #333; font-size: 10px; line-height: 1.15; padding: 0;
+        }
+        #clrBtn { flex: 0 0 76px; background: #444; font-size: 13px; } /* 縮小してGO寄りに */
+        #goBtn { background: #a00; } /* 押せる時は赤のまま */
+        #goBtn:disabled, #clrBtn:disabled { background: #333; }
+
+        /* ------- HOW TOポップアップ(ブラウザ機能ではなく画面内オーバーレイ) ------- */
+        .popup-overlay {
+            position: absolute; inset: 0; z-index: 50;
+            background: rgba(0,0,0,0.75);
+            display: none; align-items: center; justify-content: center;
+            padding: 14px;
+        }
+        .popup-overlay.show { display: flex; }
+        .popup-panel {
+            position: relative; width: 100%; height: 100%;
+            background: #161616; border: 2px solid #555; border-radius: 10px;
+            padding: 16px; box-sizing: border-box; overflow: hidden; /* スクロールしない一画面での説明 */
+            color: #eee;
+        }
+        .popup-close {
+            position: absolute; top: 8px; right: 8px; z-index: 1;
+            width: 30px; height: 30px; border-radius: 50%;
+            background: #444; color: #fff; border: none; font-size: 16px; line-height: 1;
+            padding: 0; cursor: pointer;
+        }
+        .howto-content { font-size: 12px; line-height: 1.8; overflow: hidden; }
+        .howto-content h2 { margin-top: 0; font-size: 16px; }
     </style>
 </head>
 <body>
@@ -270,9 +312,22 @@
         <div id="deckInfo">DECK 21/21</div>
     </div>
     <div class="controls">
+        <button id="howToBtn" onclick="openHowTo()">HOW<br>TO</button>
         <div class="fn-group">
-            <button onclick="resolveTurn()" id="goBtn">GO!</button>
-            <button onclick="resetHands()" id="clrBtn">CLR</button>
+            <button onclick="resetHands()" id="clrBtn" disabled>CANCEL</button>
+            <button onclick="resolveTurn()" id="goBtn" disabled>GO!</button>
+        </div>
+    </div>
+</div>
+<div id="howToOverlay" class="popup-overlay" onclick="closeHowToBackdrop(event)">
+    <div class="popup-panel">
+        <button class="popup-close" onclick="closeHowTo()">×</button>
+        <div class="howto-content">
+            <h2>あそびかた(仮)</h2>
+            <p>・手札から最大5枚を選んで場に出し、GO!で解決します。</p>
+            <p>・PUNCHはUPPERに勝ち、UPPERはGUARDに勝ち、GUARDはPUNCHに勝ちます。</p>
+            <p>・敵の手は伏せられており、攻防の直前に1枚ずつ公開されます。</p>
+            <p style="color:#888;">(テキスト・図解は準備中です。ここに差し替え予定)</p>
         </div>
     </div>
 </div>
@@ -439,9 +494,30 @@ function enemySpriteName(baseName) {
     return imgs[enemyName] ? enemyName : baseName;
 }
 
+// ------- カード画像(任意) -------
+// 用意されていれば card_p.PNG / card_u.PNG / card_G.PNG を使い、無ければ従来通り文字(P/U/G)を表示する。
+const CARD_IMG_MAP = { PUNCH: 'card_p.PNG', UPPER: 'card_u.PNG', GUARD: 'card_G.PNG' };
+Object.values(CARD_IMG_MAP).forEach(fname => {
+    const i = new Image();
+    i.onload = () => { imgs[fname] = i; };
+    i.onerror = () => { /* 任意アセットのため未用意でもエラー扱いにしない。文字表示にフォールバック */ };
+    i.src = fname;
+});
+// カード表示用の要素(el)に、typeに応じた画像 or 文字フォールバックを適用する
+function applyCardVisual(el, type) {
+    const fname = type ? CARD_IMG_MAP[type] : null;
+    const img = fname ? imgs[fname] : null;
+    if (img) {
+        el.style.backgroundImage = `url('${fname}')`;
+        el.innerText = '';
+    } else {
+        el.style.backgroundImage = 'none';
+        el.innerText = type ? type[0] : '';
+    }
+}
+
 function boot() {
     // 第23条: 全画像の読み込み確定を待ってからループ開始・UI有効化
-    document.querySelectorAll('.controls button').forEach(b => b.disabled = false);
     document.getElementById('startBtn').disabled = false;
     draw();
 }
@@ -570,16 +646,13 @@ function updateHandUI() {
     state.playerHand.forEach((card, idx) => {
         const d = document.createElement('div');
         d.className = 'card ' + (card ? 'filled' : 'empty');
-        d.innerText = card ? card[0] : ''; // 今は仮でP/U/Gの文字。将来はここをpng画像に差し替え可能
-        // 扇形配置: 中央(idx=2)を基準に左右へ回転・水平移動・わずかな上下オフセット
+        applyCardVisual(d, card); // card_p/u/G.PNGがあれば画像、無ければP/U/Gの文字
+        // 扇形配置: 中心ほど高く、左右にいくほど下がりつつ上が外を向くよう回転する
         const offset = idx - mid; // -2, -1, 0, 1, 2
-        const angle = offset * 11; // 度
-        const tx = offset * 32;    // px
-        const ty = Math.abs(offset) * -5; // 外側ほどわずかに持ち上げる
-        d.style.left = '50%';
-        d.style.transform = `translateX(calc(-50% + ${tx}px)) translateY(${ty}px) rotate(${angle}deg)`;
-        d.style.zIndex = String(10 + idx); // 右側のカードほど手前に重なる
-        if (card) { d.onclick = () => playCard(idx); }
+        const ty = Math.abs(offset) * 8; // px (下がる量)
+        const angle = offset * 9; // deg (外側ほど上が外向きに傾く)
+        d.style.transform = `translateY(${ty}px) rotate(${angle}deg)`;
+        if (card) d.onclick = () => playCard(idx);
         s.appendChild(d);
     });
 }
@@ -592,9 +665,16 @@ function updateUI() {
     state.hands.forEach(h => {
         const d = document.createElement('div');
         d.className = 'slot ' + (h ? 'filled' : 'empty');
-        d.innerText = h ? h[0] : '';
+        applyCardVisual(d, h);
         s.appendChild(d);
     });
+    updateActionButtons();
+}
+// GO!/CANCELは「バトル準備完了」「解決中でない」「場に1枚以上カードがある」の3条件が揃った時だけ押せる
+function updateActionButtons() {
+    const enabled = state.battleReady && !state.resolving && filledCount() > 0;
+    document.getElementById('goBtn').disabled = !enabled;
+    document.getElementById('clrBtn').disabled = !enabled;
 }
 updateUI(); // 第1条: 起動直後から5つの空枠を表示する
 
@@ -610,7 +690,12 @@ function drawEnemySlots() {
     state.enemyHands.forEach((h, idx) => {
         const d = document.createElement('div');
         d.className = 'slot filled';
-        d.innerText = idx < state.enemyRevealedUpTo ? h[0] : '?';
+        if (idx < state.enemyRevealedUpTo) {
+            applyCardVisual(d, h);
+        } else {
+            d.style.backgroundImage = 'none';
+            d.innerText = '?';
+        }
         s.appendChild(d);
     });
 }
@@ -705,7 +790,7 @@ async function playBattleIntro() {
     bst.classList.remove('enter', 'exit');
 
     state.battleReady = true;
-    document.querySelectorAll('.controls button').forEach(b => b.disabled = false);
+    updateActionButtons();
 }
 
 
@@ -1010,7 +1095,6 @@ async function resolveTurn() {
             state.enemyRevealedUpTo = 0;
             drawEnemySlots();
             state.resolving = false;
-            document.querySelectorAll('.controls button').forEach(b => b.disabled = false);
         }
     }
 }
