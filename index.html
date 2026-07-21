@@ -802,6 +802,18 @@ function hideResult() {
     document.getElementById('resultOverlay').classList.remove('show');
 }
 
+// ------- HOW TOポップアップ(ブラウザ機能ではなく画面内オーバーレイ) -------
+function openHowTo() {
+    document.getElementById('howToOverlay').classList.add('show');
+}
+function closeHowTo() {
+    document.getElementById('howToOverlay').classList.remove('show');
+}
+function closeHowToBackdrop(e) {
+    // 背景(オーバーレイ自体)をタップした時だけ閉じる。パネル内のタップでは閉じない。
+    if (e.target.id === 'howToOverlay') closeHowTo();
+}
+
 // 第3条: 3すくみ判定 P>U, U>G, G>P (プレイヤー視点で 'win'/'lose'/'draw')
 function judge(p, e) {
     if (p === e) return 'draw';
