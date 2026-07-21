@@ -93,6 +93,30 @@
             font-size: 20px; letter-spacing: 4px;
         }
 
+        /* ------- デッキ編成シーン ------- */
+        .deck-row { display: flex; align-items: center; gap: 14px; }
+        .deck-label { width: 70px; text-align: left; font-weight: bold; letter-spacing: 1px; }
+        .deck-btn {
+            width: 34px; height: 34px; border-radius: 50%; background: #444; color: #fff;
+            border: none; font-size: 18px; font-weight: bold; cursor: pointer;
+        }
+        .deck-count { width: 28px; text-align: center; font-size: 18px; font-weight: bold; }
+        #deckTotalText { color: #ccc; font-size: 13px; }
+        #deckConfirmBtn {
+            position: absolute; left: 50%; bottom: 20%; transform: translateX(-50%);
+            font-size: 20px; letter-spacing: 4px;
+        }
+
+        /* ------- 手札(カード)UI ------- */
+        #handRow { display: flex; justify-content: center; gap: 5px; height: 50px; }
+
+        /* ------- デッキ残数表示(小さく) ------- */
+        #deckInfo {
+            position: absolute; top: 6px; left: 8px; z-index: 3;
+            font-size: 10px; color: #ccc; line-height: 1.4;
+            background: rgba(0,0,0,0.4); padding: 3px 6px; border-radius: 4px;
+        }
+
         .scene-btn { background: #800; color: #fff; border: none; border-radius: 8px; padding: 14px 40px; font-weight: bold; font-size: 16px; cursor: pointer; }
         .scene-btn:disabled { opacity: 0.4; }
         #resultOverlay {
@@ -115,7 +139,6 @@
         .slot.empty { border-style: dashed; border-color: #888; opacity: 0.5; }
         .slot.filled { border-style: solid; border-color: #fff; background:#345; }
         .controls { display: flex; gap: 5px; }
-        .atk-group { display:flex; gap:5px; flex:2; } /* 第26条: 左に攻撃ボタン */
         .fn-group { display:flex; gap:5px; flex:1; }  /* 第26条: 右に機能ボタン */
         button { flex: 1; background: #444; border: none; color: #fff; font-weight: bold; border-radius: 5px; padding: 12px 0; cursor: pointer; }
         button:disabled { opacity: 0.4; }
@@ -126,8 +149,8 @@
 <script>
 /** 
  * 【憲法二十六条：全文】
- * 1. 5枠設計: 画面下部に最初から5つの空枠を固定表示し、コマンド入力のたびに先頭から順に空枠を埋めていく仕様。
- * 2. 敵コマンド可視化: バトル前に敵の5枠を生成し、上段スロットに可視化する。
+ * 1. 5枠設計: 画面下部に最初から5つの空枠を固定表示し、手札のカードをタップするたびに先頭から順に空枠を埋めていく仕様。手札は21枚のデッキ(内訳は事前のデッキ編成画面で自由配分)から5枚を引いて構成し、ターンで使った枚数分だけ山から補充する。山が尽きたら捨札をリシャッフルして山に戻す(配分比率は変化しない)。
+ * 2. 敵コマンド非公開: プレイヤーが出した枚数だけ、その場で敵の手をランダム生成する。中身は伏せ札(?)で表示し、各攻防が始まる直前に1枚ずつ公開する(先読み不可・都度の読み合い)。
  * 3. 3すくみ: [PUNCH>UPPER][UPPER>GUARD][GUARD>PUNCH] の判定ロジック。勝敗は毎回この判定で決定する。同じ手同士がぶつかった場合は相討ちとする。
  * 4. 空中コンボ: 勝者の技がUPPERだった場合に発動。攻撃側の次の入力がPUNCHなら継続し、最大3発まで空中パンチを受け付ける。3発目は自動的にメテオへ変換される。
  * 5. 着地同期: 通常コンボ終了時（メテオに至らない場合）は、攻守双方が地面(GROUND_Y)へ着地してから次の演出へ遷移する。
@@ -140,12 +163,12 @@
  * 12. 描画資産の不変性: 外部ファイルを厳格に読み込み、存在しない場合は読み込みエラーを即座に特定する。ただし敵専用グラフィック(enemy_〇〇.PNG)と背景(bg.PNG)は任意の差し替え用アセットであり、存在しなくてもエラー扱いにせず、敵はプレイヤー画像へ、背景は水色の塗りつぶしへフォールバックする。
  * 13. オブジェクトの生存維持: 状態管理オブジェクト(state, imgs)は決して再定義・初期化せず、常に参照し続ける。
  * 14. 憲法完全表記: コード提示の際、本憲法リストを一切省略せず必ず全条文を記述する。
- * 15. UI永続性: HP・TURN表示は画面上部に固定し、スロットは下部に永続表示する。画面はプロローグ→タイトル→バトル→決着(K.O./YOU WIN)→(タイトルへ戻るボタンで)プロローグ、の順で遷移する。バトル開始時は暗転→味方/敵のフェードイン→背景(bg.PNG)がcanvas上で中心から円形に拡大表示→「BATTLE START」が左からディゾルブで入り中央で静止した後、拡大しながら消える演出を経てから操作可能になる。
+ * 15. UI永続性: HP・TURN表示は画面上部に固定し、スロットは下部に永続表示する。画面はプロローグ→タイトル→デッキ編成(21枚固定・内訳自由)→バトル→決着(K.O./YOU WIN)→(タイトルへ戻るボタンで)プロローグ、の順で遷移する。バトル開始時は暗転→味方/敵のフェードイン→背景(bg.PNG)がcanvas上で中心から円形に拡大表示→「BATTLE START」が左からディゾルブで入り中央で静止した後、拡大しながら消える演出を経てから操作可能になる。
  * 16. 位置保持: 攻防のたびに初期位置へ戻るのではなく、中央で衝突→軽く距離を取る、を繰り返す。ホームポジションへ戻るのはターン完了時のみ。
  * 17. 体力ゲージ演出: ダメージ発生時、現在値が即座に減り、黄色いバーが0.6秒遅れて減少する。
  * 18. TURN表示仕様: 画面上部中央に「TURN」と「数字」を2行で太字(900)表示する。
  * 19. 敵反転描画: 敵画像は常に左右反転して表示する。将来的に敵専用グラフィック(enemy_〇〇.PNG)を用意すれば自動的にそちらを優先して使用し、未用意の場合はプレイヤーと同じ画像にフォールバックする。
- * 20. 敵の主体性: バトル開始時、敵も同様に前進・アクションを実行する。
+ * 20. 敵の主体性: 敵はデッキ編成を持たずプリセット/ランダムの手で応戦するが、プレイヤーと同じ枚数だけ必ず行動する。
  * 21. パンチコンボ演出: 空中コンボ中の連続パンチは punch.PNG と punch2.PNG を交互に使用する。
  * 22. 厳格命名規則: 全アセットの拡張子は常に「.PNG」（大文字）で統一する。ファイル名部は小文字。
  * 23. 動作保証: 画像読み込み完了を待ってからゲームループを開始し、UIインタラクションを確定させる。
@@ -173,7 +196,34 @@
             <div id="titleLogoFallback" class="title-logo-fallback">コマンドバトル</div>
         </div>
     </div>
-    <button id="startBtn" class="text-btn" onclick="goBattleStart()" disabled>START</button>
+    <button id="startBtn" class="text-btn" onclick="goDeckBuild()" disabled>START</button>
+</div>
+
+<!-- デッキ編成シーン: 21枚固定・内訳自由 -->
+<div id="sceneDeck" class="scene">
+    <div class="scene-inner" style="justify-content:flex-start; padding-top:14%; gap:20px;">
+        <p class="prologue-text">デッキ編成（合計21枚）</p>
+        <div class="deck-row">
+            <span class="deck-label">PUNCH</span>
+            <button class="deck-btn" onclick="adjustDeck('PUNCH',-1)">−</button>
+            <span class="deck-count" id="deckCountPUNCH">7</span>
+            <button class="deck-btn" onclick="adjustDeck('PUNCH',1)">＋</button>
+        </div>
+        <div class="deck-row">
+            <span class="deck-label">UPPER</span>
+            <button class="deck-btn" onclick="adjustDeck('UPPER',-1)">−</button>
+            <span class="deck-count" id="deckCountUPPER">7</span>
+            <button class="deck-btn" onclick="adjustDeck('UPPER',1)">＋</button>
+        </div>
+        <div class="deck-row">
+            <span class="deck-label">GUARD</span>
+            <button class="deck-btn" onclick="adjustDeck('GUARD',-1)">−</button>
+            <span class="deck-count" id="deckCountGUARD">7</span>
+            <button class="deck-btn" onclick="adjustDeck('GUARD',1)">＋</button>
+        </div>
+        <p id="deckTotalText">合計 21 / 21</p>
+    </div>
+    <button id="deckConfirmBtn" class="text-btn" onclick="goBattleStart()">FIGHT</button>
 </div>
 
 <!-- バトルシーン -->
@@ -194,6 +244,7 @@
 <div id="gameArea">
     <canvas id="cvs" width="960" height="560"></canvas>
     <div id="enemySlots"></div>
+    <div id="deckInfo"></div>
     <div id="battleStartText">BATTLE START</div>
     <div id="resultOverlay">
         <div id="resultText"></div>
@@ -202,12 +253,8 @@
 </div>
 <div id="ui">
     <div id="slots"></div>
+    <div id="handRow"></div>
     <div class="controls">
-        <div class="atk-group">
-            <button onclick="addHand('PUNCH')" id="btnP">PUNCH</button>
-            <button onclick="addHand('UPPER')" id="btnU">UPPER</button>
-            <button onclick="addHand('GUARD')" id="btnG">GUARD</button>
-        </div>
         <div class="fn-group">
             <button onclick="resolveTurn()" id="goBtn">GO!</button>
             <button onclick="resetHands()" id="clrBtn">CLR</button>
@@ -232,7 +279,8 @@ const DB = {
     },
     DMG: { P: 10, U: 5, M: 50, CLASH: 3, TINY: 1, WEAK: 15 }, // P:パンチ勝利 / U:アッパー初撃 / M:メテオ / CLASH:相討ち微ダメージ / TINY:ガードされたパンチの反撃 / WEAK:しびれ被弾の弱点ダメージ
     MAX_AIR_PUNCH: 3,
-    BREATH_MS: 500 // player.PNG / player2.PNG の呼吸切替間隔
+    BREATH_MS: 500, // player.PNG / player2.PNG の呼吸切替間隔
+    DECK_TOTAL: 21 // デッキ合計枚数(内訳は編成画面で自由配分)
 };
 DB.IMG_SIZE = DB.SRC_PX * DB.SCALE; // 32×10=320。ソースpxとcanvasユニットの対応が常に整数になる
 // 地面バンド(3px)ぶんの余白を残して、キャラの足元が浮かないギリギリの高さにGROUND_Yを置く
@@ -264,9 +312,67 @@ let state = {
     pNumbed: false, // しびれフラグ: 次のコマンドの成功率が1/2になる
     introCharAlpha: 1, // バトル開始演出: 味方/敵のフェードイン係数(0〜1)
     bgRevealRadius: 0, // バトル開始演出: 背景を中心から広げる円形クリップの半径(0で真っ暗)
+    playerDeck: [], playerDiscard: [], playerHand: new Array(5).fill(null), // 山札/捨札/手札
+    enemyRevealedUpTo: 0, // 敵の手のうち、何枚目まで公開済みか
+    battleReady: false, // バトル開始演出が完了し、操作可能になったか
     resolving: false
 };
 let trails = []; // 第24条: dash.PNGの残像
+let deckCounts = { PUNCH: 7, UPPER: 7, GUARD: 7 }; // デッキ編成(合計21枚、内訳は自由)
+
+// ------- 山札操作 -------
+function shuffleArray(arr) {
+    for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+}
+function buildDeckArray(counts) {
+    const deck = [];
+    for (let i = 0; i < counts.PUNCH; i++) deck.push('PUNCH');
+    for (let i = 0; i < counts.UPPER; i++) deck.push('UPPER');
+    for (let i = 0; i < counts.GUARD; i++) deck.push('GUARD');
+    return shuffleArray(deck);
+}
+function drawCard() {
+    if (state.playerDeck.length === 0) {
+        if (state.playerDiscard.length === 0) return null; // 捨札も無ければ引けない(通常起きない)
+        // 山が尽きたら捨札をリシャッフルして山に戻す(配分そのものは変わらない)
+        state.playerDeck = shuffleArray(state.playerDiscard.slice());
+        state.playerDiscard = [];
+    }
+    return state.playerDeck.pop();
+}
+function updateDeckCountDisplay() {
+    const el = document.getElementById('deckInfo');
+    if (!el) return;
+    const c = { PUNCH: 0, UPPER: 0, GUARD: 0 };
+    state.playerDeck.forEach(x => c[x]++);
+    el.innerText = `山札 P:${c.PUNCH} U:${c.UPPER} G:${c.GUARD}`;
+}
+
+// ------- デッキ編成画面 -------
+function adjustDeck(type, delta) {
+    const next = deckCounts[type] + delta;
+    if (next < 0) return;
+    const total = deckCounts.PUNCH + deckCounts.UPPER + deckCounts.GUARD - deckCounts[type] + next;
+    if (total > DB.DECK_TOTAL) return; // 21枚を超えない
+    deckCounts[type] = next;
+    updateDeckBuildUI();
+}
+function updateDeckBuildUI() {
+    document.getElementById('deckCountPUNCH').innerText = deckCounts.PUNCH;
+    document.getElementById('deckCountUPPER').innerText = deckCounts.UPPER;
+    document.getElementById('deckCountGUARD').innerText = deckCounts.GUARD;
+    const total = deckCounts.PUNCH + deckCounts.UPPER + deckCounts.GUARD;
+    document.getElementById('deckTotalText').innerText = `合計 ${total} / ${DB.DECK_TOTAL}`;
+    document.getElementById('deckConfirmBtn').disabled = (total !== DB.DECK_TOTAL);
+}
+function goDeckBuild() {
+    updateDeckBuildUI();
+    showScene('deck');
+}
 
 const cvs = document.getElementById('cvs');
 const ctx = cvs.getContext('2d');
@@ -421,17 +527,38 @@ function draw(tRaw) {
     requestAnimationFrame(draw);
 }
 
-function addHand(a) {
-    if (state.resolving) return;
-    const idx = state.hands.indexOf(null);
-    if (idx === -1) return; // 5枠すべて埋まっている
-    state.hands[idx] = a;
+function playCard(handIdx) {
+    if (state.resolving || !state.battleReady) return;
+    const card = state.playerHand[handIdx];
+    if (!card) return;
+    const slotIdx = state.hands.indexOf(null);
+    if (slotIdx === -1) return; // 場(5枠)がすでに埋まっている
+    state.hands[slotIdx] = card;
+    state.playerHand[handIdx] = null;
+    updateHandUI();
     updateUI();
 }
 function resetHands() {
-    if (state.resolving) return;
+    if (state.resolving || !state.battleReady) return;
+    // 場に出したカードを手札の空きへ戻す
+    state.hands.forEach(card => {
+        if (!card) return;
+        const emptyIdx = state.playerHand.indexOf(null);
+        if (emptyIdx !== -1) state.playerHand[emptyIdx] = card;
+    });
     state.hands = new Array(5).fill(null);
+    updateHandUI();
     updateUI();
+}
+function updateHandUI() {
+    const s = document.getElementById('handRow'); s.innerHTML = '';
+    state.playerHand.forEach((card, idx) => {
+        const d = document.createElement('div');
+        d.className = 'slot ' + (card ? 'filled' : 'empty');
+        d.innerText = card ? card[0] : '';
+        if (card) { d.style.cursor = 'pointer'; d.onclick = () => playCard(idx); }
+        s.appendChild(d);
+    });
 }
 function filledCount() {
     const idx = state.hands.indexOf(null);
@@ -448,15 +575,21 @@ function updateUI() {
 }
 updateUI(); // 第1条: 起動直後から5つの空枠を表示する
 
-function randomEnemyHands() {
+function generateEnemyTurnHand(count) {
     const opts = ['PUNCH', 'UPPER', 'GUARD'];
     const arr = [];
-    for (let i = 0; i < 5; i++) arr.push(opts[Math.floor(Math.random() * opts.length)]);
+    for (let i = 0; i < count; i++) arr.push(opts[Math.floor(Math.random() * opts.length)]);
     return arr;
 }
 function drawEnemySlots() {
+    // 第2条: 公開済み(enemyRevealedUpTo)の枚数までは中身を見せ、それ以降は伏せ札(?)にする
     const s = document.getElementById('enemySlots'); s.innerHTML = '';
-    state.enemyHands.forEach(h => { const d = document.createElement('div'); d.className = 'slot'; d.innerText = h[0]; s.appendChild(d); });
+    state.enemyHands.forEach((h, idx) => {
+        const d = document.createElement('div');
+        d.className = 'slot filled';
+        d.innerText = idx < state.enemyRevealedUpTo ? h[0] : '?';
+        s.appendChild(d);
+    });
 }
 
 // ------- シーン管理 (プロローグ → タイトル → バトル) -------
@@ -486,8 +619,15 @@ function resetBattleState() {
     state.pNumbed = false;
     state.introCharAlpha = 0; // 開始演出でふわっと表示するため、まずは透明から
     state.bgRevealRadius = 0; // 背景も真っ暗な状態からスタート
+    state.battleReady = false; // 開始演出が終わるまで操作不可
     state.resolving = false;
     trails = [];
+
+    // デッキ編成画面で決めた配分から山札を構築し、初期手札5枚を引く
+    state.playerDeck = buildDeckArray(deckCounts);
+    state.playerDiscard = [];
+    state.playerHand = new Array(5).fill(null);
+    for (let i = 0; i < 5; i++) state.playerHand[i] = drawCard();
 
     document.getElementById('hpP').style.width = '100%';
     document.getElementById('hpP_y').style.width = '100%';
@@ -499,9 +639,12 @@ function resetBattleState() {
     bst.classList.remove('enter', 'exit');
     hideResult();
     updateUI();
+    updateHandUI();
+    updateDeckCountDisplay();
 
-    // 第2条: 敵コマンド可視化 / 第20条: 敵の主体性
-    state.enemyHands = randomEnemyHands();
+    // 敵の手はターンごとに(必要枚数だけ)非公開で生成する。開始時点では空。
+    state.enemyHands = [];
+    state.enemyRevealedUpTo = 0;
     drawEnemySlots();
 }
 
@@ -538,6 +681,7 @@ async function playBattleIntro() {
     await wait(550);
     bst.classList.remove('enter', 'exit');
 
+    state.battleReady = true;
     document.querySelectorAll('.controls button').forEach(b => b.disabled = false);
 }
 
@@ -773,7 +917,7 @@ async function resolveExchange(pAct, eAct, cursor) {
 }
 
 async function resolveTurn() {
-    if (state.resolving || filledCount() === 0) return;
+    if (state.resolving || !state.battleReady || filledCount() === 0) return;
     state.resolving = true;
     document.querySelectorAll('.controls button').forEach(b => b.disabled = true);
 
@@ -784,12 +928,21 @@ async function resolveTurn() {
     const total = filledCount();
     let gameOverSide = null; // 'P' または 'E'。体力0になった側
 
+    // プレイヤーが出した枚数だけ、敵も手を出してくる(第2条: 中身は非公開、攻防の直前に1枚ずつ公開)
+    state.enemyHands = generateEnemyTurnHand(total);
+    state.enemyRevealedUpTo = 0;
+    drawEnemySlots();
+
     try {
         while (cursor.i < total) {
             if (gameOverSide) break;
 
             const pAct = state.hands[cursor.i];
-            const eAct = state.enemyHands[cursor.i] || randomEnemyHands()[0];
+            const eAct = state.enemyHands[cursor.i];
+
+            // このタイミングで敵の手を公開する
+            state.enemyRevealedUpTo = cursor.i + 1;
+            drawEnemySlots();
 
             await resolveExchange(pAct, eAct, cursor);
 
@@ -805,8 +958,19 @@ async function resolveTurn() {
             }
         }
     } finally {
+        // 使用したプレイヤーカードを捨て札へ送り、使った枚数分だけ山から補充する
+        for (let i = 0; i < total; i++) {
+            if (state.hands[i]) state.playerDiscard.push(state.hands[i]);
+        }
+        for (let i = 0; i < state.playerHand.length; i++) {
+            if (state.playerHand[i] === null) state.playerHand[i] = drawCard();
+        }
+        updateHandUI();
+        updateDeckCountDisplay();
+
         if (gameOverSide) {
             // 体力を0にする最後の一撃: 通常の帰還処理の代わりに専用の決着演出を実行
+            state.battleReady = false; // 決着後は手札タップ含め操作不可にする
             await runFinishSequence(gameOverSide);
             state.hands = new Array(5).fill(null);
             updateUI();
@@ -819,7 +983,8 @@ async function resolveTurn() {
             toIdle();
             state.hands = new Array(5).fill(null); // 第1条: 5つの空枠に戻す
             updateUI();
-            state.enemyHands = randomEnemyHands();
+            state.enemyHands = [];
+            state.enemyRevealedUpTo = 0;
             drawEnemySlots();
             state.resolving = false;
             document.querySelectorAll('.controls button').forEach(b => b.disabled = false);
