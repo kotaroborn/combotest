@@ -398,6 +398,7 @@ let state = {
     pNumbed: false, eNumbed: false, // しびれフラグ: 次のコマンドの成功率が1/2になる(ガード成功で相手に付与)
     piyoSide: null, piyoFlip: false, // ピヨり演出: どちら側の頭上に出すか/左右反転中か
     pPunchStreak: 0, ePunchStreak: 0, // 地上パンチの連続ヒット数(コンボではなく、単発同士の連続成功を記録)
+    pGuardHoldPose: false, eGuardHoldPose: false, // 相手がしびれている間、ガード成功側の構えを維持するフラグ
     introCharAlpha: 1, // バトル開始演出: 味方/敵のフェードイン係数(0〜1)
     bgRevealRadius: 0, // バトル開始演出: 背景を中心から広げる円形クリップの半径(0で真っ暗)
     playerDeck: [], playerDiscard: [], playerHand: new Array(5).fill(null), // 山札/捨札/手札
@@ -833,6 +834,8 @@ function resetBattleState() {
     state.piyoFlip = false;
     state.pPunchStreak = 0;
     state.ePunchStreak = 0;
+    state.pGuardHoldPose = false;
+    state.eGuardHoldPose = false;
     state.introCharAlpha = 0; // 開始演出でふわっと表示するため、まずは透明から
     state.bgRevealRadius = 0; // 背景も真っ暗な状態からスタート
     state.battleReady = false; // 開始演出が終わるまで操作不可
@@ -947,7 +950,9 @@ function wait(ms) { return new Promise(r => setTimeout(r, ms)); }
 
 // 第24条: 双方が残像付きのdash.PNGでX座標を目標地点まで移動する汎用関数
 async function moveBothX(pTo, eTo, steps = 6, stepMs = 40) {
-    state.pAct = 'dash.PNG'; state.eAct = 'dash.PNG';
+    // ガード成功後、相手がしびれている間は構え(guard.PNG)を維持し、dash.PNGへ上書きしない
+    if (!state.pGuardHoldPose) state.pAct = 'dash.PNG';
+    if (!state.eGuardHoldPose) state.eAct = 'dash.PNG';
     const pFrom = state.pX, eFrom = state.eX;
     for (let s = 1; s <= steps; s++) {
         const t = s / steps;
@@ -1101,8 +1106,9 @@ async function runGuardSuccess(winner, loser) {
     triggerShake(winner, 250);
     triggerShake(loser, 400); // しびれによる振動(ダメージなし)
     if (loser === 'P') state.pNumbed = true; else state.eNumbed = true; // 次のコマンドの成功率が1/2になる
+    if (winner === 'P') state.pGuardHoldPose = true; else state.eGuardHoldPose = true; // 相手がしびれている間、ガードの構えを維持する
     await wait(500);
-    toIdle();
+    setAct(loser, 'IDLE'); // 負けた側だけidleへ。勝った側はguard.PNGを維持したまま
 }
 
 // ピヨり演出: damage.PNGで点滅させつつ、頭上のpiyo.PNGを反転させながら2往復させる
@@ -1137,7 +1143,9 @@ async function resolveExchange(pAct, eAct, cursor) {
     // しびれ判定: 直前の攻防でガードに阻まれた側は、1/2の確率で行動失敗する(3すくみ無視で被弾)
     if (state.pNumbed || state.eNumbed) {
         const numbedSide = state.pNumbed ? 'P' : 'E';
+        const guardSide = numbedSide === 'P' ? 'E' : 'P';
         if (numbedSide === 'P') state.pNumbed = false; else state.eNumbed = false;
+        if (guardSide === 'P') state.pGuardHoldPose = false; else state.eGuardHoldPose = false; // 判定が出たので構え保持を解除
         if (Math.random() < 0.5) {
             const opponentMove = numbedSide === 'P' ? eAct : pAct;
             await runNumbFail(numbedSide, opponentMove);
