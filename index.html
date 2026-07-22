@@ -215,14 +215,14 @@
 <script>
 /** 
  * 【憲法二十六条：全文】
- * 1. 5枠設計: 画面下部に最初から5つの空枠を固定表示し、手札のカードをタップするたびに先頭から順に空枠を埋めていく仕様。手札は21枚のデッキ(内訳は事前のデッキ編成画面で自由配分)から5枚を引いて構成し、ターンで使った枚数分だけ山から補充する。山が尽きたら捨札をリシャッフルして山に戻す(配分比率は変化しない)。
+ * 1. 5枠設計: 画面下部に最初から5つの空枠を固定表示し、手札のカードをタップするたびに先頭から順に空枠を埋めていく仕様。手札は21枚のデッキ(内訳は事前のデッキ編成画面で自由配分)から5枚を引いて構成し、ターンで使った枚数分だけ山から補充するが、山の残数を超えては補充しない(枠が空いたままになる場合がある)。手札・山が共に尽きた時のみ、DECK表示の点滅→「Refresh」表示→0からのカウントアップ演出とともに捨札を山へリシャッフルする(配分比率は変化しない)。
  * 2. 敵コマンド非公開: プレイヤーが出した枚数だけ、その場で敵の手をランダム生成する。中身は伏せ札(?)で表示し、各攻防が始まる直前に1枚ずつ公開する(先読み不可・都度の読み合い)。
  * 3. 3すくみ: [PUNCH>UPPER][UPPER>GUARD][GUARD>PUNCH] の判定ロジック。勝敗は毎回この判定で決定する。同じ手同士がぶつかった場合は相討ちとする。
- * 4. 空中コンボ: 勝者の技がUPPERだった場合に発動。攻撃側の次の入力がPUNCHなら継続し、最大3発まで空中パンチを受け付ける。3発目は自動的にメテオへ変換される。
+ * 4. 空中コンボ: 勝者の技がUPPERだった場合に発動。攻撃側の次の入力がPUNCHなら継続し、最大3発まで空中パンチを受け付ける。空中パンチは連続でヒットするほどダメージが増加する(1発目=基本値、2発目以降+増加量)。3発目は自動的にメテオへ変換される。
  * 5. 着地同期: 通常コンボ終了時（メテオに至らない場合）は、攻守双方が地面(GROUND_Y)へ着地してから次の演出へ遷移する。
  * 6. 通常コンボ終了時の演出: 攻撃側は必ずdash.PNGへ、被弾側はdamage.PNGのまま着地させる。
  * 7. 画像状態管理: 待機中は必ず player.PNG / player2.PNG の呼吸(idle)へ復帰する。idle.PNGという単独ファイルは存在しない。
- * 8. ダメージ計算: PUNCH勝利(10), UPPER初撃(5), メテオ(50), 相討ち(3), しびれ被弾時の弱点ダメージ(15)。三すくみに負けた側のみ振動(shake)する。同じ手同士の相討ちの場合は双方が微ダメージを受けて振動し、反動で一歩下がる。味方のPUNCHが敵のGUARDに阻まれた場合、敵は極小ダメージで振動し、味方はダメージなしだがしびれてpunch.PNGのまま振動し、次のコマンドの成功率が1/2になる。しびれで行動失敗した場合、味方はdamage.PNGで振動し、3すくみを無視した弱点ダメージを受ける。
+ * 8. ダメージ計算: PUNCH勝利(10), UPPER初撃(5), 空中パンチ連続ヒット加算(2発目以降+5), メテオ(50), 相討ち(3), しびれ被弾時の弱点ダメージ(15)。三すくみに負けた側のみ振動(shake)する。同じ手同士の相討ちの場合は双方が微ダメージを受けて振動し、反動で一歩下がる。GUARDが勝った場合(相手のPUNCHを防いだ場合)、勝った側は極小ダメージで振動し、負けた側はダメージなしだがしびれてpunch.PNGのまま振動し、次のコマンドの成功率が1/2になる(どちらの側がガードしても発生する)。しびれで行動失敗した場合、しびれた側はdamage.PNGで点滅しつつ頭上にpiyo.PNGを反転させながら2往復させるピヨり演出を行い、その後3すくみを無視した弱点ダメージを受ける。
  * 9. 座標復帰: ターン(5枠)全体の処理が完了した時点で、finally句にて必ずホームポジションへ dash.PNG の残像付きで帰還することを保証する。ただし体力が0になる最後の一撃を受けた場合は、この通常帰還処理の代わりに専用の決着演出（damage.PNGで点滅→スローに軽くバウンドしながら初期位置へ戻る→down.PNGで倒れる→K.O./YOU WIN表示）を実行する。
  * 10. 描画品質: imageSmoothingEnabled=false を維持しドット絵品質を担保。背景(bg.PNG)もキャラと同じcanvas上に同一の拡大率(SCALE)で描画し、ピクセルのズレを起こさない。
  * 11. モバイル対応: Flexboxとviewport固定によるレスポンシブ最適化。UI全体はappRootコンテナで正方形(1:1)に収め、画面中央に配置する。
@@ -353,7 +353,7 @@
 <script>
 // 第22条: ファイル名は小文字、拡張子は常に大文字 .PNG
 const DB = {
-    ASSETS: ['player.PNG', 'player2.PNG', 'upper.PNG', 'damage.PNG', 'knock.PNG', 'knock2.PNG', 'dash.PNG', 'punch.PNG', 'punch2.PNG', 'guard.PNG', 'down.PNG'],
+    ASSETS: ['player.PNG', 'player2.PNG', 'upper.PNG', 'damage.PNG', 'knock.PNG', 'knock2.PNG', 'dash.PNG', 'punch.PNG', 'punch2.PNG', 'guard.PNG', 'down.PNG', 'piyo.PNG'],
     SRC_PX: 32,   // キャラのソース解像度(32×32px)
     SCALE: 10,    // ソース1pxをcanvas上で何ユニットに拡大するか(キリのいい整数倍で崩れを防ぐ)
     POS: {
@@ -363,7 +363,7 @@ const DB = {
         RETREAT_HALF: 200,  // 攻防のあと軽く距離を取る位置（ホームまでは戻らない）
         GROUND_MARGIN_PX: 3 // 地面バンドの高さ(ソースpx換算。キャラ下部3px想定)
     },
-    DMG: { P: 10, U: 5, M: 50, CLASH: 3, TINY: 1, WEAK: 15 }, // P:パンチ勝利 / U:アッパー初撃 / M:メテオ / CLASH:相討ち微ダメージ / TINY:ガードされたパンチの反撃 / WEAK:しびれ被弾の弱点ダメージ
+    DMG: { P: 10, U: 5, M: 50, CLASH: 3, TINY: 1, WEAK: 15, P_COMBO_STEP: 5 }, // P:パンチ勝利 / U:アッパー初撃 / M:メテオ / CLASH:相討ち微ダメージ / TINY:ガードされたパンチの反撃 / WEAK:しびれ被弾の弱点ダメージ / P_COMBO_STEP:空中パンチ連続ヒットの増加量
     MAX_AIR_PUNCH: 3,
     BREATH_MS: 500, // player.PNG / player2.PNG の呼吸切替間隔
     DECK_TOTAL: 21 // デッキ合計枚数(内訳は編成画面で自由配分)
@@ -395,7 +395,9 @@ let state = {
     pShakeUntil: 0, eShakeUntil: 0,
     pBlinkUntil: 0, eBlinkUntil: 0,
     pLastAtk: null, eLastAtk: null,
-    pNumbed: false, // しびれフラグ: 次のコマンドの成功率が1/2になる
+    pNumbed: false, eNumbed: false, // しびれフラグ: 次のコマンドの成功率が1/2になる(ガード成功で相手に付与)
+    piyoSide: null, piyoFlip: false, // ピヨり演出: どちら側の頭上に出すか/左右反転中か
+    pPunchStreak: 0, ePunchStreak: 0, // 地上パンチの連続ヒット数(コンボではなく、単発同士の連続成功を記録)
     introCharAlpha: 1, // バトル開始演出: 味方/敵のフェードイン係数(0〜1)
     bgRevealRadius: 0, // バトル開始演出: 背景を中心から広げる円形クリップの半径(0で真っ暗)
     playerDeck: [], playerDiscard: [], playerHand: new Array(5).fill(null), // 山札/捨札/手札
@@ -657,6 +659,27 @@ function draw(tRaw) {
     } else { ctx.fillStyle = '#f00'; ctx.fillRect(state.eX, state.eY, DB.IMG_SIZE, DB.IMG_SIZE); }
     ctx.restore();
 
+    // ピヨり演出: しびれている側の頭上にpiyo.PNGを表示(反転を交互に切り替える)
+    if (state.piyoSide) {
+        const piyoImg = imgs['piyo.PNG'];
+        if (piyoImg) {
+            const baseX = state.piyoSide === 'P' ? state.pX : state.eX;
+            const baseY = state.piyoSide === 'P' ? state.pY : state.eY;
+            const pw = 32 * DB.SCALE, ph = 10 * DB.SCALE;
+            const px = baseX + (DB.IMG_SIZE - pw) / 2;
+            const py = baseY - ph - 10;
+            ctx.save();
+            if (state.piyoFlip) {
+                ctx.translate(px + pw, py);
+                ctx.scale(-1, 1);
+                ctx.drawImage(piyoImg, 0, 0, pw, ph);
+            } else {
+                ctx.drawImage(piyoImg, px, py, pw, ph);
+            }
+            ctx.restore();
+        }
+    }
+
     requestAnimationFrame(draw);
 }
 
@@ -805,6 +828,11 @@ function resetBattleState() {
     state.pBlinkUntil = 0; state.eBlinkUntil = 0;
     state.pLastAtk = null; state.eLastAtk = null;
     state.pNumbed = false;
+    state.eNumbed = false;
+    state.piyoSide = null;
+    state.piyoFlip = false;
+    state.pPunchStreak = 0;
+    state.ePunchStreak = 0;
     state.introCharAlpha = 0; // 開始演出でふわっと表示するため、まずは透明から
     state.bgRevealRadius = 0; // 背景も真っ暗な状態からスタート
     state.battleReady = false; // 開始演出が終わるまで操作不可
@@ -912,6 +940,7 @@ function applyDamage(target, amount) {
         document.getElementById('hpP').style.width = state.hpP + '%';
         setTimeout(() => { document.getElementById('hpP_y').style.width = state.hpP + '%'; }, 0);
     }
+    triggerBlink(target, 180); // どんなダメージでも、受けた側を一瞬点滅させる
 }
 
 function wait(ms) { return new Promise(r => setTimeout(r, ms)); }
@@ -972,10 +1001,16 @@ function nextQueuedMove(side, cursor) {
 }
 
 // 通常のヒット(GUARD/PUNCHが勝った場合)。負けた側だけが振動する。
+// 通常のヒット(地上PUNCHが勝った場合)。負けた側だけが振動する。連続でヒットするほどダメージが増加する。
 async function runNormalHit(winner, loser, move) {
     setAct(winner, moveSprite(move));
     setAct(loser, 'damage.PNG');
-    applyDamage(loser, DB.DMG.P);
+    const winnerStreakKey = winner === 'P' ? 'pPunchStreak' : 'ePunchStreak';
+    const loserStreakKey = loser === 'P' ? 'pPunchStreak' : 'ePunchStreak';
+    const dmg = DB.DMG.P + state[winnerStreakKey] * DB.DMG.P_COMBO_STEP; // 連続ヒット数に応じて増加
+    state[winnerStreakKey]++; // 命中したので連続記録を伸ばす
+    state[loserStreakKey] = 0; // 負けた側の連続記録は途切れる
+    applyDamage(loser, dmg);
     triggerShake(loser, 350); // 第8条: 負けた側のみ振動
     await wait(500);
     toIdle();
@@ -1013,6 +1048,9 @@ async function runMeteor(attacker, defender) {
 
 // UPPERが勝った場合の空中コンボ一式
 async function runUpperCombo(attacker, defender, cursor) {
+    // UPPERが決まった時点で地上パンチの連続記録は途切れる(コンボ中の空中パンチとは別カウント)
+    state.pPunchStreak = 0;
+    state.ePunchStreak = 0;
     // 初撃: 打つ方は1/3だけホップ、受ける方はふわっと大きく浮く
     setAct(attacker, 'upper.PNG');
     setAct(defender, 'damage.PNG');
@@ -1030,10 +1068,11 @@ async function runUpperCombo(attacker, defender, cursor) {
         airPunches++;
 
         if (airPunches < DB.MAX_AIR_PUNCH) {
-            // 通常の空中パンチ: 打つ方が追従して浮き、空中で殴る
+            // 通常の空中パンチ: 打つ方が追従して浮き、空中で殴る。連続ヒットするほどダメージが増加する
             setY(attacker, DB.POS.AIR_FOLLOW_Y);
             setAct(attacker, nextPunchSprite(attacker)); // 第21条
-            applyDamage(defender, DB.DMG.P);
+            const comboDmg = DB.DMG.P + (airPunches - 1) * DB.DMG.P_COMBO_STEP; // 1発目=P, 2発目=P+STEP...
+            applyDamage(defender, comboDmg);
             triggerShake(defender, 200);
             await wait(500);
         } else {
@@ -1051,49 +1090,66 @@ async function runUpperCombo(attacker, defender, cursor) {
     toIdle();
 }
 
-// 味方のPUNCHが敵のGUARDに阻まれた場合の特殊演出(しびれ発生)
-async function runPunchStuffed() {
-    state.pAct = 'punch.PNG'; // しびれてパンチの姿勢のまま
-    state.eAct = 'guard.PNG';
-    applyDamage('E', DB.DMG.TINY);
-    triggerShake('E', 250);
-    triggerShake('P', 400); // しびれによる振動(ダメージなし)
-    state.pNumbed = true; // 次のコマンドの成功率が1/2になる
+// ガードが成功した時の演出(勝った側はガードのまま反撃、負けた側はしびれる)
+// 第3すくみの通り、GUARDに勝てるのはPUNCHのみなので、負けた側は必ずpunch.PNGの姿勢になる
+async function runGuardSuccess(winner, loser) {
+    state.pPunchStreak = 0; // ガードでパンチが止まった場合も連続記録は途切れる
+    state.ePunchStreak = 0;
+    setAct(winner, 'guard.PNG');
+    setAct(loser, 'punch.PNG'); // しびれてパンチの姿勢のまま
+    applyDamage(winner, DB.DMG.TINY);
+    triggerShake(winner, 250);
+    triggerShake(loser, 400); // しびれによる振動(ダメージなし)
+    if (loser === 'P') state.pNumbed = true; else state.eNumbed = true; // 次のコマンドの成功率が1/2になる
     await wait(500);
     toIdle();
 }
 
-// しびれが残ったまま次のコマンドに失敗した場合(3すくみ無視の弱点ダメージ)
-async function runNumbFail(eAct) {
-    state.pAct = 'damage.PNG';
-    state.eAct = moveSprite(eAct);
-    triggerShake('P', 350);
-    applyDamage('P', DB.DMG.WEAK);
-    await wait(500);
+// ピヨり演出: damage.PNGで点滅させつつ、頭上のpiyo.PNGを反転させながら2往復させる
+async function runPiyoEffect(side) {
+    state.piyoSide = side;
+    for (let i = 0; i < 4; i++) { // 通常→反転→通常→反転(2往復)
+        state.piyoFlip = (i % 2 === 1);
+        await wait(180);
+    }
+    state.piyoSide = null;
+}
+
+// しびれが残ったまま次のコマンドに失敗した場合(3すくみ無視で必ず被弾する)
+async function runNumbFail(numbedSide, opponentMove) {
+    state.pPunchStreak = 0; // しびれによる強制被弾でも連続記録は途切れる
+    state.ePunchStreak = 0;
+    const opponent = numbedSide === 'P' ? 'E' : 'P';
+    setAct(numbedSide, 'damage.PNG');
+    triggerBlink(numbedSide, 1400); // 点滅
+    await runPiyoEffect(numbedSide); // ピヨピヨ演出(頭上でpiyo.PNGが反転を繰り返す)
+    // ピヨり演出のあと、3すくみを無視したコマンド失敗アクション
+    setAct(opponent, moveSprite(opponentMove));
+    triggerShake(numbedSide, 350);
+    applyDamage(numbedSide, DB.DMG.WEAK);
+    await wait(400);
     toIdle();
 }
 
 async function resolveExchange(pAct, eAct, cursor) {
     await approachCenter(); // 第24条: 残像付きで中央へ踏み込む
 
-    // しびれ判定: 前の手でパンチがガードに阻まれた場合、次のコマンドは1/2の確率で失敗する
-    if (state.pNumbed) {
-        state.pNumbed = false;
+    // しびれ判定: 直前の攻防でガードに阻まれた側は、1/2の確率で行動失敗する(3すくみ無視で被弾)
+    if (state.pNumbed || state.eNumbed) {
+        const numbedSide = state.pNumbed ? 'P' : 'E';
+        if (numbedSide === 'P') state.pNumbed = false; else state.eNumbed = false;
         if (Math.random() < 0.5) {
-            await runNumbFail(eAct);
+            const opponentMove = numbedSide === 'P' ? eAct : pAct;
+            await runNumbFail(numbedSide, opponentMove);
             return;
         }
-    }
-
-    // 特殊: 味方のPUNCHが敵のGUARDに阻まれる(しびれ発生)
-    if (pAct === 'PUNCH' && eAct === 'GUARD') {
-        await runPunchStuffed();
-        return;
     }
 
     const result = judge(pAct, eAct);
     if (result === 'draw') {
         // 相討ち: 同じ手同士がぶつかる場合、双方が微ダメージを受けて振動し、反動で一歩下がる
+        state.pPunchStreak = 0; // 相討ちでは連続記録が途切れる
+        state.ePunchStreak = 0;
         state.pAct = moveSprite(pAct);
         state.eAct = moveSprite(eAct);
         applyDamage('P', DB.DMG.CLASH);
@@ -1112,6 +1168,8 @@ async function resolveExchange(pAct, eAct, cursor) {
 
     if (winnerMove === 'UPPER') {
         await runUpperCombo(winner, loser, cursor);
+    } else if (winnerMove === 'GUARD') {
+        await runGuardSuccess(winner, loser); // ガード成功: 勝者は極小ダメージ、敗者はしびれる
     } else {
         await runNormalHit(winner, loser, winnerMove);
     }
