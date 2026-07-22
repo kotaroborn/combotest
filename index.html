@@ -134,7 +134,15 @@
             position: absolute; right: 2px; bottom: -2px; z-index: 5;
             font-size: 11px; color: #ccc;
             background: rgba(0,0,0,0.45); padding: 2px 7px; border-radius: 4px;
+            transition: opacity 0.1s linear;
         }
+        #deckRefreshLabel {
+            position: absolute; right: 2px; bottom: 20px; z-index: 6;
+            font-size: 11px; font-weight: bold; color: #ff5;
+            background: rgba(0,0,0,0.6); padding: 2px 7px; border-radius: 4px;
+            display: none;
+        }
+        #deckRefreshLabel.show { display: block; }
 
         .scene-btn { background: #800; color: #fff; border: none; border-radius: 8px; padding: 14px 40px; font-weight: bold; font-size: 16px; cursor: pointer; }
         .scene-btn:disabled { opacity: 0.4; }
@@ -315,6 +323,7 @@
     <div id="handWrap">
         <div id="handRow"></div>
         <div id="deckInfo">DECK 21/21</div>
+        <div id="deckRefreshLabel">Refresh</div>
     </div>
     <div class="controls">
         <button id="howToBtn" class="howto-btn" onclick="openHowTo()">HOW<br>TO</button>
@@ -413,18 +422,45 @@ function buildDeckArray(counts) {
     return shuffleArray(deck);
 }
 function drawCard() {
-    if (state.playerDeck.length === 0) {
-        if (state.playerDiscard.length === 0) return null; // 捨札も無ければ引けない(通常起きない)
-        // 山が尽きたら捨札をリシャッフルして山に戻す(配分そのものは変わらない)
-        state.playerDeck = shuffleArray(state.playerDiscard.slice());
-        state.playerDiscard = [];
-    }
+    // 自動リシャッフルはしない。山が尽きたらnullを返し、その枠は空のまま残す。
+    // 山と捨札を実際にリシャッフルするのは runDeckRefresh() のみ(手札・山が共に0になった時の演出内)。
+    if (state.playerDeck.length === 0) return null;
     return state.playerDeck.pop();
 }
 function updateDeckCountDisplay() {
     const el = document.getElementById('deckInfo');
     if (!el) return;
     el.innerText = `DECK ${state.playerDeck.length}/${DB.DECK_TOTAL}`;
+}
+
+// 手札・山が共に尽きた時の演出: DECK表示が3回点滅→「Refresh」表示→0から実際の枚数までカウントアップしながら
+// 捨札を山へリシャッフルする(約2.5秒)
+async function runDeckRefresh() {
+    const deckEl = document.getElementById('deckInfo');
+    const label = document.getElementById('deckRefreshLabel');
+    label.classList.add('show');
+
+    for (let i = 0; i < 3; i++) {
+        deckEl.style.opacity = '0.15';
+        await wait(150);
+        deckEl.style.opacity = '1';
+        await wait(150);
+    }
+
+    // ここで実際に捨札を山へ戻す(配分比率は変わらない)
+    state.playerDeck = shuffleArray(state.playerDiscard.slice());
+    state.playerDiscard = [];
+    const target = state.playerDeck.length;
+
+    const steps = 30;
+    const stepMs = 2500 / steps;
+    for (let s = 1; s <= steps; s++) {
+        const val = Math.round(target * (s / steps));
+        deckEl.innerText = `DECK ${val}/${DB.DECK_TOTAL}`;
+        await wait(stepMs);
+    }
+    deckEl.innerText = `DECK ${target}/${DB.DECK_TOTAL}`;
+    label.classList.remove('show');
 }
 
 // ------- デッキ編成画面 -------
@@ -1131,12 +1167,30 @@ async function resolveTurn() {
         const drawnIndices = [];
         for (let i = 0; i < state.playerHand.length; i++) {
             if (state.playerHand[i] === null) {
-                state.playerHand[i] = drawCard();
-                drawnIndices.push(i);
+                const c = drawCard(); // 山の残数を超えては引けない(nullなら空枠のまま残る)
+                if (c !== null) {
+                    state.playerHand[i] = c;
+                    drawnIndices.push(i);
+                }
             }
         }
         updateHandUI(drawnIndices); // 補充分だけ画面下から回転しつつ登場するアニメーション
         updateDeckCountDisplay();
+
+        // 手札・山が共に尽きた場合のみ、Refresh演出(点滅→カウントアップ)を挟んで捨札をリシャッフルする
+        const handIsEmpty = state.playerHand.every(c => c === null);
+        if (!gameOverSide && handIsEmpty && state.playerDeck.length === 0) {
+            await runDeckRefresh();
+            const refillIndices = [];
+            for (let i = 0; i < state.playerHand.length; i++) {
+                if (state.playerHand[i] === null) {
+                    const c = drawCard();
+                    if (c !== null) { state.playerHand[i] = c; refillIndices.push(i); }
+                }
+            }
+            updateHandUI(refillIndices);
+            updateDeckCountDisplay();
+        }
 
         if (gameOverSide) {
             // 体力を0にする最後の一撃: 通常の帰還処理の代わりに専用の決着演出を実行
