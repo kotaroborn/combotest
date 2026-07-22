@@ -116,14 +116,15 @@
 
         /* ------- 手札(カード)UI: 重ならない横並び。中心ほど高く、左右ほど下がる ------- */
         #handWrap { position: relative; height: 90px; }
-        #handRow { display: flex; justify-content: center; align-items: flex-start; gap: 9px; height: 100%; }
+        #handRow { position: relative; width: 100%; height: 100%; }
         .card {
+            position: absolute; top: 0; left: 50%;
             width: 42px; height: 60px;
             border: 2px solid #fff; border-radius: 4px;
             display: flex; align-items: center; justify-content: center;
             font-weight: bold; font-size: 16px; background: #345; color: #fff;
             background-size: cover; background-position: center; image-rendering: pixelated;
-            transform-origin: 50% 50%; /* 中心を軸に回転させ、高さ(translateY)への干渉を無くす */
+            transform-origin: 50% 50%; /* 回転は中心軸。高さ(top)には一切影響しない */
         }
         .card.empty { border-style: dashed; border-color: #888; opacity: 0.4; background-color: #222; }
         .card.filled { cursor: pointer; }
@@ -651,33 +652,39 @@ function updateHandUI(animateIndices) {
     const s = document.getElementById('handRow'); s.innerHTML = '';
     const n = state.playerHand.length; // 5
     const mid = (n - 1) / 2; // 中央インデックス(2)
+    const GAP_X = 48; // カード中心同士の横間隔(px)
+    const ARC_K = 4;  // 円弧の深さ係数(大きいほど外側が下がる)
     state.playerHand.forEach((card, idx) => {
         const d = document.createElement('div');
         d.className = 'card ' + (card ? 'filled' : 'empty');
         applyCardVisual(d, card); // card_p/u/G.PNGがあれば画像、無ければP/U/Gの文字
-        // 高さは margin-top (レイアウト値) で確定させ、回転(transform)の影響を一切受けないようにする
+
         const offset = idx - mid; // -2, -1, 0, 1, 2
-        const ty = Math.abs(offset) * 8; // px (中心=0が最も高く、外側ほど下がる)
+        // 高さ(top)は放物線(offset^2)で決める。中心=0が最も高く(top最小)、外側ほどなだらかに下がる。
+        // これはCSSレイアウト上のtop値なので、rotateの角度に一切影響されない。
+        const ty = offset * offset * ARC_K; // 0, 4, 16
+        const tx = offset * GAP_X; // 横方向の間隔(中心からの距離)
         const angle = offset * 9; // deg (外側ほど上が外向きに傾く。見た目の傾きのみ)
-        d.style.marginTop = ty + 'px';
+        d.style.top = ty + 'px';
         if (card) d.onclick = () => playCard(idx);
 
+        const finalTransform = `translateX(calc(-50% + ${tx}px)) rotate(${angle}deg)`;
         if (animateIndices.includes(idx)) {
             // 補充されたカードは画面下から少し回転しながら手札へ滑り込む
             const fromAngle = angle + (offset >= 0 ? 20 : -20);
             d.style.transition = 'none';
-            d.style.transform = `translateY(90px) rotate(${fromAngle}deg)`;
+            d.style.transform = `translateX(calc(-50% + ${tx}px)) translateY(90px) rotate(${fromAngle}deg)`;
             d.style.opacity = '0';
             s.appendChild(d);
             requestAnimationFrame(() => {
                 requestAnimationFrame(() => {
                     d.style.transition = 'transform 0.35s ease-out, opacity 0.3s ease-out';
-                    d.style.transform = `rotate(${angle}deg)`;
+                    d.style.transform = finalTransform;
                     d.style.opacity = '1';
                 });
             });
         } else {
-            d.style.transform = `rotate(${angle}deg)`;
+            d.style.transform = finalTransform;
             s.appendChild(d);
         }
     });
@@ -701,6 +708,17 @@ function updateActionButtons() {
     const enabled = state.battleReady && !state.resolving && filledCount() > 0;
     document.getElementById('goBtn').disabled = !enabled;
     document.getElementById('clrBtn').disabled = !enabled;
+}
+// ターン終了後、場に出したカードをふわっと浮かせながらフェードアウトさせる
+async function fadeOutQueueCards() {
+    const cards = document.querySelectorAll('#slots .slot.filled');
+    if (cards.length === 0) return;
+    cards.forEach(el => {
+        el.style.transition = 'opacity 0.45s ease-out, transform 0.45s ease-out';
+        el.style.opacity = '0';
+        el.style.transform = 'translateY(-16px) scale(1.06)'; // ふわっと浮きながら消える
+    });
+    await wait(450);
 }
 updateUI(); // 第1条: 起動直後から5つの空枠を表示する
 
@@ -1124,6 +1142,7 @@ async function resolveTurn() {
             // 体力を0にする最後の一撃: 通常の帰還処理の代わりに専用の決着演出を実行
             state.battleReady = false; // 決着後は手札タップ含め操作不可にする
             await runFinishSequence(gameOverSide);
+            await fadeOutQueueCards(); // 場のカードがふわっと消える
             state.hands = new Array(5).fill(null);
             updateUI();
             state.resolving = false; // バトルは決着済み。ボタンは結果画面から「タイトルへ戻る」でリセットされる
@@ -1133,6 +1152,7 @@ async function resolveTurn() {
             state.eY = DB.POS.GROUND_Y;
             await goHome();
             toIdle();
+            await fadeOutQueueCards(); // 場のカードがふわっと消える
             state.hands = new Array(5).fill(null); // 第1条: 5つの空枠に戻す
             updateUI();
             state.enemyHands = [];
