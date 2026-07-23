@@ -82,8 +82,19 @@
         }
         .prologue-text { color: #999; font-size: 14px; line-height: 1.6; }
 
-        /* ------- プロローグ: シネマサイズ画像 + 1文字ずつのテキスト ------- */
-        #prologueContent { flex: 1; display: flex; flex-direction: column; width: 100%; opacity: 0; }
+        /* ------- ロゴシーン: BORN MAGAZINE presents ------- */
+        #sceneLogo { justify-content: center; align-items: center; }
+        #logoContent {
+            opacity: 0; display: flex; flex-direction: column; align-items: center; gap: 10px;
+        }
+        #logoImg { max-width: 80%; display: block; image-rendering: pixelated; }
+        #logoFallback { display: none; flex-direction: column; align-items: center; gap: 8px; }
+        .logo-main { font-size: 22px; font-weight: 900; letter-spacing: 3px; color: #fff; }
+        .logo-sub { font-size: 13px; letter-spacing: 6px; color: #aaa; }
+
+        /* ------- プロローグ: シネマサイズ画像 + 1文字ずつのテキストを1ブロックにまとめ、中央配置 ------- */
+        #scenePrologue { justify-content: center; align-items: center; }
+        #prologueContent { flex: none; display: flex; flex-direction: column; width: 100%; opacity: 0; }
         #prologueImgArea {
             width: 100%; aspect-ratio: 2.4 / 1; /* シネマサイズ(ワイド) */
             background: #000 center / cover no-repeat;
@@ -100,9 +111,10 @@
         }
         #prologueImgArea.placeholder #prologueImgFallback { display: flex; }
         #prologueTextBox {
-            flex: 1; background: #000; padding: 16px;
+            flex: none; height: 130px; background: #000; padding: 16px;
             display: flex; align-items: flex-start; justify-content: flex-start;
-            border-top: 1px solid #333;
+            border-top: 1px solid #333; border-bottom: 1px solid #333;
+            overflow: hidden;
         }
         #prologueText {
             color: #fff; font-size: 14px; line-height: 1.9; letter-spacing: 0.5px;
@@ -188,6 +200,11 @@
             font-size: 46px; font-weight: 900; letter-spacing: 4px; color: #fff;
             text-shadow: 0 0 14px rgba(255,255,255,0.7); white-space: nowrap;
         }
+        #continueBtn {
+            position: absolute; left: 50%; bottom: 13%; transform: translateX(-50%);
+            background: #a00; border: none; color: #fff;
+            padding: 10px 26px; font-size: 13px; font-weight: bold; letter-spacing: 1px; border-radius: 6px; cursor: pointer;
+        }
         #backTitleBtn {
             position: absolute; left: 50%; bottom: 6%; transform: translateX(-50%);
             background: transparent; border: 1px solid rgba(255,255,255,0.55); color: #eee;
@@ -261,7 +278,7 @@
  * 12. 描画資産の不変性: 外部ファイルを厳格に読み込み、存在しない場合は読み込みエラーを即座に特定する。ただし敵専用グラフィック(enemy_〇〇.PNG)と背景(bg.PNG)は任意の差し替え用アセットであり、存在しなくてもエラー扱いにせず、敵はプレイヤー画像へ、背景は水色の塗りつぶしへフォールバックする。
  * 13. オブジェクトの生存維持: 状態管理オブジェクト(state, imgs)は決して再定義・初期化せず、常に参照し続ける。
  * 14. 憲法完全表記: コード提示の際、本憲法リストを一切省略せず必ず全条文を記述する。
- * 15. UI永続性: HP・TURN表示は画面上部に固定し、スロットは下部に永続表示する。画面はプロローグ→タイトル→デッキ編成(21枚固定・内訳自由)→バトル→決着(K.O./YOU WIN)→(タイトルへ戻るボタンで)プロローグ、の順で遷移する。プロローグはシネマサイズの画像(op_1〜4.PNG)と1文字ずつ表示されるテキストを4画面分再生し、SKIPしなくても4画面終了後は自動でタイトルへ遷移する。バトル開始時は暗転→味方/敵のフェードイン→背景(bg.PNG)がcanvas上で中心から円形に拡大表示→「BATTLE START」が左からディゾルブで入り中央で静止した後、拡大しながら消える演出を経てから操作可能になる。
+ * 15. UI永続性: HP・TURN表示は画面上部に固定し、スロットは下部に永続表示する。画面はロゴ(BORN MAGAZINE presents)→プロローグ→タイトル→デッキ編成(21枚固定・内訳自由)→バトル→決着(K.O./YOU WIN)、の順で遷移する。決着画面ではCONTINUE(直前のデッキ編成へ)とタイトルへ戻る(ロゴシーンへ)の2つのボタンを提供する。ロゴシーンはフェードイン→2秒表示→フェードアウトの後、自動でプロローグへ遷移する。プロローグは画像とテキストを1ブロックにまとめて画面中央に配置し、シネマサイズの画像(op_1〜4.PNG)と1文字ずつ表示されるテキストを4画面分再生する(1画面目のみブロック全体がフェードインする)。SKIPしなくても4画面終了後は自動でタイトルへ遷移する。バトル開始時は暗転→味方/敵のフェードイン→背景(bg.PNG)がcanvas上で中心から円形に拡大表示→「BATTLE START」が左からディゾルブで入り中央で静止した後、拡大しながら消える演出を経てから操作可能になる。
  * 16. 位置保持: 攻防のたびに初期位置へ戻るのではなく、中央で衝突→軽く距離を取る、を繰り返す。ホームポジションへ戻るのはターン完了時のみ。
  * 17. 体力ゲージ演出: ダメージ発生時、現在値が即座に減り、黄色いバーが0.6秒遅れて減少する。
  * 18. TURN表示仕様: 画面上部中央に「TURN」と「数字」を2行で太字(900)表示する。
@@ -277,8 +294,20 @@
 </script>
 <div id="appRoot">
 
+<!-- ロゴシーン: BORN MAGAZINE presents。フェードイン→2秒表示→フェードアウトしてプロローグへ -->
+<div id="sceneLogo" class="scene active">
+    <div id="logoContent">
+        <img id="logoImg" src="logo.PNG" alt="BORN MAGAZINE"
+             onerror="this.style.display='none'; document.getElementById('logoFallback').style.display='flex';">
+        <div id="logoFallback">
+            <div class="logo-main">BORN MAGAZINE</div>
+            <div class="logo-sub">presents</div>
+        </div>
+    </div>
+</div>
+
 <!-- プロローグシーン: シネマサイズの画像+1文字ずつのテキスト演出を4画面。終わったら自動でタイトルへ -->
-<div id="scenePrologue" class="scene active">
+<div id="scenePrologue" class="scene">
     <div id="prologueContent">
         <div id="prologueImgArea"><div id="prologueImgFallback"></div></div>
         <div id="prologueTextBox">
@@ -350,7 +379,8 @@
     <div id="battleStartText">BATTLE START</div>
     <div id="resultOverlay">
         <div id="resultText"></div>
-        <button id="backTitleBtn" onclick="goPrologue()">タイトルへ戻る</button>
+        <button id="continueBtn" onclick="goDeckBuild()">CONTINUE</button>
+        <button id="backTitleBtn" onclick="goLogo()">タイトルへ戻る</button>
     </div>
 </div>
 <div id="ui">
@@ -602,6 +632,41 @@ function boot() {
     // 第23条: 全画像の読み込み確定を待ってからループ開始・UI有効化
     document.getElementById('startBtn').disabled = false;
     draw();
+    playLogo();
+}
+
+// ------- ロゴシーン: BORN MAGAZINE presents(logo.PNGは任意アセット。無ければテキストにフォールバック) -------
+let logoTokenCounter = 0;
+async function playLogo() {
+    const myToken = ++logoTokenCounter;
+    const content = document.getElementById('logoContent');
+    content.style.transition = 'none';
+    content.style.opacity = '0';
+    await wait(30);
+    if (logoTokenCounter !== myToken) return;
+
+    content.style.transition = 'opacity 1s ease-in';
+    content.style.opacity = '1';
+    await wait(1000);
+    if (logoTokenCounter !== myToken) return;
+
+    await wait(2000); // 表示を2秒キープ
+    if (logoTokenCounter !== myToken) return;
+
+    content.style.transition = 'opacity 1s ease-out';
+    content.style.opacity = '0';
+    await wait(1000);
+    if (logoTokenCounter !== myToken) return;
+
+    goProloguePlay();
+}
+function goLogo() {
+    hideResult();
+    showScene('logo');
+    playLogo();
+}
+function goProloguePlay() {
+    showScene('prologue');
     playPrologue();
 }
 
