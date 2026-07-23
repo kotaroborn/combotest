@@ -191,24 +191,22 @@
         .scene-btn { background: #800; color: #fff; border: none; border-radius: 8px; padding: 14px 40px; font-weight: bold; font-size: 16px; cursor: pointer; }
         .scene-btn:disabled { opacity: 0.4; }
         #resultOverlay {
-            position: absolute; inset: 0; background: rgba(0,0,0,0.35); /* キャラが見えるよう薄めに */
-            display: none; z-index: 10;
+            position: absolute; inset: 0; background: rgba(0,0,0,0.6); /* 画面全体(カードの場も含む)を暗く */
+            display: none; z-index: 50;
+            flex-direction: column; align-items: center; justify-content: center; gap: 28px;
         }
-        #resultOverlay.show { display: block; }
+        #resultOverlay.show { display: flex; }
         #resultText {
-            position: absolute; top: 30%; left: 50%; transform: translate(-50%, -50%);
-            font-size: 46px; font-weight: 900; letter-spacing: 4px; color: #fff;
+            font-size: 44px; font-weight: 900; letter-spacing: 4px; color: #fff;
             text-shadow: 0 0 14px rgba(255,255,255,0.7); white-space: nowrap;
         }
         #continueBtn {
-            position: absolute; left: 50%; bottom: 13%; transform: translateX(-50%);
             background: #a00; border: none; color: #fff;
-            padding: 10px 26px; font-size: 13px; font-weight: bold; letter-spacing: 1px; border-radius: 6px; cursor: pointer;
+            padding: 12px 32px; font-size: 14px; font-weight: bold; letter-spacing: 1px; border-radius: 8px; cursor: pointer;
         }
         #backTitleBtn {
-            position: absolute; left: 50%; bottom: 6%; transform: translateX(-50%);
             background: transparent; border: 1px solid rgba(255,255,255,0.55); color: #eee;
-            padding: 8px 22px; font-size: 12px; letter-spacing: 1px; border-radius: 6px; cursor: pointer;
+            padding: 9px 24px; font-size: 12px; letter-spacing: 1px; border-radius: 6px; cursor: pointer;
         }
         #slots { display: flex; justify-content: center; gap: 5px; height: 60px; }
         .slot { width: 42px; height: 60px; border: 2px solid #fff; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-weight: bold; background:#222; background-size: cover; background-position: center; image-rendering: pixelated; }
@@ -377,11 +375,6 @@
     <canvas id="cvs" width="960" height="560"></canvas>
     <div id="enemySlots"></div>
     <div id="battleStartText">BATTLE START</div>
-    <div id="resultOverlay">
-        <div id="resultText"></div>
-        <button id="continueBtn" onclick="goDeckBuild()">CONTINUE</button>
-        <button id="backTitleBtn" onclick="goLogo()">タイトルへ戻る</button>
-    </div>
 </div>
 <div id="ui">
     <div id="slots"></div>
@@ -397,6 +390,12 @@
             <button onclick="resolveTurn()" id="goBtn" disabled>GO!</button>
         </div>
     </div>
+</div>
+<!-- 決着オーバーレイ: ヘッダー・場・手札すべてを含む画面全体を覆う -->
+<div id="resultOverlay">
+    <div id="resultText"></div>
+    <button id="continueBtn" onclick="goDeckBuild()">CONTINUE</button>
+    <button id="backTitleBtn" onclick="goLogo()">タイトルへ戻る</button>
 </div>
 </div>
 
@@ -1078,6 +1077,8 @@ async function playBattleIntro() {
 
 function showResult(type) {
     document.getElementById('resultText').innerText = type === 'KO' ? 'K.O.' : 'YOU WIN';
+    // K.O.(敗北)時のみCONTINUEを表示。YOU WIN時は次の試合に続く想定のため、まずはタイトルへ戻るボタンのみ。
+    document.getElementById('continueBtn').style.display = (type === 'KO') ? 'inline-block' : 'none';
     document.getElementById('resultOverlay').classList.add('show');
 }
 function hideResult() {
