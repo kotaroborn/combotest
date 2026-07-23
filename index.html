@@ -83,6 +83,7 @@
         .prologue-text { color: #999; font-size: 14px; line-height: 1.6; }
 
         /* ------- プロローグ: シネマサイズ画像 + 1文字ずつのテキスト ------- */
+        #prologueContent { flex: 1; display: flex; flex-direction: column; width: 100%; opacity: 0; }
         #prologueImgArea {
             width: 100%; aspect-ratio: 2.4 / 1; /* シネマサイズ(ワイド) */
             background: #000 center / cover no-repeat;
@@ -278,9 +279,11 @@
 
 <!-- プロローグシーン: シネマサイズの画像+1文字ずつのテキスト演出を4画面。終わったら自動でタイトルへ -->
 <div id="scenePrologue" class="scene active">
-    <div id="prologueImgArea"><div id="prologueImgFallback"></div></div>
-    <div id="prologueTextBox">
-        <p id="prologueText"></p>
+    <div id="prologueContent">
+        <div id="prologueImgArea"><div id="prologueImgFallback"></div></div>
+        <div id="prologueTextBox">
+            <p id="prologueText"></p>
+        </div>
     </div>
     <button id="skipBtn" class="text-btn" onclick="skipPrologue()">▶︎SKIP</button>
 </div>
@@ -623,9 +626,17 @@ function skipPrologue() {
 }
 async function playPrologue() {
     const myToken = ++prologueToken;
+    const content = document.getElementById('prologueContent');
     const imgArea = document.getElementById('prologueImgArea');
     const fallback = document.getElementById('prologueImgFallback');
     const textEl = document.getElementById('prologueText');
+
+    // 再生開始時は必ず真っ黒(透明)にリセットしてからフェードインする
+    content.style.transition = 'none';
+    content.style.opacity = '0';
+    textEl.innerText = '';
+    imgArea.classList.remove('placeholder');
+    imgArea.style.backgroundImage = 'none';
 
     for (let i = 0; i < OPENING_SCREENS.length; i++) {
         const screen = OPENING_SCREENS[i];
@@ -640,6 +651,14 @@ async function playPrologue() {
             fallback.innerText = screen.img + ' (未配置)';
         }
 
+        if (i === 0) {
+            // 一番はじめの画面だけフェードインで始める
+            await wait(30); // 直前のopacity:0が確実に描画されてから遷移を開始させる
+            content.style.transition = 'opacity 1s ease-in';
+            content.style.opacity = '1';
+            await wait(1000);
+        }
+
         textEl.innerText = '';
         for (let c = 0; c < screen.text.length; c++) {
             if (prologueToken !== myToken) return;
@@ -648,7 +667,7 @@ async function playPrologue() {
         }
 
         if (prologueToken !== myToken) return;
-        await wait(1300); // 読み終わるまでの間
+        await wait(2000); // 1ページ読み終えてから次の画面まで、もう少し長めに読ませる
     }
 
     if (prologueToken !== myToken) return;
@@ -895,7 +914,7 @@ function showScene(name) {
     document.querySelectorAll('.scene').forEach(el => el.classList.remove('active'));
     document.getElementById('scene' + name.charAt(0).toUpperCase() + name.slice(1)).classList.add('active');
 }
-function goPrologue() { hideResult(); showScene('prologue'); }
+function goPrologue() { hideResult(); showScene('prologue'); playPrologue(); }
 function goTitle() { showScene('title'); }
 function goBattleStart() {
     resetBattleState();
