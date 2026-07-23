@@ -216,6 +216,15 @@
         .slot { width: 42px; height: 60px; border: 2px solid #fff; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-weight: bold; background:#222; background-size: cover; background-position: center; image-rendering: pixelated; }
         .slot.empty { border-style: dashed; border-color: #888; opacity: 0.5; }
         .slot.filled { border-style: solid; border-color: #fff; background-color: #345; }
+        /* 対戦中(このターンで実際にぶつかり合っている)カードを光らせる */
+        .slot.active-card {
+            border-color: #ffe066 !important;
+            animation: activeCardGlow 0.6s ease-in-out infinite alternate;
+        }
+        @keyframes activeCardGlow {
+            from { box-shadow: 0 0 6px 2px rgba(255,224,102,0.6); }
+            to   { box-shadow: 0 0 14px 6px rgba(255,224,102,0.95); }
+        }
         .controls { display: flex; gap: 8px; align-items: stretch; }
         .fn-group { display:flex; gap:8px; flex:1; }  /* 第26条: 右に機能ボタン */
         button {
@@ -944,11 +953,11 @@ function filledCount() {
     const idx = state.hands.indexOf(null);
     return idx === -1 ? state.hands.length : idx;
 }
-function updateUI() {
+function updateUI(activeIndex) {
     const s = document.getElementById('slots'); s.innerHTML = '';
-    state.hands.forEach(h => {
+    state.hands.forEach((h, idx) => {
         const d = document.createElement('div');
-        d.className = 'slot ' + (h ? 'filled' : 'empty');
+        d.className = 'slot ' + (h ? 'filled' : 'empty') + (idx === activeIndex ? ' active-card' : '');
         applyCardVisual(d, h);
         s.appendChild(d);
     });
@@ -973,25 +982,29 @@ async function fadeOutQueueCards() {
 }
 updateUI(); // 第1条: 起動直後から5つの空枠を表示する
 
+// TRAINING MODE: 現在のサイクル(P→U→G)の技を返す。呼ぶだけではサイクルは進まない。
+function currentTrainingMove() {
+    const cycle = ['PUNCH', 'UPPER', 'GUARD'];
+    return cycle[state.trainingCycleIndex % cycle.length];
+}
+// TRAINING MODE: 手札を選ぶ前から、次に相手が出す技を5枠まるごと公開しておく
+function showTrainingPreview() {
+    state.enemyHands = new Array(5).fill(currentTrainingMove());
+    state.enemyRevealedUpTo = 5;
+    drawEnemySlots();
+}
 function generateEnemyTurnHand(count) {
-    if (state.gameMode === 'training') {
-        // TRAINING MODE: こちらの枚数に合わせて同じ技を並べ、ターンごとにP→U→Gと周期させる
-        const cycle = ['PUNCH', 'UPPER', 'GUARD'];
-        const move = cycle[state.trainingCycleIndex % cycle.length];
-        state.trainingCycleIndex++;
-        return new Array(count).fill(move);
-    }
     const opts = ['PUNCH', 'UPPER', 'GUARD'];
     const arr = [];
     for (let i = 0; i < count; i++) arr.push(opts[Math.floor(Math.random() * opts.length)]);
     return arr;
 }
-function drawEnemySlots() {
+function drawEnemySlots(activeIndex) {
     // 第2条: 公開済み(enemyRevealedUpTo)の枚数までは中身を見せ、それ以降は伏せ札(?)にする
     const s = document.getElementById('enemySlots'); s.innerHTML = '';
     state.enemyHands.forEach((h, idx) => {
         const d = document.createElement('div');
-        d.className = 'slot filled';
+        d.className = 'slot filled' + (idx === activeIndex ? ' active-card' : '');
         if (idx < state.enemyRevealedUpTo) {
             applyCardVisual(d, h);
         } else {
@@ -1063,9 +1076,14 @@ function resetBattleState() {
     updateDeckCountDisplay();
 
     // 敵の手はターンごとに(必要枚数だけ)非公開で生成する。開始時点では空。
-    state.enemyHands = [];
-    state.enemyRevealedUpTo = 0;
-    drawEnemySlots();
+    // TRAINING MODEのみ、カードを選ぶ前から次に出す技を5枠まるごと公開しておく。
+    if (state.gameMode === 'training') {
+        showTrainingPreview();
+    } else {
+        state.enemyHands = [];
+        state.enemyRevealedUpTo = 0;
+        drawEnemySlots();
+    }
 }
 
 // バトル開始演出: 暗転 → 味方/敵がふわっと表示 → 背景が中心から拡大表示 → BATTLE START(左からディゾルブ→中央停止→拡大しつつ消える)
@@ -1290,6 +1308,8 @@ async function runUpperCombo(attacker, defender, cursor) {
         const next = nextQueuedMove(attacker, cursor);
         if (next !== 'PUNCH') break;
         cursor.i++; // 次のコマンドを消費してコンボ継続
+        updateUI(cursor.i); // ハイライトも追従させる
+        drawEnemySlots(cursor.i);
         airPunches++;
 
         if (airPunches < DB.MAX_AIR_PUNCH) {
@@ -1357,6 +1377,15 @@ async function runNumbFail(numbedSide, opponentMove) {
     toIdle();
 }
 
+// 場(#slots)または敵(#enemySlots)の指定インデックスのカードに勝敗の見た目を付与する
+function markCardOutcome(side, idx, outcomeClass) {
+    const container = document.getElementById(side === 'P' ? 'slots' : 'enemySlots');
+    const el = container.children[idx];
+    if (!el) return;
+    el.classList.remove('card-win', 'card-lose', 'card-shatter');
+    if (outcomeClass) el.classList.add(outcomeClass);
+}
+
 async function resolveExchange(pAct, eAct, cursor) {
     await approachCenter(); // 第24条: 残像付きで中央へ踏み込む
 
@@ -1368,6 +1397,9 @@ async function resolveExchange(pAct, eAct, cursor) {
         if (guardSide === 'P') state.pGuardHoldPose = false; else state.eGuardHoldPose = false; // 判定が出たので構え保持を解除
         if (Math.random() < 0.5) {
             const opponentMove = numbedSide === 'P' ? eAct : pAct;
+            const opponent = numbedSide === 'P' ? 'E' : 'P';
+            markCardOutcome(opponent, cursor.i, 'card-win');
+            markCardOutcome(numbedSide, cursor.i, 'card-shatter'); // 3すくみ無視の強制被弾: 割れて消える
             await runNumbFail(numbedSide, opponentMove);
             return;
         }
@@ -1393,6 +1425,8 @@ async function resolveExchange(pAct, eAct, cursor) {
     const winner = result === 'win' ? 'P' : 'E';
     const loser = winner === 'P' ? 'E' : 'P';
     const winnerMove = winner === 'P' ? pAct : eAct;
+    markCardOutcome(winner, cursor.i, 'card-win'); // 通常の3すくみ判定: 勝った側のカードを光らせる
+    markCardOutcome(loser, cursor.i, 'card-lose');
 
     if (winnerMove === 'UPPER') {
         await runUpperCombo(winner, loser, cursor);
@@ -1417,9 +1451,14 @@ async function resolveTurn() {
     let gameOverSide = null; // 'P' または 'E'。体力0になった側
 
     // プレイヤーが出した枚数だけ、敵も手を出してくる
-    state.enemyHands = generateEnemyTurnHand(total);
-    // 第2条: STORY MODEは中身を伏せて攻防の直前に1枚ずつ公開。TRAINING MODEは最初から全公開する。
-    state.enemyRevealedUpTo = (state.gameMode === 'training') ? total : 0;
+    if (state.gameMode === 'training') {
+        // 既にshowTrainingPreview()で公開済みの5枚から、必要な枚数だけを使う
+        state.enemyHands = state.enemyHands.slice(0, total);
+        state.enemyRevealedUpTo = total;
+    } else {
+        state.enemyHands = generateEnemyTurnHand(total);
+        state.enemyRevealedUpTo = 0; // 第2条: 中身を伏せて攻防の直前に1枚ずつ公開する
+    }
     drawEnemySlots();
 
     try {
@@ -1432,8 +1471,9 @@ async function resolveTurn() {
             if (state.gameMode !== 'training') {
                 // このタイミングで敵の手を公開する(STORY MODEのみ)
                 state.enemyRevealedUpTo = cursor.i + 1;
-                drawEnemySlots();
             }
+            drawEnemySlots(cursor.i); // 対戦中の敵カードを光らせる
+            updateUI(cursor.i);       // 対戦中の味方カードを光らせる
 
             await resolveExchange(pAct, eAct, cursor);
 
@@ -1502,9 +1542,14 @@ async function resolveTurn() {
             }
             state.hands = new Array(5).fill(null); // 第1条: 5つの空枠に戻す
             updateUI();
-            state.enemyHands = [];
-            state.enemyRevealedUpTo = 0;
-            drawEnemySlots();
+            if (state.gameMode === 'training') {
+                state.trainingCycleIndex++; // 次のP→U→Gへ周期を進める
+                showTrainingPreview(); // 次に相手が出す技を、カードを選ぶ前から公開しておく
+            } else {
+                state.enemyHands = [];
+                state.enemyRevealedUpTo = 0;
+                drawEnemySlots();
+            }
             state.resolving = false;
         }
     }
