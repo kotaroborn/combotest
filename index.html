@@ -140,8 +140,12 @@
             font-size: 13px; color: #eee;
         }
         #startBtn {
-            position: absolute; left: 50%; bottom: 22%; transform: translateX(-50%);
-            font-size: 20px; letter-spacing: 4px;
+            position: absolute; left: 50%; bottom: 25%; transform: translateX(-50%);
+            font-size: 20px; letter-spacing: 2px;
+        }
+        #trainingBtn {
+            position: absolute; left: 50%; bottom: 18%; transform: translateX(-50%);
+            font-size: 13px; letter-spacing: 2px; color: #bbb;
         }
 
         /* ------- デッキ編成シーン ------- */
@@ -247,6 +251,7 @@
             background: #161616; border: 2px solid #555; border-radius: 10px;
             padding: 16px; box-sizing: border-box; overflow: hidden; /* スクロールしない一画面での説明 */
             color: #eee;
+            display: flex; flex-direction: column;
         }
         .popup-close {
             position: absolute; top: 8px; right: 8px; z-index: 1;
@@ -254,8 +259,15 @@
             background: #444; color: #fff; border: none; font-size: 16px; line-height: 1;
             padding: 0; cursor: pointer;
         }
-        .howto-content { font-size: 12px; line-height: 1.8; overflow: hidden; }
+        .howto-content { flex: 1; font-size: 12px; line-height: 1.8; overflow: hidden; }
         .howto-content h2 { margin-top: 0; font-size: 16px; }
+        .howto-footer { flex: none; display: flex; gap: 10px; padding-top: 10px; }
+        .howto-footer button {
+            flex: 1; border: none; border-radius: 6px; padding: 11px 0;
+            font-size: 12px; font-weight: bold; letter-spacing: 0.5px; cursor: pointer;
+        }
+        #howToRetryBtn { background: #a00; color: #fff; }
+        #howToReturnBtn { background: #444; color: #eee; }
     </style>
 </head>
 <body>
@@ -324,7 +336,8 @@
             <div id="titleLogoFallback" class="title-logo-fallback">コマンドバトル</div>
         </div>
     </div>
-    <button id="startBtn" class="text-btn" onclick="goDeckBuild()" disabled>START</button>
+    <button id="startBtn" class="text-btn" onclick="goDeckBuild('story')" disabled>STORY MODE</button>
+    <button id="trainingBtn" class="text-btn" onclick="goDeckBuild('training')" disabled>TRAINING MODE</button>
     <button class="howto-btn howto-corner" onclick="openHowTo()">HOW<br>TO</button>
 </div>
 
@@ -410,6 +423,10 @@
             <p>・敵の手は伏せられており、攻防の直前に1枚ずつ公開されます。</p>
             <p style="color:#888;">(テキスト・図解は準備中です。ここに差し替え予定)</p>
         </div>
+        <div class="howto-footer">
+            <button id="howToRetryBtn" onclick="howToRetry()">RETRY</button>
+            <button id="howToReturnBtn" onclick="howToReturnToTitle()">RETURN TO TITLE</button>
+        </div>
     </div>
 </div>
 
@@ -463,6 +480,8 @@ let state = {
     piyoSide: null, piyoFlip: false, // ピヨり演出: どちら側の頭上に出すか/左右反転中か
     pPunchStreak: 0, ePunchStreak: 0, // 地上パンチの連続ヒット数(コンボではなく、単発同士の連続成功を記録)
     pGuardHoldPose: false, eGuardHoldPose: false, // 相手がしびれている間、ガード成功側の構えを維持するフラグ
+    gameMode: 'story', pendingMode: 'story', // 'story' | 'training'
+    trainingCycleIndex: 0, // TRAINING MODE: PPPPP→UUUUU→GGGGGの周期(ターンごとに進む)
     introCharAlpha: 1, // バトル開始演出: 味方/敵のフェードイン係数(0〜1)
     bgRevealRadius: 0, // バトル開始演出: 背景を中心から広げる円形クリップの半径(0で真っ暗)
     playerDeck: [], playerDiscard: [], playerHand: new Array(5).fill(null), // 山札/捨札/手札
@@ -547,7 +566,9 @@ function updateDeckBuildUI() {
     document.getElementById('deckTotalText').innerText = `合計 ${total} / ${DB.DECK_TOTAL}`;
     document.getElementById('deckConfirmBtn').disabled = (total !== DB.DECK_TOTAL);
 }
-function goDeckBuild() {
+function goDeckBuild(mode) {
+    // 明示的に指定があればそのモードへ、無ければ直近のモード(CONTINUE/RETRY用)、それも無ければstory
+    state.pendingMode = mode || state.gameMode || 'story';
     updateDeckBuildUI();
     showScene('deck');
 }
@@ -630,6 +651,7 @@ function applyCardVisual(el, type) {
 function boot() {
     // 第23条: 全画像の読み込み確定を待ってからループ開始・UI有効化
     document.getElementById('startBtn').disabled = false;
+    document.getElementById('trainingBtn').disabled = false;
     draw();
     playLogo();
 }
@@ -952,6 +974,13 @@ async function fadeOutQueueCards() {
 updateUI(); // 第1条: 起動直後から5つの空枠を表示する
 
 function generateEnemyTurnHand(count) {
+    if (state.gameMode === 'training') {
+        // TRAINING MODE: こちらの枚数に合わせて同じ技を並べ、ターンごとにP→U→Gと周期させる
+        const cycle = ['PUNCH', 'UPPER', 'GUARD'];
+        const move = cycle[state.trainingCycleIndex % cycle.length];
+        state.trainingCycleIndex++;
+        return new Array(count).fill(move);
+    }
     const opts = ['PUNCH', 'UPPER', 'GUARD'];
     const arr = [];
     for (let i = 0; i < count; i++) arr.push(opts[Math.floor(Math.random() * opts.length)]);
@@ -1005,6 +1034,8 @@ function resetBattleState() {
     state.ePunchStreak = 0;
     state.pGuardHoldPose = false;
     state.eGuardHoldPose = false;
+    state.gameMode = state.pendingMode || 'story'; // デッキ編成画面へ来た時に選んだモードを確定
+    state.trainingCycleIndex = 0; // TRAINING MODEの周期はバトル開始のたびリセットしてOK
     state.introCharAlpha = 0; // 開始演出でふわっと表示するため、まずは透明から
     state.bgRevealRadius = 0; // 背景も真っ暗な状態からスタート
     state.battleReady = false; // 開始演出が終わるまで操作不可
@@ -1096,6 +1127,16 @@ function closeHowToBackdrop(e) {
     // 背景(オーバーレイ自体)をタップした時だけ閉じる。パネル内のタップでは閉じない。
     if (e.target.id === 'howToOverlay') closeHowTo();
 }
+// HOW TO内のRETRY: このバトル直前のデッキ編成へ戻る(現在のモードを維持)
+function howToRetry() {
+    closeHowTo();
+    goDeckBuild();
+}
+// HOW TO内のRETURN TO TITLE: ロゴシーンまで戻る
+function howToReturnToTitle() {
+    closeHowTo();
+    goLogo();
+}
 
 // 第3条: 3すくみ判定 P>U, U>G, G>P (プレイヤー視点で 'win'/'lose'/'draw')
 function judge(p, e) {
@@ -1115,6 +1156,14 @@ function applyDamage(target, amount) {
         setTimeout(() => { document.getElementById('hpP_y').style.width = state.hpP + '%'; }, 0);
     }
     triggerBlink(target, 180); // どんなダメージでも、受けた側を一瞬点滅させる
+}
+// TRAINING MODE: ターン終了時に双方のHPを全回復する(赤バー・黄色バーとも即座に反映)
+function healBothToFull() {
+    state.hpP = 100; state.hpE = 100;
+    document.getElementById('hpP').style.width = '100%';
+    document.getElementById('hpP_y').style.width = '100%';
+    document.getElementById('hpE').style.width = '100%';
+    document.getElementById('hpE_y').style.width = '100%';
 }
 
 function wait(ms) { return new Promise(r => setTimeout(r, ms)); }
@@ -1367,9 +1416,10 @@ async function resolveTurn() {
     const total = filledCount();
     let gameOverSide = null; // 'P' または 'E'。体力0になった側
 
-    // プレイヤーが出した枚数だけ、敵も手を出してくる(第2条: 中身は非公開、攻防の直前に1枚ずつ公開)
+    // プレイヤーが出した枚数だけ、敵も手を出してくる
     state.enemyHands = generateEnemyTurnHand(total);
-    state.enemyRevealedUpTo = 0;
+    // 第2条: STORY MODEは中身を伏せて攻防の直前に1枚ずつ公開。TRAINING MODEは最初から全公開する。
+    state.enemyRevealedUpTo = (state.gameMode === 'training') ? total : 0;
     drawEnemySlots();
 
     try {
@@ -1379,13 +1429,16 @@ async function resolveTurn() {
             const pAct = state.hands[cursor.i];
             const eAct = state.enemyHands[cursor.i];
 
-            // このタイミングで敵の手を公開する
-            state.enemyRevealedUpTo = cursor.i + 1;
-            drawEnemySlots();
+            if (state.gameMode !== 'training') {
+                // このタイミングで敵の手を公開する(STORY MODEのみ)
+                state.enemyRevealedUpTo = cursor.i + 1;
+                drawEnemySlots();
+            }
 
             await resolveExchange(pAct, eAct, cursor);
 
-            if (state.hpP <= 0 || state.hpE <= 0) {
+            // TRAINING MODEは練習場のためK.O./YOU WIN判定を行わない(ターン終了時にHPが全回復する)
+            if (state.gameMode !== 'training' && (state.hpP <= 0 || state.hpE <= 0)) {
                 gameOverSide = state.hpP <= 0 ? 'P' : 'E';
                 break;
             }
@@ -1444,6 +1497,9 @@ async function resolveTurn() {
             await goHome();
             toIdle();
             await fadeOutQueueCards(); // 場のカードがふわっと消える
+            if (state.gameMode === 'training') {
+                healBothToFull(); // TRAINING MODE: ターン終了ごとに双方のHPを全回復する
+            }
             state.hands = new Array(5).fill(null); // 第1条: 5つの空枠に戻す
             updateUI();
             state.enemyHands = [];
