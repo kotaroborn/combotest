@@ -340,8 +340,8 @@
 </script>
 <div id="appRoot">
 
-<!-- ロゴシーン: BORN MAGAZINE presents。フェードイン→2秒表示→フェードアウトしてプロローグへ -->
-<div id="sceneLogo" class="scene active">
+<!-- ロゴシーン: BORN MAGAZINE presents。フェードイン→2秒表示→フェードアウトしてプロローグへ。画面タップでスキップ可能 -->
+<div id="sceneLogo" class="scene active" onclick="skipLogo()">
     <div id="logoContent">
         <img id="logoImg" src="logo.PNG" alt="BORN MAGAZINE"
              onerror="this.style.display='none'; document.getElementById('logoFallback').style.display='flex';">
@@ -459,7 +459,7 @@
             <p>・敵の手は伏せられており、攻防の直前に1枚ずつ公開されます。</p>
             <p style="color:#888;">(テキスト・図解は準備中です。ここに差し替え予定)</p>
         </div>
-        <div class="howto-footer">
+        <div class="howto-footer" id="howToFooter">
             <button id="howToRetryBtn" onclick="howToRetry()">RETRY</button>
             <button id="howToReturnBtn" onclick="howToReturnToTitle()">RETURN TO TITLE</button>
         </div>
@@ -663,7 +663,7 @@ function enemySpriteName(baseName) {
 }
 
 // ------- カード画像(任意) -------
-// 用意されていれば card_p.PNG / card_u.PNG / card_G.PNG を使い、無ければ従来通り文字(P/U/G)を表示する。
+// 用意されていれば card_P.PNG / card_U.PNG / card_G.PNG を使い、無ければ従来通り文字(P/U/G)を表示する。
 const CARD_IMG_MAP = { PUNCH: 'card_P.PNG', UPPER: 'card_U.PNG', GUARD: 'card_G.PNG' };
 Object.values(CARD_IMG_MAP).forEach(fname => {
     const i = new Image();
@@ -715,6 +715,10 @@ async function playLogo() {
     await wait(1000);
     if (logoTokenCounter !== myToken) return;
 
+    goProloguePlay();
+}
+function skipLogo() {
+    logoTokenCounter++; // 進行中のplayLogoのawaitループを無効化する
     goProloguePlay();
 }
 function goLogo() {
@@ -1163,6 +1167,9 @@ function hideResult() {
 
 // ------- HOW TOポップアップ(ブラウザ機能ではなく画面内オーバーレイ) -------
 function openHowTo() {
+    // タイトル画面から開いた場合は「今のバトル」が存在しないため、RETRY/RETURN TO TITLEのフッターを隠す
+    const isTitle = document.getElementById('sceneTitle').classList.contains('active');
+    document.getElementById('howToFooter').style.display = isTitle ? 'none' : 'flex';
     document.getElementById('howToOverlay').classList.add('show');
 }
 function closeHowTo() {
