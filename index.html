@@ -317,7 +317,7 @@
  * 5. 着地同期: 通常コンボ終了時（メテオに至らない場合）は、攻守双方が地面(GROUND_Y)へ着地してから次の演出へ遷移する。
  * 6. 通常コンボ終了時の演出: 攻撃側は必ずdash.PNGへ、被弾側はdamage.PNGのまま着地させる。
  * 7. 画像状態管理: 待機中は必ず player.PNG / player2.PNG の呼吸(idle)へ復帰する。idle.PNGという単独ファイルは存在しない。
- * 8. ダメージ計算: PUNCH勝利(10、地上での連続ヒットのたびに+5され、ガード等で止められると途切れる)、UPPER初撃(5)、空中パンチ連続ヒット加算(2発目以降+5)、メテオ(50)、相討ち(3)、しびれ被弾時の弱点ダメージ(15)。三すくみに負けた側のみ振動(shake)する。ダメージを受けた側は、量の大小にかかわらず必ず一瞬点滅する(applyDamage内で共通処理)。同じ手同士の相討ちの場合は双方が微ダメージを受けて振動し、反動で一歩下がる。GUARDが勝った場合(相手のPUNCHを防いだ場合)、勝った側は極小ダメージで振動し、負けた側はダメージなしだがしびれてpunch.PNGのまま振動し、次のコマンドの成功率が1/2になる(どちらの側がガードしても発生する)。しびれで行動失敗した場合、しびれた側はdamage.PNGで点滅しつつ頭上にpiyo.PNGを反転させながら2往復させるピヨり演出を行い、その後3すくみを無視した弱点ダメージを受ける。
+ * 8. ダメージ計算: PUNCH勝利(10、地上での連続ヒットのたびに+5され、ガード等で止められると途切れる)、UPPER初撃(5)、空中パンチ連続ヒット加算(2発目以降+5)、メテオ(50)、相討ち(3)。三すくみに負けた側のみ振動(shake)する。ダメージを受けた側は、量の大小にかかわらず必ず一瞬点滅する(applyDamage内で共通処理)。同じ手同士の相討ちの場合は双方が微ダメージを受けて振動し、反動で一歩下がる。GUARDが勝った場合(相手のPUNCHを防いだ場合)、勝った側は極小ダメージで振動し、負けた側はダメージなしだがしびれてpunch.PNGのまま振動し、次のコマンドの成功率が1/2になる(どちらの側がガードしても発生する)。しびれは「固定ダメージを受ける」仕様ではなく、1/2の確率でその攻防に無条件で敗北する仕様である。しびれた側はdamage.PNGで点滅しつつ頭上にpiyo.PNGを反転させながら2往復させるピヨり演出を行った後、相手が実際に出していた技の種類(PUNCH/UPPER/GUARD)に応じた通常の勝敗処理(空中コンボやガード成功も含む)がそのまま3すくみ判定なしで適用される。
  * 9. 座標復帰: ターン(5枠)全体の処理が完了した時点で、finally句にて必ずホームポジションへ dash.PNG の残像付きで帰還することを保証する。ただし体力が0になる最後の一撃を受けた場合は、この通常帰還処理の代わりに専用の決着演出（damage.PNGで点滅→スローに軽くバウンドしながら初期位置へ戻る→down.PNGで倒れる→K.O./YOU WIN表示）を実行する。
  * 10. 描画品質: imageSmoothingEnabled=false を維持しドット絵品質を担保。背景(bg.PNG)もキャラと同じcanvas上に同一の拡大率(SCALE)で描画し、ピクセルのズレを起こさない。
  * 11. モバイル対応: Flexboxとviewport固定によるレスポンシブ最適化。UI全体はappRootコンテナで正方形(1:1)に収め、画面中央に配置する。
@@ -480,7 +480,7 @@ const DB = {
         RETREAT_HALF: 200,  // 攻防のあと軽く距離を取る位置（ホームまでは戻らない）
         GROUND_MARGIN_PX: 3 // 地面バンドの高さ(ソースpx換算。キャラ下部3px想定)
     },
-    DMG: { P: 10, U: 5, M: 50, CLASH: 3, TINY: 1, WEAK: 15, P_COMBO_STEP: 5 }, // P:パンチ勝利 / U:アッパー初撃 / M:メテオ / CLASH:相討ち微ダメージ / TINY:ガードされたパンチの反撃 / WEAK:しびれ被弾の弱点ダメージ / P_COMBO_STEP:空中パンチ連続ヒットの増加量
+    DMG: { P: 10, U: 5, M: 50, CLASH: 3, TINY: 1, P_COMBO_STEP: 5 }, // P:パンチ勝利 / U:アッパー初撃 / M:メテオ / CLASH:相討ち微ダメージ / TINY:ガードされたパンチの反撃 / P_COMBO_STEP:空中パンチ連続ヒットの増加量
     MAX_AIR_PUNCH: 3,
     BREATH_MS: 500, // player.PNG / player2.PNG の呼吸切替間隔
     DECK_TOTAL: 21 // デッキ合計枚数(内訳は編成画面で自由配分)
@@ -1397,20 +1397,25 @@ async function runPiyoEffect(side) {
     state.piyoSide = null;
 }
 
-// しびれが残ったまま次のコマンドに失敗した場合(3すくみ無視で必ず被弾する)
-async function runNumbFail(numbedSide, opponentMove) {
-    state.pPunchStreak = 0; // しびれによる強制被弾でも連続記録は途切れる
-    state.ePunchStreak = 0;
-    const opponent = numbedSide === 'P' ? 'E' : 'P';
-    setAct(numbedSide, 'damage.PNG');
-    triggerBlink(numbedSide, 1400); // 点滅
-    await runPiyoEffect(numbedSide); // ピヨピヨ演出(頭上でpiyo.PNGが反転を繰り返す)
-    // ピヨり演出のあと、3すくみを無視したコマンド失敗アクション
-    setAct(opponent, moveSprite(opponentMove));
-    triggerShake(numbedSide, 350);
-    applyDamage(numbedSide, DB.DMG.WEAK);
-    await wait(400);
-    toIdle();
+// しびれによる無条件敗北: ピヨり演出のあと、相手が出していた技に応じた通常の勝敗処理をそのまま適用する(3すくみ判定はしない)
+async function runNumbFail(numbedSide, cursor, pAct, eAct) {
+    const winner = numbedSide === 'P' ? 'E' : 'P';
+    const loser = numbedSide;
+    const winnerMove = winner === 'P' ? pAct : eAct;
+
+    // ピヨり演出: しびれた側がdamage.PNGで点滅しつつ、頭上でpiyo.PNGが反転を繰り返す
+    setAct(loser, 'damage.PNG');
+    triggerBlink(loser, 1400);
+    await runPiyoEffect(loser);
+
+    // ピヨり演出のあとは、相手の技の種類に応じた通常の勝敗処理へ(空中コンボならコンボも発生する)
+    if (winnerMove === 'UPPER') {
+        await runUpperCombo(winner, loser, cursor);
+    } else if (winnerMove === 'GUARD') {
+        await runGuardSuccess(winner, loser);
+    } else {
+        await runNormalHit(winner, loser, winnerMove);
+    }
 }
 
 // 場(#slots)または敵(#enemySlots)の指定インデックスのカードに勝敗の見た目を付与する
@@ -1425,16 +1430,15 @@ function markCardOutcome(side, idx, outcomeClass) {
 async function resolveExchange(pAct, eAct, cursor) {
     await approachCenter(); // 第24条: 残像付きで中央へ踏み込む
 
-    // しびれ判定: 直前の攻防でガードに阻まれた側は、1/2の確率で行動失敗する(3すくみ無視で被弾)
+    // しびれ判定: 直前の攻防でガードに阻まれた側は、1/2の確率でこの攻防に無条件で敗北する(3すくみ判定は行わない)
     if (state.pNumbed || state.eNumbed) {
         const numbedSide = state.pNumbed ? 'P' : 'E';
         const guardSide = numbedSide === 'P' ? 'E' : 'P';
         if (numbedSide === 'P') state.pNumbed = false; else state.eNumbed = false;
         if (guardSide === 'P') state.pGuardHoldPose = false; else state.eGuardHoldPose = false; // 判定が出たので構え保持を解除
         if (Math.random() < 0.5) {
-            const opponentMove = numbedSide === 'P' ? eAct : pAct;
-            markCardOutcome(numbedSide, cursor.i, 'card-shatter'); // 3すくみ無視の強制被弾: ヒビ割れる
-            await runNumbFail(numbedSide, opponentMove);
+            markCardOutcome(numbedSide, cursor.i, 'card-shatter'); // 3すくみ無視の敗北: ヒビ割れる
+            await runNumbFail(numbedSide, cursor, pAct, eAct);
             return;
         }
     }
