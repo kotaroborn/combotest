@@ -231,13 +231,26 @@
             box-shadow: none !important;
             filter: brightness(0.32);
         }
-        /* 3すくみを無視して敗北したカード(空中コンボ継続・しびれ強制被弾): 透過して消える */
+        /* 3すくみを無視して敗北したカード(空中コンボ継続・しびれ強制被弾): ヒビ割れ模様を表示する(透過はしない) */
         .slot.card-shatter {
-            animation: cardShatterFade 0.55s ease-in forwards !important;
+            position: relative;
+            animation: none !important;
+            box-shadow: none !important;
         }
-        @keyframes cardShatterFade {
-            0% { opacity: 1; }
-            100% { opacity: 0.08; }
+        .slot.card-shatter::after {
+            content: '';
+            position: absolute; inset: 0;
+            background:
+                linear-gradient(105deg, transparent 47%, #fff 49%, #fff 51%, transparent 53%),
+                linear-gradient(18deg, transparent 47%, #fff 49%, #fff 51%, transparent 53%),
+                linear-gradient(198deg, transparent 47%, #fff 49%, #fff 51%, transparent 53%);
+            opacity: 0;
+            animation: cardCrackIn 0.2s ease-out forwards;
+            pointer-events: none;
+        }
+        @keyframes cardCrackIn {
+            0% { opacity: 0; }
+            100% { opacity: 0.9; }
         }
         .controls { display: flex; gap: 8px; align-items: stretch; }
         .fn-group { display:flex; gap:8px; flex:1; }  /* 第26条: 右に機能ボタン */
@@ -1330,14 +1343,14 @@ async function runUpperCombo(attacker, defender, cursor) {
             // 通常の空中パンチ: 打つ方が追従して浮き、空中で殴る。連続ヒットするほどダメージが増加する
             setY(attacker, DB.POS.AIR_FOLLOW_Y);
             setAct(attacker, nextPunchSprite(attacker)); // 第21条
-            markCardOutcome(defender, cursor.i, 'card-shatter'); // 3すくみ無視のコンボ継続: 透過して消える
+            markCardOutcome(defender, cursor.i, 'card-shatter'); // 3すくみ無視のコンボ継続: ヒビ割れる
             const comboDmg = DB.DMG.P + (airPunches - 1) * DB.DMG.P_COMBO_STEP; // 1発目=P, 2発目=P+STEP...
             applyDamage(defender, comboDmg);
             triggerShake(defender, 200);
             await wait(500);
         } else {
             // 3発目: メテオへ変換
-            markCardOutcome(defender, cursor.i, 'card-shatter'); // 3すくみ無視のメテオ: 透過して消える
+            markCardOutcome(defender, cursor.i, 'card-shatter'); // 3すくみ無視のメテオ: ヒビ割れる
             await runMeteor(attacker, defender);
             return;
         }
@@ -1413,7 +1426,7 @@ async function resolveExchange(pAct, eAct, cursor) {
         if (guardSide === 'P') state.pGuardHoldPose = false; else state.eGuardHoldPose = false; // 判定が出たので構え保持を解除
         if (Math.random() < 0.5) {
             const opponentMove = numbedSide === 'P' ? eAct : pAct;
-            markCardOutcome(numbedSide, cursor.i, 'card-shatter'); // 3すくみ無視の強制被弾: 透過して消える
+            markCardOutcome(numbedSide, cursor.i, 'card-shatter'); // 3すくみ無視の強制被弾: ヒビ割れる
             await runNumbFail(numbedSide, opponentMove);
             return;
         }
