@@ -225,51 +225,19 @@
             from { box-shadow: 0 0 6px 2px rgba(255,224,102,0.6); }
             to   { box-shadow: 0 0 14px 6px rgba(255,224,102,0.95); }
         }
-        /* 勝敗が決まった側の見た目(active-cardの黄色い明滅より優先) */
-        .slot.card-win {
-            border-color: #7CFC00 !important;
-            box-shadow: 0 0 14px 5px rgba(124,252,0,0.85) !important;
-            animation: cardWinPulse 0.5s ease-out !important;
-        }
-        @keyframes cardWinPulse {
-            0% { transform: scale(1); }
-            40% { transform: scale(1.15); }
-            100% { transform: scale(1); }
-        }
+        /* 敗者のカードは暗くする(勝者は黄色いactive-cardハイライトのまま変更しない) */
         .slot.card-lose {
-            border-color: #777 !important;
-            box-shadow: none !important;
             animation: none !important;
-            opacity: 0.55;
-            filter: grayscale(0.5);
+            box-shadow: none !important;
+            filter: brightness(0.32);
         }
-        /* 3すくみを無視して敗北したカード(空中コンボ継続・しびれ強制被弾): 割れて消える */
+        /* 3すくみを無視して敗北したカード(空中コンボ継続・しびれ強制被弾): 透過して消える */
         .slot.card-shatter {
-            position: relative;
-            animation: cardShatter 0.55s ease-in forwards !important;
-            z-index: 6;
+            animation: cardShatterFade 0.55s ease-in forwards !important;
         }
-        .slot.card-shatter::after {
-            content: '';
-            position: absolute; inset: -2px;
-            background:
-                linear-gradient(105deg, transparent 46%, #fff 48%, #fff 50%, transparent 52%),
-                linear-gradient(15deg, transparent 46%, #fff 48%, #fff 50%, transparent 52%),
-                linear-gradient(200deg, transparent 46%, #fff 48%, #fff 50%, transparent 52%);
-            opacity: 0;
-            animation: cardCrackFlash 0.55s ease-in forwards;
-            pointer-events: none;
-        }
-        @keyframes cardCrackFlash {
-            0% { opacity: 0; }
-            25% { opacity: 1; }
-            45% { opacity: 1; }
-            100% { opacity: 0; }
-        }
-        @keyframes cardShatter {
-            0% { transform: scale(1) rotate(0deg); opacity: 1; filter: brightness(1); }
-            25% { transform: scale(1.05) rotate(-3deg); filter: brightness(2.2); }
-            100% { transform: scale(0.25) rotate(28deg); opacity: 0; filter: brightness(1.6); }
+        @keyframes cardShatterFade {
+            0% { opacity: 1; }
+            100% { opacity: 0.08; }
         }
         .controls { display: flex; gap: 8px; align-items: stretch; }
         .fn-group { display:flex; gap:8px; flex:1; }  /* 第26条: 右に機能ボタン */
@@ -1362,16 +1330,14 @@ async function runUpperCombo(attacker, defender, cursor) {
             // 通常の空中パンチ: 打つ方が追従して浮き、空中で殴る。連続ヒットするほどダメージが増加する
             setY(attacker, DB.POS.AIR_FOLLOW_Y);
             setAct(attacker, nextPunchSprite(attacker)); // 第21条
-            markCardOutcome(attacker, cursor.i, 'card-win');
-            markCardOutcome(defender, cursor.i, 'card-shatter'); // 3すくみ無視のコンボ継続: 割れて消える
+            markCardOutcome(defender, cursor.i, 'card-shatter'); // 3すくみ無視のコンボ継続: 透過して消える
             const comboDmg = DB.DMG.P + (airPunches - 1) * DB.DMG.P_COMBO_STEP; // 1発目=P, 2発目=P+STEP...
             applyDamage(defender, comboDmg);
             triggerShake(defender, 200);
             await wait(500);
         } else {
             // 3発目: メテオへ変換
-            markCardOutcome(attacker, cursor.i, 'card-win');
-            markCardOutcome(defender, cursor.i, 'card-shatter'); // 3すくみ無視のメテオ: 割れて消える
+            markCardOutcome(defender, cursor.i, 'card-shatter'); // 3すくみ無視のメテオ: 透過して消える
             await runMeteor(attacker, defender);
             return;
         }
@@ -1447,9 +1413,7 @@ async function resolveExchange(pAct, eAct, cursor) {
         if (guardSide === 'P') state.pGuardHoldPose = false; else state.eGuardHoldPose = false; // 判定が出たので構え保持を解除
         if (Math.random() < 0.5) {
             const opponentMove = numbedSide === 'P' ? eAct : pAct;
-            const opponent = numbedSide === 'P' ? 'E' : 'P';
-            markCardOutcome(opponent, cursor.i, 'card-win');
-            markCardOutcome(numbedSide, cursor.i, 'card-shatter'); // 3すくみ無視の強制被弾: 割れて消える
+            markCardOutcome(numbedSide, cursor.i, 'card-shatter'); // 3すくみ無視の強制被弾: 透過して消える
             await runNumbFail(numbedSide, opponentMove);
             return;
         }
@@ -1475,8 +1439,7 @@ async function resolveExchange(pAct, eAct, cursor) {
     const winner = result === 'win' ? 'P' : 'E';
     const loser = winner === 'P' ? 'E' : 'P';
     const winnerMove = winner === 'P' ? pAct : eAct;
-    markCardOutcome(winner, cursor.i, 'card-win'); // 通常の3すくみ判定: 勝った側のカードを光らせる
-    markCardOutcome(loser, cursor.i, 'card-lose');
+    markCardOutcome(loser, cursor.i, 'card-lose'); // 敗者だけ暗くする。勝者は黄色いハイライトのまま
 
     if (winnerMove === 'UPPER') {
         await runUpperCombo(winner, loser, cursor);
