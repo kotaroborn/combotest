@@ -135,17 +135,24 @@
             padding: 6px; letter-spacing: 1px;
         }
         .text-btn:disabled { opacity: 0.4; }
+        /* タップ時の反応: 明るさとグローを3回チカチカっと点滅させる */
+        .tap-flicker { animation: tapFlicker 0.4s steps(1, end); }
+        @keyframes tapFlicker {
+            0%, 100% { filter: brightness(1); text-shadow: none; }
+            15%, 45%, 75% { filter: brightness(2.4); text-shadow: 0 0 10px rgba(255,255,255,0.95); }
+            30%, 60%, 90% { filter: brightness(1); text-shadow: none; }
+        }
         #skipBtn {
             position: absolute; right: 14px; bottom: 14px;
             font-size: 13px; color: #eee;
         }
         #startBtn {
             position: absolute; left: 50%; bottom: 25%; transform: translateX(-50%);
-            font-size: 20px; letter-spacing: 2px;
+            font-size: 13px; letter-spacing: 6.8px;
         }
         #trainingBtn {
             position: absolute; left: 50%; bottom: 18%; transform: translateX(-50%);
-            font-size: 13px; letter-spacing: 2px; color: #bbb;
+            font-size: 13px; letter-spacing: 3px; color: #bbb;
         }
 
         /* ------- デッキ編成シーン ------- */
@@ -159,7 +166,7 @@
         #deckTotalText { color: #ccc; font-size: 13px; }
         #deckConfirmBtn {
             position: absolute; left: 50%; bottom: 20%; transform: translateX(-50%);
-            font-size: 20px; letter-spacing: 4px;
+            font-size: 13px; letter-spacing: 25px;
         }
 
         /* ------- 手札(カード)UI: 重ならない横並び。中心ほど高く、左右ほど下がる ------- */
@@ -372,8 +379,8 @@
             <div id="titleLogoFallback" class="title-logo-fallback">コマンドバトル</div>
         </div>
     </div>
-    <button id="startBtn" class="text-btn" onclick="goDeckBuild('story')" disabled>STORY MODE</button>
-    <button id="trainingBtn" class="text-btn" onclick="goDeckBuild('training')" disabled>TRAINING MODE</button>
+    <button id="startBtn" class="text-btn" onclick="tapFlickerThen(this, () => goDeckBuild('story'))" disabled>STORY MODE</button>
+    <button id="trainingBtn" class="text-btn" onclick="tapFlickerThen(this, () => goDeckBuild('training'))" disabled>TRAINING MODE</button>
     <button class="howto-btn howto-corner" onclick="openHowTo()">HOW<br>TO</button>
 </div>
 
@@ -401,7 +408,7 @@
         </div>
         <p id="deckTotalText">合計 21 / 21</p>
     </div>
-    <button id="deckConfirmBtn" class="text-btn" onclick="goBattleStart()">FIGHT</button>
+    <button id="deckConfirmBtn" class="text-btn" onclick="tapFlickerThen(this, () => goBattleStart())">FIGHT</button>
     <button class="howto-btn howto-corner" onclick="openHowTo()">HOW<br>TO</button>
 </div>
 
@@ -602,6 +609,14 @@ function updateDeckBuildUI() {
     document.getElementById('deckTotalText').innerText = `合計 ${total} / ${DB.DECK_TOTAL}`;
     document.getElementById('deckConfirmBtn').disabled = (total !== DB.DECK_TOTAL);
 }
+// タップ時にチカチカっと点滅させてから、コールバック(画面遷移など)を実行する
+function tapFlickerThen(el, callback) {
+    el.classList.remove('tap-flicker');
+    void el.offsetWidth; // 連打時もアニメーションを確実に再生させるための強制リフロー
+    el.classList.add('tap-flicker');
+    setTimeout(callback, 260); // 点滅が見えてから遷移する
+}
+
 function goDeckBuild(mode) {
     // 明示的に指定があればそのモードへ、無ければ直近のモード(CONTINUE/RETRY用)、それも無ければstory
     state.pendingMode = mode || state.gameMode || 'story';
