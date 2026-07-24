@@ -664,7 +664,7 @@ function enemySpriteName(baseName) {
 
 // ------- カード画像(任意) -------
 // 用意されていれば card_p.PNG / card_u.PNG / card_G.PNG を使い、無ければ従来通り文字(P/U/G)を表示する。
-const CARD_IMG_MAP = { PUNCH: 'card_p.PNG', UPPER: 'card_u.PNG', GUARD: 'card_G.PNG' };
+const CARD_IMG_MAP = { PUNCH: 'card_P.PNG', UPPER: 'card_U.PNG', GUARD: 'card_G.PNG' };
 Object.values(CARD_IMG_MAP).forEach(fname => {
     const i = new Image();
     i.onload = () => { imgs[fname] = i; };
