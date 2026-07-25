@@ -618,7 +618,16 @@ function tapFlickerThen(el, callback) {
     el.classList.remove('tap-flicker');
     void el.offsetWidth; // 連打時もアニメーションを確実に再生させるための強制リフロー
     el.classList.add('tap-flicker');
-    setTimeout(callback, 420); // 点滅アニメーション(0.4秒)が終わり切ってから遷移する
+
+    let done = false;
+    const finish = () => {
+        if (done) return; // animationendとフォールバックの二重発火を防ぐ
+        done = true;
+        el.classList.remove('tap-flicker'); // 点滅を完全に終わらせてから
+        callback(); // 画面遷移する
+    };
+    el.addEventListener('animationend', finish, { once: true }); // 本当にアニメーションが終わった瞬間に発火
+    setTimeout(finish, 500); // 保険(animationendが発火しない環境向けのフォールバック)
 }
 
 function goDeckBuild(mode) {
