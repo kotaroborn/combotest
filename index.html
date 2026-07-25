@@ -940,7 +940,7 @@ function draw(tRaw) {
     if (state.piyoSide) {
         const piyoImg = imgs['piyo.PNG'];
         if (piyoImg) {
-            const SRC_X = 11, SRC_Y = 0, SRC_W = 9, SRC_H = 20; // 元画像内での切り出し範囲(上・横中央寄せ)
+            const SRC_X = 6, SRC_Y = 0, SRC_W = 20, SRC_H = 9; // 元画像内での切り出し範囲(上・横中央寄せ)
             const baseX = state.piyoSide === 'P' ? state.pX : state.eX;
             const baseY = state.piyoSide === 'P' ? state.pY : state.eY;
             const pw = SRC_W * DB.SCALE, ph = SRC_H * DB.SCALE;
