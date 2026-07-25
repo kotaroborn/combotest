@@ -154,7 +154,7 @@
         }
         #trainingBtn {
             position: absolute; left: 50%; bottom: 18%; transform: translateX(-50%);
-            font-size: 13px; letter-spacing: 3px; color: #bbb;
+            font-size: 13px; letter-spacing: 3.5px; color: #bbb;
         }
 
         /* ------- デッキ編成シーン ------- */
@@ -527,6 +527,7 @@ let state = {
     pGuardHoldPose: false, eGuardHoldPose: false, // 相手がしびれている間、ガード成功側の構えを維持するフラグ
     gameMode: 'story', pendingMode: 'story', // 'story' | 'training'
     trainingCycleIndex: 0, // TRAINING MODE: PPPPP→UUUUU→GGGGGの周期(ターンごとに進む)
+    storyEnemyIndex: 0, // STORY MODE: ENEMY_ORDER内の現在の敵の位置(連戦で進んでいく想定)
     introCharAlpha: 1, // バトル開始演出: 味方/敵のフェードイン係数(0〜1)
     bgRevealRadius: 0, // バトル開始演出: 背景を中心から広げる円形クリップの半径(0で真っ暗)
     playerDeck: [], playerDiscard: [], playerHand: new Array(5).fill(null), // 山札/捨札/手札
@@ -535,6 +536,7 @@ let state = {
     resolving: false
 };
 let trails = []; // 第24条: dash.PNGの残像
+let cardOutcomes = { P: new Array(5).fill(null), E: new Array(5).fill(null) }; // ターン中の各カードの勝敗表現(card-lose/card-shatter)。ターン開始時にリセットする
 let deckCounts = { PUNCH: 7, UPPER: 7, GUARD: 7 }; // デッキ編成(合計21枚、内訳は自由)
 
 // ------- 山札操作 -------
@@ -622,6 +624,9 @@ function tapFlickerThen(el, callback) {
 function goDeckBuild(mode) {
     // 明示的に指定があればそのモードへ、無ければ直近のモード(CONTINUE/RETRY用)、それも無ければstory
     state.pendingMode = mode || state.gameMode || 'story';
+    if (mode === 'story') {
+        state.storyEnemyIndex = 0; // タイトルから選び直した時は1人目の敵から
+    }
     updateDeckBuildUI();
     showScene('deck');
 }
@@ -1005,7 +1010,10 @@ function updateUI(activeIndex) {
     const s = document.getElementById('slots'); s.innerHTML = '';
     state.hands.forEach((h, idx) => {
         const d = document.createElement('div');
-        d.className = 'slot ' + (h ? 'filled' : 'empty') + (idx === activeIndex ? ' active-card' : '');
+        let cls = 'slot ' + (h ? 'filled' : 'empty');
+        if (idx === activeIndex) cls += ' active-card';
+        if (cardOutcomes.P[idx]) cls += ' ' + cardOutcomes.P[idx]; // ターン中の勝敗表現を保持
+        d.className = cls;
         applyCardVisual(d, h);
         s.appendChild(d);
     });
@@ -1030,6 +1038,35 @@ async function fadeOutQueueCards() {
 }
 updateUI(); // 第1条: 起動直後から5つの空枠を表示する
 
+// ------- STORY MODE: 敵プリセット(枚数配分・よく出す組み合わせは今後ここに設定していく) -------
+// deck: PUNCH/UPPER/GUARDの「出やすさ」の重み(枚数感覚でそのまま指定できる)
+// favoritePatterns: よく出す組み合わせ(例: ['GUARD','PUNCH'])。今後ここに配列を追加していく想定。まだ未設定。
+const ENEMY_PRESETS = {
+    ENEMY_01: { name: '敵01(仮)', deck: { PUNCH: 7, UPPER: 7, GUARD: 7 }, favoritePatterns: [] },
+    ENEMY_02: { name: '敵02(仮)', deck: { PUNCH: 7, UPPER: 7, GUARD: 7 }, favoritePatterns: [] },
+    ENEMY_03: { name: '敵03(仮)', deck: { PUNCH: 7, UPPER: 7, GUARD: 7 }, favoritePatterns: [] },
+    ENEMY_04: { name: '敵04(仮)', deck: { PUNCH: 7, UPPER: 7, GUARD: 7 }, favoritePatterns: [] },
+    ENEMY_05: { name: '敵05(仮)', deck: { PUNCH: 7, UPPER: 7, GUARD: 7 }, favoritePatterns: [] },
+};
+const ENEMY_ORDER = ['ENEMY_01', 'ENEMY_02', 'ENEMY_03', 'ENEMY_04', 'ENEMY_05']; // 連戦の順番
+
+function currentEnemyPreset() {
+    const id = ENEMY_ORDER[state.storyEnemyIndex % ENEMY_ORDER.length];
+    return ENEMY_PRESETS[id];
+}
+// 連戦で次の敵へ進む(勝利後に呼び出す想定。まだどこからも呼ばれていない=今後のストーリーパート実装時にフックする)
+function advanceToNextEnemy() {
+    state.storyEnemyIndex = (state.storyEnemyIndex + 1) % ENEMY_ORDER.length;
+}
+function weightedRandomMove(weights) {
+    const total = weights.PUNCH + weights.UPPER + weights.GUARD;
+    let r = Math.random() * total;
+    if (r < weights.PUNCH) return 'PUNCH';
+    r -= weights.PUNCH;
+    if (r < weights.UPPER) return 'UPPER';
+    return 'GUARD';
+}
+
 // TRAINING MODE: 現在のサイクル(P→U→G)の技を返す。呼ぶだけではサイクルは進まない。
 function currentTrainingMove() {
     const cycle = ['PUNCH', 'UPPER', 'GUARD'];
@@ -1042,9 +1079,10 @@ function showTrainingPreview() {
     drawEnemySlots();
 }
 function generateEnemyTurnHand(count) {
-    const opts = ['PUNCH', 'UPPER', 'GUARD'];
+    // STORY MODE: 現在の敵プリセットの配分に基づいて生成する(favoritePatternsは今後ここに組み込む)
+    const weights = currentEnemyPreset().deck;
     const arr = [];
-    for (let i = 0; i < count; i++) arr.push(opts[Math.floor(Math.random() * opts.length)]);
+    for (let i = 0; i < count; i++) arr.push(weightedRandomMove(weights));
     return arr;
 }
 function drawEnemySlots(activeIndex) {
@@ -1052,7 +1090,10 @@ function drawEnemySlots(activeIndex) {
     const s = document.getElementById('enemySlots'); s.innerHTML = '';
     state.enemyHands.forEach((h, idx) => {
         const d = document.createElement('div');
-        d.className = 'slot filled' + (idx === activeIndex ? ' active-card' : '');
+        let cls = 'slot filled';
+        if (idx === activeIndex) cls += ' active-card';
+        if (cardOutcomes.E[idx]) cls += ' ' + cardOutcomes.E[idx]; // ターン中の勝敗表現を保持
+        d.className = cls;
         if (idx < state.enemyRevealedUpTo) {
             applyCardVisual(d, h);
         } else {
@@ -1102,6 +1143,7 @@ function resetBattleState() {
     state.battleReady = false; // 開始演出が終わるまで操作不可
     state.resolving = false;
     trails = [];
+    cardOutcomes = { P: new Array(5).fill(null), E: new Array(5).fill(null) };
 
     // デッキ編成画面で決めた配分から山札を構築し、初期手札5枚を引く
     state.playerDeck = buildDeckArray(deckCounts);
@@ -1437,10 +1479,12 @@ async function runNumbFail(numbedSide, cursor, pAct, eAct) {
 
 // 場(#slots)または敵(#enemySlots)の指定インデックスのカードに勝敗の見た目を付与する
 function markCardOutcome(side, idx, outcomeClass) {
+    const arr = side === 'P' ? cardOutcomes.P : cardOutcomes.E;
+    arr[idx] = outcomeClass || null; // ターンが終わるまで保持する
     const container = document.getElementById(side === 'P' ? 'slots' : 'enemySlots');
     const el = container.children[idx];
     if (!el) return;
-    el.classList.remove('card-win', 'card-lose', 'card-shatter');
+    el.classList.remove('card-lose', 'card-shatter');
     if (outcomeClass) el.classList.add(outcomeClass);
 }
 
@@ -1499,6 +1543,7 @@ async function resolveTurn() {
 
     state.turn++;
     document.getElementById('turnDisplay').innerHTML = `TURN<br>${state.turn}`;
+    cardOutcomes = { P: new Array(5).fill(null), E: new Array(5).fill(null) }; // 新しいターンの勝敗表現をリセット
 
     const cursor = { i: 0 };
     const total = filledCount();
@@ -1561,21 +1606,6 @@ async function resolveTurn() {
         updateHandUI(drawnIndices); // 補充分だけ画面下から回転しつつ登場するアニメーション
         updateDeckCountDisplay();
 
-        // 手札・山が共に尽きた場合のみ、Refresh演出(点滅→カウントアップ)を挟んで捨札をリシャッフルする
-        const handIsEmpty = state.playerHand.every(c => c === null);
-        if (!gameOverSide && handIsEmpty && state.playerDeck.length === 0) {
-            await runDeckRefresh();
-            const refillIndices = [];
-            for (let i = 0; i < state.playerHand.length; i++) {
-                if (state.playerHand[i] === null) {
-                    const c = drawCard();
-                    if (c !== null) { state.playerHand[i] = c; refillIndices.push(i); }
-                }
-            }
-            updateHandUI(refillIndices);
-            updateDeckCountDisplay();
-        }
-
         if (gameOverSide) {
             // 体力を0にする最後の一撃: 通常の帰還処理の代わりに専用の決着演出を実行
             state.battleReady = false; // 決着後は手札タップ含め操作不可にする
@@ -1590,6 +1620,23 @@ async function resolveTurn() {
             state.eY = DB.POS.GROUND_Y;
             await goHome();
             toIdle();
+
+            // 手札・山が共に尽きた場合のみ、Refresh演出(点滅→カウントアップ)を挟んで捨札をリシャッフルする。
+            // 両者が元の立ち位置に戻った後に行う。
+            const handIsEmpty = state.playerHand.every(c => c === null);
+            if (handIsEmpty && state.playerDeck.length === 0) {
+                await runDeckRefresh();
+                const refillIndices = [];
+                for (let i = 0; i < state.playerHand.length; i++) {
+                    if (state.playerHand[i] === null) {
+                        const c = drawCard();
+                        if (c !== null) { state.playerHand[i] = c; refillIndices.push(i); }
+                    }
+                }
+                updateHandUI(refillIndices);
+                updateDeckCountDisplay();
+            }
+
             await fadeOutQueueCards(); // 場のカードがふわっと消える
             if (state.gameMode === 'training') {
                 healBothToFull(); // TRAINING MODE: ターン終了ごとに双方のHPを全回復する
