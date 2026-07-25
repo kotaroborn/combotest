@@ -14,7 +14,7 @@
             overflow: hidden;
         }
         :root {
-            --hdr-h: 60px; /* gameHeaderの高さ */
+            --hdr-h: 74px; /* gameHeaderの高さ(HPバー下の名前表示ぶんを含む) */
             --ui-h: 250px; /* ui(slots+handWrap+controls+padding)のおおよその高さ */
             --app-w: min(100vw, 520px, calc((100vh - var(--hdr-h) - var(--ui-h)) * 960 / 560));
         }
@@ -30,17 +30,22 @@
             box-shadow: 0 0 24px rgba(0,0,0,0.8);
         }
         #gameHeader {
-            height: 60px;
+            height: 74px;
             padding-top: env(safe-area-inset-top, 0px); /* 第26条: 時計回避余白 */
             background: #111; display: flex; justify-content: space-between; align-items: center;
             padding-left: 10px; padding-right: 10px; border-bottom: 2px solid #555;
         }
-        .hp-wrap { width: 35%; height: 20px; position: relative; }
+        .hp-col { width: 35%; display: flex; flex-direction: column; gap: 3px; }
+        .hp-wrap { width: 100%; height: 20px; position: relative; }
         .hp-bar-bg { position:absolute; inset:0; background:#400; border: 2px solid #fff; }
         .hp-yellow { position:absolute; top:0; left:0; height:100%; background:#dd0; transition: width 0.6s linear; }
         .hp-red { position:absolute; top:0; left:0; height:100%; background:#f00; transition: width 0.05s linear; }
         /* 味方は敵と左右対称に、画面中心側(右基準)から残るようにする。左側から減っていく見た目になる */
         #hpP_y, #hpP { left: auto; right: 0; }
+        /* HPバー下のキャラクター名。味方は左揃え、敵は右揃え */
+        .char-name { font-size: 11px; font-weight: bold; color: #ccc; letter-spacing: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        #playerName { text-align: left; }
+        #enemyName { text-align: right; }
         #turnDisplay { text-align:center; font-weight:900; line-height:1.1; }
         #gameArea {
             width: 100%;
@@ -422,16 +427,22 @@
 <!-- バトルシーン -->
 <div id="sceneBattle" class="scene">
 <div id="gameHeader">
-    <div class="hp-wrap">
-        <div class="hp-bar-bg"></div>
-        <div class="hp-yellow" id="hpP_y" style="width:100%"></div>
-        <div class="hp-red" id="hpP" style="width:100%"></div>
+    <div class="hp-col">
+        <div class="hp-wrap">
+            <div class="hp-bar-bg"></div>
+            <div class="hp-yellow" id="hpP_y" style="width:100%"></div>
+            <div class="hp-red" id="hpP" style="width:100%"></div>
+        </div>
+        <div class="char-name" id="playerName">VAL</div>
     </div>
     <div id="turnDisplay">TURN<br>0</div>
-    <div class="hp-wrap">
-        <div class="hp-bar-bg"></div>
-        <div class="hp-yellow" id="hpE_y" style="width:100%"></div>
-        <div class="hp-red" id="hpE" style="width:100%"></div>
+    <div class="hp-col">
+        <div class="hp-wrap">
+            <div class="hp-bar-bg"></div>
+            <div class="hp-yellow" id="hpE_y" style="width:100%"></div>
+            <div class="hp-red" id="hpE" style="width:100%"></div>
+        </div>
+        <div class="char-name" id="enemyName">ENEMY</div>
     </div>
 </div>
 <div id="gameArea">
@@ -1131,6 +1142,13 @@ function currentEnemyPreset() {
     const id = ENEMY_ORDER[state.storyEnemyIndex % ENEMY_ORDER.length];
     return ENEMY_PRESETS[id];
 }
+// HPバー下の名前表示を更新する。味方は固定でVAL、敵はSTORY MODEなら現在の敵プリセット名、
+// TRAINING MODEなら固定でENEMY(STORY MODEは今後の連戦で敵が変わるたびに自動で切り替わる)
+function updateCharNames() {
+    document.getElementById('playerName').innerText = 'VAL';
+    document.getElementById('enemyName').innerText =
+        state.gameMode === 'training' ? 'ENEMY' : currentEnemyPreset().name;
+}
 // 連戦で次の敵へ進む(勝利後に呼び出す想定。まだどこからも呼ばれていない=今後のストーリーパート実装時にフックする)
 function advanceToNextEnemy() {
     state.storyEnemyIndex = (state.storyEnemyIndex + 1) % ENEMY_ORDER.length;
@@ -1215,6 +1233,7 @@ function resetBattleState() {
     state.eGuardHoldPose = false;
     state.gameMode = state.pendingMode || 'story'; // デッキ編成画面へ来た時に選んだモードを確定
     state.trainingCycleIndex = 0; // TRAINING MODEの周期はバトル開始のたびリセットしてOK
+    updateCharNames(); // 味方=VAL(固定)、敵=STORY MODEなら現在の敵プリセット名、TRAINING MODEならENEMY
     state.introCharAlpha = 0; // 開始演出でふわっと表示するため、まずは透明から
     state.bgRevealRadius = 0; // 背景も真っ暗な状態からスタート
     state.battleReady = false; // 開始演出が終わるまで操作不可
