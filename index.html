@@ -536,7 +536,7 @@ let state = {
     resolving: false
 };
 let trails = []; // 第24条: dash.PNGの残像
-let cardOutcomes = { P: new Array(5).fill(null), E: new Array(5).fill(null) }; // ターン中の各カードの勝敗表現(card-lose/card-shatter)。ターン開始時にリセットする
+let cardOutcomes = { P: new Array(5).fill(null), E: new Array(5).fill(null) }; // ターン中の各カードの勝敗表現(card-lose/card-shatter)。ターン終了(両者が定位置へ戻り、場のカードが消えた後)にリセットする
 let deckCounts = { PUNCH: 7, UPPER: 7, GUARD: 7 }; // デッキ編成(合計21枚、内訳は自由)
 
 // ------- 山札操作 -------
@@ -1543,7 +1543,6 @@ async function resolveTurn() {
 
     state.turn++;
     document.getElementById('turnDisplay').innerHTML = `TURN<br>${state.turn}`;
-    cardOutcomes = { P: new Array(5).fill(null), E: new Array(5).fill(null) }; // 新しいターンの勝敗表現をリセット
 
     const cursor = { i: 0 };
     const total = filledCount();
@@ -1611,6 +1610,7 @@ async function resolveTurn() {
             state.battleReady = false; // 決着後は手札タップ含め操作不可にする
             await runFinishSequence(gameOverSide);
             await fadeOutQueueCards(); // 場のカードがふわっと消える
+            cardOutcomes = { P: new Array(5).fill(null), E: new Array(5).fill(null) }; // ターン終了につき勝敗表現をリセット
             state.hands = new Array(5).fill(null);
             updateUI();
             state.resolving = false; // バトルは決着済み。ボタンは結果画面から「タイトルへ戻る」でリセットされる
@@ -1638,6 +1638,7 @@ async function resolveTurn() {
             }
 
             await fadeOutQueueCards(); // 場のカードがふわっと消える
+            cardOutcomes = { P: new Array(5).fill(null), E: new Array(5).fill(null) }; // ターン終了(両者が定位置へ戻った後)につき勝敗表現をリセット
             if (state.gameMode === 'training') {
                 healBothToFull(); // TRAINING MODE: ターン終了ごとに双方のHPを全回復する
             }
