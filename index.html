@@ -184,6 +184,11 @@
             transform-origin: 50% 50%; /* 回転は中心軸。高さ(top)には一切影響しない */
         }
         .card.empty { border-style: dashed; border-color: #888; opacity: 0.4; background-color: #222; }
+        /* カードの裏面(バトル開始時、めくられる前の状態)。card_back.PNGが無ければ縞模様にフォールバック */
+        .card.card-back {
+            background-image: repeating-linear-gradient(45deg, #234 0, #234 6px, #2a3f5f 6px, #2a3f5f 12px);
+            border-color: #6a8;
+        }
         .card.filled { cursor: pointer; }
 
         /* ------- デッキ残数表示(枚数のみ・手札の右下) ------- */
@@ -326,14 +331,14 @@
  * 5. 着地同期: 通常コンボ終了時（メテオに至らない場合）は、攻守双方が地面(GROUND_Y)へ着地してから次の演出へ遷移する。
  * 6. 通常コンボ終了時の演出: 攻撃側は必ずdash.PNGへ、被弾側はdamage.PNGのまま着地させる。
  * 7. 画像状態管理: 待機中は必ず player.PNG / player2.PNG の呼吸(idle)へ復帰する。idle.PNGという単独ファイルは存在しない。
- * 8. ダメージ計算: PUNCH勝利(10、地上での連続ヒットのたびに+5され、ガード等で止められると途切れる)、UPPER初撃(5)、空中パンチ連続ヒット加算(2発目以降+5)、メテオ(50)、相討ち(3)。三すくみに負けた側のみ振動(shake)する。ダメージを受けた側は、量の大小にかかわらず必ず一瞬点滅する(applyDamage内で共通処理)。同じ手同士の相討ちの場合は双方が微ダメージを受けて振動し、反動で一歩下がる。GUARDが勝った場合(相手のPUNCHを防いだ場合)、勝った側は極小ダメージで振動し、負けた側はダメージなしだがしびれてpunch.PNGのまま振動し、次のコマンドの成功率が1/2になる(どちらの側がガードしても発生する)。しびれは「固定ダメージを受ける」仕様ではなく、1/2の確率でその攻防に無条件で敗北する仕様である。しびれた側はdamage.PNGで点滅しつつ頭上にpiyo.PNGを反転させながら2往復させるピヨり演出を行った後、相手が実際に出していた技の種類(PUNCH/UPPER/GUARD)に応じた通常の勝敗処理(空中コンボやガード成功も含む)がそのまま3すくみ判定なしで適用される。
+ * 8. ダメージ計算: PUNCH勝利(10、地上での連続ヒットのたびに+5され、ガード等で止められると途切れる)、UPPER初撃(5)、空中パンチ連続ヒット加算(2発目以降+5)、メテオ(50)、相討ち(3)。三すくみに負けた側のみ振動(shake)する。ダメージを受けた側は、量の大小にかかわらず必ず一瞬点滅する(applyDamage内で共通処理)。同じ手同士の相討ちの場合は双方が微ダメージを受けて振動し、反動で一歩下がる。GUARDが勝った場合(相手のPUNCHを防いだ場合)、勝った側は極小ダメージで振動し、負けた側はダメージなしだがしびれてpunch.PNGのまま振動し、次のコマンドの成功率が1/2になる(どちらの側がガードしても発生する)。しびれは「固定ダメージを受ける」仕様ではなく、1/2の確率でその攻防に無条件で敗北する仕様である。しびれた側はdamage.PNGで点滅しつつ頭上にpiyo.PNGを反転させながら2往復させるピヨり演出を行った後、相手が実際に出していた技の種類(PUNCH/UPPER/GUARD)に応じた通常の勝敗処理(空中コンボやガード成功も含む)がそのまま3すくみ判定なしで適用される。しびれはターンをまたいで持ち越さない仕様とし、そのターン中に消費されなかった場合はターン終了時に必ず解消される。
  * 9. 座標復帰: ターン(5枠)全体の処理が完了した時点で、finally句にて必ずホームポジションへ dash.PNG の残像付きで帰還することを保証する。ただし体力が0になる最後の一撃を受けた場合は、この通常帰還処理の代わりに専用の決着演出（damage.PNGで点滅→スローに軽くバウンドしながら初期位置へ戻る→down.PNGで倒れる→K.O./YOU WIN表示）を実行する。
  * 10. 描画品質: imageSmoothingEnabled=false を維持しドット絵品質を担保。背景(bg.PNG)もキャラと同じcanvas上に同一の拡大率(SCALE)で描画し、ピクセルのズレを起こさない。
  * 11. モバイル対応: Flexboxとviewport固定によるレスポンシブ最適化。UI全体はappRootコンテナで正方形(1:1)に収め、画面中央に配置する。
  * 12. 描画資産の不変性: 外部ファイルを厳格に読み込み、存在しない場合は読み込みエラーを即座に特定する。ただし敵専用グラフィック(enemy_〇〇.PNG)と背景(bg.PNG)は任意の差し替え用アセットであり、存在しなくてもエラー扱いにせず、敵はプレイヤー画像へ、背景は水色の塗りつぶしへフォールバックする。
  * 13. オブジェクトの生存維持: 状態管理オブジェクト(state, imgs)は決して再定義・初期化せず、常に参照し続ける。
  * 14. 憲法完全表記: コード提示の際、本憲法リストを一切省略せず必ず全条文を記述する。
- * 15. UI永続性: HP・TURN表示は画面上部に固定し、スロットは下部に永続表示する。画面はロゴ(BORN MAGAZINE presents)→プロローグ→タイトル→デッキ編成(21枚固定・内訳自由)→バトル→決着(K.O./YOU WIN)、の順で遷移する。決着画面ではCONTINUE(直前のデッキ編成へ)とタイトルへ戻る(ロゴシーンへ)の2つのボタンを提供する。ロゴシーンはフェードイン→2秒表示→フェードアウトの後、自動でプロローグへ遷移する。プロローグは画像とテキストを1ブロックにまとめて画面中央に配置し、シネマサイズの画像(op_1〜4.PNG)と1文字ずつ表示されるテキストを4画面分再生する(1画面目のみブロック全体がフェードインする)。SKIPしなくても4画面終了後は自動でタイトルへ遷移する。バトル開始時は暗転→味方/敵のフェードイン→背景(bg.PNG)がcanvas上で中心から円形に拡大表示→「BATTLE START」が左からディゾルブで入り中央で静止した後、拡大しながら消える演出を経てから操作可能になる。
+ * 15. UI永続性: HP・TURN表示は画面上部に固定し、スロットは下部に永続表示する。画面はロゴ(BORN MAGAZINE presents)→プロローグ→タイトル→デッキ編成(21枚固定・内訳自由)→バトル→決着(K.O./YOU WIN)、の順で遷移する。決着画面ではCONTINUE(直前のデッキ編成へ)とタイトルへ戻る(ロゴシーンへ)の2つのボタンを提供する。ロゴシーンはフェードイン→2秒表示→フェードアウトの後、自動でプロローグへ遷移する。プロローグは画像とテキストを1ブロックにまとめて画面中央に配置し、シネマサイズの画像(op_1〜4.PNG)と1文字ずつ表示されるテキストを4画面分再生する(1画面目のみブロック全体がフェードインする)。SKIPしなくても4画面終了後は自動でタイトルへ遷移する。バトル開始時は暗転→味方/敵のフェードイン→背景(bg.PNG)がcanvas上で中心から円形に拡大表示→「BATTLE START」が左からディゾルブで入り中央で静止した後、拡大しながら消える演出を経て、手札が裏向きで配られてから左から順にめくられ、その後操作可能になる(この配布演出はバトル開始時のみで、以降の補充では行わない)。
  * 16. 位置保持: 攻防のたびに初期位置へ戻るのではなく、中央で衝突→軽く距離を取る、を繰り返す。ホームポジションへ戻るのはターン完了時のみ。
  * 17. 体力ゲージ演出: ダメージ発生時、現在値が即座に減り、黄色いバーが0.6秒遅れて減少する。
  * 18. TURN表示仕様: 画面上部中央に「TURN」と「数字」を2行で太字(900)表示する。
@@ -702,6 +707,14 @@ Object.values(CARD_IMG_MAP).forEach(fname => {
     i.onerror = () => { /* 任意アセットのため未用意でもエラー扱いにしない。文字表示にフォールバック */ };
     i.src = fname;
 });
+// カードの裏面(任意)。用意されていれば card_back.PNG を使い、無ければCSSの縞模様にフォールバックする。
+const CARD_BACK_IMG = 'card_back.PNG';
+(() => {
+    const i = new Image();
+    i.onload = () => { imgs[CARD_BACK_IMG] = i; };
+    i.onerror = () => { /* 未用意でもエラー扱いにしない */ };
+    i.src = CARD_BACK_IMG;
+})();
 // カード表示用の要素(el)に、typeに応じた画像 or 文字フォールバックを適用する
 function applyCardVisual(el, type) {
     const fname = type ? CARD_IMG_MAP[type] : null;
@@ -969,6 +982,59 @@ function resetHands() {
     updateHandUI();
     updateUI();
 }
+// バトル開始時だけの演出: 手札を裏向きで配り、左から順にめくって表向きにする
+async function dealInitialHandAnimation() {
+    const s = document.getElementById('handRow'); s.innerHTML = '';
+    const n = state.playerHand.length; // 5
+    const mid = (n - 1) / 2;
+    const GAP_X = 48; // updateHandUI()と同じ配置計算に合わせる
+    const ARC_K = 4;
+    const cardEls = [];
+
+    // 1. まず5枚とも裏向きで、画面下からふわっと配られる
+    state.playerHand.forEach((card, idx) => {
+        const d = document.createElement('div');
+        d.className = 'card card-back';
+        const offset = idx - mid;
+        const ty = offset * offset * ARC_K;
+        const tx = offset * GAP_X;
+        const angle = offset * 9;
+        d.dataset.tx = tx;
+        d.dataset.angle = angle;
+        if (imgs[CARD_BACK_IMG]) d.style.backgroundImage = `url('${CARD_BACK_IMG}')`;
+        d.style.top = ty + 'px';
+        d.style.transition = 'none';
+        d.style.transform = `translateX(calc(-50% + ${tx}px)) translateY(50px) rotate(${angle}deg)`;
+        d.style.opacity = '0';
+        s.appendChild(d);
+        cardEls.push(d);
+    });
+
+    await wait(30);
+    cardEls.forEach(d => {
+        d.style.transition = 'transform 0.35s ease-out, opacity 0.3s ease-out';
+        d.style.transform = `translateX(calc(-50% + ${d.dataset.tx}px)) rotate(${d.dataset.angle}deg)`;
+        d.style.opacity = '1';
+    });
+    await wait(450); // 配り終わるまで待つ
+
+    // 2. 左から順に、1枚ずつめくって表向きにする(速度2倍)
+    for (let idx = 0; idx < cardEls.length; idx++) {
+        const d = cardEls[idx];
+        const tx = d.dataset.tx, angle = d.dataset.angle;
+        d.style.transition = 'transform 0.08s ease-in';
+        d.style.transform = `translateX(calc(-50% + ${tx}px)) rotate(${angle}deg) scaleX(0)`;
+        await wait(80);
+
+        d.className = 'card ' + (state.playerHand[idx] ? 'filled' : 'empty');
+        applyCardVisual(d, state.playerHand[idx]);
+        if (state.playerHand[idx]) d.onclick = () => playCard(idx);
+        d.style.transition = 'transform 0.08s ease-out';
+        d.style.transform = `translateX(calc(-50% + ${tx}px)) rotate(${angle}deg) scaleX(1)`;
+        await wait(110); // 次のカードがめくれるまでの間隔
+    }
+}
+
 function updateHandUI(animateIndices) {
     animateIndices = animateIndices || [];
     const s = document.getElementById('handRow'); s.innerHTML = '';
@@ -1171,7 +1237,7 @@ function resetBattleState() {
     bst.classList.remove('enter', 'exit');
     hideResult();
     updateUI();
-    updateHandUI();
+    document.getElementById('handRow').innerHTML = ''; // 手札はBATTLE START後にdealInitialHandAnimation()で配る
     updateDeckCountDisplay();
 
     // 敵の手はターンごとに(必要枚数だけ)非公開で生成する。開始時点では空。
@@ -1217,6 +1283,8 @@ async function playBattleIntro() {
     bst.classList.add('exit');
     await wait(550);
     bst.classList.remove('enter', 'exit');
+
+    await dealInitialHandAnimation(); // 手札を裏向きで配り、左から順にめくる(バトル開始時だけの演出)
 
     state.battleReady = true;
     updateActionButtons();
@@ -1597,6 +1665,12 @@ async function resolveTurn() {
             }
         }
     } finally {
+        // しびれはターンをまたいで持ち越さない仕様: 使われなかった場合はここで消える
+        state.pNumbed = false;
+        state.eNumbed = false;
+        state.pGuardHoldPose = false;
+        state.eGuardHoldPose = false;
+
         // 使用したプレイヤーカードを捨て札へ送り、使った枚数分だけ山から補充する
         for (let i = 0; i < total; i++) {
             if (state.hands[i]) state.playerDiscard.push(state.hands[i]);
