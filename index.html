@@ -936,21 +936,23 @@ function draw(tRaw) {
     ctx.restore();
 
     // ピヨり演出: しびれている側の頭上にpiyo.PNGを表示(反転を交互に切り替える)
+    // piyo.PNGは実ファイルが32x32pxで、実際に使う絵柄は左上を基準にした横21px×縦9pxの範囲のみ
     if (state.piyoSide) {
         const piyoImg = imgs['piyo.PNG'];
         if (piyoImg) {
+            const SRC_X = 0, SRC_Y = 0, SRC_W = 21, SRC_H = 9; // 元画像内での切り出し範囲
             const baseX = state.piyoSide === 'P' ? state.pX : state.eX;
             const baseY = state.piyoSide === 'P' ? state.pY : state.eY;
-            const pw = 32 * DB.SCALE, ph = 10 * DB.SCALE;
+            const pw = SRC_W * DB.SCALE, ph = SRC_H * DB.SCALE;
             const px = baseX + (DB.IMG_SIZE - pw) / 2;
             const py = baseY - ph - 10;
             ctx.save();
             if (state.piyoFlip) {
                 ctx.translate(px + pw, py);
                 ctx.scale(-1, 1);
-                ctx.drawImage(piyoImg, 0, 0, pw, ph);
+                ctx.drawImage(piyoImg, SRC_X, SRC_Y, SRC_W, SRC_H, 0, 0, pw, ph);
             } else {
-                ctx.drawImage(piyoImg, px, py, pw, ph);
+                ctx.drawImage(piyoImg, SRC_X, SRC_Y, SRC_W, SRC_H, px, py, pw, ph);
             }
             ctx.restore();
         }
