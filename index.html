@@ -99,10 +99,10 @@
         .logo-main { font-size: 22px; font-weight: 900; letter-spacing: 3px; color: #fff; }
         .logo-sub { font-size: 13px; letter-spacing: 6px; color: #aaa; }
 
-        /* ------- プロローグ: シネマサイズ画像 + 1文字ずつのテキストを1ブロックにまとめ、中央配置 ------- */
-        #scenePrologue { justify-content: center; align-items: center; }
-        #prologueContent { flex: none; display: flex; flex-direction: column; width: 100%; opacity: 0; }
-        #prologueImgArea {
+        /* ------- シネマ演出共通(プロローグ・ストーリーシーンで共用): 画像 + 1文字ずつのテキストを1ブロックにまとめ、中央配置 ------- */
+        #scenePrologue, #sceneStory { justify-content: center; align-items: center; }
+        .cine-block { flex: none; display: flex; flex-direction: column; width: 100%; opacity: 0; }
+        .cine-img {
             width: 100%; aspect-ratio: 2.4 / 1; /* シネマサイズ(ワイド) */
             background: #000 center / cover no-repeat;
             image-rendering: pixelated;
@@ -110,24 +110,24 @@
             border-bottom: 2px solid #444;
             flex: none;
         }
-        #prologueImgFallback {
+        .cine-img-fallback {
             position: absolute; inset: 0; display: none;
             align-items: center; justify-content: center;
             color: #555; font-size: 11px; letter-spacing: 1px;
             background: repeating-linear-gradient(45deg, #111, #111 8px, #161616 8px, #161616 16px);
         }
-        #prologueImgArea.placeholder #prologueImgFallback { display: flex; }
-        #prologueTextBox {
+        .cine-img.placeholder .cine-img-fallback { display: flex; }
+        .cine-textbox {
             flex: none; height: 130px; background: #000; padding: 16px;
             display: flex; align-items: flex-start; justify-content: flex-start;
             border-top: 1px solid #333; border-bottom: 1px solid #333;
             overflow: hidden;
         }
-        #prologueText {
+        .cine-text {
             color: #fff; font-size: 14px; line-height: 1.9; letter-spacing: 0.5px;
             white-space: pre-wrap; margin: 0;
         }
-        #prologueText::after {
+        .cine-text::after {
             content: '▌'; margin-left: 2px; color: #fff;
             animation: prologueCursorBlink 0.8s steps(1) infinite;
         }
@@ -373,13 +373,24 @@
 
 <!-- プロローグシーン: シネマサイズの画像+1文字ずつのテキスト演出を4画面。終わったら自動でタイトルへ -->
 <div id="scenePrologue" class="scene">
-    <div id="prologueContent">
-        <div id="prologueImgArea"><div id="prologueImgFallback"></div></div>
-        <div id="prologueTextBox">
-            <p id="prologueText"></p>
+    <div id="prologueContent" class="cine-block">
+        <div id="prologueImgArea" class="cine-img"><div id="prologueImgFallback" class="cine-img-fallback"></div></div>
+        <div id="prologueTextBox" class="cine-textbox">
+            <p id="prologueText" class="cine-text"></p>
         </div>
     </div>
     <button id="skipBtn" class="text-btn" onclick="skipPrologue()">▶︎SKIP</button>
+</div>
+
+<!-- ストーリーシーン(STORY MODE専用): デッキ編成の前に挟む導入。プロローグと同じ仕組みを流用、3画面 -->
+<div id="sceneStory" class="scene">
+    <div id="storyContent" class="cine-block">
+        <div id="storyImgArea" class="cine-img"><div id="storyImgFallback" class="cine-img-fallback"></div></div>
+        <div id="storyTextBox" class="cine-textbox">
+            <p id="storyText" class="cine-text"></p>
+        </div>
+    </div>
+    <button id="skipStoryBtn" class="text-btn" onclick="skipStorySequence()">▶︎SKIP</button>
 </div>
 
 <!-- タイトルシーン: ロゴは仮表示（title_logo.PNGが見つかれば自動で画像に切り替わる） -->
@@ -391,7 +402,7 @@
             <div id="titleLogoFallback" class="title-logo-fallback">コマンドバトル</div>
         </div>
     </div>
-    <button id="startBtn" class="text-btn" onclick="tapFlickerThen(this, () => goDeckBuild('story'))" disabled>STORY MODE</button>
+    <button id="startBtn" class="text-btn" onclick="tapFlickerThen(this, () => goStoryThenDeck())" disabled>STORY MODE</button>
     <button id="trainingBtn" class="text-btn" onclick="tapFlickerThen(this, () => goDeckBuild('training'))" disabled>TRAINING MODE</button>
     <button class="howto-btn howto-corner" onclick="openHowTo()">HOW<br>TO</button>
 </div>
@@ -853,6 +864,78 @@ async function playPrologue() {
 
     if (prologueToken !== myToken) return;
     goTitle(); // 4画面すべて終わったらSKIPしなくても自動でタイトルへ
+}
+
+// ------- ストーリーシーン(STORY MODE専用): story_1.PNG〜story_3.PNG(任意アセット)。プロローグと同じ仕組みを流用 -------
+function goStoryThenDeck() {
+    showScene('story');
+    playStorySequence();
+}
+const STORY_SCREENS = [
+    { img: 'story_1.PNG', text: '（仮テキスト1）新たな戦いの舞台が、目の前に広がる。' },
+    { img: 'story_2.PNG', text: '（仮テキスト2）相手の実力は未知数。油断はできない。' },
+    { img: 'story_3.PNG', text: '（仮テキスト3）覚悟を決め、デッキを整える時が来た。' }
+];
+STORY_SCREENS.forEach(sc => {
+    const i = new Image();
+    i.onload = () => { imgs[sc.img] = i; };
+    i.onerror = () => { /* 任意アセットのため未用意でもエラー扱いにしない。プレースホルダー表示にフォールバック */ };
+    i.src = sc.img;
+});
+
+let storyToken = 0; // SKIP時に進行中のタイプライター処理を打ち切るためのトークン
+function skipStorySequence() {
+    storyToken++; // 進行中のawaitループを無効化する
+    goDeckBuild('story');
+}
+async function playStorySequence() {
+    const myToken = ++storyToken;
+    const content = document.getElementById('storyContent');
+    const imgArea = document.getElementById('storyImgArea');
+    const fallback = document.getElementById('storyImgFallback');
+    const textEl = document.getElementById('storyText');
+
+    // 再生開始時は必ず真っ黒(透明)にリセットしてからフェードインする
+    content.style.transition = 'none';
+    content.style.opacity = '0';
+    textEl.innerText = '';
+    imgArea.classList.remove('placeholder');
+    imgArea.style.backgroundImage = 'none';
+
+    for (let i = 0; i < STORY_SCREENS.length; i++) {
+        const screen = STORY_SCREENS[i];
+        if (storyToken !== myToken) return; // SKIPされていたら中断
+
+        if (imgs[screen.img]) {
+            imgArea.style.backgroundImage = `url('${screen.img}')`;
+            imgArea.classList.remove('placeholder');
+        } else {
+            imgArea.style.backgroundImage = 'none';
+            imgArea.classList.add('placeholder');
+            fallback.innerText = screen.img + ' (未配置)';
+        }
+
+        if (i === 0) {
+            // 一番はじめの画面だけフェードインで始める
+            await wait(30); // 直前のopacity:0が確実に描画されてから遷移を開始させる
+            content.style.transition = 'opacity 1s ease-in';
+            content.style.opacity = '1';
+            await wait(1000);
+        }
+
+        textEl.innerText = '';
+        for (let c = 0; c < screen.text.length; c++) {
+            if (storyToken !== myToken) return;
+            textEl.innerText += screen.text[c];
+            await wait(45); // 1文字ずつ表示するスピード
+        }
+
+        if (storyToken !== myToken) return;
+        await wait(2000); // 1ページ読み終えてから次の画面まで、もう少し長めに読ませる
+    }
+
+    if (storyToken !== myToken) return;
+    goDeckBuild('story'); // 3画面すべて終わったらSKIPしなくても自動でデッキ編成へ
 }
 
 // ------- 汎用アクセサ (P/E共通ロジックで扱うためのヘルパー) -------
