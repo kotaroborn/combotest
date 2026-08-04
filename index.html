@@ -153,6 +153,10 @@
             position: absolute; right: 14px; bottom: 14px;
             font-size: 13px; color: #eee;
         }
+        #titleContinueBtn {
+            position: absolute; left: 50%; bottom: 31%; transform: translateX(-50%);
+            font-size: 13px; letter-spacing: 3.5px;
+        }
         #startBtn {
             position: absolute; left: 50%; bottom: 25%; transform: translateX(-50%);
             font-size: 13px; letter-spacing: 6.8px;
@@ -336,7 +340,20 @@
             padding: 8px 18px; font-size: 12px; font-weight: bold; cursor: pointer;
         }
         #resetProgressBtn { background: #a00; }
-        #optionItemsRow { display: none; } /* 隠しアイテムを1つでも取得したら表示する */
+        #optionItemsRow { display: none; }
+        .option-radio-group { display: flex; gap: 12px; }
+        .option-radio { display: flex; align-items: center; gap: 4px; font-size: 12px; color: #eee; cursor: pointer; }
+        .option-radio input { accent-color: #a00; }
+        .confirm-panel {
+            display: none; position: absolute; inset: 0; background: rgba(10,10,10,0.96);
+            flex-direction: column; align-items: center; justify-content: center; gap: 20px;
+            border-radius: 8px; padding: 20px; text-align: center;
+        }
+        .confirm-panel.show { display: flex; }
+        .confirm-text { font-size: 14px; color: #fff; line-height: 1.6; margin: 0; }
+        .confirm-btns { display: flex; gap: 12px; }
+        .confirm-btns button { padding: 10px 22px; border: none; border-radius: 6px; font-size: 12px; font-weight: bold; cursor: pointer; background: #444; color: #eee; }
+        .confirm-btns .confirm-ok { background: #a00; color: #fff; } /* 隠しアイテムを1つでも取得したら表示する */
     </style>
 </head>
 <body>
@@ -416,7 +433,8 @@
             <div id="titleLogoFallback" class="title-logo-fallback">コマンドバトル</div>
         </div>
     </div>
-    <button id="startBtn" class="text-btn" onclick="tapFlickerThen(this, () => goStoryThenDeck())" disabled>STORY MODE</button>
+    <button id="titleContinueBtn" class="text-btn" onclick="tapFlickerThen(this, () => goContinueGame())" style="display:none;">CONTINUE</button>
+    <button id="startBtn" class="text-btn" onclick="tapFlickerThen(this, () => goNewGame())" disabled>NEW GAME</button>
     <button id="trainingBtn" class="text-btn" onclick="tapFlickerThen(this, () => goDeckBuild('training'))" disabled>TRAINING MODE</button>
     <button id="optionBtn" class="text-btn" onclick="openOption()" disabled>OPTION</button>
     <button class="howto-btn howto-corner" onclick="openHowTo()">HOW<br>TO</button>
@@ -842,8 +860,12 @@ function boot() {
     document.getElementById('startBtn').disabled = false;
     document.getElementById('trainingBtn').disabled = false;
     document.getElementById('optionBtn').disabled = false;
+    updateTitleContinueVisibility();
     draw();
     playLogo();
+}
+function updateTitleContinueVisibility() {
+    document.getElementById('titleContinueBtn').style.display = loadSaveData() ? 'block' : 'none';
 }
 
 // ------- ロゴシーン: BORN MAGAZINE presents(logo.PNGは任意アセット。無ければテキストにフォールバック) -------
@@ -1377,7 +1399,17 @@ function showScene(name) {
     document.getElementById('scene' + name.charAt(0).toUpperCase() + name.slice(1)).classList.add('active');
 }
 function goPrologue() { hideResult(); showScene('prologue'); playPrologue(); }
-function goTitle() { showScene('title'); }
+function goTitle() { showScene('title'); updateTitleContinueVisibility(); }
+// NEW GAME: 進行状況を1人目からにリセットしてストーリー導入(3画面)から始める
+function goNewGame() {
+    state.storyEnemyIndex = 0;
+    writeSaveData({ storyEnemyIndex: 0 });
+    goStoryThenDeck();
+}
+// CONTINUE: ストーリー導入は省略し、保存済みの進行状況のまま直接デッキ編成へ
+function goContinueGame() {
+    goDeckBuild('story');
+}
 function goBattleStart() {
     writeSaveData({ deckCounts: { PUNCH: deckCounts.PUNCH, UPPER: deckCounts.UPPER, GUARD: deckCounts.GUARD } }); // デッキ編成を保存
     resetBattleState();
@@ -1498,27 +1530,13 @@ function hideResult() {
 
 // ------- HOW TOポップアップ(ブラウザ機能ではなく画面内オーバーレイ) -------
 function openHowTo() {
-    // タイトル画面から開いた場合は「今のバトル」が存在しないため、RETRY/RETURN TO TITLEのフッターを隠す
-    const isTitle = document.getElementById('sceneTitle').classList.contains('active');
-    document.getElementById('howToFooter').style.display = isTitle ? 'none' : 'flex';
     document.getElementById('howToOverlay').classList.add('show');
 }
 function closeHowTo() {
     document.getElementById('howToOverlay').classList.remove('show');
 }
 function closeHowToBackdrop(e) {
-    // 背景(オーバーレイ自体)をタップした時だけ閉じる。パネル内のタップでは閉じない。
     if (e.target.id === 'howToOverlay') closeHowTo();
-}
-// HOW TO内のRETRY: このバトル直前のデッキ編成へ戻る(現在のモードを維持)
-function howToRetry() {
-    closeHowTo();
-    goDeckBuild();
-}
-// HOW TO内のRETURN TO TITLE: ロゴシーンまで戻る
-function howToReturnToTitle() {
-    closeHowTo();
-    goLogo();
 }
 
 // ------- OPTION画面 -------
@@ -1530,29 +1548,40 @@ function closeOption() {
     document.getElementById('optionOverlay').classList.remove('show');
 }
 function closeOptionBackdrop(e) {
-    // 背景(オーバーレイ自体)をタップした時だけ閉じる。パネル内のタップでは閉じない。
     if (e.target.id === 'optionOverlay') closeOption();
 }
 function updateOptionUI() {
-    document.getElementById('soundToggleBtn').innerText = state.soundOn ? 'ON' : 'OFF';
-    // 隠しアイテムを1つでも取得していたら図鑑の項目を表示する(今後実装予定)
+    document.querySelector(`input[name="soundRadio"][value="${state.soundOn ? 'on' : 'off'}"]`).checked = true;
     document.getElementById('optionItemsRow').style.display = unlockedItems.length > 0 ? 'flex' : 'none';
+    // タイトルから開いた場合は「今のバトル」が存在しないため、RETRY/RETURN TO TITLEを隠す
+    const isTitle = document.getElementById('sceneTitle').classList.contains('active');
+    document.getElementById('optionFooter').style.display = isTitle ? 'none' : 'flex';
+    closeResetConfirm(); // 開き直したら確認状態はリセット
 }
-function toggleSound() {
-    // 音声自体は今後実装予定。現時点では設定値の保存のみ行う。
-    state.soundOn = !state.soundOn;
-    writeSaveData({ soundOn: state.soundOn });
-    updateOptionUI();
+function setSound(on) {
+    state.soundOn = on; // 音声自体は今後実装予定。現時点では設定値の保存のみ行う。
+    writeSaveData({ soundOn: on });
 }
-function resetProgressConfirm() {
-    if (!confirm('ここまでのSTORY MODEの進行状況をリセットします。よろしいですか？')) return;
+function openResetConfirm() { document.getElementById('resetConfirmPanel').classList.add('show'); }
+function closeResetConfirm() { document.getElementById('resetConfirmPanel').classList.remove('show'); }
+function doResetProgress() {
     state.storyEnemyIndex = 0;
     writeSaveData({ storyEnemyIndex: 0 });
-    alert('進行状況をリセットしました。');
+    closeResetConfirm();
 }
 // 図鑑(取得アイテムの一覧・ミニストーリー表示)。今後実装予定のプレースホルダー。
 function openItemGallery() {
     alert('図鑑機能は準備中です。');
+}
+// OPTION内のRETRY: このバトル直前のデッキ編成へ戻る(現在のモードを維持)
+function optionRetry() {
+    closeOption();
+    goDeckBuild();
+}
+// OPTION内のRETURN TO TITLE: ロゴシーンまで戻る
+function optionReturnToTitle() {
+    closeOption();
+    goLogo();
 }
 
 // 第3条: 3すくみ判定 P>U, U>G, G>P (プレイヤー視点で 'win'/'lose'/'draw')
