@@ -1,0 +1,350 @@
+        * { box-sizing: border-box; touch-action: manipulation; }
+        html, body { margin: 0; height: 100%; }
+        body {
+            background: #000; color: #fff; font-family: sans-serif;
+            width: 100vw; height: 100vh;
+            display: flex; align-items: center; justify-content: center;
+            overflow: hidden;
+        }
+        :root {
+            --hdr-h: 74px; /* gameHeaderの高さ(HPバー下の名前表示ぶんを含む) */
+            --ui-h: 250px; /* ui(slots+handWrap+controls+padding)のおおよその高さ */
+            --app-w: min(100vw, 520px, calc((100vh - var(--hdr-h) - var(--ui-h)) * 960 / 560));
+        }
+        #appRoot {
+            /* 幅を基準にcanvas比率(960:560)から高さを算出し、全シーンで同じサイズになるよう固定する */
+            width: var(--app-w);
+            height: calc(var(--hdr-h) + var(--app-w) * 560 / 960 + var(--ui-h));
+            display: flex; flex-direction: column;
+            background: #000;
+            overflow: hidden;
+            position: relative;
+            margin: auto;
+            box-shadow: 0 0 24px rgba(0,0,0,0.8);
+        }
+        #gameHeader {
+            height: 74px;
+            padding-top: env(safe-area-inset-top, 0px); /* 第26条: 時計回避余白 */
+            background: #111; display: flex; justify-content: space-between; align-items: center;
+            padding-left: 10px; padding-right: 10px; border-bottom: 2px solid #555;
+        }
+        .hp-col { width: 35%; display: flex; flex-direction: column; gap: 3px; }
+        .hp-wrap { width: 100%; height: 20px; position: relative; }
+        .hp-bar-bg { position:absolute; inset:0; background:#400; border: 2px solid #fff; }
+        .hp-yellow { position:absolute; top:0; left:0; height:100%; background:#dd0; transition: width 0.6s linear; }
+        .hp-red { position:absolute; top:0; left:0; height:100%; background:#f00; transition: width 0.05s linear; }
+        /* 味方は敵と左右対称に、画面中心側(右基準)から残るようにする。左側から減っていく見た目になる */
+        #hpP_y, #hpP { left: auto; right: 0; }
+        /* HPバー下のキャラクター名。味方は左揃え、敵は右揃え */
+        .char-name { font-size: 11px; font-weight: bold; color: #ccc; letter-spacing: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        #playerName { text-align: left; }
+        #enemyName { text-align: right; }
+        #turnDisplay { text-align:center; font-weight:900; line-height:1.1; }
+        #gameArea {
+            width: 100%;
+            aspect-ratio: 960 / 560; /* canvas内部解像度と完全に一致させ、左右の黒帯を無くす */
+            flex: none; position: relative;
+            background: #000; /* canvas側で背景を描くまでは真っ暗 */
+            overflow: hidden;
+        }
+        canvas { width: 100%; height: 100%; object-fit: contain; image-rendering: pixelated; display:block; background: transparent; position: relative; z-index: 2; }
+        #enemySlots { position:absolute; top:6px; left:50%; transform:translateX(-50%); display:flex; gap:4px; z-index: 3; }
+        #enemySlots .slot { width:18px; height:26px; font-size:10px; }
+        #battleStartText {
+            position: absolute; top: 50%; left: -80%;
+            transform: translate(-50%, -50%) scale(1);
+            opacity: 0;
+            font-size: 40px; font-weight: 900; letter-spacing: 2px; color: #fff;
+            text-shadow: 0 0 14px rgba(255,255,255,0.8);
+            white-space: nowrap; z-index: 20; pointer-events: none;
+        }
+        #battleStartText.enter {
+            transition: left 0.65s ease-out, opacity 0.65s ease-out;
+            left: 50%;
+            opacity: 1;
+        }
+        #battleStartText.exit {
+            transition: transform 0.55s ease-in, opacity 0.55s ease-in;
+            transform: translate(-50%, -50%) scale(2.4);
+            opacity: 0;
+        }
+        #ui {
+            background: #111; padding: 10px;
+            padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px)); /* 第26条: メニュー回避余白 */
+            display: flex; flex-direction: column; gap: 10px;
+        }
+        /* ------- シーン管理 (プロローグ / タイトル / バトル) ------- */
+        .scene { display: none; width: 100%; height: 100%; position: relative; }
+        .scene.active { display: flex; flex-direction: column; }
+        .scene-inner {
+            flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+            gap: 28px; background: #000; padding: 20px; text-align: center;
+        }
+        .prologue-text { color: #999; font-size: 14px; line-height: 1.6; }
+
+        /* ------- ロゴシーン: BORN MAGAZINE presents ------- */
+        #sceneLogo { justify-content: center; align-items: center; }
+        #logoContent {
+            opacity: 0; display: flex; flex-direction: column; align-items: center; gap: 10px;
+        }
+        #logoImg { max-width: 80%; display: block; image-rendering: pixelated; }
+        #logoFallback { display: none; flex-direction: column; align-items: center; gap: 8px; }
+        .logo-main { font-size: 22px; font-weight: 900; letter-spacing: 3px; color: #fff; }
+        .logo-sub { font-size: 13px; letter-spacing: 6px; color: #aaa; }
+
+        /* ------- シネマ演出共通(プロローグ・ストーリーシーンで共用): 画像 + 1文字ずつのテキストを1ブロックにまとめ、中央配置 ------- */
+        #scenePrologue, #sceneStory { justify-content: center; align-items: center; }
+        .cine-block { flex: none; display: flex; flex-direction: column; width: 100%; opacity: 0; }
+        .cine-img {
+            width: 100%; aspect-ratio: 2.4 / 1; /* シネマサイズ(ワイド) */
+            background: #000 center / cover no-repeat;
+            image-rendering: pixelated;
+            position: relative;
+            border-bottom: 2px solid #444;
+            flex: none;
+        }
+        .cine-img-fallback {
+            position: absolute; inset: 0; display: none;
+            align-items: center; justify-content: center;
+            color: #555; font-size: 11px; letter-spacing: 1px;
+            background: repeating-linear-gradient(45deg, #111, #111 8px, #161616 8px, #161616 16px);
+        }
+        .cine-img.placeholder .cine-img-fallback { display: flex; }
+        .cine-textbox {
+            flex: none; height: 130px; background: #000; padding: 16px;
+            display: flex; align-items: flex-start; justify-content: flex-start;
+            border-top: 1px solid #333; border-bottom: 1px solid #333;
+            overflow: hidden;
+        }
+        .cine-text {
+            color: #fff; font-size: 14px; line-height: 1.9; letter-spacing: 0.5px;
+            white-space: pre-wrap; margin: 0;
+        }
+        .cine-text::after {
+            content: '▌'; margin-left: 2px; color: #fff;
+            animation: prologueCursorBlink 0.8s steps(1) infinite;
+        }
+        @keyframes prologueCursorBlink { 50% { opacity: 0; } }
+        .title-logo-wrap { max-width: 80%; }
+        #titleLogoImg { max-width: 100%; display: block; image-rendering: pixelated; }
+        .title-logo-fallback { display: none; font-size: 34px; font-weight: 900; letter-spacing: 3px; }
+
+        /* ボックスなし・テキストのみのボタン(SKIP/START) */
+        .text-btn {
+            background: none; border: none; color: #fff; font-weight: bold; cursor: pointer;
+            padding: 6px; letter-spacing: 1px;
+        }
+        .text-btn:disabled { opacity: 0.4; }
+        /* タップ時の反応: 明るさとグローを3回チカチカっと点滅させる */
+        .tap-flicker { animation: tapFlicker 0.4s steps(1, end); }
+        @keyframes tapFlicker {
+            0%, 100% { filter: brightness(1); text-shadow: none; }
+            15%, 45%, 75% { filter: brightness(2.4); text-shadow: 0 0 10px rgba(255,255,255,0.95); }
+            30%, 60%, 90% { filter: brightness(1); text-shadow: none; }
+        }
+        #skipBtn, #skipStoryBtn {
+            position: absolute; right: 14px; bottom: 14px;
+            font-size: 13px; color: #eee;
+        }
+        #titleContinueBtn {
+            position: absolute; left: 50%; bottom: 31%; transform: translateX(-50%);
+            font-size: 13px; letter-spacing: 3.5px;
+        }
+        #startBtn {
+            position: absolute; left: 50%; bottom: 25%; transform: translateX(-50%);
+            font-size: 13px; letter-spacing: 6.8px;
+        }
+        #trainingBtn {
+            position: absolute; left: 50%; bottom: 18%; transform: translateX(-50%);
+            font-size: 13px; letter-spacing: 3.5px; color: #bbb;
+        }
+        #optionBtn {
+            position: absolute; left: 50%; bottom: 12%; transform: translateX(-50%);
+            font-size: 11px; letter-spacing: 3px; color: #888;
+        }
+
+        /* ------- デッキ編成シーン ------- */
+        .deck-row { display: flex; align-items: center; gap: 14px; }
+        .deck-label { width: 70px; text-align: left; font-weight: bold; letter-spacing: 1px; }
+        .deck-btn {
+            width: 34px; height: 34px; border-radius: 50%; background: #444; color: #fff;
+            border: none; font-size: 18px; font-weight: bold; cursor: pointer;
+        }
+        .deck-count { width: 28px; text-align: center; font-size: 18px; font-weight: bold; }
+        #deckTotalText { color: #ccc; font-size: 13px; }
+        #deckConfirmBtn {
+            position: absolute; left: 50%; bottom: 20%; transform: translateX(-50%);
+            font-size: 13px; letter-spacing: 4px;
+        }
+
+        /* ------- 手札(カード)UI: 重ならない横並び。中心ほど高く、左右ほど下がる ------- */
+        #handWrap { position: relative; height: 90px; }
+        #handRow { position: relative; width: 100%; height: 100%; }
+        .card {
+            position: absolute; top: 0; left: 50%;
+            width: 42px; height: 60px;
+            border: 2px solid #fff; border-radius: 4px;
+            display: flex; align-items: center; justify-content: center;
+            font-weight: bold; font-size: 16px; background: #345; color: #fff;
+            background-size: cover; background-position: center; image-rendering: pixelated;
+            transform-origin: 50% 50%; /* 回転は中心軸。高さ(top)には一切影響しない */
+        }
+        .card.empty { border-style: dashed; border-color: #888; opacity: 0.4; background-color: #222; }
+        /* カードの裏面(バトル開始時、めくられる前の状態)。card_back.PNGが無ければ縞模様にフォールバック */
+        .card.card-back {
+            background-image: repeating-linear-gradient(45deg, #234 0, #234 6px, #2a3f5f 6px, #2a3f5f 12px);
+            border-color: #6a8;
+        }
+        .card.filled { cursor: pointer; }
+
+        /* ------- デッキ残数表示(枚数のみ・手札の右下) ------- */
+        #deckInfo {
+            position: absolute; right: 2px; bottom: -2px; z-index: 5;
+            font-size: 11px; color: #ccc;
+            background: rgba(0,0,0,0.45); padding: 2px 7px; border-radius: 4px;
+            transition: opacity 0.1s linear;
+        }
+        #deckRefreshLabel {
+            position: absolute; right: 2px; bottom: 20px; z-index: 6;
+            font-size: 11px; font-weight: bold; color: #ff5;
+            background: rgba(0,0,0,0.6); padding: 2px 7px; border-radius: 4px;
+            display: none;
+        }
+        #deckRefreshLabel.show { display: block; }
+
+        .scene-btn { background: #800; color: #fff; border: none; border-radius: 8px; padding: 14px 40px; font-weight: bold; font-size: 16px; cursor: pointer; }
+        .scene-btn:disabled { opacity: 0.4; }
+        #resultOverlay {
+            position: absolute; inset: 0; background: rgba(0,0,0,0.6); /* 画面全体(カードの場も含む)を暗く */
+            display: none; z-index: 50;
+            flex-direction: column; align-items: center; justify-content: center; gap: 28px;
+        }
+        #resultOverlay.show { display: flex; }
+        #resultText {
+            font-size: 44px; font-weight: 900; letter-spacing: 4px; color: #fff;
+            text-shadow: 0 0 14px rgba(255,255,255,0.7); white-space: nowrap;
+        }
+        #continueBtn {
+            background: #a00; border: none; color: #fff;
+            padding: 12px 32px; font-size: 14px; font-weight: bold; letter-spacing: 1px; border-radius: 8px; cursor: pointer;
+        }
+        #backTitleBtn {
+            background: transparent; border: 1px solid rgba(255,255,255,0.55); color: #eee;
+            padding: 9px 24px; font-size: 12px; letter-spacing: 1px; border-radius: 6px; cursor: pointer;
+        }
+        #slots { display: flex; justify-content: center; gap: 5px; height: 60px; }
+        .slot { width: 42px; height: 60px; border: 2px solid #fff; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-weight: bold; background:#222; background-size: cover; background-position: center; image-rendering: pixelated; }
+        .slot.empty { border-style: dashed; border-color: #888; opacity: 0.5; }
+        .slot.filled { border-style: solid; border-color: #fff; background-color: #345; }
+        /* 対戦中(このターンで実際にぶつかり合っている)カードを光らせる */
+        .slot.active-card {
+            border-color: #ffe066 !important;
+            animation: activeCardGlow 0.6s ease-in-out infinite alternate;
+        }
+        @keyframes activeCardGlow {
+            from { box-shadow: 0 0 6px 2px rgba(255,224,102,0.6); }
+            to   { box-shadow: 0 0 14px 6px rgba(255,224,102,0.95); }
+        }
+        /* 敗者のカードは暗くする(勝者は黄色いactive-cardハイライトのまま変更しない) */
+        .slot.card-lose {
+            animation: none !important;
+            box-shadow: none !important;
+            filter: brightness(0.32);
+        }
+        /* 3すくみを無視して敗北したカード(空中コンボ継続・しびれ強制被弾): ヒビ割れ模様を表示する(透過はしない) */
+        .slot.card-shatter {
+            position: relative;
+            animation: none !important;
+            box-shadow: none !important;
+        }
+        .slot.card-shatter::after {
+            content: '';
+            position: absolute; inset: 0;
+            background:
+                linear-gradient(105deg, transparent 47%, #fff 49%, #fff 51%, transparent 53%),
+                linear-gradient(18deg, transparent 47%, #fff 49%, #fff 51%, transparent 53%),
+                linear-gradient(198deg, transparent 47%, #fff 49%, #fff 51%, transparent 53%);
+            opacity: 0;
+            animation: cardCrackIn 0.2s ease-out forwards;
+            pointer-events: none;
+        }
+        @keyframes cardCrackIn {
+            0% { opacity: 0; }
+            100% { opacity: 0.9; }
+        }
+        .controls { display: flex; gap: 8px; align-items: stretch; }
+        .fn-group { display:flex; gap:8px; flex:1; }  /* 第26条: 右に機能ボタン */
+        button {
+            border: none; color: #fff; font-weight: bold; font-size: 15px;
+            border-radius: 999px; /* 左右を丸くしてボタンらしく */
+            padding: 13px 0; cursor: pointer;
+            transition: transform 0.08s ease, background-color 0.15s ease, opacity 0.15s ease;
+        }
+        .fn-group button { flex: 1; }
+        button:active:not(:disabled) { transform: scale(0.93); } /* 押した反応 */
+        button:disabled { opacity: 0.35; cursor: default; }
+        .howto-btn {
+            border-radius: 8px; /* HOW TOだけ四角いブロック */
+            background: #333; color: #fff; font-size: 10px; line-height: 1.15; padding: 0;
+            width: 48px; height: 48px;
+        }
+        #howToBtn { flex: 0 0 48px; } /* バトル画面ではcontrols行の一部 */
+        .howto-corner { position: absolute; left: 14px; bottom: 14px; } /* タイトル/デッキ編成では画面左下に固定 */
+        #clrBtn { flex: 0 0 76px; background: #444; font-size: 13px; } /* 縮小してGO寄りに */
+        #goBtn { background: #a00; } /* 押せる時は赤のまま */
+        #goBtn:disabled, #clrBtn:disabled { background: #333; }
+
+        /* ------- HOW TOポップアップ(ブラウザ機能ではなく画面内オーバーレイ) ------- */
+        .popup-overlay {
+            position: absolute; inset: 0; z-index: 50;
+            background: rgba(0,0,0,0.75);
+            display: none; align-items: center; justify-content: center;
+            padding: 14px;
+        }
+        .popup-overlay.show { display: flex; }
+        .popup-panel {
+            position: relative; width: 100%; height: 100%;
+            background: #161616; border: 2px solid #555; border-radius: 10px;
+            padding: 16px; box-sizing: border-box; overflow: hidden; /* スクロールしない一画面での説明 */
+            color: #eee;
+            display: flex; flex-direction: column;
+        }
+        .popup-close {
+            position: absolute; top: 8px; right: 8px; z-index: 1;
+            width: 30px; height: 30px; border-radius: 50%;
+            background: #444; color: #fff; border: none; font-size: 16px; line-height: 1;
+            padding: 0; cursor: pointer;
+        }
+        .howto-content { flex: 1; font-size: 12px; line-height: 1.8; overflow: hidden; }
+        .howto-content h2 { margin-top: 0; font-size: 16px; }
+        .howto-footer { flex: none; display: flex; gap: 10px; padding-top: 10px; }
+        .howto-footer button {
+            flex: 1; border: none; border-radius: 6px; padding: 11px 0;
+            font-size: 12px; font-weight: bold; letter-spacing: 0.5px; cursor: pointer;
+        }
+        #howToRetryBtn { background: #a00; color: #fff; }
+        #howToReturnBtn { background: #444; color: #eee; }
+
+        /* ------- OPTION画面 ------- */
+        .option-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+        .option-label { font-size: 13px; color: #eee; }
+        .option-row button {
+            background: #444; color: #fff; border: none; border-radius: 6px;
+            padding: 8px 18px; font-size: 12px; font-weight: bold; cursor: pointer;
+        }
+        #resetProgressBtn { background: #a00; }
+        #optionItemsRow { display: none; }
+        .option-radio-group { display: flex; gap: 12px; }
+        .option-radio { display: flex; align-items: center; gap: 4px; font-size: 12px; color: #eee; cursor: pointer; }
+        .option-radio input { accent-color: #a00; }
+        .confirm-panel {
+            display: none; position: absolute; inset: 0; background: rgba(10,10,10,0.96);
+            flex-direction: column; align-items: center; justify-content: center; gap: 20px;
+            border-radius: 8px; padding: 20px; text-align: center;
+        }
+        .confirm-panel.show { display: flex; }
+        .confirm-text { font-size: 14px; color: #fff; line-height: 1.6; margin: 0; }
+        .confirm-btns { display: flex; gap: 12px; }
+        .confirm-btns button { padding: 10px 22px; border: none; border-radius: 6px; font-size: 12px; font-weight: bold; cursor: pointer; background: #444; color: #eee; }
+        .confirm-btns .confirm-ok { background: #a00; color: #fff; } /* 隠しアイテムを1つでも取得したら表示する */
+    
