@@ -1,0 +1,1681 @@
+/** 
+ * 【憲法二十六条：全文】
+ * 1. 5枠設計: 画面下部に最初から5つの空枠を固定表示し、手札のカードをタップするたびに先頭から順に空枠を埋めていく仕様。手札は21枚のデッキ(内訳は事前のデッキ編成画面で自由配分)から5枚を引いて構成し、ターンで使った枚数分だけ山から補充するが、山の残数を超えては補充しない(枠が空いたままになる場合がある)。手札・山が共に尽きた時のみ、DECK表示の点滅→「Refresh」表示→0からのカウントアップ演出とともに捨札を山へリシャッフルする(配分比率は変化しない)。
+ * 2. 敵コマンド非公開: プレイヤーが出した枚数だけ、その場で敵の手をランダム生成する。中身は伏せ札(?)で表示し、各攻防が始まる直前に1枚ずつ公開する(先読み不可・都度の読み合い)。
+ * 3. 3すくみ: [PUNCH>UPPER][UPPER>GUARD][GUARD>PUNCH] の判定ロジック。勝敗は毎回この判定で決定する。同じ手同士がぶつかった場合は相討ちとする。
+ * 4. 空中コンボ: 勝者の技がUPPERだった場合に発動。攻撃側の次の入力がPUNCHなら継続し、最大3発まで空中パンチを受け付ける。空中パンチは連続でヒットするほどダメージが増加する(1発目=基本値、2発目以降+増加量)。3発目は自動的にメテオへ変換される。
+ * 5. 着地同期: 通常コンボ終了時（メテオに至らない場合）は、攻守双方が地面(GROUND_Y)へ着地してから次の演出へ遷移する。
+ * 6. 通常コンボ終了時の演出: 攻撃側は必ずdash.PNGへ、被弾側はdamage.PNGのまま着地させる。
+ * 7. 画像状態管理: 待機中は必ず player.PNG / player2.PNG の呼吸(idle)へ復帰する。idle.PNGという単独ファイルは存在しない。
+ * 8. ダメージ計算: PUNCH勝利(10、地上での連続ヒットのたびに+5され、ガード等で止められると途切れる)、UPPER初撃(5)、空中パンチ連続ヒット加算(2発目以降+5)、メテオ(50)、相討ち(3)。三すくみに負けた側のみ振動(shake)する。ダメージを受けた側は、量の大小にかかわらず必ず一瞬点滅する(applyDamage内で共通処理)。同じ手同士の相討ちの場合は双方が微ダメージを受けて振動し、反動で一歩下がる。GUARDが勝った場合(相手のPUNCHを防いだ場合)、勝った側は極小ダメージで振動し、負けた側はダメージなしだがしびれてpunch.PNGのまま振動し、次のコマンドの成功率が1/2になる(どちらの側がガードしても発生する)。しびれは「固定ダメージを受ける」仕様ではなく、1/2の確率でその攻防に無条件で敗北する仕様である。しびれた側はdamage.PNGで点滅しつつ頭上にpiyo.PNGを反転させながら2往復させるピヨり演出を行った後、相手が実際に出していた技の種類(PUNCH/UPPER/GUARD)に応じた通常の勝敗処理(空中コンボやガード成功も含む)がそのまま3すくみ判定なしで適用される。しびれはターンをまたいで持ち越さない仕様とし、そのターン中に消費されなかった場合はターン終了時に必ず解消される。
+ * 9. 座標復帰: ターン(5枠)全体の処理が完了した時点で、finally句にて必ずホームポジションへ dash.PNG の残像付きで帰還することを保証する。ただし体力が0になる最後の一撃を受けた場合は、この通常帰還処理の代わりに専用の決着演出（damage.PNGで点滅→スローに軽くバウンドしながら初期位置へ戻る→down.PNGで倒れる→K.O./YOU WIN表示）を実行する。
+ * 10. 描画品質: imageSmoothingEnabled=false を維持しドット絵品質を担保。背景(bg.PNG)もキャラと同じcanvas上に同一の拡大率(SCALE)で描画し、ピクセルのズレを起こさない。
+ * 11. モバイル対応: Flexboxとviewport固定によるレスポンシブ最適化。UI全体はappRootコンテナで正方形(1:1)に収め、画面中央に配置する。
+ * 12. 描画資産の不変性: 外部ファイルを厳格に読み込み、存在しない場合は読み込みエラーを即座に特定する。ただし敵専用グラフィック(enemy_〇〇.PNG)と背景(bg.PNG)は任意の差し替え用アセットであり、存在しなくてもエラー扱いにせず、敵はプレイヤー画像へ、背景は水色の塗りつぶしへフォールバックする。
+ * 13. オブジェクトの生存維持: 状態管理オブジェクト(state, imgs)は決して再定義・初期化せず、常に参照し続ける。
+ * 14. 憲法完全表記: コード提示の際、本憲法リストを一切省略せず必ず全条文を記述する。
+ * 15. UI永続性: HP・TURN表示は画面上部に固定し、スロットは下部に永続表示する。画面はロゴ(BORN MAGAZINE presents)→プロローグ→タイトル→(STORY MODEのみ)ストーリーシーン→デッキ編成(21枚固定・内訳自由)→バトル→決着(K.O./YOU WIN)、の順で遷移する。ストーリーシーンはプロローグと同じ仕組み(画像+1文字ずつのテキストを1ブロックにまとめ中央配置、1画面目のみフェードイン)で、story_1〜3.PNGの3画面を再生し、タイトルからSTORY MODEを選んだ時のみ(CONTINUE/RETRYでは再生しない)表示される。SKIPしなくても3画面終了後は自動でデッキ編成へ遷移する。決着画面ではCONTINUE(直前のデッキ編成へ)とタイトルへ戻る(ロゴシーンへ)の2つのボタンを提供する。ロゴシーンはフェードイン→2秒表示→フェードアウトの後、自動でプロローグへ遷移する。プロローグは画像とテキストを1ブロックにまとめて画面中央に配置し、シネマサイズの画像(op_1〜4.PNG)と1文字ずつ表示されるテキストを4画面分再生する(1画面目のみブロック全体がフェードインする)。SKIPしなくても4画面終了後は自動でタイトルへ遷移する。バトル開始時は暗転→味方/敵のフェードイン→背景(bg.PNG)がcanvas上で中心から円形に拡大表示→「BATTLE START」が左からディゾルブで入り中央で静止した後、拡大しながら消える演出を経て、手札が裏向きで配られてから左から順にめくられ、その後操作可能になる(この配布演出はバトル開始時のみで、以降の補充では行わない)。タイトル画面にはSTORY MODE/TRAINING MODEの下にOPTIONを設置し、サウンドON/OFF(設定値の保存のみ、音自体は今後実装予定)・STORY MODEの進行状況(倒した敵の人数)のリセット・隠しアイテムの図鑑(今後実装予定、取得済みアイテムがある場合のみ表示)を提供する。STORY MODEの進行状況(現在の敵)とデッキ編成は、localStorageを用いて端末に保存され、次回起動時に自動で復元される。
+ * 16. 位置保持: 攻防のたびに初期位置へ戻るのではなく、中央で衝突→軽く距離を取る、を繰り返す。ホームポジションへ戻るのはターン完了時のみ。
+ * 17. 体力ゲージ演出: ダメージ発生時、現在値が即座に減り、黄色いバーが0.6秒遅れて減少する。
+ * 18. TURN表示仕様: 画面上部中央に「TURN」と「数字」を2行で太字(900)表示する。
+ * 19. 敵反転描画: 敵画像は常に左右反転して表示する。将来的に敵専用グラフィック(enemy_〇〇.PNG)を用意すれば自動的にそちらを優先して使用し、未用意の場合はプレイヤーと同じ画像にフォールバックする。
+ * 20. 敵の主体性: 敵はデッキ編成を持たずプリセット/ランダムの手で応戦するが、プレイヤーと同じ枚数だけ必ず行動する。
+ * 21. パンチコンボ演出: 空中コンボ中の連続パンチは punch.PNG と punch2.PNG を交互に使用する。
+ * 22. 厳格命名規則: 全アセットの拡張子は常に「.PNG」（大文字）で統一する。ファイル名部は小文字。
+ * 23. 動作保証: 画像読み込み完了を待ってからゲームループを開始し、UIインタラクションを確定させる。
+ * 24. 対面踏み込みの原則: 技を出す前に必ず双方が残像(afterimage)付きの dash.PNG で画面中央へ踏み込み、衝突地点で技を出し合う。
+ * 25. 厳格不可逆の原則: いかなる理由があろうとも、憲法の簡略化、および条文の意図的な省略・解釈の矮小化を禁止する。すべてを等しく実装すること。
+ * 26. アーケード配置原則: UIは上部に時計回避余白を、下部にメニュー回避余白を確保し、左に攻撃、右に機能ボタンを配置する。
+ */
+
+// ============================================================
+// 設定・状態管理(DB / state / imgs / trails / cardOutcomes / deckCounts / unlockedItems / 各種初期化処理)
+// ============================================================
+
+// 第22条: ファイル名は小文字、拡張子は常に大文字 .PNG
+const DB = {
+    ASSETS: ['player.PNG', 'player2.PNG', 'upper.PNG', 'damage.PNG', 'knock.PNG', 'knock2.PNG', 'dash.PNG', 'punch.PNG', 'punch2.PNG', 'guard.PNG', 'down.PNG', 'piyo.PNG'],
+    SRC_PX: 32,   // キャラのソース解像度(32×32px)
+    SCALE: 10,    // ソース1pxをcanvas上で何ユニットに拡大するか(キリのいい整数倍で崩れを防ぐ)
+    POS: {
+        CENTER_X: 480,      // 戦う位置は常に画面中心
+        HOME_HALF: 260,     // 中心からホームポジションまでの距離（両者同一）
+        ATTACK_HALF: 100,   // 中心から攻防の接触位置までの距離（両者同一）
+        RETREAT_HALF: 200,  // 攻防のあと軽く距離を取る位置（ホームまでは戻らない）
+        GROUND_MARGIN_PX: 3 // 地面バンドの高さ(ソースpx換算。キャラ下部3px想定)
+    },
+    DMG: { P: 10, U: 5, M: 50, CLASH: 3, TINY: 1, P_COMBO_STEP: 5 }, // P:パンチ勝利 / U:アッパー初撃 / M:メテオ / CLASH:相討ち微ダメージ / TINY:ガードされたパンチの反撃 / P_COMBO_STEP:空中パンチ連続ヒットの増加量
+    MAX_AIR_PUNCH: 3,
+    BREATH_MS: 500, // player.PNG / player2.PNG の呼吸切替間隔
+    DECK_TOTAL: 21 // デッキ合計枚数(内訳は編成画面で自由配分)
+};
+DB.IMG_SIZE = DB.SRC_PX * DB.SCALE; // 32×10=320。ソースpxとcanvasユニットの対応が常に整数になる
+// 地面バンド(3px)ぶんの余白を残して、キャラの足元が浮かないギリギリの高さにGROUND_Yを置く
+DB.POS.GROUND_Y = 560 - DB.IMG_SIZE - (DB.POS.GROUND_MARGIN_PX * DB.SCALE); // 560 - 320 - 30 = 210
+DB.POS.FLOAT_Y = DB.POS.GROUND_Y - 200; // 被弾側がふわっと浮く高さ
+DB.POS.HOP_Y = DB.POS.GROUND_Y - Math.round((DB.POS.GROUND_Y - DB.POS.FLOAT_Y) / 3); // 打つ方の初撃の小ホップ(1/3)
+DB.POS.AIR_FOLLOW_Y = DB.POS.FLOAT_Y + 20; // コンボ継続中、打つ方が追従して浮く高さ
+DB.POS.P_HOME_X = DB.POS.CENTER_X - DB.POS.HOME_HALF - DB.IMG_SIZE / 2;
+DB.POS.E_HOME_X = DB.POS.CENTER_X + DB.POS.HOME_HALF - DB.IMG_SIZE / 2;
+DB.POS.P_ATTACK_X = DB.POS.CENTER_X - DB.POS.ATTACK_HALF - DB.IMG_SIZE / 2;
+DB.POS.E_ATTACK_X = DB.POS.CENTER_X + DB.POS.ATTACK_HALF - DB.IMG_SIZE / 2;
+DB.POS.P_RETREAT_X = DB.POS.CENTER_X - DB.POS.RETREAT_HALF - DB.IMG_SIZE / 2;
+DB.POS.E_RETREAT_X = DB.POS.CENTER_X + DB.POS.RETREAT_HALF - DB.IMG_SIZE / 2;
+// 背景アート推奨解像度: canvas(960×560)をSCALEで割った値 = 96×56px。1px=キャラの1pxと完全に一致する。
+DB.BG_SRC_W = 960 / DB.SCALE; // 96
+DB.BG_SRC_H = 560 / DB.SCALE; // 56
+
+// 第13条: この state オブジェクトは以後、再定義・再初期化しない。常にプロパティを書き換えて参照し続ける。
+let state = {
+    pY: DB.POS.GROUND_Y, eY: DB.POS.GROUND_Y,
+    pX: DB.POS.P_HOME_X, eX: DB.POS.E_HOME_X,
+    hpP: 100, hpE: 100,
+    turn: 0,
+    hands: new Array(5).fill(null), enemyHands: [],
+    pAct: 'IDLE', eAct: 'IDLE', // 'IDLE' は player.PNG / player2.PNG の呼吸表現を意味するマーカー
+    pShakeUntil: 0, eShakeUntil: 0,
+    pBlinkUntil: 0, eBlinkUntil: 0,
+    pLastAtk: null, eLastAtk: null,
+    pNumbed: false, eNumbed: false, // しびれフラグ: 次のコマンドの成功率が1/2になる(ガード成功で相手に付与)
+    piyoSide: null, piyoFlip: false, // ピヨり演出: どちら側の頭上に出すか/左右反転中か
+    pPunchStreak: 0, ePunchStreak: 0, // 地上パンチの連続ヒット数(コンボではなく、単発同士の連続成功を記録)
+    pGuardHoldPose: false, eGuardHoldPose: false, // 相手がしびれている間、ガード成功側の構えを維持するフラグ
+    gameMode: 'story', pendingMode: 'story', // 'story' | 'training'
+    trainingCycleIndex: 0, // TRAINING MODE: PPPPP→UUUUU→GGGGGの周期(ターンごとに進む)
+    storyEnemyIndex: 0, // STORY MODE: ENEMY_ORDER内の現在の敵の位置(連戦で進んでいく想定。セーブデータから復元される)
+    soundOn: true, // OPTION画面のサウンドON/OFF(音自体は今後実装予定)
+    introCharAlpha: 1, // バトル開始演出: 味方/敵のフェードイン係数(0〜1)
+    bgRevealRadius: 0, // バトル開始演出: 背景を中心から広げる円形クリップの半径(0で真っ暗)
+    playerDeck: [], playerDiscard: [], playerHand: new Array(5).fill(null), // 山札/捨札/手札
+    enemyRevealedUpTo: 0, // 敵の手のうち、何枚目まで公開済みか
+    battleReady: false, // バトル開始演出が完了し、操作可能になったか
+    resolving: false
+};
+let trails = []; // 第24条: dash.PNGの残像
+let cardOutcomes = { P: new Array(5).fill(null), E: new Array(5).fill(null) }; // ターン中の各カードの勝敗表現(card-lose/card-shatter)。ターン終了(両者が定位置へ戻り、場のカードが消えた後)にリセットする
+let deckCounts = { PUNCH: 7, UPPER: 7, GUARD: 7 }; // デッキ編成(合計21枚、内訳は自由)
+let unlockedItems = []; // 隠しアイテム(今後実装予定)。取得済みアイテムIDを貯めていく想定
+
+// ------- セーブ/ロード(localStorage) -------
+// このゲームは単体のHTMLファイルとして配布する想定のため、通常のWebサイトと同様にlocalStorageを使用する。
+const SAVE_KEY = 'commandbattle_save_v1';
+
+
+// 起動時にセーブデータを読み込み、進行状況・デッキ編成・サウンド設定へ反映する
+
+
+// ------- 山札操作 -------
+
+
+
+
+
+// 手札・山が共に尽きた時の演出: DECK表示が3回点滅→「Refresh」表示→0から実際の枚数までカウントアップしながら
+// 捨札を山へリシャッフルする(約2.5秒)
+
+
+// ------- デッキ編成画面 -------
+
+
+// タップ時にチカチカっと点滅させてから、コールバック(画面遷移など)を実行する
+
+
+
+
+const cvs = document.getElementById('cvs');
+const ctx = cvs.getContext('2d');
+ctx.imageSmoothingEnabled = false; // 第10条
+
+const imgs = {}; // 第13条: 再初期化しない
+let loadedCount = 0;
+let loadFailed = [];
+let bgSettled = false; // bg.PNGは任意アセット。成功/失敗に関わらず「決着」したらtrue
+
+document.querySelectorAll('.controls button').forEach(b => b.disabled = true);
+document.getElementById('howToBtn').disabled = false; // HOW TOはゲーム状態に関係なく常に押せるようにする
+document.getElementById('optionBattleBtn').disabled = false; // OPTIONも同様に常に押せる
+
+
+DB.ASSETS.forEach(n => {
+    const i = new Image();
+    i.onload = () => { imgs[n] = i; loadedCount++; checkAllSettled(); };
+    i.onerror = () => { loadFailed.push(n); checkAllSettled(); };
+    i.src = 'assets/images/characters/' + n;
+});
+
+// 背景(bg.PNG)はcanvasに直接描画するため、他アセットと同じ拡大パイプラインに乗る。
+// 任意アセット扱いとし、読み込めなくてもエラーにせずdraw()側でフォールバック色を使う。
+const bgImgLoader = new Image();
+bgImgLoader.onload = () => { imgs['bg.PNG'] = bgImgLoader; bgSettled = true; checkAllSettled(); };
+bgImgLoader.onerror = () => { bgSettled = true; checkAllSettled(); };
+bgImgLoader.src = 'assets/images/backgrounds/bg.PNG';
+
+// ------- 敵専用グラフィックの差し替え余地(任意) -------
+// 第19条: 将来 enemy_〇〇.PNG を用意すれば自動的にそちらを優先して使用する。
+// 未用意でも起動やUIをブロックせず、404になっても黙ってプレイヤー画像にフォールバックする。
+const ENEMY_PREFIX = 'enemy_';
+const ENEMY_OPTIONAL_KEYS = ['player', 'player2', 'upper', 'damage', 'knock', 'knock2', 'dash', 'punch', 'punch2', 'guard', 'down'];
+ENEMY_OPTIONAL_KEYS.forEach(key => {
+    const fname = ENEMY_PREFIX + key + '.PNG';
+    const i = new Image();
+    i.onload = () => { imgs[fname] = i; }; // 用意されていれば以後自動的にこちらが使われる
+    i.onerror = () => { /* 任意アセットのため未用意でもエラー扱いにしない */ };
+    i.src = 'assets/images/characters_enemy/' + fname;
+});
+// 敵側の描画名を解決する。enemy_〇〇.PNGが読み込み済みならそちらを、なければプレイヤー画像を返す。
+
+
+// ------- カード画像(任意) -------
+// 用意されていれば card_P.PNG / card_U.PNG / card_G.PNG を使い、無ければ従来通り文字(P/U/G)を表示する。
+const CARD_IMG_MAP = { PUNCH: 'card_P.PNG', UPPER: 'card_U.PNG', GUARD: 'card_G.PNG' };
+Object.values(CARD_IMG_MAP).forEach(fname => {
+    const i = new Image();
+    i.onload = () => { imgs[fname] = i; };
+    i.onerror = () => { /* 任意アセットのため未用意でもエラー扱いにしない。文字表示にフォールバック */ };
+    i.src = 'assets/images/cards/' + fname;
+});
+// カードの裏面(任意)。用意されていれば card_back.PNG を使い、無ければCSSの縞模様にフォールバックする。
+const CARD_BACK_IMG = 'card_back.PNG';
+(() => {
+    const i = new Image();
+    i.onload = () => { imgs[CARD_BACK_IMG] = i; };
+    i.onerror = () => { /* 未用意でもエラー扱いにしない */ };
+    i.src = 'assets/images/cards/' + CARD_BACK_IMG;
+})();
+// カード表示用の要素(el)に、typeに応じた画像 or 文字フォールバックを適用する
+
+
+
+
+
+// ------- ロゴシーン: BORN MAGAZINE presents(logo.PNGは任意アセット。無ければテキストにフォールバック) -------
+let logoTokenCounter = 0;
+
+
+
+
+
+// ------- プロローグ: op_1.PNG〜op_4.PNG(任意アセット)。未用意でもエラー扱いにせずプレースホルダー表示にする -------
+const OPENING_SCREENS = [
+    { img: 'op_1.PNG', text: '（仮テキスト1）静かな街に、剣戟の噂が流れていた。' },
+    { img: 'op_2.PNG', text: '（仮テキスト2）主人公は、かつての師の教えを胸に旅立つ。' },
+    { img: 'op_3.PNG', text: '（仮テキスト3）行く手を阻むのは、宿敵との再会だった。' },
+    { img: 'op_4.PNG', text: '（仮テキスト4）今、コマンドバトルの火蓋が切られる――。' }
+];
+OPENING_SCREENS.forEach(sc => {
+    const i = new Image();
+    i.onload = () => { imgs[sc.img] = i; };
+    i.onerror = () => { /* 任意アセットのため未用意でもエラー扱いにしない。プレースホルダー表示にフォールバック */ };
+    i.src = 'assets/images/cutscenes/opening/' + sc.img;
+});
+
+let prologueToken = 0; // SKIP時に進行中のタイプライター処理を打ち切るためのトークン
+
+
+
+// ------- ストーリーシーン(STORY MODE専用): story_1.PNG〜story_3.PNG(任意アセット)。プロローグと同じ仕組みを流用 -------
+
+const STORY_SCREENS = [
+    { img: 'story_1.PNG', text: '（仮テキスト1）新たな戦いの舞台が、目の前に広がる。' },
+    { img: 'story_2.PNG', text: '（仮テキスト2）相手の実力は未知数。油断はできない。' },
+    { img: 'story_3.PNG', text: '（仮テキスト3）覚悟を決め、デッキを整える時が来た。' }
+];
+STORY_SCREENS.forEach(sc => {
+    const i = new Image();
+    i.onload = () => { imgs[sc.img] = i; };
+    i.onerror = () => { /* 任意アセットのため未用意でもエラー扱いにしない。プレースホルダー表示にフォールバック */ };
+    i.src = 'assets/images/cutscenes/story/' + sc.img;
+});
+
+let storyToken = 0; // SKIP時に進行中のタイプライター処理を打ち切るためのトークン
+
+
+
+// ------- 汎用アクセサ (P/E共通ロジックで扱うためのヘルパー) -------
+
+
+
+
+
+
+
+
+
+// 第7条: idleマーカーの時は player.PNG / player2.PNG を時間で交互に呼吸させる
+
+
+
+
+
+
+
+
+// バトル開始時だけの演出: 手札を裏向きで配り、左から順にめくって表向きにする
+
+
+
+
+
+// GO!/CANCELは「バトル準備完了」「解決中でない」「場に1枚以上カードがある」の3条件が揃った時だけ押せる
+
+// ターン終了後、場に出したカードをふわっと浮かせながらフェードアウトさせる
+
+updateUI(); // 第1条: 起動直後から5つの空枠を表示する
+
+// ------- STORY MODE: 敵プリセット(枚数配分・よく出す組み合わせは今後ここに設定していく) -------
+// deck: PUNCH/UPPER/GUARDの「出やすさ」の重み(枚数感覚でそのまま指定できる)
+// favoritePatterns: よく出す組み合わせ(例: ['GUARD','PUNCH'])。今後ここに配列を追加していく想定。まだ未設定。
+const ENEMY_PRESETS = {
+    ENEMY_01: { name: '敵01(仮)', deck: { PUNCH: 7, UPPER: 7, GUARD: 7 }, favoritePatterns: [] },
+    ENEMY_02: { name: '敵02(仮)', deck: { PUNCH: 7, UPPER: 7, GUARD: 7 }, favoritePatterns: [] },
+    ENEMY_03: { name: '敵03(仮)', deck: { PUNCH: 7, UPPER: 7, GUARD: 7 }, favoritePatterns: [] },
+    ENEMY_04: { name: '敵04(仮)', deck: { PUNCH: 7, UPPER: 7, GUARD: 7 }, favoritePatterns: [] },
+    ENEMY_05: { name: '敵05(仮)', deck: { PUNCH: 7, UPPER: 7, GUARD: 7 }, favoritePatterns: [] },
+};
+const ENEMY_ORDER = ['ENEMY_01', 'ENEMY_02', 'ENEMY_03', 'ENEMY_04', 'ENEMY_05']; // 連戦の順番
+
+
+// HPバー下の名前表示を更新する。味方は固定でVAL、敵はSTORY MODEなら現在の敵プリセット名、
+// TRAINING MODEなら固定でENEMY(STORY MODEは今後の連戦で敵が変わるたびに自動で切り替わる)
+
+// 連戦で次の敵へ進む(勝利後に呼び出す想定。まだどこからも呼ばれていない=今後のストーリーパート実装時にフックする)
+
+
+
+// TRAINING MODE: 現在のサイクル(P→U→G)の技を返す。呼ぶだけではサイクルは進まない。
+
+// TRAINING MODE: 手札を選ぶ前から、次に相手が出す技を5枠まるごと公開しておく
+
+
+
+
+// ------- シーン管理 (プロローグ → タイトル → バトル) -------
+
+
+
+// NEW GAME: 進行状況を1人目からにリセットしてストーリー導入(3画面)から始める
+
+// CONTINUE: ストーリー導入は省略し、保存済みの進行状況のまま直接デッキ編成へ
+
+
+
+
+
+// バトル開始演出: 暗転 → 味方/敵がふわっと表示 → 背景が中心から拡大表示 → BATTLE START(左からディゾルブ→中央停止→拡大しつつ消える)
+
+
+
+
+
+
+// ------- HOW TOポップアップ(ブラウザ機能ではなく画面内オーバーレイ) -------
+
+
+
+
+// ------- OPTION画面 -------
+
+
+
+
+
+
+
+
+// 図鑑(取得アイテムの一覧・ミニストーリー表示)。今後実装予定のプレースホルダー。
+
+// OPTION内のRETRY: このバトル直前のデッキ編成へ戻る(現在のモードを維持)
+
+// OPTION内のRETURN TO TITLE: ロゴシーンまで戻る
+
+
+// 第3条: 3すくみ判定 P>U, U>G, G>P (プレイヤー視点で 'win'/'lose'/'draw')
+
+
+
+// TRAINING MODE: ターン終了時に双方のHPを全回復する(赤バー・黄色バーとも即座に反映)
+
+
+
+
+// 第24条: 双方が残像付きのdash.PNGでX座標を目標地点まで移動する汎用関数
+
+
+
+
+
+
+
+// 決着演出: 体力を0にする最後の一撃を受けた側の専用シーケンス
+// 点滅 → ゲーム全体がスローになりつつ軽くバウンドしながら初期位置へ戻る → down.PNGで倒れる → K.O./YOU WIN表示
+
+
+
+
+// 通常のヒット(GUARD/PUNCHが勝った場合)。負けた側だけが振動する。
+// 通常のヒット(地上PUNCHが勝った場合)。負けた側だけが振動する。連続でヒットするほどダメージが増加する。
+
+
+// メテオ(空中3発目)演出
+
+
+// UPPERが勝った場合の空中コンボ一式
+
+
+// ガードが成功した時の演出(勝った側はガードのまま反撃、負けた側はしびれる)
+// 第3すくみの通り、GUARDに勝てるのはPUNCHのみなので、負けた側は必ずpunch.PNGの姿勢になる
+
+
+// ピヨり演出: damage.PNGで点滅させつつ、頭上のpiyo.PNGを反転させながら2往復させる
+
+
+// しびれによる無条件敗北: ピヨり演出のあと、相手が出していた技に応じた通常の勝敗処理をそのまま適用する(3すくみ判定はしない)
+
+
+// 場(#slots)または敵(#enemySlots)の指定インデックスのカードに勝敗の見た目を付与する
+
+
+
+
+
+
+
+// ============================================================
+// セーブ/ロード
+// ============================================================
+function loadSaveData() {
+    try {
+        const raw = localStorage.getItem(SAVE_KEY);
+        return raw ? JSON.parse(raw) : null;
+    } catch (e) {
+        return null; // localStorageが使えない環境でも落ちないようにする
+    }
+}
+
+function writeSaveData(patch) {
+    try {
+        const current = loadSaveData() || {};
+        const merged = Object.assign({}, current, patch);
+        localStorage.setItem(SAVE_KEY, JSON.stringify(merged));
+    } catch (e) { /* 保存できない環境でも無視する */ }
+}
+
+function applySaveDataOnBoot() {
+    const save = loadSaveData();
+    if (!save) return;
+    if (typeof save.storyEnemyIndex === 'number') state.storyEnemyIndex = save.storyEnemyIndex;
+    if (save.deckCounts) {
+        deckCounts = {
+            PUNCH: save.deckCounts.PUNCH ?? deckCounts.PUNCH,
+            UPPER: save.deckCounts.UPPER ?? deckCounts.UPPER,
+            GUARD: save.deckCounts.GUARD ?? deckCounts.GUARD,
+        };
+    }
+    if (typeof save.soundOn === 'boolean') state.soundOn = save.soundOn;
+    if (Array.isArray(save.unlockedItems)) unlockedItems = save.unlockedItems;
+}
+
+// ============================================================
+// デッキ・山札システム
+// ============================================================
+function shuffleArray(arr) {
+    for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+}
+
+function buildDeckArray(counts) {
+    const deck = [];
+    for (let i = 0; i < counts.PUNCH; i++) deck.push('PUNCH');
+    for (let i = 0; i < counts.UPPER; i++) deck.push('UPPER');
+    for (let i = 0; i < counts.GUARD; i++) deck.push('GUARD');
+    return shuffleArray(deck);
+}
+
+function drawCard() {
+    // 自動リシャッフルはしない。山が尽きたらnullを返し、その枠は空のまま残す。
+    // 山と捨札を実際にリシャッフルするのは runDeckRefresh() のみ(手札・山が共に0になった時の演出内)。
+    if (state.playerDeck.length === 0) return null;
+    return state.playerDeck.pop();
+}
+
+function updateDeckCountDisplay() {
+    const el = document.getElementById('deckInfo');
+    if (!el) return;
+    el.innerText = `DECK ${state.playerDeck.length}/${DB.DECK_TOTAL}`;
+}
+
+async function runDeckRefresh() {
+    const deckEl = document.getElementById('deckInfo');
+    const label = document.getElementById('deckRefreshLabel');
+    label.classList.add('show');
+
+    for (let i = 0; i < 3; i++) {
+        deckEl.style.opacity = '0.15';
+        await wait(150);
+        deckEl.style.opacity = '1';
+        await wait(150);
+    }
+
+    // ここで実際に捨札を山へ戻す(配分比率は変わらない)
+    state.playerDeck = shuffleArray(state.playerDiscard.slice());
+    state.playerDiscard = [];
+    const target = state.playerDeck.length;
+
+    const steps = 30;
+    const stepMs = 2500 / steps;
+    for (let s = 1; s <= steps; s++) {
+        const val = Math.round(target * (s / steps));
+        deckEl.innerText = `DECK ${val}/${DB.DECK_TOTAL}`;
+        await wait(stepMs);
+    }
+    deckEl.innerText = `DECK ${target}/${DB.DECK_TOTAL}`;
+    label.classList.remove('show');
+}
+
+function adjustDeck(type, delta) {
+    const next = deckCounts[type] + delta;
+    if (next < 0) return;
+    const total = deckCounts.PUNCH + deckCounts.UPPER + deckCounts.GUARD - deckCounts[type] + next;
+    if (total > DB.DECK_TOTAL) return; // 21枚を超えない
+    deckCounts[type] = next;
+    updateDeckBuildUI();
+}
+
+function updateDeckBuildUI() {
+    document.getElementById('deckCountPUNCH').innerText = deckCounts.PUNCH;
+    document.getElementById('deckCountUPPER').innerText = deckCounts.UPPER;
+    document.getElementById('deckCountGUARD').innerText = deckCounts.GUARD;
+    const total = deckCounts.PUNCH + deckCounts.UPPER + deckCounts.GUARD;
+    document.getElementById('deckTotalText').innerText = `合計 ${total} / ${DB.DECK_TOTAL}`;
+    document.getElementById('deckConfirmBtn').disabled = (total !== DB.DECK_TOTAL);
+}
+
+// ============================================================
+// アセット読み込み
+// ============================================================
+function checkAllSettled() {
+    if (loadedCount + loadFailed.length === DB.ASSETS.length && bgSettled) {
+        if (loadFailed.length > 0) {
+            console.error('第12条違反: 以下のアセットが読み込めませんでした →', loadFailed.join(', '));
+        }
+        boot();
+    }
+}
+
+function enemySpriteName(baseName) {
+    const key = baseName.replace('.PNG', '');
+    const enemyName = ENEMY_PREFIX + key + '.PNG';
+    return imgs[enemyName] ? enemyName : baseName;
+}
+
+function applyCardVisual(el, type) {
+    const fname = type ? CARD_IMG_MAP[type] : null;
+    const img = fname ? imgs[fname] : null;
+    if (img) {
+        el.style.backgroundImage = `url('assets/images/cards/${fname}')`;
+        el.innerText = '';
+    } else {
+        el.style.backgroundImage = 'none';
+        el.innerText = type ? type[0] : '';
+    }
+}
+
+function boot() {
+    // 第23条: 全画像の読み込み確定を待ってからループ開始・UI有効化
+    applySaveDataOnBoot(); // 進行状況・デッキ編成・サウンド設定をセーブデータから復元
+    document.getElementById('startBtn').disabled = false;
+    document.getElementById('trainingBtn').disabled = false;
+    document.getElementById('optionBtn').disabled = false;
+    updateTitleContinueVisibility();
+    draw();
+    playLogo();
+}
+
+// ============================================================
+// シーン遷移
+// ============================================================
+function updateTitleContinueVisibility() {
+    document.getElementById('titleContinueBtn').style.display = loadSaveData() ? 'block' : 'none';
+}
+
+async function playLogo() {
+    const myToken = ++logoTokenCounter;
+    const content = document.getElementById('logoContent');
+    content.style.transition = 'none';
+    content.style.opacity = '0';
+    await wait(30);
+    if (logoTokenCounter !== myToken) return;
+
+    content.style.transition = 'opacity 1s ease-in';
+    content.style.opacity = '1';
+    await wait(1000);
+    if (logoTokenCounter !== myToken) return;
+
+    await wait(2000); // 表示を2秒キープ
+    if (logoTokenCounter !== myToken) return;
+
+    content.style.transition = 'opacity 1s ease-out';
+    content.style.opacity = '0';
+    await wait(1000);
+    if (logoTokenCounter !== myToken) return;
+
+    goProloguePlay();
+}
+
+function skipLogo() {
+    logoTokenCounter++; // 進行中のplayLogoのawaitループを無効化する
+    goProloguePlay();
+}
+
+function goLogo() {
+    hideResult();
+    showScene('logo');
+    playLogo();
+}
+
+function goProloguePlay() {
+    showScene('prologue');
+    playPrologue();
+}
+
+function skipPrologue() {
+    prologueToken++; // 進行中のawaitループを無効化する
+    goTitle();
+}
+
+async function playPrologue() {
+    const myToken = ++prologueToken;
+    const content = document.getElementById('prologueContent');
+    const imgArea = document.getElementById('prologueImgArea');
+    const fallback = document.getElementById('prologueImgFallback');
+    const textEl = document.getElementById('prologueText');
+
+    // 再生開始時は必ず真っ黒(透明)にリセットしてからフェードインする
+    content.style.transition = 'none';
+    content.style.opacity = '0';
+    textEl.innerText = '';
+    imgArea.classList.remove('placeholder');
+    imgArea.style.backgroundImage = 'none';
+
+    for (let i = 0; i < OPENING_SCREENS.length; i++) {
+        const screen = OPENING_SCREENS[i];
+        if (prologueToken !== myToken) return; // SKIPされていたら中断
+
+        if (imgs[screen.img]) {
+            imgArea.style.backgroundImage = `url('assets/images/cutscenes/opening/${screen.img}')`;
+            imgArea.classList.remove('placeholder');
+        } else {
+            imgArea.style.backgroundImage = 'none';
+            imgArea.classList.add('placeholder');
+            fallback.innerText = screen.img + ' (未配置)';
+        }
+
+        if (i === 0) {
+            // 一番はじめの画面だけフェードインで始める
+            await wait(30); // 直前のopacity:0が確実に描画されてから遷移を開始させる
+            content.style.transition = 'opacity 1s ease-in';
+            content.style.opacity = '1';
+            await wait(1000);
+        }
+
+        textEl.innerText = '';
+        for (let c = 0; c < screen.text.length; c++) {
+            if (prologueToken !== myToken) return;
+            textEl.innerText += screen.text[c];
+            await wait(45); // 1文字ずつ表示するスピード
+        }
+
+        if (prologueToken !== myToken) return;
+        await wait(2000); // 1ページ読み終えてから次の画面まで、もう少し長めに読ませる
+    }
+
+    if (prologueToken !== myToken) return;
+    goTitle(); // 4画面すべて終わったらSKIPしなくても自動でタイトルへ
+}
+
+function goStoryThenDeck() {
+    showScene('story');
+    playStorySequence();
+}
+
+function skipStorySequence() {
+    storyToken++; // 進行中のawaitループを無効化する
+    goDeckBuild('story');
+}
+
+async function playStorySequence() {
+    const myToken = ++storyToken;
+    const content = document.getElementById('storyContent');
+    const imgArea = document.getElementById('storyImgArea');
+    const fallback = document.getElementById('storyImgFallback');
+    const textEl = document.getElementById('storyText');
+
+    // 再生開始時は必ず真っ黒(透明)にリセットしてからフェードインする
+    content.style.transition = 'none';
+    content.style.opacity = '0';
+    textEl.innerText = '';
+    imgArea.classList.remove('placeholder');
+    imgArea.style.backgroundImage = 'none';
+
+    for (let i = 0; i < STORY_SCREENS.length; i++) {
+        const screen = STORY_SCREENS[i];
+        if (storyToken !== myToken) return; // SKIPされていたら中断
+
+        if (imgs[screen.img]) {
+            imgArea.style.backgroundImage = `url('assets/images/cutscenes/story/${screen.img}')`;
+            imgArea.classList.remove('placeholder');
+        } else {
+            imgArea.style.backgroundImage = 'none';
+            imgArea.classList.add('placeholder');
+            fallback.innerText = screen.img + ' (未配置)';
+        }
+
+        if (i === 0) {
+            // 一番はじめの画面だけフェードインで始める
+            await wait(30); // 直前のopacity:0が確実に描画されてから遷移を開始させる
+            content.style.transition = 'opacity 1s ease-in';
+            content.style.opacity = '1';
+            await wait(1000);
+        }
+
+        textEl.innerText = '';
+        for (let c = 0; c < screen.text.length; c++) {
+            if (storyToken !== myToken) return;
+            textEl.innerText += screen.text[c];
+            await wait(45); // 1文字ずつ表示するスピード
+        }
+
+        if (storyToken !== myToken) return;
+        await wait(2000); // 1ページ読み終えてから次の画面まで、もう少し長めに読ませる
+    }
+
+    if (storyToken !== myToken) return;
+    goDeckBuild('story'); // 3画面すべて終わったらSKIPしなくても自動でデッキ編成へ
+}
+
+function showScene(name) {
+    document.querySelectorAll('.scene').forEach(el => el.classList.remove('active'));
+    document.getElementById('scene' + name.charAt(0).toUpperCase() + name.slice(1)).classList.add('active');
+}
+
+function goPrologue() { hideResult(); showScene('prologue'); playPrologue(); }
+
+function goTitle() { showScene('title'); updateTitleContinueVisibility(); }
+
+function goNewGame() {
+    state.storyEnemyIndex = 0;
+    writeSaveData({ storyEnemyIndex: 0 });
+    goStoryThenDeck();
+}
+
+function goContinueGame() {
+    goDeckBuild('story');
+}
+
+function goDeckBuild(mode) {
+    // 明示的に指定があればそのモードへ、無ければ直近のモード(CONTINUE/RETRY用)、それも無ければstory
+    state.pendingMode = mode || state.gameMode || 'story';
+    // storyEnemyIndexはここではリセットしない(セーブされた進行状況を引き継ぐ)。
+    // 最初からやり直したい場合はタイトルのOPTION画面から明示的にリセットする。
+    updateDeckBuildUI();
+    showScene('deck');
+}
+
+function tapFlickerThen(el, callback) {
+    el.classList.remove('tap-flicker');
+    void el.offsetWidth; // 連打時もアニメーションを確実に再生させるための強制リフロー
+    el.classList.add('tap-flicker');
+
+    let done = false;
+    const finish = () => {
+        if (done) return; // animationendとフォールバックの二重発火を防ぐ
+        done = true;
+        el.classList.remove('tap-flicker'); // 点滅を完全に終わらせてから
+        callback(); // 画面遷移する
+    };
+    el.addEventListener('animationend', finish, { once: true }); // 本当にアニメーションが終わった瞬間に発火
+    setTimeout(finish, 500); // 保険(animationendが発火しない環境向けのフォールバック)
+}
+
+// ============================================================
+// 描画・スプライト管理
+// ============================================================
+function setAct(side, v) { if (side === 'P') state.pAct = v; else state.eAct = v; }
+
+function getX(side) { return side === 'P' ? state.pX : state.eX; }
+
+function setX(side, v) { if (side === 'P') state.pX = v; else state.eX = v; }
+
+function setY(side, v) { if (side === 'P') state.pY = v; else state.eY = v; }
+
+function triggerShake(side, ms) { const until = performance.now() + ms; if (side === 'P') state.pShakeUntil = until; else state.eShakeUntil = until; }
+
+function triggerBlink(side, ms) { const until = performance.now() + ms; if (side === 'P') state.pBlinkUntil = until; else state.eBlinkUntil = until; }
+
+function nextPunchSprite(side) {
+    const key = side === 'P' ? 'pLastAtk' : 'eLastAtk';
+    state[key] = state[key] === 'punch.PNG' ? 'punch2.PNG' : 'punch.PNG'; // 第21条
+    return state[key];
+}
+
+function moveSprite(move) {
+    if (move === 'GUARD') return 'guard.PNG';
+    if (move === 'UPPER') return 'upper.PNG';
+    return 'punch.PNG';
+}
+
+function breathSprite(t) {
+    return (Math.floor(t / DB.BREATH_MS) % 2 === 0) ? 'player.PNG' : 'player2.PNG';
+}
+
+function spriteFor(act, t) {
+    return act === 'IDLE' ? breathSprite(t) : act;
+}
+
+function toIdle() { state.pAct = 'IDLE'; state.eAct = 'IDLE'; }
+
+function draw(tRaw) {
+    const t = tRaw || performance.now();
+    ctx.clearRect(0, 0, cvs.width, cvs.height);
+
+    // 背景(bg.PNG): キャラと同じ nearest-neighbor 拡大で描画。中心から広がる円形クリップで演出する。
+    if (state.bgRevealRadius > 0) {
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(cvs.width / 2, cvs.height / 2, state.bgRevealRadius, 0, Math.PI * 2);
+        ctx.clip();
+        const bgImg = imgs['bg.PNG'];
+        if (bgImg) {
+            ctx.drawImage(bgImg, 0, 0, cvs.width, cvs.height);
+        } else {
+            ctx.fillStyle = '#8fe0f0'; // bg.PNGが読み込めない場合の水色フォールバック
+            ctx.fillRect(0, 0, cvs.width, cvs.height);
+        }
+        ctx.restore();
+    }
+
+    // 残像(第24条)を先に描画
+    const TRAIL_LIFE = 220;
+    trails = trails.filter(tr => (t - tr.born) < TRAIL_LIFE);
+    trails.forEach(tr => {
+        const age = t - tr.born;
+        const alpha = 0.35 * (1 - age / TRAIL_LIFE);
+        const img = imgs[tr.side === 'E' ? enemySpriteName('dash.PNG') : 'dash.PNG'];
+        if (!img || alpha <= 0) return;
+        ctx.save();
+        ctx.globalAlpha = alpha;
+        if (tr.side === 'E') {
+            ctx.scale(-1, 1);
+            ctx.drawImage(img, -tr.x - DB.IMG_SIZE, tr.y, DB.IMG_SIZE, DB.IMG_SIZE);
+        } else {
+            ctx.drawImage(img, tr.x, tr.y, DB.IMG_SIZE, DB.IMG_SIZE);
+        }
+        ctx.restore();
+    });
+
+    // プレイヤー(振動・点滅対応)
+    const pJit = t < state.pShakeUntil ? (Math.random() * 6 - 3) : 0;
+    const pBlinkA = t < state.pBlinkUntil ? ((Math.floor((state.pBlinkUntil - t) / 80) % 2 === 0) ? 1 : 0.25) : 1;
+    const pAlpha = pBlinkA * state.introCharAlpha;
+    const pImg = imgs[spriteFor(state.pAct, t)];
+    ctx.save();
+    ctx.globalAlpha = pAlpha;
+    if (pImg) ctx.drawImage(pImg, state.pX + pJit, state.pY + pJit, DB.IMG_SIZE, DB.IMG_SIZE);
+    else { ctx.fillStyle = '#0f0'; ctx.fillRect(state.pX, state.pY, DB.IMG_SIZE, DB.IMG_SIZE); }
+    ctx.restore();
+
+    // 敵(振動・点滅・反転対応)
+    const eJit = t < state.eShakeUntil ? (Math.random() * 6 - 3) : 0;
+    const eBlinkA = t < state.eBlinkUntil ? ((Math.floor((state.eBlinkUntil - t) / 80) % 2 === 0) ? 1 : 0.25) : 1;
+    const eAlpha = eBlinkA * state.introCharAlpha;
+    const eImg = imgs[enemySpriteName(spriteFor(state.eAct, t))];
+    ctx.save();
+    ctx.globalAlpha = eAlpha;
+    if (eImg) {
+        ctx.save(); ctx.scale(-1, 1); // 第19条: 敵は常に反転
+        ctx.drawImage(eImg, -(state.eX + eJit) - DB.IMG_SIZE, state.eY + eJit, DB.IMG_SIZE, DB.IMG_SIZE);
+        ctx.restore();
+    } else { ctx.fillStyle = '#f00'; ctx.fillRect(state.eX, state.eY, DB.IMG_SIZE, DB.IMG_SIZE); }
+    ctx.restore();
+
+    // ピヨり演出: しびれている側の頭上にpiyo.PNGを表示(反転を交互に切り替える)
+    // piyo.PNGは実ファイルが32x32pxで、実際に使う絵柄は左上を基準にした横21px×縦9pxの範囲のみ
+    if (state.piyoSide) {
+        const piyoImg = imgs['piyo.PNG'];
+        if (piyoImg) {
+            const SRC_X = 6, SRC_Y = 0, SRC_W = 20, SRC_H = 9; // 元画像内での切り出し範囲(上・横中央寄せ)
+            const baseX = state.piyoSide === 'P' ? state.pX : state.eX;
+            const baseY = state.piyoSide === 'P' ? state.pY : state.eY;
+            const pw = SRC_W * DB.SCALE, ph = SRC_H * DB.SCALE;
+            const px = baseX + (DB.IMG_SIZE - pw) / 2;
+            const py = baseY - ph - 10;
+            ctx.save();
+            if (state.piyoFlip) {
+                ctx.translate(px + pw, py);
+                ctx.scale(-1, 1);
+                ctx.drawImage(piyoImg, SRC_X, SRC_Y, SRC_W, SRC_H, 0, 0, pw, ph);
+            } else {
+                ctx.drawImage(piyoImg, SRC_X, SRC_Y, SRC_W, SRC_H, px, py, pw, ph);
+            }
+            ctx.restore();
+        }
+    }
+
+    requestAnimationFrame(draw);
+}
+
+// ============================================================
+// 手札UI・敵AI
+// ============================================================
+function playCard(handIdx) {
+    if (state.resolving || !state.battleReady) return;
+    const card = state.playerHand[handIdx];
+    if (!card) return;
+    const slotIdx = state.hands.indexOf(null);
+    if (slotIdx === -1) return; // 場(5枠)がすでに埋まっている
+    state.hands[slotIdx] = card;
+    state.playerHand[handIdx] = null;
+    updateHandUI();
+    updateUI();
+}
+
+function resetHands() {
+    if (state.resolving || !state.battleReady) return;
+    // 場に出したカードを手札の空きへ戻す
+    state.hands.forEach(card => {
+        if (!card) return;
+        const emptyIdx = state.playerHand.indexOf(null);
+        if (emptyIdx !== -1) state.playerHand[emptyIdx] = card;
+    });
+    state.hands = new Array(5).fill(null);
+    updateHandUI();
+    updateUI();
+}
+
+async function dealInitialHandAnimation() {
+    const s = document.getElementById('handRow'); s.innerHTML = '';
+    const n = state.playerHand.length; // 5
+    const mid = (n - 1) / 2;
+    const GAP_X = 48; // updateHandUI()と同じ配置計算に合わせる
+    const ARC_K = 4;
+    const cardEls = [];
+
+    // 1. まず5枚とも裏向きで、画面下からふわっと配られる
+    state.playerHand.forEach((card, idx) => {
+        const d = document.createElement('div');
+        d.className = 'card card-back';
+        const offset = idx - mid;
+        const ty = offset * offset * ARC_K;
+        const tx = offset * GAP_X;
+        const angle = offset * 9;
+        d.dataset.tx = tx;
+        d.dataset.angle = angle;
+        if (imgs[CARD_BACK_IMG]) d.style.backgroundImage = `url('assets/images/cards/${CARD_BACK_IMG}')`;
+        d.style.top = ty + 'px';
+        d.style.transition = 'none';
+        d.style.transform = `translateX(calc(-50% + ${tx}px)) translateY(50px) rotate(${angle}deg)`;
+        d.style.opacity = '0';
+        s.appendChild(d);
+        cardEls.push(d);
+    });
+
+    await wait(30);
+    cardEls.forEach(d => {
+        d.style.transition = 'transform 0.35s ease-out, opacity 0.3s ease-out';
+        d.style.transform = `translateX(calc(-50% + ${d.dataset.tx}px)) rotate(${d.dataset.angle}deg)`;
+        d.style.opacity = '1';
+    });
+    await wait(450); // 配り終わるまで待つ
+
+    // 2. 左から順に、1枚ずつめくって表向きにする(速度2倍)
+    for (let idx = 0; idx < cardEls.length; idx++) {
+        const d = cardEls[idx];
+        const tx = d.dataset.tx, angle = d.dataset.angle;
+        d.style.transition = 'transform 0.08s ease-in';
+        d.style.transform = `translateX(calc(-50% + ${tx}px)) rotate(${angle}deg) scaleX(0)`;
+        await wait(80);
+
+        d.className = 'card ' + (state.playerHand[idx] ? 'filled' : 'empty');
+        applyCardVisual(d, state.playerHand[idx]);
+        if (state.playerHand[idx]) d.onclick = () => playCard(idx);
+        d.style.transition = 'transform 0.08s ease-out';
+        d.style.transform = `translateX(calc(-50% + ${tx}px)) rotate(${angle}deg) scaleX(1)`;
+        await wait(110); // 次のカードがめくれるまでの間隔
+    }
+}
+
+function updateHandUI(animateIndices) {
+    animateIndices = animateIndices || [];
+    const s = document.getElementById('handRow'); s.innerHTML = '';
+    const n = state.playerHand.length; // 5
+    const mid = (n - 1) / 2; // 中央インデックス(2)
+    const GAP_X = 48; // カード中心同士の横間隔(px)
+    const ARC_K = 4;  // 円弧の深さ係数(大きいほど外側が下がる)
+    state.playerHand.forEach((card, idx) => {
+        const d = document.createElement('div');
+        d.className = 'card ' + (card ? 'filled' : 'empty');
+        applyCardVisual(d, card); // card_p/u/G.PNGがあれば画像、無ければP/U/Gの文字
+
+        const offset = idx - mid; // -2, -1, 0, 1, 2
+        // 高さ(top)は放物線(offset^2)で決める。中心=0が最も高く(top最小)、外側ほどなだらかに下がる。
+        // これはCSSレイアウト上のtop値なので、rotateの角度に一切影響されない。
+        const ty = offset * offset * ARC_K; // 0, 4, 16
+        const tx = offset * GAP_X; // 横方向の間隔(中心からの距離)
+        const angle = offset * 9; // deg (外側ほど上が外向きに傾く。見た目の傾きのみ)
+        d.style.top = ty + 'px';
+        if (card) d.onclick = () => playCard(idx);
+
+        const finalTransform = `translateX(calc(-50% + ${tx}px)) rotate(${angle}deg)`;
+        if (animateIndices.includes(idx)) {
+            // 補充されたカードは画面下から少し回転しながら手札へ滑り込む
+            const fromAngle = angle + (offset >= 0 ? 20 : -20);
+            d.style.transition = 'none';
+            d.style.transform = `translateX(calc(-50% + ${tx}px)) translateY(90px) rotate(${fromAngle}deg)`;
+            d.style.opacity = '0';
+            s.appendChild(d);
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    d.style.transition = 'transform 0.35s ease-out, opacity 0.3s ease-out';
+                    d.style.transform = finalTransform;
+                    d.style.opacity = '1';
+                });
+            });
+        } else {
+            d.style.transform = finalTransform;
+            s.appendChild(d);
+        }
+    });
+}
+
+function filledCount() {
+    const idx = state.hands.indexOf(null);
+    return idx === -1 ? state.hands.length : idx;
+}
+
+function updateUI(activeIndex) {
+    const s = document.getElementById('slots'); s.innerHTML = '';
+    state.hands.forEach((h, idx) => {
+        const d = document.createElement('div');
+        let cls = 'slot ' + (h ? 'filled' : 'empty');
+        if (idx === activeIndex) cls += ' active-card';
+        if (cardOutcomes.P[idx]) cls += ' ' + cardOutcomes.P[idx]; // ターン中の勝敗表現を保持
+        d.className = cls;
+        applyCardVisual(d, h);
+        s.appendChild(d);
+    });
+    updateActionButtons();
+}
+
+function updateActionButtons() {
+    const enabled = state.battleReady && !state.resolving && filledCount() > 0;
+    document.getElementById('goBtn').disabled = !enabled;
+    document.getElementById('clrBtn').disabled = !enabled;
+}
+
+async function fadeOutQueueCards() {
+    const cards = document.querySelectorAll('#slots .slot.filled');
+    if (cards.length === 0) return;
+    cards.forEach(el => {
+        el.style.transition = 'opacity 0.45s ease-out, transform 0.45s ease-out';
+        el.style.opacity = '0';
+        el.style.transform = 'translateY(-16px) scale(1.06)'; // ふわっと浮きながら消える
+    });
+    await wait(450);
+}
+
+function currentEnemyPreset() {
+    const id = ENEMY_ORDER[state.storyEnemyIndex % ENEMY_ORDER.length];
+    return ENEMY_PRESETS[id];
+}
+
+function updateCharNames() {
+    document.getElementById('playerName').innerText = 'VAL';
+    document.getElementById('enemyName').innerText =
+        state.gameMode === 'training' ? 'ENEMY' : currentEnemyPreset().name;
+}
+
+function advanceToNextEnemy() {
+    state.storyEnemyIndex = (state.storyEnemyIndex + 1) % ENEMY_ORDER.length;
+    writeSaveData({ storyEnemyIndex: state.storyEnemyIndex }); // 進行状況を保存
+}
+
+function weightedRandomMove(weights) {
+    const total = weights.PUNCH + weights.UPPER + weights.GUARD;
+    let r = Math.random() * total;
+    if (r < weights.PUNCH) return 'PUNCH';
+    r -= weights.PUNCH;
+    if (r < weights.UPPER) return 'UPPER';
+    return 'GUARD';
+}
+
+function currentTrainingMove() {
+    const cycle = ['PUNCH', 'UPPER', 'GUARD'];
+    return cycle[state.trainingCycleIndex % cycle.length];
+}
+
+function showTrainingPreview() {
+    state.enemyHands = new Array(5).fill(currentTrainingMove());
+    state.enemyRevealedUpTo = 5;
+    drawEnemySlots();
+}
+
+function generateEnemyTurnHand(count) {
+    // STORY MODE: 現在の敵プリセットの配分に基づいて生成する(favoritePatternsは今後ここに組み込む)
+    const weights = currentEnemyPreset().deck;
+    const arr = [];
+    for (let i = 0; i < count; i++) arr.push(weightedRandomMove(weights));
+    return arr;
+}
+
+function drawEnemySlots(activeIndex) {
+    // 第2条: 公開済み(enemyRevealedUpTo)の枚数までは中身を見せ、それ以降は伏せ札(?)にする
+    const s = document.getElementById('enemySlots'); s.innerHTML = '';
+    state.enemyHands.forEach((h, idx) => {
+        const d = document.createElement('div');
+        let cls = 'slot filled';
+        if (idx === activeIndex) cls += ' active-card';
+        if (cardOutcomes.E[idx]) cls += ' ' + cardOutcomes.E[idx]; // ターン中の勝敗表現を保持
+        d.className = cls;
+        if (idx < state.enemyRevealedUpTo) {
+            applyCardVisual(d, h);
+        } else {
+            d.style.backgroundImage = 'none';
+            d.innerText = '?';
+        }
+        s.appendChild(d);
+    });
+}
+
+// ============================================================
+// バトル進行
+// ============================================================
+function goBattleStart() {
+    writeSaveData({ deckCounts: { PUNCH: deckCounts.PUNCH, UPPER: deckCounts.UPPER, GUARD: deckCounts.GUARD } }); // デッキ編成を保存
+    resetBattleState();
+    showScene('battle');
+    playBattleIntro();
+}
+
+function resetBattleState() {
+    // 第13条: state自体は再定義せず、プロパティのみ初期値に戻す
+    state.hpP = 100; state.hpE = 100;
+    state.turn = 0;
+    state.hands = new Array(5).fill(null);
+    state.pX = DB.POS.P_HOME_X; state.eX = DB.POS.E_HOME_X;
+    state.pY = DB.POS.GROUND_Y; state.eY = DB.POS.GROUND_Y;
+    state.pAct = 'IDLE'; state.eAct = 'IDLE';
+    state.pShakeUntil = 0; state.eShakeUntil = 0;
+    state.pBlinkUntil = 0; state.eBlinkUntil = 0;
+    state.pLastAtk = null; state.eLastAtk = null;
+    state.pNumbed = false;
+    state.eNumbed = false;
+    state.piyoSide = null;
+    state.piyoFlip = false;
+    state.pPunchStreak = 0;
+    state.ePunchStreak = 0;
+    state.pGuardHoldPose = false;
+    state.eGuardHoldPose = false;
+    state.gameMode = state.pendingMode || 'story'; // デッキ編成画面へ来た時に選んだモードを確定
+    state.trainingCycleIndex = 0; // TRAINING MODEの周期はバトル開始のたびリセットしてOK
+    updateCharNames(); // 味方=VAL(固定)、敵=STORY MODEなら現在の敵プリセット名、TRAINING MODEならENEMY
+    state.introCharAlpha = 0; // 開始演出でふわっと表示するため、まずは透明から
+    state.bgRevealRadius = 0; // 背景も真っ暗な状態からスタート
+    state.battleReady = false; // 開始演出が終わるまで操作不可
+    state.resolving = false;
+    trails = [];
+    cardOutcomes = { P: new Array(5).fill(null), E: new Array(5).fill(null) };
+
+    // デッキ編成画面で決めた配分から山札を構築し、初期手札5枚を引く
+    state.playerDeck = buildDeckArray(deckCounts);
+    state.playerDiscard = [];
+    state.playerHand = new Array(5).fill(null);
+    for (let i = 0; i < 5; i++) state.playerHand[i] = drawCard();
+
+    document.getElementById('hpP').style.width = '100%';
+    document.getElementById('hpP_y').style.width = '100%';
+    document.getElementById('hpE').style.width = '100%';
+    document.getElementById('hpE_y').style.width = '100%';
+    document.getElementById('turnDisplay').innerHTML = 'TURN<br>0';
+    document.querySelectorAll('.controls button').forEach(b => b.disabled = true); // 演出完了までは操作不可
+    document.getElementById('howToBtn').disabled = false; // HOW TOは常に押せる
+    document.getElementById('optionBattleBtn').disabled = false; // OPTIONも同様
+    const bst = document.getElementById('battleStartText');
+    bst.classList.remove('enter', 'exit');
+    hideResult();
+    updateUI();
+    document.getElementById('handRow').innerHTML = ''; // 手札はBATTLE START後にdealInitialHandAnimation()で配る
+    updateDeckCountDisplay();
+
+    // 敵の手はターンごとに(必要枚数だけ)非公開で生成する。開始時点では空。
+    // TRAINING MODEのみ、カードを選ぶ前から次に出す技を5枠まるごと公開しておく。
+    if (state.gameMode === 'training') {
+        showTrainingPreview();
+    } else {
+        state.enemyHands = [];
+        state.enemyRevealedUpTo = 0;
+        drawEnemySlots();
+    }
+}
+
+async function playBattleIntro() {
+    await wait(300); // 真っ暗な状態を一瞬見せる
+
+    // 味方と敵をふわっとフェードイン
+    const fadeSteps = 10;
+    for (let s = 1; s <= fadeSteps; s++) {
+        state.introCharAlpha = s / fadeSteps;
+        await wait(50);
+    }
+    state.introCharAlpha = 1;
+    await wait(200);
+
+    // 背景が中心から広がるように表示される(canvas上を円形クリップで拡大)
+    const maxRadius = Math.hypot(cvs.width / 2, cvs.height / 2) + 20; // 対角線の半分+余裕分で確実に全面を覆う
+    const revealSteps = 16;
+    for (let s = 1; s <= revealSteps; s++) {
+        state.bgRevealRadius = maxRadius * (s / revealSteps);
+        await wait(1300 / revealSteps);
+    }
+    state.bgRevealRadius = maxRadius;
+
+    // BATTLE START: 左からディゾルブして中央で停止
+    const bst = document.getElementById('battleStartText');
+    bst.classList.add('enter');
+    await wait(650);
+    await wait(450); // 中央で少し静止
+
+    // 拡大しながら消える
+    bst.classList.add('exit');
+    await wait(550);
+    bst.classList.remove('enter', 'exit');
+
+    await dealInitialHandAnimation(); // 手札を裏向きで配り、左から順にめくる(バトル開始時だけの演出)
+
+    state.battleReady = true;
+    updateActionButtons();
+}
+
+function showResult(type) {
+    document.getElementById('resultText').innerText = type === 'KO' ? 'K.O.' : 'YOU WIN';
+    // K.O.(敗北)時のみCONTINUEを表示。YOU WIN時は次の試合に続く想定のため、まずはタイトルへ戻るボタンのみ。
+    document.getElementById('continueBtn').style.display = (type === 'KO') ? 'inline-block' : 'none';
+    document.getElementById('resultOverlay').classList.add('show');
+}
+
+function hideResult() {
+    document.getElementById('resultOverlay').classList.remove('show');
+}
+
+function judge(p, e) {
+    if (p === e) return 'draw';
+    const beats = { PUNCH: 'UPPER', UPPER: 'GUARD', GUARD: 'PUNCH' };
+    return beats[p] === e ? 'win' : 'lose';
+}
+
+function applyDamage(target, amount) {
+    if (target === 'E') {
+        state.hpE = Math.max(0, state.hpE - amount);
+        document.getElementById('hpE').style.width = state.hpE + '%';
+        setTimeout(() => { document.getElementById('hpE_y').style.width = state.hpE + '%'; }, 0); // 第17条
+    } else {
+        state.hpP = Math.max(0, state.hpP - amount);
+        document.getElementById('hpP').style.width = state.hpP + '%';
+        setTimeout(() => { document.getElementById('hpP_y').style.width = state.hpP + '%'; }, 0);
+    }
+    triggerBlink(target, 180); // どんなダメージでも、受けた側を一瞬点滅させる
+}
+
+function healBothToFull() {
+    state.hpP = 100; state.hpE = 100;
+    document.getElementById('hpP').style.width = '100%';
+    document.getElementById('hpP_y').style.width = '100%';
+    document.getElementById('hpE').style.width = '100%';
+    document.getElementById('hpE_y').style.width = '100%';
+}
+
+function wait(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+async function moveBothX(pTo, eTo, steps = 6, stepMs = 40) {
+    // ガード成功後、相手がしびれている間は構え(guard.PNG)を維持し、dash.PNGへ上書きしない
+    if (!state.pGuardHoldPose) state.pAct = 'dash.PNG';
+    if (!state.eGuardHoldPose) state.eAct = 'dash.PNG';
+    const pFrom = state.pX, eFrom = state.eX;
+    for (let s = 1; s <= steps; s++) {
+        const t = s / steps;
+        state.pX = pFrom + (pTo - pFrom) * t;
+        state.eX = eFrom + (eTo - eFrom) * t;
+        trails.push({ side: 'P', x: state.pX, y: state.pY, born: performance.now() });
+        trails.push({ side: 'E', x: state.eX, y: state.eY, born: performance.now() });
+        await wait(stepMs);
+    }
+}
+
+async function approachCenter() { await moveBothX(DB.POS.P_ATTACK_X, DB.POS.E_ATTACK_X); }
+
+async function retreatSlightly() { await moveBothX(DB.POS.P_RETREAT_X, DB.POS.E_RETREAT_X, 4, 35); }
+
+async function goHome() { await moveBothX(DB.POS.P_HOME_X, DB.POS.E_HOME_X); }
+
+async function waitBothLanded() {
+    // 第5条: 着地同期
+    state.pY = DB.POS.GROUND_Y;
+    state.eY = DB.POS.GROUND_Y;
+    await wait(50);
+}
+
+async function runFinishSequence(loserSide) {
+    setAct(loserSide, 'damage.PNG');
+    triggerBlink(loserSide, 1300);
+    triggerShake(loserSide, 400);
+    await wait(900); // 一呼吸置いて余韻を出す
+
+    const homeX = loserSide === 'P' ? DB.POS.P_HOME_X : DB.POS.E_HOME_X;
+    const fromX = getX(loserSide);
+    const bounceSteps = 10;
+    for (let s = 1; s <= bounceSteps; s++) {
+        const t = s / bounceSteps;
+        setX(loserSide, fromX + (homeX - fromX) * t);
+        const bounce = Math.abs(Math.sin(t * Math.PI * 3)) * 18 * (1 - t); // 減衰する軽いバウンド
+        setY(loserSide, DB.POS.GROUND_Y - bounce);
+        await wait(140); // スローモーション気味に間隔を長く取る
+    }
+    setX(loserSide, homeX);
+    setY(loserSide, DB.POS.GROUND_Y);
+    setAct(loserSide, 'down.PNG');
+    await wait(700);
+
+    showResult(loserSide === 'P' ? 'KO' : 'WIN');
+}
+
+function nextQueuedMove(side, cursor) {
+    const idx = cursor.i + 1;
+    return side === 'P' ? state.hands[idx] : state.enemyHands[idx];
+}
+
+async function runNormalHit(winner, loser, move) {
+    setAct(winner, moveSprite(move));
+    setAct(loser, 'damage.PNG');
+    const winnerStreakKey = winner === 'P' ? 'pPunchStreak' : 'ePunchStreak';
+    const loserStreakKey = loser === 'P' ? 'pPunchStreak' : 'ePunchStreak';
+    const dmg = DB.DMG.P + state[winnerStreakKey] * DB.DMG.P_COMBO_STEP; // 連続ヒット数に応じて増加
+    state[winnerStreakKey]++; // 命中したので連続記録を伸ばす
+    state[loserStreakKey] = 0; // 負けた側の連続記録は途切れる
+    applyDamage(loser, dmg);
+    triggerShake(loser, 350); // 第8条: 負けた側のみ振動
+    await wait(500);
+    toIdle();
+}
+
+async function runMeteor(attacker, defender) {
+    applyDamage(defender, DB.DMG.M);
+    setAct(attacker, 'knock.PNG');
+    setAct(defender, 'damage.PNG');
+    await wait(400); // 一時停止
+
+    // 打たれる方が先に地面へ落下
+    const fallSteps = 5;
+    for (let s = 1; s <= fallSteps; s++) {
+        setY(defender, DB.POS.FLOAT_Y + (DB.POS.GROUND_Y - DB.POS.FLOAT_Y) * (s / fallSteps));
+        await wait(30);
+    }
+    setY(defender, DB.POS.GROUND_Y);
+    triggerShake(defender, 500);
+    triggerBlink(defender, 900); // 振動＋点滅
+
+    await wait(60); // 打つ方は少し遅れて急降下開始
+    const atkFallSteps = 6;
+    for (let s = 1; s <= atkFallSteps; s++) {
+        setY(attacker, DB.POS.AIR_FOLLOW_Y + (DB.POS.GROUND_Y - DB.POS.AIR_FOLLOW_Y) * (s / atkFallSteps));
+        await wait(35);
+    }
+    setY(attacker, DB.POS.GROUND_Y);
+    setAct(attacker, 'knock2.PNG');
+    triggerShake(attacker, 350);
+    await wait(500);
+    toIdle();
+}
+
+async function runUpperCombo(attacker, defender, cursor) {
+    // UPPERが決まった時点で地上パンチの連続記録は途切れる(コンボ中の空中パンチとは別カウント)
+    state.pPunchStreak = 0;
+    state.ePunchStreak = 0;
+    // 初撃: 打つ方は1/3だけホップ、受ける方はふわっと大きく浮く
+    setAct(attacker, 'upper.PNG');
+    setAct(defender, 'damage.PNG');
+    setY(defender, DB.POS.FLOAT_Y);
+    setY(attacker, DB.POS.HOP_Y);
+    applyDamage(defender, DB.DMG.U);
+    triggerShake(defender, 300);
+    await wait(700);
+
+    let airPunches = 0;
+    while (true) {
+        const next = nextQueuedMove(attacker, cursor);
+        if (next !== 'PUNCH') break;
+        cursor.i++; // 次のコマンドを消費してコンボ継続
+        updateUI(cursor.i); // ハイライトも追従させる
+        drawEnemySlots(cursor.i);
+        airPunches++;
+
+        if (airPunches < DB.MAX_AIR_PUNCH) {
+            // 通常の空中パンチ: 打つ方が追従して浮き、空中で殴る。連続ヒットするほどダメージが増加する
+            setY(attacker, DB.POS.AIR_FOLLOW_Y);
+            setAct(attacker, nextPunchSprite(attacker)); // 第21条
+            markCardOutcome(defender, cursor.i, 'card-shatter'); // 3すくみ無視のコンボ継続: ヒビ割れる
+            const comboDmg = DB.DMG.P + (airPunches - 1) * DB.DMG.P_COMBO_STEP; // 1発目=P, 2発目=P+STEP...
+            applyDamage(defender, comboDmg);
+            triggerShake(defender, 200);
+            await wait(500);
+        } else {
+            // 3発目: メテオへ変換
+            markCardOutcome(defender, cursor.i, 'card-shatter'); // 3すくみ無視のメテオ: ヒビ割れる
+            await runMeteor(attacker, defender);
+            return;
+        }
+    }
+
+    // コンボ終了(メテオに至らない場合): 双方着地
+    await waitBothLanded();
+    setAct(attacker, 'dash.PNG'); // 第6条
+    setAct(defender, 'damage.PNG'); // 第6条
+    await wait(300);
+    toIdle();
+}
+
+async function runGuardSuccess(winner, loser) {
+    state.pPunchStreak = 0; // ガードでパンチが止まった場合も連続記録は途切れる
+    state.ePunchStreak = 0;
+    setAct(winner, 'guard.PNG');
+    setAct(loser, 'punch.PNG'); // しびれてパンチの姿勢のまま
+    applyDamage(winner, DB.DMG.TINY);
+    triggerShake(winner, 250);
+    triggerShake(loser, 400); // しびれによる振動(ダメージなし)
+    if (loser === 'P') state.pNumbed = true; else state.eNumbed = true; // 次のコマンドの成功率が1/2になる
+    if (winner === 'P') state.pGuardHoldPose = true; else state.eGuardHoldPose = true; // 相手がしびれている間、ガードの構えを維持する
+    await wait(500);
+    setAct(loser, 'IDLE'); // 負けた側だけidleへ。勝った側はguard.PNGを維持したまま
+}
+
+async function runPiyoEffect(side) {
+    state.piyoSide = side;
+    for (let i = 0; i < 4; i++) { // 通常→反転→通常→反転(2往復)
+        state.piyoFlip = (i % 2 === 1);
+        await wait(180);
+    }
+    state.piyoSide = null;
+}
+
+async function runNumbFail(numbedSide, cursor, pAct, eAct) {
+    const winner = numbedSide === 'P' ? 'E' : 'P';
+    const loser = numbedSide;
+    const winnerMove = winner === 'P' ? pAct : eAct;
+
+    // ピヨり演出: しびれた側がdamage.PNGで点滅しつつ、頭上でpiyo.PNGが反転を繰り返す
+    setAct(loser, 'damage.PNG');
+    triggerBlink(loser, 1400);
+    await runPiyoEffect(loser);
+
+    // ピヨり演出のあとは、相手の技の種類に応じた通常の勝敗処理へ(空中コンボならコンボも発生する)
+    if (winnerMove === 'UPPER') {
+        await runUpperCombo(winner, loser, cursor);
+    } else if (winnerMove === 'GUARD') {
+        await runGuardSuccess(winner, loser);
+    } else {
+        await runNormalHit(winner, loser, winnerMove);
+    }
+}
+
+function markCardOutcome(side, idx, outcomeClass) {
+    const arr = side === 'P' ? cardOutcomes.P : cardOutcomes.E;
+    arr[idx] = outcomeClass || null; // ターンが終わるまで保持する
+    const container = document.getElementById(side === 'P' ? 'slots' : 'enemySlots');
+    const el = container.children[idx];
+    if (!el) return;
+    el.classList.remove('card-lose', 'card-shatter');
+    if (outcomeClass) el.classList.add(outcomeClass);
+}
+
+async function resolveExchange(pAct, eAct, cursor) {
+    await approachCenter(); // 第24条: 残像付きで中央へ踏み込む
+
+    // しびれ判定: 直前の攻防でガードに阻まれた側は、1/2の確率でこの攻防に無条件で敗北する(3すくみ判定は行わない)
+    if (state.pNumbed || state.eNumbed) {
+        const numbedSide = state.pNumbed ? 'P' : 'E';
+        const guardSide = numbedSide === 'P' ? 'E' : 'P';
+        if (numbedSide === 'P') state.pNumbed = false; else state.eNumbed = false;
+        if (guardSide === 'P') state.pGuardHoldPose = false; else state.eGuardHoldPose = false; // 判定が出たので構え保持を解除
+        if (Math.random() < 0.5) {
+            markCardOutcome(numbedSide, cursor.i, 'card-shatter'); // 3すくみ無視の敗北: ヒビ割れる
+            await runNumbFail(numbedSide, cursor, pAct, eAct);
+            return;
+        }
+    }
+
+    const result = judge(pAct, eAct);
+    if (result === 'draw') {
+        // 相討ち: 同じ手同士がぶつかる場合、双方が微ダメージを受けて振動し、反動で一歩下がる
+        state.pPunchStreak = 0; // 相討ちでは連続記録が途切れる
+        state.ePunchStreak = 0;
+        state.pAct = moveSprite(pAct);
+        state.eAct = moveSprite(eAct);
+        applyDamage('P', DB.DMG.CLASH);
+        applyDamage('E', DB.DMG.CLASH);
+        triggerShake('P', 300);
+        triggerShake('E', 300);
+        await wait(250);
+        await moveBothX(DB.POS.P_RETREAT_X, DB.POS.E_RETREAT_X, 4, 30); // 反動で一歩下がる
+        toIdle();
+        return;
+    }
+
+    const winner = result === 'win' ? 'P' : 'E';
+    const loser = winner === 'P' ? 'E' : 'P';
+    const winnerMove = winner === 'P' ? pAct : eAct;
+    markCardOutcome(loser, cursor.i, 'card-lose'); // 敗者だけ暗くする。勝者は黄色いハイライトのまま
+
+    if (winnerMove === 'UPPER') {
+        await runUpperCombo(winner, loser, cursor);
+    } else if (winnerMove === 'GUARD') {
+        await runGuardSuccess(winner, loser); // ガード成功: 勝者は極小ダメージ、敗者はしびれる
+    } else {
+        await runNormalHit(winner, loser, winnerMove);
+    }
+}
+
+async function resolveTurn() {
+    if (state.resolving || !state.battleReady || filledCount() === 0) return;
+    state.resolving = true;
+    document.querySelectorAll('.controls button').forEach(b => b.disabled = true);
+    document.getElementById('howToBtn').disabled = false; // HOW TOは解決中でも常に押せる
+    document.getElementById('optionBattleBtn').disabled = false; // OPTIONも同様
+
+    state.turn++;
+    document.getElementById('turnDisplay').innerHTML = `TURN<br>${state.turn}`;
+
+    const cursor = { i: 0 };
+    const total = filledCount();
+    let gameOverSide = null; // 'P' または 'E'。体力0になった側
+
+    // プレイヤーが出した枚数だけ、敵も手を出してくる
+    if (state.gameMode === 'training') {
+        // 既にshowTrainingPreview()で公開済みの5枚から、必要な枚数だけを使う
+        state.enemyHands = state.enemyHands.slice(0, total);
+        state.enemyRevealedUpTo = total;
+    } else {
+        state.enemyHands = generateEnemyTurnHand(total);
+        state.enemyRevealedUpTo = 0; // 第2条: 中身を伏せて攻防の直前に1枚ずつ公開する
+    }
+    drawEnemySlots();
+
+    try {
+        while (cursor.i < total) {
+            if (gameOverSide) break;
+
+            const pAct = state.hands[cursor.i];
+            const eAct = state.enemyHands[cursor.i];
+
+            if (state.gameMode !== 'training') {
+                // このタイミングで敵の手を公開する(STORY MODEのみ)
+                state.enemyRevealedUpTo = cursor.i + 1;
+            }
+            drawEnemySlots(cursor.i); // 対戦中の敵カードを光らせる
+            updateUI(cursor.i);       // 対戦中の味方カードを光らせる
+
+            await resolveExchange(pAct, eAct, cursor);
+
+            // TRAINING MODEは練習場のためK.O./YOU WIN判定を行わない(ターン終了時にHPが全回復する)
+            if (state.gameMode !== 'training' && (state.hpP <= 0 || state.hpE <= 0)) {
+                gameOverSide = state.hpP <= 0 ? 'P' : 'E';
+                break;
+            }
+
+            cursor.i++;
+            // 第16条: 攻防のたびに初期位置へ戻るのではなく、軽く距離を取るだけ
+            if (cursor.i < total) {
+                await retreatSlightly();
+            }
+        }
+    } finally {
+        // しびれはターンをまたいで持ち越さない仕様: 使われなかった場合はここで消える
+        state.pNumbed = false;
+        state.eNumbed = false;
+        state.pGuardHoldPose = false;
+        state.eGuardHoldPose = false;
+
+        // 使用したプレイヤーカードを捨て札へ送り、使った枚数分だけ山から補充する
+        for (let i = 0; i < total; i++) {
+            if (state.hands[i]) state.playerDiscard.push(state.hands[i]);
+        }
+        const drawnIndices = [];
+        for (let i = 0; i < state.playerHand.length; i++) {
+            if (state.playerHand[i] === null) {
+                const c = drawCard(); // 山の残数を超えては引けない(nullなら空枠のまま残る)
+                if (c !== null) {
+                    state.playerHand[i] = c;
+                    drawnIndices.push(i);
+                }
+            }
+        }
+        updateHandUI(drawnIndices); // 補充分だけ画面下から回転しつつ登場するアニメーション
+        updateDeckCountDisplay();
+
+        if (gameOverSide) {
+            // 体力を0にする最後の一撃: 通常の帰還処理の代わりに専用の決着演出を実行
+            state.battleReady = false; // 決着後は手札タップ含め操作不可にする
+            await runFinishSequence(gameOverSide);
+            await fadeOutQueueCards(); // 場のカードがふわっと消える
+            cardOutcomes = { P: new Array(5).fill(null), E: new Array(5).fill(null) }; // ターン終了につき勝敗表現をリセット
+            state.hands = new Array(5).fill(null);
+            updateUI();
+            state.resolving = false; // バトルは決着済み。ボタンは結果画面から「タイトルへ戻る」でリセットされる
+        } else {
+            // 第9条: ターン完了時のみ、残像付きでホームポジションへ確実に帰還する
+            state.pY = DB.POS.GROUND_Y;
+            state.eY = DB.POS.GROUND_Y;
+            await goHome();
+            toIdle();
+
+            // 手札・山が共に尽きた場合のみ、Refresh演出(点滅→カウントアップ)を挟んで捨札をリシャッフルする。
+            // 両者が元の立ち位置に戻った後に行う。
+            const handIsEmpty = state.playerHand.every(c => c === null);
+            if (handIsEmpty && state.playerDeck.length === 0) {
+                await runDeckRefresh();
+                const refillIndices = [];
+                for (let i = 0; i < state.playerHand.length; i++) {
+                    if (state.playerHand[i] === null) {
+                        const c = drawCard();
+                        if (c !== null) { state.playerHand[i] = c; refillIndices.push(i); }
+                    }
+                }
+                updateHandUI(refillIndices);
+                updateDeckCountDisplay();
+            }
+
+            await fadeOutQueueCards(); // 場のカードがふわっと消える
+            cardOutcomes = { P: new Array(5).fill(null), E: new Array(5).fill(null) }; // ターン終了(両者が定位置へ戻った後)につき勝敗表現をリセット
+            if (state.gameMode === 'training') {
+                healBothToFull(); // TRAINING MODE: ターン終了ごとに双方のHPを全回復する
+            }
+            state.hands = new Array(5).fill(null); // 第1条: 5つの空枠に戻す
+            updateUI();
+            if (state.gameMode === 'training') {
+                state.trainingCycleIndex++; // 次のP→U→Gへ周期を進める
+                showTrainingPreview(); // 次に相手が出す技を、カードを選ぶ前から公開しておく
+            } else {
+                state.enemyHands = [];
+                state.enemyRevealedUpTo = 0;
+                drawEnemySlots();
+            }
+            state.resolving = false;
+        }
+    }
+}
+
+// ============================================================
+// UIポップアップ
+// ============================================================
+function openHowTo() {
+    document.getElementById('howToOverlay').classList.add('show');
+}
+
+function closeHowTo() {
+    document.getElementById('howToOverlay').classList.remove('show');
+}
+
+function closeHowToBackdrop(e) {
+    if (e.target.id === 'howToOverlay') closeHowTo();
+}
+
+function openOption() {
+    updateOptionUI();
+    document.getElementById('optionOverlay').classList.add('show');
+}
+
+function closeOption() {
+    document.getElementById('optionOverlay').classList.remove('show');
+}
+
+function closeOptionBackdrop(e) {
+    if (e.target.id === 'optionOverlay') closeOption();
+}
+
+function updateOptionUI() {
+    document.querySelector(`input[name="soundRadio"][value="${state.soundOn ? 'on' : 'off'}"]`).checked = true;
+    document.getElementById('optionItemsRow').style.display = unlockedItems.length > 0 ? 'flex' : 'none';
+    // タイトルから開いた場合は「今のバトル」が存在しないため、RETRY/RETURN TO TITLEを隠す
+    const isTitle = document.getElementById('sceneTitle').classList.contains('active');
+    document.getElementById('optionFooter').style.display = isTitle ? 'none' : 'flex';
+    closeResetConfirm(); // 開き直したら確認状態はリセット
+}
+
+function setSound(on) {
+    state.soundOn = on; // 音声自体は今後実装予定。現時点では設定値の保存のみ行う。
+    writeSaveData({ soundOn: on });
+}
+
+function openResetConfirm() { document.getElementById('resetConfirmPanel').classList.add('show'); }
+
+function closeResetConfirm() { document.getElementById('resetConfirmPanel').classList.remove('show'); }
+
+function doResetProgress() {
+    state.storyEnemyIndex = 0;
+    writeSaveData({ storyEnemyIndex: 0 });
+    closeResetConfirm();
+}
+
+function openItemGallery() {
+    alert('図鑑機能は準備中です。');
+}
+
+function optionRetry() {
+    closeOption();
+    goDeckBuild();
+}
+
+function optionReturnToTitle() {
+    closeOption();
+    goLogo();
+}
