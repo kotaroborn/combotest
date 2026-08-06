@@ -205,14 +205,28 @@
             <p style="color:#888; font-size:11px;">(サウンド・図鑑機能は今後実装予定です)</p>
         </div>
         <div class="howto-footer" id="optionFooter">
-            <button id="optionRetryBtn" onclick="optionRetry()">RETRY</button>
-            <button id="optionReturnBtn" onclick="optionReturnToTitle()">RETURN TO TITLE</button>
+            <button id="optionRetryBtn" onclick="openRetryConfirm()">RETRY</button>
+            <button id="optionReturnBtn" onclick="openReturnConfirm()">RETURN TO TITLE</button>
         </div>
         <div id="resetConfirmPanel" class="confirm-panel">
             <p class="confirm-text">本当に進行状況を<br>リセットしてもよろしいですか？</p>
             <div class="confirm-btns">
                 <button onclick="closeResetConfirm()">キャンセル</button>
                 <button onclick="doResetProgress()" class="confirm-ok">OK</button>
+            </div>
+        </div>
+        <div id="retryConfirmPanel" class="confirm-panel">
+            <p class="confirm-text">この戦闘のデッキ編成から<br>やり直しますか？</p>
+            <div class="confirm-btns">
+                <button onclick="closeRetryConfirm()">キャンセル</button>
+                <button onclick="doOptionRetry()" class="confirm-ok">OK</button>
+            </div>
+        </div>
+        <div id="returnConfirmPanel" class="confirm-panel">
+            <p class="confirm-text">タイトルに戻りますか？<br>（ストーリーの進行状況は保存されます）</p>
+            <div class="confirm-btns">
+                <button onclick="closeReturnConfirm()">キャンセル</button>
+                <button onclick="doOptionReturnToTitle()" class="confirm-ok">OK</button>
             </div>
         </div>
     </div>
