@@ -93,7 +93,7 @@
         .logo-sub { font-size: 13px; letter-spacing: 6px; color: #aaa; }
 
         /* ------- シネマ演出共通(プロローグ・ストーリーシーンで共用): 画像 + 1文字ずつのテキストを1ブロックにまとめ、中央配置 ------- */
-        #scenePrologue, #sceneStory { justify-content: center; align-items: center; }
+        #scenePrologue, #sceneStory, #sceneEnding { justify-content: center; align-items: center; }
         .cine-block { flex: none; display: flex; flex-direction: column; width: 100%; opacity: 0; }
         .cine-img {
             width: 100%; aspect-ratio: 2.4 / 1; /* シネマサイズ(ワイド) */
@@ -324,6 +324,7 @@
         }
         #howToRetryBtn { background: #a00; color: #fff; }
         #howToReturnBtn { background: #444; color: #eee; }
+        #optionRetryBtn, #optionReturnBtn { background: #333; color: #fff; }
 
         /* ------- OPTION画面 ------- */
         .option-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
@@ -347,4 +348,21 @@
         .confirm-btns { display: flex; gap: 12px; }
         .confirm-btns button { padding: 10px 22px; border: none; border-radius: 6px; font-size: 12px; font-weight: bold; cursor: pointer; background: #444; color: #eee; }
         .confirm-btns .confirm-ok { background: #a00; color: #fff; } /* 隠しアイテムを1つでも取得したら表示する */
+
+        /* ------- エンドロール(5人目撃破後のみ) ------- */
+        #sceneCredits { background: #000; overflow: hidden; }
+        #creditsScroll {
+            position: absolute; left: 0; right: 0; top: 100%;
+            color: #fff; text-align: center; padding: 0 20px;
+        }
+        #creditsScroll.roll {
+            transition: top 14s linear;
+            top: -150%;
+        }
+        .credits-line { margin: 6px 0; font-size: 14px; letter-spacing: 1px; }
+        .credits-title { font-size: 16px; font-weight: 900; letter-spacing: 2px; margin-top: 40px; color: #ffe066; }
+
+        /* ------- FIN画面(5人目撃破後、エンドロールの後に表示) ------- */
+        #sceneFin { background: #000; justify-content: center; align-items: center; }
+        #finText { color: #fff; font-size: 48px; font-weight: 900; letter-spacing: 6px; }
     
