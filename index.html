@@ -137,6 +137,36 @@
 </div>
 </div>
 
+<!-- エンディングシーン: 5人目撃破後のみ再生。プロローグ/ストーリーと同じ仕組み(画像+1文字ずつのテキスト)で5画面 -->
+<div id="sceneEnding" class="scene">
+    <div id="endingContent" class="cine-block">
+        <div id="endingImgArea" class="cine-img"><div id="endingImgFallback" class="cine-img-fallback"></div></div>
+        <div id="endingTextBox" class="cine-textbox">
+            <p id="endingText" class="cine-text"></p>
+        </div>
+    </div>
+</div>
+
+<!-- エンドロールシーン: エンディング5画面終了後、下から上へスクロールするクレジット表示 -->
+<div id="sceneCredits" class="scene">
+    <div id="creditsScroll">
+        <p class="credits-line credits-title">GAME DESIGN</p>
+        <p class="credits-line">（仮）</p>
+        <p class="credits-line credits-title">PROGRAMMING</p>
+        <p class="credits-line">（仮）</p>
+        <p class="credits-line credits-title">ART</p>
+        <p class="credits-line">（仮）</p>
+        <p class="credits-line credits-title">SPECIAL THANKS</p>
+        <p class="credits-line">（仮）</p>
+        <p class="credits-line credits-title" style="margin-top:60px;">コマンドバトル</p>
+    </div>
+</div>
+
+<!-- FIN画面: エンドロール終了後、真っ黒な画面の中央にFIN.を表示し、10秒後にフェードアウトしてタイトルへ戻る -->
+<div id="sceneFin" class="scene">
+    <div id="finText">FIN.</div>
+</div>
+
 <!-- HOW TOポップアップ: appRoot直下に置き、どのシーンからでも表示できるようにする -->
 <div id="howToOverlay" class="popup-overlay" onclick="closeHowToBackdrop(event)">
     <div class="popup-panel">
@@ -169,7 +199,7 @@
                 <button onclick="openItemGallery()">見る</button>
             </div>
             <div class="option-row">
-                <span class="option-label">進行状況</span>
+                <span class="option-label">進行状況(セーブデータ)</span>
                 <button id="resetProgressBtn" onclick="openResetConfirm()">リセット</button>
             </div>
             <p style="color:#888; font-size:11px;">(サウンド・図鑑機能は今後実装予定です)</p>
