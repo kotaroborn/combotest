@@ -14,7 +14,7 @@
  * 12. 描画資産の不変性: 外部ファイルを厳格に読み込み、存在しない場合は読み込みエラーを即座に特定する。ただし敵専用グラフィック(enemy_〇〇.PNG)と背景(bg.PNG)は任意の差し替え用アセットであり、存在しなくてもエラー扱いにせず、敵はプレイヤー画像へ、背景は水色の塗りつぶしへフォールバックする。
  * 13. オブジェクトの生存維持: 状態管理オブジェクト(state, imgs)は決して再定義・初期化せず、常に参照し続ける。
  * 14. 憲法完全表記: コード提示の際、本憲法リストを一切省略せず必ず全条文を記述する。
- * 15. UI永続性: HP・TURN表示は画面上部に固定し、スロットは下部に永続表示する。画面はロゴ(BORN MAGAZINE presents)→プロローグ→タイトル→(STORY MODEのみ)ストーリーシーン→デッキ編成(21枚固定・内訳自由)→バトル→決着(K.O./YOU WIN)、の順で遷移する。ストーリーシーンはプロローグと同じ仕組み(画像+1文字ずつのテキストを1ブロックにまとめ中央配置、1画面目のみフェードイン)で、story_1〜3.PNGの3画面を再生し、タイトルからSTORY MODEを選んだ時のみ(CONTINUE/RETRYでは再生しない)表示される。SKIPしなくても3画面終了後は自動でデッキ編成へ遷移する。STORY MODEの敵はENEMY_01〜05の5体で固定し(裏ボス等の追加は将来的に想定するが、現時点では5体固定)、勝利のたびに次の敵へ進み、5体目を倒すと再びENEMY_01から巡回する。決着画面ではCONTINUEとタイトルへ戻る(ロゴシーンへ)の2つのボタンを提供する。CONTINUEはK.O.(敗北)時とYOU WIN(勝利)時の両方で表示され、K.O.時は直前のデッキ編成へ(同じ敵と再戦)、YOU WIN時は次の敵へ進めてからその敵のストーリーシーン(3画面)を経てデッキ編成へ遷移する。ロゴシーンはフェードイン→2秒表示→フェードアウトの後、自動でプロローグへ遷移する。プロローグは画像とテキストを1ブロックにまとめて画面中央に配置し、シネマサイズの画像(op_1〜4.PNG)と1文字ずつ表示されるテキストを4画面分再生する(1画面目のみブロック全体がフェードインする)。SKIPしなくても4画面終了後は自動でタイトルへ遷移する。バトル開始時は暗転→味方/敵のフェードイン→背景(bg.PNG)がcanvas上で中心から円形に拡大表示→「BATTLE START」が左からディゾルブで入り中央で静止した後、拡大しながら消える演出を経て、手札が裏向きで配られてから左から順にめくられ、その後操作可能になる(この配布演出はバトル開始時のみで、以降の補充では行わない)。タイトル画面にはSTORY MODE/TRAINING MODEの下にOPTIONを設置し、サウンドON/OFF(設定値の保存のみ、音自体は今後実装予定)・STORY MODEの進行状況(倒した敵の人数)のリセット・隠しアイテムの図鑑(今後実装予定、取得済みアイテムがある場合のみ表示)を提供する。STORY MODEの進行状況(現在の敵)とデッキ編成は、localStorageを用いて端末に保存され、次回起動時に自動で復元される。
+ * 15. UI永続性: HP・TURN表示は画面上部に固定し、スロットは下部に永続表示する。画面はロゴ(BORN MAGAZINE presents)→プロローグ→タイトル→(STORY MODEのみ)ストーリーシーン→デッキ編成(21枚固定・内訳自由)→バトル→決着(K.O./YOU WIN)、の順で遷移する。ストーリーシーンはプロローグと同じ仕組み(画像+1文字ずつのテキストを1ブロックにまとめ中央配置、1画面目のみフェードイン)で、story_1〜3.PNGの3画面を再生し、タイトルからSTORY MODEを選んだ時のみ(CONTINUE/RETRYでは再生しない)表示される。SKIPしなくても3画面終了後は自動でデッキ編成へ遷移する。STORY MODEの敵はENEMY_01〜05の5体で固定し(裏ボス等の追加は将来的に想定するが、現時点では5体固定)、勝利のたびに次の敵へ進み、5体目を倒すと再びENEMY_01から巡回する。決着画面ではCONTINUE(K.O.時)またはNEXT BATTLE(YOU WIN時)と、タイトルへ戻る(ロゴシーンへ)の2つのボタンを提供する。K.O.(敗北)時は「CONTINUE」表記で直前のデッキ編成へ(同じ敵と再戦)、YOU WIN(勝利)時は「NEXT BATTLE」表記で次の敵へ進めてからその敵のストーリーシーン(3画面)を経てデッキ編成へ遷移する。ロゴシーンはフェードイン→2秒表示→フェードアウトの後、自動でプロローグへ遷移する。プロローグは画像とテキストを1ブロックにまとめて画面中央に配置し、シネマサイズの画像(op_1〜4.PNG)と1文字ずつ表示されるテキストを4画面分再生する(1画面目のみブロック全体がフェードインする)。SKIPしなくても4画面終了後は自動でタイトルへ遷移する。バトル開始時は暗転→味方/敵のフェードイン→背景(bg.PNG)がcanvas上で中心から円形に拡大表示→「BATTLE START」が左からディゾルブで入り中央で静止した後、拡大しながら消える演出を経て、手札が裏向きで配られてから左から順にめくられ、その後操作可能になる(この配布演出はバトル開始時のみで、以降の補充では行わない)。タイトル画面にはSTORY MODE/TRAINING MODEの下にOPTIONを設置し、サウンドON/OFF(設定値の保存のみ、音自体は今後実装予定)・STORY MODEの進行状況(倒した敵の人数)のリセット・隠しアイテムの図鑑(今後実装予定、取得済みアイテムがある場合のみ表示)を提供する。STORY MODEの進行状況(現在の敵)とデッキ編成は、localStorageを用いて端末に保存され、次回起動時に自動で復元される。
  * 16. 位置保持: 攻防のたびに初期位置へ戻るのではなく、中央で衝突→軽く距離を取る、を繰り返す。ホームポジションへ戻るのはターン完了時のみ。
  * 17. 体力ゲージ演出: ダメージ発生時、現在値が即座に減り、黄色いバーが0.6秒遅れて減少する。
  * 18. TURN表示仕様: 画面上部中央に「TURN」と「数字」を2行で太字(900)表示する。
@@ -213,19 +213,49 @@ let prologueToken = 0; // SKIP時に進行中のタイプライター処理を�
 
 
 
-// ------- ストーリーシーン(STORY MODE専用): story_1.PNG〜story_3.PNG(任意アセット)。プロローグと同じ仕組みを流用 -------
-
-const STORY_SCREENS = [
-    { img: 'story_1.PNG', text: '（仮テキスト1）新たな戦いの舞台が、目の前に広がる。' },
-    { img: 'story_2.PNG', text: '（仮テキスト2）相手の実力は未知数。油断はできない。' },
-    { img: 'story_3.PNG', text: '（仮テキスト3）覚悟を決め、デッキを整える時が来た。' }
-];
-STORY_SCREENS.forEach(sc => {
-    const i = new Image();
-    i.onload = () => { imgs[sc.img] = i; };
-    i.onerror = () => { /* 任意アセットのため未用意でもエラー扱いにしない。プレースホルダー表示にフォールバック */ };
-    i.src = 'assets/images/cutscenes/story/' + sc.img;
+// ------- ストーリーシーン(STORY MODE専用): story_{敵番号}_{画面番号}.PNG(任意アセット)。プロローグと同じ仕組みを流用 -------
+// 敵ごとに3画面分の画像・テキストを用意する(例: 1体目=story_1_1〜3.PNG、2体目=story_2_1〜3.PNG)。
+// 敵の追加時はこのオブジェクトに ENEMY_0N のキーを追加する(ENEMY_PRESETS/ENEMY_ORDERと合わせて追加すること)。
+const STORY_SCREENS_BY_ENEMY = {
+    ENEMY_01: [
+        { img: 'story_1_1.PNG', text: '（仮テキスト・敵01 1/3）新たな戦いの舞台が、目の前に広がる。' },
+        { img: 'story_1_2.PNG', text: '（仮テキスト・敵01 2/3）相手の実力は未知数。油断はできない。' },
+        { img: 'story_1_3.PNG', text: '（仮テキスト・敵01 3/3）覚悟を決め、デッキを整える時が来た。' }
+    ],
+    ENEMY_02: [
+        { img: 'story_2_1.PNG', text: '（仮テキスト・敵02 1/3）二人目の相手が、静かに姿を現す。' },
+        { img: 'story_2_2.PNG', text: '（仮テキスト・敵02 2/3）先の戦いとは違う気配を感じる。' },
+        { img: 'story_2_3.PNG', text: '（仮テキスト・敵02 3/3）気を引き締め、再びデッキを整える。' }
+    ],
+    ENEMY_03: [
+        { img: 'story_3_1.PNG', text: '（仮テキスト・敵03 1/3）三人目の相手が、行く手に立ちはだかる。' },
+        { img: 'story_3_2.PNG', text: '（仮テキスト・敵03 2/3）ここまでの戦いで、確かな手応えを掴んでいる。' },
+        { img: 'story_3_3.PNG', text: '（仮テキスト・敵03 3/3）次の一戦に向け、デッキを整える。' }
+    ],
+    ENEMY_04: [
+        { img: 'story_4_1.PNG', text: '（仮テキスト・敵04 1/3）四人目の相手が、行く手を阻む。' },
+        { img: 'story_4_2.PNG', text: '（仮テキスト・敵04 2/3）疲れは見せられない。集中を切らさず前へ進む。' },
+        { img: 'story_4_3.PNG', text: '（仮テキスト・敵04 3/3）残る力を振り絞り、デッキを整える。' }
+    ],
+    ENEMY_05: [
+        { img: 'story_5_1.PNG', text: '（仮テキスト・敵05 1/3）ついに最後の相手と対峙する。' },
+        { img: 'story_5_2.PNG', text: '（仮テキスト・敵05 2/3）ここまでの戦いのすべてが、この一戦に繋がっている。' },
+        { img: 'story_5_3.PNG', text: '（仮テキスト・敵05 3/3）最後の力を込め、デッキを整える。' }
+    ]
+};
+Object.values(STORY_SCREENS_BY_ENEMY).forEach(screens => {
+    screens.forEach(sc => {
+        const i = new Image();
+        i.onload = () => { imgs[sc.img] = i; };
+        i.onerror = () => { /* 任意アセットのため未用意でもエラー扱いにしない。プレースホルダー表示にフォールバック */ };
+        i.src = 'assets/images/cutscenes/story/' + sc.img;
+    });
 });
+// 現在対戦中の敵(state.storyEnemyIndex)に対応する3画面分のストーリーを返す
+function currentStoryScreens() {
+    const id = ENEMY_ORDER[state.storyEnemyIndex % ENEMY_ORDER.length];
+    return STORY_SCREENS_BY_ENEMY[id];
+}
 
 let storyToken = 0; // SKIP時に進行中のタイプライター処理を打ち切るためのトークン
 
@@ -660,8 +690,9 @@ async function playStorySequence() {
     imgArea.classList.remove('placeholder');
     imgArea.style.backgroundImage = 'none';
 
-    for (let i = 0; i < STORY_SCREENS.length; i++) {
-        const screen = STORY_SCREENS[i];
+    const screens = currentStoryScreens(); // 現在の敵(state.storyEnemyIndex)に対応する3画面
+    for (let i = 0; i < screens.length; i++) {
+        const screen = screens[i];
         if (storyToken !== myToken) return; // SKIPされていたら中断
 
         if (imgs[screen.img]) {
@@ -715,7 +746,7 @@ function goContinueGame() {
     goDeckBuild('story');
 }
 
-// 決着画面(YOU WIN)のCONTINUEから呼ばれる: 次の敵へ進めてから、その敵のストーリーシーン(3画面)を経てデッキ編成へ遷移する
+// 決着画面(YOU WIN)のNEXT BATTLEから呼ばれる: 次の敵へ進めてから、その敵のストーリーシーン(3画面)を経てデッキ編成へ遷移する
 function goNextEnemy() {
     advanceToNextEnemy();
     goStoryThenDeck();
@@ -1207,8 +1238,9 @@ async function playBattleIntro() {
 function showResult(type) {
     document.getElementById('resultText').innerText = type === 'KO' ? 'K.O.' : 'YOU WIN';
     const continueBtn = document.getElementById('continueBtn');
-    // K.O.(敗北)・YOU WIN(勝利)いずれもCONTINUEを表示する。
-    // K.O.時は直前のデッキ編成へ(同じ敵と再戦)、YOU WIN時は次の敵へ進めてからストーリーシーンを経てデッキ編成へ遷移する。
+    // K.O.(敗北)・YOU WIN(勝利)いずれもボタン(id: continueBtn)を表示するが、ラベルと遷移先が異なる。
+    // K.O.時は「CONTINUE」表記で直前のデッキ編成へ(同じ敵と再戦)、YOU WIN時は「NEXT BATTLE」表記で次の敵へ進めてからストーリーシーンを経てデッキ編成へ遷移する。
+    continueBtn.innerText = (type === 'KO') ? 'CONTINUE' : 'NEXT BATTLE';
     continueBtn.style.display = 'inline-block';
     continueBtn.onclick = (type === 'KO') ? (() => goDeckBuild()) : goNextEnemy;
     document.getElementById('resultOverlay').classList.add('show');
