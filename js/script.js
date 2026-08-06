@@ -7,7 +7,7 @@
  * 5. 着地同期: 通常コンボ終了時（メテオに至らない場合）は、攻守双方が地面(GROUND_Y)へ着地してから次の演出へ遷移する。
  * 6. 通常コンボ終了時の演出: 攻撃側は必ずdash.PNGへ、被弾側はdamage.PNGのまま着地させる。
  * 7. 画像状態管理: 待機中は必ず player.PNG / player2.PNG の呼吸(idle)へ復帰する。idle.PNGという単独ファイルは存在しない。
- * 8. ダメージ計算: PUNCH勝利(10、地上での連続ヒットのたびに+5され、ガード等で止められると途切れる)、UPPER初撃(5)、空中パンチ連続ヒット加算(2発目以降+5)、メテオ(50)、相討ち(3)。三すくみに負けた側のみ振動(shake)する。ダメージを受けた側は、量の大小にかかわらず必ず一瞬点滅する(applyDamage内で共通処理)。同じ手同士の相討ちの場合は双方が微ダメージを受けて振動し、反動で一歩下がる。GUARDが勝った場合(相手のPUNCHを防いだ場合)、勝った側は極小ダメージで振動し、負けた側はダメージなしだがしびれ、次のコマンドの成功率が1/2になる(どちらの側がガードしても発生する)。しびれは「固定ダメージを受ける」仕様ではなく、次の攻防で1/2の確率で無条件敗北する仕様である。ブロックされた瞬間、負けた側はまず自身が出していた技の姿勢(通常はpunch.PNGのまま)で振動し、直後にdamage.PNGへ切り替わって頭上にpiyo.PNGが反転を繰り返す「ピヨり」演出が始まる。このピヨりは固定時間の演出ではなく、次の攻防の結果が決まる瞬間まで継続する(その間の移動時、双方は第24条の通りdash.PNGで踏み込むが、ピヨりの表示自体はキャラクターの位置に追従して継続する)。次の攻防が始まり判定が行われる瞬間、ピヨりは終了する。その時点で1/2の確率が外れた場合はしびれが解消され、3すくみ判定による通常の攻防がそのまま行われる。1/2の確率が的中した場合は無条件敗北となり、しびれた側はdamage.PNGのまま点滅を強めた後、相手が実際に出していた技の種類(PUNCH/UPPER/GUARD)に応じた通常の勝敗処理(空中コンボやガード成功も含む)が3すくみ判定なしで適用される。この無条件敗北によってGUARD成功の処理が適用される場合、しびれた側は実際に出していた技に関わらずdamage.PNGの姿勢になり(通常のGUARD成功時の「負けた側は自身の技の姿勢のまま」という表現は、実際にその技を出して負けた場合のみに限定される)、この時新たにしびれが発生すればピヨりも再び開始する(しびれの連鎖)。しびれはターンをまたいで持ち越さない仕様とし、そのターン中に消費されなかった場合はターン終了時に必ず解消される。
+ * 8. ダメージ計算: PUNCH勝利(10、地上での連続ヒットのたびに+5され、ガード等で止められると途切れる)、UPPER初撃(5)、空中パンチ連続ヒット加算(2発目以降+5)、メテオ(50)、相討ち(3)。三すくみに負けた側のみ振動(shake)する。ダメージを受けた側は、量の大小にかかわらず必ず一瞬点滅する(applyDamage内で共通処理)。同じ手同士の相討ちの場合は双方が微ダメージを受けて振動し、反動で一歩下がる。GUARDが勝った場合(相手のPUNCHを防いだ場合)、勝った側は極小ダメージで振動し、負けた側はダメージなしだがしびれ、次のコマンドの成功率が1/2になる(どちらの側がガードしても発生する)。しびれは「固定ダメージを受ける」仕様ではなく、次の攻防で1/2の確率で無条件敗北する仕様である。ブロックされた瞬間、負けた側はまず自身が出していた技の姿勢(通常はpunch.PNGのまま)で振動し、直後にdamage.PNGへ切り替わって頭上にpiyo.PNGが反転を繰り返す「ピヨり」演出が始まる。このピヨりは固定時間の演出ではなく、次の攻防の結果が決まる瞬間まで継続する。ピヨり中は、通常なら双方が第24条の通りdash.PNGで移動する場面(攻防後の後退、次の攻防前の踏み込み)であっても、ピヨり側は次のコマンドが始まるまでその場に留まり続け、dashで動かない(相手側のみ通常通り移動する)。次の攻防が始まり判定が行われる瞬間、ピヨりは終了する。その時点で1/2の確率が外れた場合はしびれが解消され、3すくみ判定による通常の攻防がそのまま行われる。1/2の確率が的中した場合は無条件敗北となり、しびれた側はdamage.PNGのまま点滅を強めた後、相手が実際に出していた技の種類(PUNCH/UPPER/GUARD)に応じた通常の勝敗処理(空中コンボやガード成功も含む)が3すくみ判定なしで適用される。この無条件敗北によってGUARD成功の処理が適用される場合、しびれた側は実際に出していた技に関わらずdamage.PNGの姿勢になり(通常のGUARD成功時の「負けた側は自身の技の姿勢のまま」という表現は、実際にその技を出して負けた場合のみに限定される)、この時新たにしびれが発生すればピヨりも再び開始する(しびれの連鎖)。しびれはターンをまたいで持ち越さない仕様とし、そのターン中に消費されなかった場合はターン終了時に必ず解消される。
  * 9. 座標復帰: ターン(5枠)全体の処理が完了した時点で、finally句にて必ずホームポジションへ dash.PNG の残像付きで帰還することを保証する。ただし体力が0になる最後の一撃を受けた場合は、この通常帰還処理の代わりに専用の決着演出（damage.PNGで点滅→スローに軽くバウンドしながら初期位置へ戻る→down.PNGで倒れる→K.O./YOU WIN表示）を実行する。
  * 10. 描画品質: imageSmoothingEnabled=false を維持しドット絵品質を担保。背景(bg.PNG)もキャラと同じcanvas上に同一の拡大率(SCALE)で描画し、ピクセルのズレを起こさない。
  * 11. モバイル対応: Flexboxとviewport固定によるレスポンシブ最適化。UI全体はappRootコンテナで正方形(1:1)に収め、画面中央に配置する。
@@ -1401,17 +1401,21 @@ function healBothToFull() {
 
 function wait(ms) { return new Promise(r => setTimeout(r, ms)); }
 
+// 第24条: 双方が残像付きのdash.PNGでX座標を目標地点まで移動する汎用関数。
+// ただしピヨり中(state.piyoSide)の側は、次のコマンドが始まるまでその場に留まり、dashで動かない(位置・残像とも据え置き)。
 async function moveBothX(pTo, eTo, steps = 6, stepMs = 40) {
+    const pFrozen = state.piyoSide === 'P';
+    const eFrozen = state.piyoSide === 'E';
     // ガード成功後、相手がしびれている間は構え(guard.PNG)を維持し、dash.PNGへ上書きしない
-    if (!state.pGuardHoldPose) state.pAct = 'dash.PNG';
-    if (!state.eGuardHoldPose) state.eAct = 'dash.PNG';
+    if (!pFrozen && !state.pGuardHoldPose) state.pAct = 'dash.PNG';
+    if (!eFrozen && !state.eGuardHoldPose) state.eAct = 'dash.PNG';
     const pFrom = state.pX, eFrom = state.eX;
     for (let s = 1; s <= steps; s++) {
         const t = s / steps;
-        state.pX = pFrom + (pTo - pFrom) * t;
-        state.eX = eFrom + (eTo - eFrom) * t;
-        trails.push({ side: 'P', x: state.pX, y: state.pY, born: performance.now() });
-        trails.push({ side: 'E', x: state.eX, y: state.eY, born: performance.now() });
+        if (!pFrozen) state.pX = pFrom + (pTo - pFrom) * t;
+        if (!eFrozen) state.eX = eFrom + (eTo - eFrom) * t;
+        if (!pFrozen) trails.push({ side: 'P', x: state.pX, y: state.pY, born: performance.now() });
+        if (!eFrozen) trails.push({ side: 'E', x: state.eX, y: state.eY, born: performance.now() });
         await wait(stepMs);
     }
 }
@@ -1702,11 +1706,12 @@ async function resolveTurn() {
             }
         }
     } finally {
-        // しびれはターンをまたいで持ち越さない仕様: 使われなかった場合はここで消える
+        // しびれはターンをまたいで持ち越さない仕様: 使われなかった場合はここで消える(ピヨり表示も同時に終了する)
         state.pNumbed = false;
         state.eNumbed = false;
         state.pGuardHoldPose = false;
         state.eGuardHoldPose = false;
+        stopPiyo();
 
         // 使用したプレイヤーカードを捨て札へ送り、使った枚数分だけ山から補充する
         for (let i = 0; i < total; i++) {
