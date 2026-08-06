@@ -97,7 +97,7 @@
         .cine-block { flex: none; display: flex; flex-direction: column; width: 100%; opacity: 0; }
         .cine-img {
             width: 100%; aspect-ratio: 2.4 / 1; /* シネマサイズ(ワイド) */
-            background: #000 center / cover no-repeat;
+            background: #000 center top / cover no-repeat; /* 指定サイズの画像を、上側から切り取って表示する */
             image-rendering: pixelated;
             position: relative;
             border-bottom: 2px solid #444;
