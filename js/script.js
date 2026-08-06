@@ -7,14 +7,14 @@
  * 5. 着地同期: 通常コンボ終了時（メテオに至らない場合）は、攻守双方が地面(GROUND_Y)へ着地してから次の演出へ遷移する。
  * 6. 通常コンボ終了時の演出: 攻撃側は必ずdash.PNGへ、被弾側はdamage.PNGのまま着地させる。
  * 7. 画像状態管理: 待機中は必ず player.PNG / player2.PNG の呼吸(idle)へ復帰する。idle.PNGという単独ファイルは存在しない。
- * 8. ダメージ計算: PUNCH勝利(10、地上での連続ヒットのたびに+5され、ガード等で止められると途切れる)、UPPER初撃(5)、空中パンチ連続ヒット加算(2発目以降+5)、メテオ(50)、相討ち(3)。三すくみに負けた側のみ振動(shake)する。ダメージを受けた側は、量の大小にかかわらず必ず一瞬点滅する(applyDamage内で共通処理)。同じ手同士の相討ちの場合は双方が微ダメージを受けて振動し、反動で一歩下がる。GUARDが勝った場合(相手のPUNCHを防いだ場合)、勝った側は極小ダメージで振動し、負けた側はダメージなしだがしびれてpunch.PNGのまま振動し、次のコマンドの成功率が1/2になる(どちらの側がガードしても発生する)。しびれは「固定ダメージを受ける」仕様ではなく、1/2の確率でその攻防に無条件で敗北する仕様である。しびれた側はdamage.PNGで点滅しつつ頭上にpiyo.PNGを反転させながら2往復させるピヨり演出を行った後、相手が実際に出していた技の種類(PUNCH/UPPER/GUARD)に応じた通常の勝敗処理(空中コンボやガード成功も含む)がそのまま3すくみ判定なしで適用される。しびれはターンをまたいで持ち越さない仕様とし、そのターン中に消費されなかった場合はターン終了時に必ず解消される。
+ * 8. ダメージ計算: PUNCH勝利(10、地上での連続ヒットのたびに+5され、ガード等で止められると途切れる)、UPPER初撃(5)、空中パンチ連続ヒット加算(2発目以降+5)、メテオ(50)、相討ち(3)。三すくみに負けた側のみ振動(shake)する。ダメージを受けた側は、量の大小にかかわらず必ず一瞬点滅する(applyDamage内で共通処理)。同じ手同士の相討ちの場合は双方が微ダメージを受けて振動し、反動で一歩下がる。GUARDが勝った場合(相手のPUNCHを防いだ場合)、勝った側は極小ダメージで振動し、負けた側はダメージなしだがしびれ、次のコマンドの成功率が1/2になる(どちらの側がガードしても発生する)。しびれは「固定ダメージを受ける」仕様ではなく、次の攻防で1/2の確率で無条件敗北する仕様である。ブロックされた瞬間、負けた側はまず自身が出していた技の姿勢(通常はpunch.PNGのまま)で振動し、直後にdamage.PNGへ切り替わって頭上にpiyo.PNGが反転を繰り返す「ピヨり」演出が始まる。このピヨりは固定時間の演出ではなく、次の攻防の結果が決まる瞬間まで継続する(その間の移動時、双方は第24条の通りdash.PNGで踏み込むが、ピヨりの表示自体はキャラクターの位置に追従して継続する)。次の攻防が始まり判定が行われる瞬間、ピヨりは終了する。その時点で1/2の確率が外れた場合はしびれが解消され、3すくみ判定による通常の攻防がそのまま行われる。1/2の確率が的中した場合は無条件敗北となり、しびれた側はdamage.PNGのまま点滅を強めた後、相手が実際に出していた技の種類(PUNCH/UPPER/GUARD)に応じた通常の勝敗処理(空中コンボやガード成功も含む)が3すくみ判定なしで適用される。この無条件敗北によってGUARD成功の処理が適用される場合、しびれた側は実際に出していた技に関わらずdamage.PNGの姿勢になり(通常のGUARD成功時の「負けた側は自身の技の姿勢のまま」という表現は、実際にその技を出して負けた場合のみに限定される)、この時新たにしびれが発生すればピヨりも再び開始する(しびれの連鎖)。しびれはターンをまたいで持ち越さない仕様とし、そのターン中に消費されなかった場合はターン終了時に必ず解消される。
  * 9. 座標復帰: ターン(5枠)全体の処理が完了した時点で、finally句にて必ずホームポジションへ dash.PNG の残像付きで帰還することを保証する。ただし体力が0になる最後の一撃を受けた場合は、この通常帰還処理の代わりに専用の決着演出（damage.PNGで点滅→スローに軽くバウンドしながら初期位置へ戻る→down.PNGで倒れる→K.O./YOU WIN表示）を実行する。
  * 10. 描画品質: imageSmoothingEnabled=false を維持しドット絵品質を担保。背景(bg.PNG)もキャラと同じcanvas上に同一の拡大率(SCALE)で描画し、ピクセルのズレを起こさない。
  * 11. モバイル対応: Flexboxとviewport固定によるレスポンシブ最適化。UI全体はappRootコンテナで正方形(1:1)に収め、画面中央に配置する。
  * 12. 描画資産の不変性: 外部ファイルを厳格に読み込み、存在しない場合は読み込みエラーを即座に特定する。ただし敵専用グラフィック(enemy_〇〇.PNG)と背景(bg.PNG)は任意の差し替え用アセットであり、存在しなくてもエラー扱いにせず、敵はプレイヤー画像へ、背景は水色の塗りつぶしへフォールバックする。
  * 13. オブジェクトの生存維持: 状態管理オブジェクト(state, imgs)は決して再定義・初期化せず、常に参照し続ける。
  * 14. 憲法完全表記: コード提示の際、本憲法リストを一切省略せず必ず全条文を記述する。
- * 15. UI永続性: HP・TURN表示は画面上部に固定し、スロットは下部に永続表示する。画面はロゴ(BORN MAGAZINE presents)→プロローグ→タイトル→(STORY MODEのみ)ストーリーシーン→デッキ編成(21枚固定・内訳自由)→バトル→決着(K.O./YOU WIN)、の順で遷移する。ストーリーシーンはプロローグと同じ仕組み(画像+1文字ずつのテキストを1ブロックにまとめ中央配置、1画面目のみフェードイン)で、story_1〜3.PNGの3画面を再生し、タイトルからSTORY MODEを選んだ時のみ(CONTINUE/RETRYでは再生しない)表示される。SKIPしなくても3画面終了後は自動でデッキ編成へ遷移する。STORY MODEの敵はENEMY_01〜05の5体で固定し(裏ボス等の追加は将来的に想定するが、現時点では5体固定)、勝利のたびに次の敵へ進み、5体目を倒すと再びENEMY_01から巡回する。決着画面ではCONTINUE(K.O.時)またはNEXT BATTLE(YOU WIN時)と、タイトルへ戻る(ロゴシーンへ)の2つのボタンを提供する。K.O.(敗北)時は「CONTINUE」表記で直前のデッキ編成へ(同じ敵と再戦)、YOU WIN(勝利)時は「NEXT BATTLE」表記で次の敵へ進めてからその敵のストーリーシーン(3画面)を経てデッキ編成へ遷移する。ロゴシーンはフェードイン→2秒表示→フェードアウトの後、自動でプロローグへ遷移する。プロローグは画像とテキストを1ブロックにまとめて画面中央に配置し、シネマサイズの画像(op_1〜4.PNG)と1文字ずつ表示されるテキストを4画面分再生する(1画面目のみブロック全体がフェードインする)。SKIPしなくても4画面終了後は自動でタイトルへ遷移する。バトル開始時は暗転→味方/敵のフェードイン→背景(bg.PNG)がcanvas上で中心から円形に拡大表示→「BATTLE START」が左からディゾルブで入り中央で静止した後、拡大しながら消える演出を経て、手札が裏向きで配られてから左から順にめくられ、その後操作可能になる(この配布演出はバトル開始時のみで、以降の補充では行わない)。タイトル画面にはSTORY MODE/TRAINING MODEの下にOPTIONを設置し、サウンドON/OFF(設定値の保存のみ、音自体は今後実装予定)・STORY MODEの進行状況(倒した敵の人数)のリセット・隠しアイテムの図鑑(今後実装予定、取得済みアイテムがある場合のみ表示)を提供する。STORY MODEの進行状況(現在の敵)とデッキ編成は、localStorageを用いて端末に保存され、次回起動時に自動で復元される。
+ * 15. UI永続性: HP・TURN表示は画面上部に固定し、スロットは下部に永続表示する。画面はロゴ(BORN MAGAZINE presents)→プロローグ→タイトル→(STORY MODEのみ)ストーリーシーン→デッキ編成(21枚固定・内訳自由)→バトル→決着(K.O./YOU WIN)、の順で遷移する。ストーリーシーンはプロローグと同じ仕組み(画像+1文字ずつのテキストを1ブロックにまとめ中央配置、1画面目のみフェードイン)で、story_1〜3.PNGの3画面を再生し、タイトルからSTORY MODEを選んだ時のみ(CONTINUE/RETRYでは再生しない)表示される。SKIPしなくても3画面終了後は自動でデッキ編成へ遷移する。STORY MODEの敵はENEMY_01〜05の5体で固定し(裏ボス等の追加は将来的に想定するが、現時点では5体固定)、勝利のたびに次の敵へ進む。決着画面ではCONTINUE(K.O.時)またはNEXT BATTLE(YOU WIN時)と、タイトルへ戻る(ロゴシーンへ)の2つのボタンを提供する。K.O.(敗北)時は「CONTINUE」表記で直前のデッキ編成へ(同じ敵と再戦)、YOU WIN(勝利)時は「NEXT BATTLE」表記で次の敵へ進めてからその敵のストーリーシーン(3画面)を経てデッキ編成へ遷移する。ただし5体目(最終)の敵をYOU WINで倒した場合は例外とし、NEXT BATTLE/タイトルへ戻るのボタンは表示せず、YOU WINの表示を5秒間見せた後、自動的にエンディング(プロローグ/ストーリーと同じ仕組みの画像+1文字ずつのテキストで5画面、ending_1〜5.PNG)→フェードアウトで暗転→エンドロール(下から上へスクロールするクレジット表示)→FIN.(真っ黒な画面の中央に白い太文字、10秒表示後にゆっくりフェードアウト)の順に演出を行い、最後に自動的にタイトルへ戻る。この一連の流れの間、敵の進行状況(storyEnemyIndex)は5体目のまま更新しない(advanceToNextEnemyを呼ばない)ため、タイトルのCONTINUEは5体目の敵と戦う前の状態から再開される。ロゴシーンはフェードイン→2秒表示→フェードアウトの後、自動でプロローグへ遷移する。プロローグは画像とテキストを1ブロックにまとめて画面中央に配置し、シネマサイズの画像(op_1〜4.PNG)と1文字ずつ表示されるテキストを4画面分再生する(1画面目のみブロック全体がフェードインする)。SKIPしなくても4画面終了後は自動でタイトルへ遷移する。バトル開始時は暗転→味方/敵のフェードイン→背景(bg.PNG)がcanvas上で中心から円形に拡大表示→「BATTLE START」が左からディゾルブで入り中央で静止した後、拡大しながら消える演出を経て、手札が裏向きで配られてから左から順にめくられ、その後操作可能になる(この配布演出はバトル開始時のみで、以降の補充では行わない)。タイトル画面にはSTORY MODE/TRAINING MODEの下にOPTIONを設置し、サウンドON/OFF(設定値の保存のみ、音自体は今後実装予定)・STORY MODEの進行状況(倒した敵の人数)のリセット・隠しアイテムの図鑑(今後実装予定、取得済みアイテムがある場合のみ表示)を提供する。STORY MODEの進行状況(現在の敵)とデッキ編成は、localStorageを用いて端末に保存され、次回起動時に自動で復元される。
  * 16. 位置保持: 攻防のたびに初期位置へ戻るのではなく、中央で衝突→軽く距離を取る、を繰り返す。ホームポジションへ戻るのはターン完了時のみ。
  * 17. 体力ゲージ演出: ダメージ発生時、現在値が即座に減り、黄色いバーが0.6秒遅れて減少する。
  * 18. TURN表示仕様: 画面上部中央に「TURN」と「数字」を2行で太字(900)表示する。
@@ -77,7 +77,7 @@ let state = {
     pBlinkUntil: 0, eBlinkUntil: 0,
     pLastAtk: null, eLastAtk: null,
     pNumbed: false, eNumbed: false, // しびれフラグ: 次のコマンドの成功率が1/2になる(ガード成功で相手に付与)
-    piyoSide: null, piyoFlip: false, // ピヨり演出: どちら側の頭上に出すか/左右反転中か
+    piyoSide: null, // ピヨり演出: どちら側の頭上に出すか(truthyな間、継続して表示される)
     pPunchStreak: 0, ePunchStreak: 0, // 地上パンチの連続ヒット数(コンボではなく、単発同士の連続成功を記録)
     pGuardHoldPose: false, eGuardHoldPose: false, // 相手がしびれている間、ガード成功側の構えを維持するフラグ
     gameMode: 'story', pendingMode: 'story', // 'story' | 'training'
@@ -258,6 +258,21 @@ function currentStoryScreens() {
 }
 
 let storyToken = 0; // SKIP時に進行中のタイプライター処理を打ち切るためのトークン
+
+// ------- エンディングシーン(5人目撃破後のみ再生): ending_1.PNG〜ending_5.PNG(任意アセット)。プロローグ/ストーリーと同じ仕組みを流用 -------
+const ENDING_SCREENS = [
+    { img: 'ending_1.PNG', text: '（仮テキスト・エンディング1/5）長かった戦いに、静かな幕が下りようとしていた。' },
+    { img: 'ending_2.PNG', text: '（仮テキスト・エンディング2/5）出会った相手たちの顔が、一人また一人と思い出される。' },
+    { img: 'ending_3.PNG', text: '（仮テキスト・エンディング3/5）失ったものと、得たもの。その両方が今の自分を作っている。' },
+    { img: 'ending_4.PNG', text: '（仮テキスト・エンディング4/5）街には、いつもと変わらない朝が訪れる。' },
+    { img: 'ending_5.PNG', text: '（仮テキスト・エンディング5/5）それでも、この手に残った強さだけは、確かなものだった。' }
+];
+ENDING_SCREENS.forEach(sc => {
+    const i = new Image();
+    i.onload = () => { imgs[sc.img] = i; };
+    i.onerror = () => { /* 任意アセットのため未用意でもエラー扱いにしない。プレースホルダー表示にフォールバック */ };
+    i.src = 'assets/images/cutscenes/ending/' + sc.img;
+});
 
 
 
@@ -727,6 +742,90 @@ async function playStorySequence() {
     goDeckBuild('story'); // 3画面すべて終わったらSKIPしなくても自動でデッキ編成へ
 }
 
+// エンディング5画面を再生する(スキップ不可。5人目撃破後の専用演出のため)
+async function playEndingSequence() {
+    const content = document.getElementById('endingContent');
+    const imgArea = document.getElementById('endingImgArea');
+    const fallback = document.getElementById('endingImgFallback');
+    const textEl = document.getElementById('endingText');
+
+    content.style.transition = 'none';
+    content.style.opacity = '0';
+    textEl.innerText = '';
+    imgArea.classList.remove('placeholder');
+    imgArea.style.backgroundImage = 'none';
+
+    for (let i = 0; i < ENDING_SCREENS.length; i++) {
+        const screen = ENDING_SCREENS[i];
+
+        if (imgs[screen.img]) {
+            imgArea.style.backgroundImage = `url('assets/images/cutscenes/ending/${screen.img}')`;
+            imgArea.classList.remove('placeholder');
+        } else {
+            imgArea.style.backgroundImage = 'none';
+            imgArea.classList.add('placeholder');
+            fallback.innerText = screen.img + ' (未配置)';
+        }
+
+        if (i === 0) {
+            // 一番はじめの画面だけフェードインで始める(プロローグ/ストーリーと同じ仕様)
+            await wait(30);
+            content.style.transition = 'opacity 1s ease-in';
+            content.style.opacity = '1';
+            await wait(1000);
+        }
+
+        textEl.innerText = '';
+        for (let c = 0; c < screen.text.length; c++) {
+            textEl.innerText += screen.text[c];
+            await wait(45);
+        }
+
+        await wait(2000);
+    }
+
+    // 5画面すべて表示し終えたら、フェードアウトして暗転する
+    content.style.transition = 'opacity 1.5s ease-out';
+    content.style.opacity = '0';
+    await wait(1500);
+}
+
+// エンドロール(下から上へスクロールするクレジット表示)を再生する。CSS側のtransition時間(14s)と合わせて待機する
+async function playCredits() {
+    const CREDITS_SCROLL_MS = 14000;
+    showScene('credits');
+    const scroll = document.getElementById('creditsScroll');
+    scroll.classList.remove('roll');
+    void scroll.offsetWidth; // 強制リフロー(アニメーションを確実に最初から再生させるため)
+    await wait(30);
+    scroll.classList.add('roll');
+    await wait(CREDITS_SCROLL_MS);
+}
+
+// FIN画面(真っ黒な背景の中央に白文字)を10秒間表示し、その後ゆっくりフェードアウトする
+async function playFinScreen() {
+    const finScene = document.getElementById('sceneFin');
+    finScene.style.transition = 'none';
+    finScene.style.opacity = '1';
+    showScene('fin');
+    await wait(10000);
+    finScene.style.transition = 'opacity 2s ease-out';
+    finScene.style.opacity = '0';
+    await wait(2000);
+}
+
+// 5人目(最終)撃破時の専用シーケンス: YOU WINの余韻を5秒→エンディング5画面→エンドロール→FIN.→タイトルへ自動的に戻る
+// この間、storyEnemyIndexは進めない(advanceToNextEnemyを呼ばない)ため、タイトルのCONTINUEは5人目と戦う前の状態のまま残る
+async function runFinalVictorySequence() {
+    await wait(5000);
+    hideResult();
+    showScene('ending');
+    await playEndingSequence();
+    await playCredits();
+    await playFinScreen();
+    goTitle();
+}
+
 function showScene(name) {
     document.querySelectorAll('.scene').forEach(el => el.classList.remove('active'));
     document.getElementById('scene' + name.charAt(0).toUpperCase() + name.slice(1)).classList.add('active');
@@ -812,7 +911,14 @@ function spriteFor(act, t) {
     return act === 'IDLE' ? breathSprite(t) : act;
 }
 
-function toIdle() { state.pAct = 'IDLE'; state.eAct = 'IDLE'; }
+function toIdle() {
+    // しびれている側はIDLE(呼吸)へ戻さず、damage.PNGでの被弾/ピヨり姿勢を維持する
+    if (!state.pNumbed) state.pAct = 'IDLE';
+    if (!state.eNumbed) state.eAct = 'IDLE';
+}
+// ピヨり演出の開始/終了。以後は draw() が state.piyoSide を見て継続的に描画し続ける(固定時間の演出ではない)
+function startPiyo(side) { state.piyoSide = side; }
+function stopPiyo() { state.piyoSide = null; }
 
 function draw(tRaw) {
     const t = tRaw || performance.now();
@@ -878,7 +984,8 @@ function draw(tRaw) {
     } else { ctx.fillStyle = '#f00'; ctx.fillRect(state.eX, state.eY, DB.IMG_SIZE, DB.IMG_SIZE); }
     ctx.restore();
 
-    // ピヨり演出: しびれている側の頭上にpiyo.PNGを表示(反転を交互に切り替える)
+    // ピヨり演出: しびれている側の頭上にpiyo.PNGを表示(反転を交互に切り替える)。
+    // state.piyoSideがtruthyな間はずっと表示し続ける(開始/終了は startPiyo/stopPiyo が担う)。反転は経過時間から計算する。
     // piyo.PNGは実ファイルが32x32pxで、実際に使う絵柄は左上を基準にした横21px×縦9pxの範囲のみ
     if (state.piyoSide) {
         const piyoImg = imgs['piyo.PNG'];
@@ -889,8 +996,9 @@ function draw(tRaw) {
             const pw = SRC_W * DB.SCALE, ph = SRC_H * DB.SCALE;
             const px = baseX + (DB.IMG_SIZE - pw) / 2;
             const py = baseY - ph - 10;
+            const piyoFlipNow = Math.floor(t / 180) % 2 === 1; // 180msごとに反転
             ctx.save();
-            if (state.piyoFlip) {
+            if (piyoFlipNow) {
                 ctx.translate(px + pw, py);
                 ctx.scale(-1, 1);
                 ctx.drawImage(piyoImg, SRC_X, SRC_Y, SRC_W, SRC_H, 0, 0, pw, ph);
@@ -1150,7 +1258,6 @@ function resetBattleState() {
     state.pNumbed = false;
     state.eNumbed = false;
     state.piyoSide = null;
-    state.piyoFlip = false;
     state.pPunchStreak = 0;
     state.ePunchStreak = 0;
     state.pGuardHoldPose = false;
@@ -1236,12 +1343,27 @@ async function playBattleIntro() {
 }
 
 function showResult(type) {
+    // 5人目(最終)の敵をYOU WINで倒した場合のみ、通常の決着画面ではなく専用のエンディング演出に分岐する
+    const isFinalVictory = (type !== 'KO') && (state.storyEnemyIndex === ENEMY_ORDER.length - 1);
+
     document.getElementById('resultText').innerText = type === 'KO' ? 'K.O.' : 'YOU WIN';
     const continueBtn = document.getElementById('continueBtn');
-    // K.O.(敗北)・YOU WIN(勝利)いずれもボタン(id: continueBtn)を表示するが、ラベルと遷移先が異なる。
+    const backTitleBtn = document.getElementById('backTitleBtn');
+
+    if (isFinalVictory) {
+        // ボタンは表示せず、YOU WINの余韻を見せた後、自動でエンディングへ遷移する(runFinalVictorySequence内で5秒待機)
+        continueBtn.style.display = 'none';
+        backTitleBtn.style.display = 'none';
+        document.getElementById('resultOverlay').classList.add('show');
+        runFinalVictorySequence();
+        return;
+    }
+
+    // K.O.(敗北)・YOU WIN(勝利、最終戦以外)いずれもボタン(id: continueBtn)を表示するが、ラベルと遷移先が異なる。
     // K.O.時は「CONTINUE」表記で直前のデッキ編成へ(同じ敵と再戦)、YOU WIN時は「NEXT BATTLE」表記で次の敵へ進めてからストーリーシーンを経てデッキ編成へ遷移する。
-    continueBtn.innerText = (type === 'KO') ? 'CONTINUE' : 'NEXT BATTLE';
     continueBtn.style.display = 'inline-block';
+    backTitleBtn.style.display = 'inline-block';
+    continueBtn.innerText = (type === 'KO') ? 'CONTINUE' : 'NEXT BATTLE';
     continueBtn.onclick = (type === 'KO') ? (() => goDeckBuild()) : goNextEnemy;
     document.getElementById('resultOverlay').classList.add('show');
 }
@@ -1426,27 +1548,26 @@ async function runUpperCombo(attacker, defender, cursor) {
     toIdle();
 }
 
-async function runGuardSuccess(winner, loser) {
+// GUARDが勝った場合の演出(勝った側はガードのまま反撃、負けた側はしびれる)
+// 第3すくみの通り、GUARDに勝てるのはPUNCHのみなので、通常は負けた側が必ずpunch.PNGの姿勢になる。
+// ただし、しびれによる無条件敗北(runNumbFail)経由で呼ばれた場合は、負けた側が実際にPUNCHを出していたとは限らないため、
+// loserPoseOverrideでポーズを明示的に上書きできるようにしている(その場合はdamage.PNGを指定する)。
+// ブロックされた瞬間からピヨり(頭上のpiyo.PNG)を開始し、以後damage.PNGの姿勢のまま維持する(IDLEには戻さない)。
+// このピヨり状態は、次の攻防でしびれ判定が解決される瞬間(resolveExchange)まで継続する。
+async function runGuardSuccess(winner, loser, loserPoseOverride) {
     state.pPunchStreak = 0; // ガードでパンチが止まった場合も連続記録は途切れる
     state.ePunchStreak = 0;
     setAct(winner, 'guard.PNG');
-    setAct(loser, 'punch.PNG'); // しびれてパンチの姿勢のまま
+    setAct(loser, loserPoseOverride || 'punch.PNG'); // ブロックされた瞬間の姿勢(通常はパンチのまま)
     applyDamage(winner, DB.DMG.TINY);
     triggerShake(winner, 250);
     triggerShake(loser, 400); // しびれによる振動(ダメージなし)
     if (loser === 'P') state.pNumbed = true; else state.eNumbed = true; // 次のコマンドの成功率が1/2になる
     if (winner === 'P') state.pGuardHoldPose = true; else state.eGuardHoldPose = true; // 相手がしびれている間、ガードの構えを維持する
-    await wait(500);
-    setAct(loser, 'IDLE'); // 負けた側だけidleへ。勝った側はguard.PNGを維持したまま
-}
-
-async function runPiyoEffect(side) {
-    state.piyoSide = side;
-    for (let i = 0; i < 4; i++) { // 通常→反転→通常→反転(2往復)
-        state.piyoFlip = (i % 2 === 1);
-        await wait(180);
-    }
-    state.piyoSide = null;
+    await wait(400);
+    setAct(loser, 'damage.PNG'); // ブロック反応から、しびれてダウン気味の姿勢へ
+    startPiyo(loser); // ここから次の攻防が解決されるまでピヨり続ける
+    await wait(100);
 }
 
 async function runNumbFail(numbedSide, cursor, pAct, eAct) {
@@ -1454,16 +1575,16 @@ async function runNumbFail(numbedSide, cursor, pAct, eAct) {
     const loser = numbedSide;
     const winnerMove = winner === 'P' ? pAct : eAct;
 
-    // ピヨり演出: しびれた側がdamage.PNGで点滅しつつ、頭上でpiyo.PNGが反転を繰り返す
+    // ピヨりは前の攻防(GUARDにブロックされた瞬間)から継続表示中。ここでは点滅を強めて「発動」を演出するだけに留める
     setAct(loser, 'damage.PNG');
     triggerBlink(loser, 1400);
-    await runPiyoEffect(loser);
+    await wait(700);
 
-    // ピヨり演出のあとは、相手の技の種類に応じた通常の勝敗処理へ(空中コンボならコンボも発生する)
+    // 相手の技の種類に応じた通常の勝敗処理へ(空中コンボならコンボも発生する)
     if (winnerMove === 'UPPER') {
         await runUpperCombo(winner, loser, cursor);
     } else if (winnerMove === 'GUARD') {
-        await runGuardSuccess(winner, loser);
+        await runGuardSuccess(winner, loser, 'damage.PNG'); // しびれ側は実際に出していた技に関わらずdamage.PNGにする
     } else {
         await runNormalHit(winner, loser, winnerMove);
     }
@@ -1488,6 +1609,7 @@ async function resolveExchange(pAct, eAct, cursor) {
         const guardSide = numbedSide === 'P' ? 'E' : 'P';
         if (numbedSide === 'P') state.pNumbed = false; else state.eNumbed = false;
         if (guardSide === 'P') state.pGuardHoldPose = false; else state.eGuardHoldPose = false; // 判定が出たので構え保持を解除
+        stopPiyo(); // この攻防で結果が決まるので、ここまで継続していたピヨりを終了する
         if (Math.random() < 0.5) {
             markCardOutcome(numbedSide, cursor.i, 'card-shatter'); // 3すくみ無視の敗北: ヒビ割れる
             await runNumbFail(numbedSide, cursor, pAct, eAct);
