@@ -1820,6 +1820,8 @@ function updateOptionUI() {
     const isTitle = document.getElementById('sceneTitle').classList.contains('active');
     document.getElementById('optionFooter').style.display = isTitle ? 'none' : 'flex';
     closeResetConfirm(); // 開き直したら確認状態はリセット
+    closeRetryConfirm();
+    closeReturnConfirm();
 }
 
 function setSound(on) {
@@ -1844,12 +1846,20 @@ function openItemGallery() {
     alert('図鑑機能は準備中です。');
 }
 
-function optionRetry() {
+// OPTION内のRETRY: このバトル直前のデッキ編成へ戻る(現在のモードを維持)。確認ポップアップを挟む。
+function openRetryConfirm() { document.getElementById('retryConfirmPanel').classList.add('show'); }
+function closeRetryConfirm() { document.getElementById('retryConfirmPanel').classList.remove('show'); }
+function doOptionRetry() {
+    closeRetryConfirm();
     closeOption();
     goDeckBuild();
 }
 
-function optionReturnToTitle() {
+// OPTION内のRETURN TO TITLE: ロゴシーンまで戻る。確認ポップアップを挟む(ストーリーの進行状況はセーブ済みのまま消えない)。
+function openReturnConfirm() { document.getElementById('returnConfirmPanel').classList.add('show'); }
+function closeReturnConfirm() { document.getElementById('returnConfirmPanel').classList.remove('show'); }
+function doOptionReturnToTitle() {
+    closeReturnConfirm();
     closeOption();
     goLogo();
 }
