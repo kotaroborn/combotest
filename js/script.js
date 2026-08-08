@@ -19,7 +19,7 @@
  * 17. 体力ゲージ演出: ダメージ発生時、現在値が即座に減り、黄色いバーが0.6秒遅れて減少する。
  * 18. TURN表示仕様: 画面上部中央に「TURN」と「数字」を2行で太字(900)表示する。
  * 19. 敵反転描画: 敵画像は常に左右反転して表示する。将来的に敵専用グラフィック(enemy_〇〇.PNG)を用意すれば自動的にそちらを優先して使用し、未用意の場合はプレイヤーと同じ画像にフォールバックする。
- * 20. 敵の主体性: 敵はデッキ編成を持たずプリセット/ランダムの手で応戦するが、プレイヤーと同じ枚数だけ必ず行動する。
+ * 20. 敵の主体性: 敵はデッキ編成を持たずプリセット/ランダムの手で応戦するが、プレイヤーと同じ枚数だけ必ず行動する。ただしTRAINING MODEは例外とし、プレイヤーが実際に場に出した手それぞれに対して、必ず負ける手(PUNCHにはUPPER、UPPERにはGUARD、GUARDにはPUNCH)を1枚ずつ生成する。この生成はプレイヤーがGO!を押した時点(手が確定した後)に行われ、確定と同時に公開される。
  * 21. パンチコンボ演出: 連続するパンチは punch.PNG と punch2.PNG を交互に使用する。地上の通常ヒット(3すくみでPUNCHが連続して勝つ場合)・空中コンボ中の連続パンチのいずれも対象とし、両者は同じ交互カウンターを共有する(ターンをまたいでも交互は継続し、途切れない)。
  * 22. 厳格命名規則: 全アセットの拡張子は常に「.PNG」（大文字）で統一する。ファイル名部は小文字。
  * 23. 動作保証: 画像読み込み完了を待ってからゲームループを開始し、UIインタラクションを確定させる。
@@ -88,7 +88,6 @@ let state = {
     pChargeMult: 1, eChargeMult: 1, // このターンの攻防で適用中の攻撃力倍率(チャージ消費時のみ2、それ以外は1)
     pGuardHoldPose: false, eGuardHoldPose: false, // 相手がしびれている間、ガード成功側の構えを維持するフラグ
     gameMode: 'story', pendingMode: 'story', // 'story' | 'training'
-    trainingCycleIndex: 0, // TRAINING MODE: PPPPP→UUUUU→GGGGGの周期(ターンごとに進む)
     storyEnemyIndex: 0, // STORY MODE: ENEMY_ORDER内の現在の敵の位置(連戦で進んでいく想定。セーブデータから復元される)
     soundOn: true, // OPTION画面のサウンドON/OFF(音自体は今後実装予定)
     introCharAlpha: 1, // バトル開始演出: 味方/敵のフェードイン係数(0〜1)
@@ -325,21 +324,6 @@ const ENEMY_PRESETS = {
     ENEMY_05: { name: '敵05(仮)', deck: { PUNCH: 7, UPPER: 7, GUARD: 7 }, favoritePatterns: [] },
 };
 const ENEMY_ORDER = ['ENEMY_01', 'ENEMY_02', 'ENEMY_03', 'ENEMY_04', 'ENEMY_05']; // 連戦の順番
-
-
-// HPバー下の名前表示を更新する。味方は固定でVAL、敵はSTORY MODEなら現在の敵プリセット名、
-// TRAINING MODEなら固定でENEMY(STORY MODEは今後の連戦で敵が変わるたびに自動で切り替わる)
-
-// 連戦で次の敵へ進む(勝利後に呼び出す想定。まだどこからも呼ばれていない=今後のストーリーパート実装時にフックする)
-
-
-
-// TRAINING MODE: 現在のサイクル(P→U→G)の技を返す。呼ぶだけではサイクルは進まない。
-
-// TRAINING MODE: 手札を選ぶ前から、次に相手が出す技を5枠まるごと公開しておく
-
-
-
 
 // ------- シーン管理 (プロローグ → タイトル → バトル) -------
 
@@ -1203,12 +1187,15 @@ function currentEnemyPreset() {
     return ENEMY_PRESETS[id];
 }
 
+// HPバー下の名前表示を更新する。味方は固定でVAL、敵はSTORY MODEなら現在の敵プリセット名、
+// TRAINING MODEなら固定でENEMY(STORY MODEは今後の連戦で敵が変わるたびに自動で切り替わる)
 function updateCharNames() {
     document.getElementById('playerName').innerText = 'VAL';
     document.getElementById('enemyName').innerText =
         state.gameMode === 'training' ? 'ENEMY' : currentEnemyPreset().name;
 }
 
+// 連戦で次の敵へ進む(YOU WIN時、決着画面のNEXT BATTLEからgoNextEnemy経由で呼ばれる)
 function advanceToNextEnemy() {
     state.storyEnemyIndex = (state.storyEnemyIndex + 1) % ENEMY_ORDER.length;
     writeSaveData({ storyEnemyIndex: state.storyEnemyIndex }); // 進行状況を保存
@@ -1223,15 +1210,11 @@ function weightedRandomMove(weights) {
     return 'GUARD';
 }
 
-function currentTrainingMove() {
-    const cycle = ['PUNCH', 'UPPER', 'GUARD'];
-    return cycle[state.trainingCycleIndex % cycle.length];
-}
-
-function showTrainingPreview() {
-    state.enemyHands = new Array(5).fill(currentTrainingMove());
-    state.enemyRevealedUpTo = 5;
-    drawEnemySlots();
+// TRAINING MODE: プレイヤーが出した技に、必ず負ける技を返す(PUNCHにはUPPER、UPPERにはGUARD、GUARDにはPUNCH)。
+// judge()の3すくみ関係(beats)と同じ対応表を使う。これにより、何を出しても必ず勝てる。
+const TRAINING_LOSES_TO = { PUNCH: 'UPPER', UPPER: 'GUARD', GUARD: 'PUNCH' };
+function trainingCounterMove(playerMove) {
+    return TRAINING_LOSES_TO[playerMove];
 }
 
 function generateEnemyTurnHand(count) {
@@ -1296,7 +1279,6 @@ function resetBattleState() {
     state.pGuardHoldPose = false;
     state.eGuardHoldPose = false;
     state.gameMode = state.pendingMode || 'story'; // デッキ編成画面へ来た時に選んだモードを確定
-    state.trainingCycleIndex = 0; // TRAINING MODEの周期はバトル開始のたびリセットしてOK
     updateCharNames(); // 味方=VAL(固定)、敵=STORY MODEなら現在の敵プリセット名、TRAINING MODEならENEMY
     state.introCharAlpha = 0; // 開始演出でふわっと表示するため、まずは透明から
     state.bgRevealRadius = 0; // 背景も真っ暗な状態からスタート
@@ -1326,15 +1308,11 @@ function resetBattleState() {
     document.getElementById('handRow').innerHTML = ''; // 手札はBATTLE START後にdealInitialHandAnimation()で配る
     updateDeckCountDisplay();
 
-    // 敵の手はターンごとに(必要枚数だけ)非公開で生成する。開始時点では空。
-    // TRAINING MODEのみ、カードを選ぶ前から次に出す技を5枠まるごと公開しておく。
-    if (state.gameMode === 'training') {
-        showTrainingPreview();
-    } else {
-        state.enemyHands = [];
-        state.enemyRevealedUpTo = 0;
-        drawEnemySlots();
-    }
+    // 敵の手はターンごとに(必要枚数だけ)生成する。開始時点では空。
+    // TRAINING MODEは、GO!を押した時点でプレイヤーの手に応じて必ず負ける手を生成する(resolveTurn内)。
+    state.enemyHands = [];
+    state.enemyRevealedUpTo = 0;
+    drawEnemySlots();
 }
 
 async function playBattleIntro() {
@@ -1758,9 +1736,9 @@ async function resolveTurn() {
 
     // プレイヤーが出した枚数だけ、敵も手を出してくる
     if (state.gameMode === 'training') {
-        // 既にshowTrainingPreview()で公開済みの5枚から、必要な枚数だけを使う
-        state.enemyHands = state.enemyHands.slice(0, total);
-        state.enemyRevealedUpTo = total;
+        // プレイヤーが実際に場に出した手に応じて、必ず負ける手を1枚ずつ生成する(第20条: 相手と同じ枚数だけ行動する点は維持)
+        state.enemyHands = state.hands.slice(0, total).map(trainingCounterMove);
+        state.enemyRevealedUpTo = total; // 生成した時点で内容は確定しているため、そのまま公開する
     } else {
         state.enemyHands = generateEnemyTurnHand(total);
         state.enemyRevealedUpTo = 0; // 第2条: 中身を伏せて攻防の直前に1枚ずつ公開する
@@ -1862,14 +1840,9 @@ async function resolveTurn() {
             }
             state.hands = new Array(5).fill(null); // 第1条: 5つの空枠に戻す
             updateUI();
-            if (state.gameMode === 'training') {
-                state.trainingCycleIndex++; // 次のP→U→Gへ周期を進める
-                showTrainingPreview(); // 次に相手が出す技を、カードを選ぶ前から公開しておく
-            } else {
-                state.enemyHands = [];
-                state.enemyRevealedUpTo = 0;
-                drawEnemySlots();
-            }
+            state.enemyHands = [];
+            state.enemyRevealedUpTo = 0;
+            drawEnemySlots();
             state.resolving = false;
         }
     }
