@@ -7,7 +7,7 @@
  * 5. 着地同期: 通常コンボ終了時（メテオに至らない場合）は、攻守双方が地面(GROUND_Y)へ着地してから次の演出へ遷移する。
  * 6. 通常コンボ終了時の演出: 攻撃側は必ずdash.PNGへ、被弾側はdamage.PNGのまま着地させる。
  * 7. 画像状態管理: 待機中は必ず player.PNG / player2.PNG の呼吸(idle)へ復帰する。idle.PNGという単独ファイルは存在しない。
- * 8. ダメージ計算: PUNCH勝利(10、地上での連続ヒットのたびに+5され、ガード等で止められると途切れる)、UPPER初撃(5)、空中パンチ連続ヒット加算(2発目以降+5)、メテオ(50)、相討ち(3)。三すくみに負けた側のみ振動(shake)する。ダメージを受けた側は、量の大小にかかわらず必ず一瞬点滅する(applyDamage内で共通処理)。同じ手同士の相討ちの場合は双方が微ダメージを受けて振動し、反動で一歩下がる。GUARDが勝った場合(相手のPUNCHを防いだ場合)、勝った側は極小ダメージで振動し、負けた側はダメージなしだがしびれ、次のコマンドの成功率が1/2になる(どちらの側がガードしても発生する)。しびれは「固定ダメージを受ける」仕様ではなく、次の攻防で1/2の確率で無条件敗北する仕様である。ブロックされた瞬間、負けた側はまず自身が出していた技の姿勢(通常はpunch.PNGのまま)で振動し、直後にdamage.PNGへ切り替わって頭上にpiyo.PNGが反転を繰り返す「ピヨり」演出が始まる。このピヨりは固定時間の演出ではなく、次の攻防の結果が決まる瞬間まで継続する。ピヨり中は、通常なら双方が第24条の通りdash.PNGで移動する場面(攻防後の後退、次の攻防前の踏み込み)であっても、ピヨり側は次のコマンドが始まるまでその場に留まり続け、dashで動かない(相手側のみ通常通り移動する)。次の攻防が始まり判定が行われる瞬間、ピヨりは終了する。その時点で1/2の確率が外れた場合はしびれが解消され、3すくみ判定による通常の攻防がそのまま行われる。1/2の確率が的中した場合は無条件敗北となり、しびれた側はdamage.PNGのまま点滅を強めた後、相手が実際に出していた技の種類(PUNCH/UPPER/GUARD)に応じた通常の勝敗処理(空中コンボやガード成功も含む)が3すくみ判定なしで適用される。この無条件敗北によってGUARD成功の処理が適用される場合、しびれた側は実際に出していた技に関わらずdamage.PNGの姿勢になり(通常のGUARD成功時の「負けた側は自身の技の姿勢のまま」という表現は、実際にその技を出して負けた場合のみに限定される)、この時新たにしびれが発生すればピヨりも再び開始する(しびれの連鎖)。しびれはターンをまたいで持ち越さない仕様とし、そのターン中に消費されなかった場合はターン終了時に必ず解消される。
+ * 8. ダメージ計算: PUNCH勝利(10、地上での連続ヒットのたびに+5され、ガード等で止められると途切れる)、UPPER初撃(5)、空中パンチ連続ヒット加算(2発目以降+5)、メテオ(50)、相討ち(3)。三すくみに負けた側のみ振動(shake)する。ダメージを受けた側は、量の大小にかかわらず必ず一瞬点滅する(applyDamage内で共通処理)。同じ手同士の相討ちの場合は双方が微ダメージを受けて振動し、反動で一歩下がる。GUARDが勝った場合(相手のPUNCHを防いだ場合)、勝った側は極小ダメージで振動し、負けた側はダメージなしだがしびれ、次のコマンドの成功率が1/2になる(どちらの側がガードしても発生する)。しびれは「固定ダメージを受ける」仕様ではなく、次の攻防で1/2の確率で無条件敗北する仕様である。ブロックされた瞬間、負けた側はまず自身が出していた技の姿勢(通常はpunch.PNGのまま)で振動し、直後にdamage.PNGへ切り替わって頭上にpiyo.PNGが反転を繰り返す「ピヨり」演出が始まる。このピヨりは固定時間の演出ではなく、次の攻防の結果が決まる瞬間まで継続する。ピヨり中は、通常なら双方が第24条の通りdash.PNGで移動する場面(攻防後の後退、次の攻防前の踏み込み)であっても、ピヨり側は次のコマンドが始まるまでその場に留まり続け、dashで動かない(相手側のみ通常通り移動する)。次の攻防が始まり判定が行われる瞬間、ピヨりは終了する。その時点で1/2の確率が外れた場合はしびれが解消され、3すくみ判定による通常の攻防がそのまま行われる。1/2の確率が的中した場合は無条件敗北となり、しびれた側はdamage.PNGのまま点滅を強めた後、相手が実際に出していた技の種類(PUNCH/UPPER/GUARD)に応じた通常の勝敗処理(空中コンボやガード成功も含む)が3すくみ判定なしで適用される。この無条件敗北によってGUARD成功の処理が適用される場合、しびれた側は実際に出していた技に関わらずdamage.PNGの姿勢になり(通常のGUARD成功時の「負けた側は自身の技の姿勢のまま」という表現は、実際にその技を出して負けた場合のみに限定される)、この時新たにしびれが発生すればピヨりも再び開始する(しびれの連鎖)。しびれはターンをまたいで持ち越さない仕様とし、そのターン中に消費されなかった場合はターン終了時に必ず解消される。ガード+ガード(チャージ): 同一ターン内でガード成功が2回連続すると、成功させた側の体が金色に発光し、次に出すカードの攻撃力が2倍になる。このチャージは、次に出すカードが勝敗に関わらず(勝っても負けても)消費される一度限りの効果であり、ガード成功時の自己反動ダメージ(TINY)には適用されない。ガード成功の連続カウントは同一ターン内のみ有効で、ターンが変わるとリセットされる(4連続成功すれば再度発動しうる)。ただし発光と2倍効果そのもの(チャージ状態)はしびれ・ピヨりとは異なりターンをまたいで持ち越され、消費されるまで発光し続ける。
  * 9. 座標復帰: ターン(5枠)全体の処理が完了した時点で、finally句にて必ずホームポジションへ dash.PNG の残像付きで帰還することを保証する。ただし体力が0になる最後の一撃を受けた場合は、この通常帰還処理の代わりに専用の決着演出（damage.PNGで点滅→スローに軽くバウンドしながら初期位置へ戻る→down.PNGで倒れる→K.O./YOU WIN表示）を実行する。
  * 10. 描画品質: imageSmoothingEnabled=false を維持しドット絵品質を担保。背景(bg.PNG)もキャラと同じcanvas上に同一の拡大率(SCALE)で描画し、ピクセルのズレを起こさない。背景画像の実サイズがcanvas比率(960:560)と異なる場合(例: 正方形で作られた画像)は、横幅いっぱいを使い、必要な高さぶんだけ画像の上側から切り取って描画する(下側は切り捨てる)。プロローグ・ストーリー・エンディングの画像(cine-img)についても同様に、指定サイズの画像を上側から切り取って表示する。
  * 11. モバイル対応: Flexboxとviewport固定によるレスポンシブ最適化。UI全体はappRootコンテナで正方形(1:1)に収め、画面中央に配置する。
@@ -79,6 +79,9 @@ let state = {
     pNumbed: false, eNumbed: false, // しびれフラグ: 次のコマンドの成功率が1/2になる(ガード成功で相手に付与)
     piyoSide: null, // ピヨり演出: どちら側の頭上に出すか(truthyな間、継続して表示される)
     pPunchStreak: 0, ePunchStreak: 0, // 地上パンチの連続ヒット数(コンボではなく、単発同士の連続成功を記録)
+    pGuardStreak: 0, eGuardStreak: 0, // ガード成功の連続回数(同一ターン内のみ。2回でチャージ発動、ターン終了時にリセット)
+    pCharged: false, eCharged: false, // チャージ状態(ガード2連続成功で発動)。次に出すカードで勝敗に関わらず消費される。ターンをまたいで持ち越す
+    pChargeMult: 1, eChargeMult: 1, // このターンの攻防で適用中の攻撃力倍率(チャージ消費時のみ2、それ以外は1)
     pGuardHoldPose: false, eGuardHoldPose: false, // 相手がしびれている間、ガード成功側の構えを維持するフラグ
     gameMode: 'story', pendingMode: 'story', // 'story' | 'training'
     trainingCycleIndex: 0, // TRAINING MODE: PPPPP→UUUUU→GGGGGの周期(ターンごとに進む)
@@ -975,6 +978,11 @@ function draw(tRaw) {
     const pImg = imgs[spriteFor(state.pAct, t)];
     ctx.save();
     ctx.globalAlpha = pAlpha;
+    if (state.pCharged) { // ガード2連続成功によるチャージ中は金色に発光する(次のコマンドまで持続)
+        const glowPulse = (Math.sin(t / 180) + 1) / 2; // 0〜1でゆっくり明滅
+        ctx.shadowColor = 'rgba(255, 215, 60, 0.95)';
+        ctx.shadowBlur = 14 + glowPulse * 16;
+    }
     if (pImg) ctx.drawImage(pImg, state.pX + pJit, state.pY + pJit, DB.IMG_SIZE, DB.IMG_SIZE);
     else { ctx.fillStyle = '#0f0'; ctx.fillRect(state.pX, state.pY, DB.IMG_SIZE, DB.IMG_SIZE); }
     ctx.restore();
@@ -986,6 +994,11 @@ function draw(tRaw) {
     const eImg = imgs[enemySpriteName(spriteFor(state.eAct, t))];
     ctx.save();
     ctx.globalAlpha = eAlpha;
+    if (state.eCharged) { // ガード2連続成功によるチャージ中は金色に発光する(次のコマンドまで持続)
+        const glowPulse = (Math.sin(t / 180) + 1) / 2;
+        ctx.shadowColor = 'rgba(255, 215, 60, 0.95)';
+        ctx.shadowBlur = 14 + glowPulse * 16;
+    }
     if (eImg) {
         ctx.save(); ctx.scale(-1, 1); // 第19条: 敵は常に反転
         ctx.drawImage(eImg, -(state.eX + eJit) - DB.IMG_SIZE, state.eY + eJit, DB.IMG_SIZE, DB.IMG_SIZE);
@@ -1269,6 +1282,12 @@ function resetBattleState() {
     state.piyoSide = null;
     state.pPunchStreak = 0;
     state.ePunchStreak = 0;
+    state.pGuardStreak = 0;
+    state.eGuardStreak = 0;
+    state.pCharged = false;
+    state.eCharged = false;
+    state.pChargeMult = 1;
+    state.eChargeMult = 1;
     state.pGuardHoldPose = false;
     state.eGuardHoldPose = false;
     state.gameMode = state.pendingMode || 'story'; // デッキ編成画面へ来た時に選んだモードを確定
@@ -1387,6 +1406,12 @@ function judge(p, e) {
     return beats[p] === e ? 'win' : 'lose';
 }
 
+// ガード2連続成功によるチャージが、指定した攻撃側(side)のこの攻防で有効かどうかの倍率(1または2)を返す。
+// resolveExchangeの冒頭で、次に出すカードが確定した時点で1回だけ決定される(勝敗に関わらず消費済み)。
+function chargeMultOf(side) {
+    return side === 'P' ? state.pChargeMult : state.eChargeMult;
+}
+
 function applyDamage(target, amount) {
     if (target === 'E') {
         state.hpE = Math.max(0, state.hpE - amount);
@@ -1478,9 +1503,10 @@ async function runNormalHit(winner, loser, move) {
     setAct(loser, 'damage.PNG');
     const winnerStreakKey = winner === 'P' ? 'pPunchStreak' : 'ePunchStreak';
     const loserStreakKey = loser === 'P' ? 'pPunchStreak' : 'ePunchStreak';
-    const dmg = DB.DMG.P + state[winnerStreakKey] * DB.DMG.P_COMBO_STEP; // 連続ヒット数に応じて増加
+    const dmg = (DB.DMG.P + state[winnerStreakKey] * DB.DMG.P_COMBO_STEP) * chargeMultOf(winner); // 連続ヒット数に応じて増加、チャージ中は2倍
     state[winnerStreakKey]++; // 命中したので連続記録を伸ばす
     state[loserStreakKey] = 0; // 負けた側の連続記録は途切れる
+    state.pGuardStreak = 0; state.eGuardStreak = 0; // ガード以外で勝敗が決したのでガード連続記録は途切れる
     applyDamage(loser, dmg);
     triggerShake(loser, 350); // 第8条: 負けた側のみ振動
     await wait(500);
@@ -1488,7 +1514,7 @@ async function runNormalHit(winner, loser, move) {
 }
 
 async function runMeteor(attacker, defender) {
-    applyDamage(defender, DB.DMG.M);
+    applyDamage(defender, DB.DMG.M * chargeMultOf(attacker));
     setAct(attacker, 'knock.PNG');
     setAct(defender, 'damage.PNG');
     await wait(400); // 一時停止
@@ -1520,12 +1546,13 @@ async function runUpperCombo(attacker, defender, cursor) {
     // UPPERが決まった時点で地上パンチの連続記録は途切れる(コンボ中の空中パンチとは別カウント)
     state.pPunchStreak = 0;
     state.ePunchStreak = 0;
+    state.pGuardStreak = 0; state.eGuardStreak = 0; // ガード以外で勝敗が決したのでガード連続記録は途切れる
     // 初撃: 打つ方は1/3だけホップ、受ける方はふわっと大きく浮く
     setAct(attacker, 'upper.PNG');
     setAct(defender, 'damage.PNG');
     setY(defender, DB.POS.FLOAT_Y);
     setY(attacker, DB.POS.HOP_Y);
-    applyDamage(defender, DB.DMG.U);
+    applyDamage(defender, DB.DMG.U * chargeMultOf(attacker));
     triggerShake(defender, 300);
     await wait(700);
 
@@ -1543,7 +1570,7 @@ async function runUpperCombo(attacker, defender, cursor) {
             setY(attacker, DB.POS.AIR_FOLLOW_Y);
             setAct(attacker, nextPunchSprite(attacker)); // 第21条
             markCardOutcome(defender, cursor.i, 'card-shatter'); // 3すくみ無視のコンボ継続: ヒビ割れる
-            const comboDmg = DB.DMG.P + (airPunches - 1) * DB.DMG.P_COMBO_STEP; // 1発目=P, 2発目=P+STEP...
+            const comboDmg = (DB.DMG.P + (airPunches - 1) * DB.DMG.P_COMBO_STEP) * chargeMultOf(attacker); // 1発目=P, 2発目=P+STEP...
             applyDamage(defender, comboDmg);
             triggerShake(defender, 200);
             await wait(500);
@@ -1574,14 +1601,25 @@ async function runGuardSuccess(winner, loser, loserPoseOverride) {
     state.ePunchStreak = 0;
     setAct(winner, 'guard.PNG');
     setAct(loser, loserPoseOverride || 'punch.PNG'); // ブロックされた瞬間の姿勢(通常はパンチのまま)
-    applyDamage(winner, DB.DMG.TINY);
+    applyDamage(winner, DB.DMG.TINY); // 自己反動の微ダメージのため、チャージ倍率は適用しない
     triggerShake(winner, 250);
     triggerShake(loser, 400); // しびれによる振動(ダメージなし)
     if (loser === 'P') state.pNumbed = true; else state.eNumbed = true; // 次のコマンドの成功率が1/2になる
     if (winner === 'P') state.pGuardHoldPose = true; else state.eGuardHoldPose = true; // 相手がしびれている間、ガードの構えを維持する
+
+    // ガード+ガード(チャージ): 同一ターン内でガード成功が2回連続すると、次に出すカードの攻撃力が2倍になる
+    const winnerGuardStreakKey = winner === 'P' ? 'pGuardStreak' : 'eGuardStreak';
+    const loserGuardStreakKey = loser === 'P' ? 'pGuardStreak' : 'eGuardStreak';
+    state[winnerGuardStreakKey]++;
+    state[loserGuardStreakKey] = 0;
+    if (state[winnerGuardStreakKey] >= 2) {
+        if (winner === 'P') state.pCharged = true; else state.eCharged = true; // 発光開始(draw()側で継続的に描画)。次に出すカードで消費されるまでターンをまたいで持続する
+        state[winnerGuardStreakKey] = 0; // 連続4回で再発動できるようリセット
+    }
+
     await wait(400);
     setAct(loser, 'damage.PNG'); // ブロック反応から、しびれてダウン気味の姿勢へ
-    startPiyo(loser); // ここから次の攻防が解決されるまでピヨり続ける
+    startPiyo(loser); // ここから次の攻防が解決されるまでピヨり続ける(チャージとは独立して、通常通りターン終了時に解消される)
     await wait(100);
 }
 
@@ -1616,6 +1654,12 @@ function markCardOutcome(side, idx, outcomeClass) {
 }
 
 async function resolveExchange(pAct, eAct, cursor) {
+    // チャージ消費: 次に出すカードで勝敗に関わらず必ず消費する(ガード2連続成功で発動した攻撃力2倍)
+    state.pChargeMult = state.pCharged ? 2 : 1;
+    state.eChargeMult = state.eCharged ? 2 : 1;
+    state.pCharged = false;
+    state.eCharged = false;
+
     await approachCenter(); // 第24条: 残像付きで中央へ踏み込む
 
     // しびれ判定: 直前の攻防でガードに阻まれた側は、1/2の確率でこの攻防に無条件で敗北する(3すくみ判定は行わない)
@@ -1637,6 +1681,8 @@ async function resolveExchange(pAct, eAct, cursor) {
         // 相討ち: 同じ手同士がぶつかる場合、双方が微ダメージを受けて振動し、反動で一歩下がる
         state.pPunchStreak = 0; // 相討ちでは連続記録が途切れる
         state.ePunchStreak = 0;
+        state.pGuardStreak = 0; // 相討ちではガードの連続記録も途切れる
+        state.eGuardStreak = 0;
         state.pAct = moveSprite(pAct);
         state.eAct = moveSprite(eAct);
         applyDamage('P', DB.DMG.CLASH);
@@ -1723,6 +1769,9 @@ async function resolveTurn() {
         state.pGuardHoldPose = false;
         state.eGuardHoldPose = false;
         stopPiyo();
+        // ガード連続成功のカウントは同一ターン内のみ有効。ターンをまたいで持ち越さない(チャージ状態自体は持ち越すため、ここではリセットしない)
+        state.pGuardStreak = 0;
+        state.eGuardStreak = 0;
 
         // 使用したプレイヤーカードを捨て札へ送り、使った枚数分だけ山から補充する
         for (let i = 0; i < total; i++) {
