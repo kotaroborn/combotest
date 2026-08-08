@@ -1,9 +1,9 @@
 /** 
  * 【憲法二十六条：全文】
- * 1. 5枠設計: 画面下部に最初から5つの空枠を固定表示し、手札のカードをタップするたびに先頭から順に空枠を埋めていく仕様。手札は21枚のデッキ(内訳は事前のデッキ編成画面で自由配分)から5枚を引いて構成し、ターンで使った枚数分だけ山から補充するが、山の残数を超えては補充しない(枠が空いたままになる場合がある)。手札・山が共に尽きた時のみ、DECK表示の点滅→「Refresh」表示→0からのカウントアップ演出とともに捨札を山へリシャッフルする(配分比率は変化しない)。
+ * 1. 5枠設計: 画面下部に最初から5つの空枠を固定表示し、手札のカードをタップするたびに先頭から順に空枠を埋めていく仕様。手札は21枚のデッキ(内訳は事前のデッキ編成画面で自由配分)から5枚を引いて構成し、ターンで使った枚数分だけ山から補充するが、山の残数を超えては補充しない(枠が空いたままになる場合がある)。手札・山が共に尽きた時のみ、DECK表示の点滅→「Refresh」表示→0からのカウントアップ演出とともに捨札を山へリシャッフルする(配分比率は変化しない)。ただしTRAINING MODEは例外とし、デッキという概念自体を持たない。手札はPUNCH/UPPER/GUARDを1枚ずつ固定した3枚のみで、タップしても手札からは取り除かれず何度でも選び直せる(選び放題)。5枠の場自体はSTORY MODEと同様に機能する。
  * 2. 敵コマンド非公開: プレイヤーが出した枚数だけ、その場で敵の手をランダム生成する。中身は伏せ札(?)で表示し、各攻防が始まる直前に1枚ずつ公開する(先読み不可・都度の読み合い)。
  * 3. 3すくみ: [PUNCH>UPPER][UPPER>GUARD][GUARD>PUNCH] の判定ロジック。勝敗は毎回この判定で決定する。同じ手同士がぶつかった場合は相討ちとする。
- * 4. 空中コンボ: 勝者の技がUPPERだった場合に発動。攻撃側の次の入力がPUNCHなら継続し、最大3発まで空中パンチを受け付ける。空中パンチは連続でヒットするほどダメージが増加する(1発目=基本値、2発目以降+増加量)。3発目は自動的にメテオへ変換される。UPPERで浮かせる際は、地面(または現在の高さ)から浮遊高さまでアニメーションで上昇させる(固定ステップ数・固定時間)。PUNCH+PUNCH+UPPER: 直前2連続の地上PUNCH勝利にUPPERの勝利が続いた場合(同一ターン内・同じ側のみ。相討ちやガードされる等で連続記録が途切れた場合はリセットされる)、そのUPPERは通常の2倍の高さまで打ち上げ、上昇距離が2倍になる分、同じ所要時間でより速く到達する(体感速度も2倍)。ダメージもUPPER初撃分が2倍になる。以降のコンボ継続時の追従位置も、この高い位置に合わせて2倍の高さになる。コンボが継続せず着地する場合は、通常時と同様に固定ステップ数・固定時間でアニメーションさせるため、高い位置からでも間延びしない(距離が長い分、自然と速く見える)。
+ * 4. 空中コンボ: 勝者の技がUPPERだった場合に発動。攻撃側の次の入力がPUNCHなら継続し、最大3発まで空中パンチを受け付ける。空中パンチは連続でヒットするほどダメージが増加する(1発目=基本値、2発目以降+増加量)。3発目は自動的にメテオへ変換される。UPPERで浮かせる際は、地面(または現在の高さ)から浮遊高さまでアニメーションで上昇させる(固定ステップ数・固定時間)。PUNCH+PUNCH+UPPER: 直前2連続の地上PUNCH勝利にUPPERの勝利が続いた場合(同一ターン内・同じ側のみ。相討ちやガードされる等で連続記録が途切れた場合はリセットされる)、そのUPPERは通常の2倍の高さまで打ち上げ、上昇距離が2倍になる分、同じ所要時間でより速く到達する(体感速度も2倍)。ダメージもUPPER初撃分が2倍になる。以降のコンボ継続時の追従位置も、この高い位置に合わせて2倍の高さになる。上昇中は、通常のUPPERとの違いを強調するため、攻撃側(upper.PNGの姿勢)・被弾側(damage.PNGの姿勢)それぞれの残像を残す(通常のUPPERでは残像は発生しない)。コンボが継続せず着地する場合は、通常時と同様に固定ステップ数・固定時間でアニメーションさせるため、高い位置からでも間延びしない(距離が長い分、自然と速く見える)。
  * 5. 着地同期: 通常コンボ終了時（メテオに至らない場合）は、攻守双方が地面(GROUND_Y)へ着地してから次の演出へ遷移する。
  * 6. 通常コンボ終了時の演出: 攻撃側は必ずdash.PNGへ、被弾側はdamage.PNGのまま着地させる。
  * 7. 画像状態管理: 待機中は必ず player.PNG / player2.PNG の呼吸(idle)へ復帰する。idle.PNGという単独ファイルは存在しない。
@@ -14,7 +14,7 @@
  * 12. 描画資産の不変性: 外部ファイルを厳格に読み込み、存在しない場合は読み込みエラーを即座に特定する。ただし敵専用グラフィック(enemy_〇〇.PNG)と背景(bg.PNG)は任意の差し替え用アセットであり、存在しなくてもエラー扱いにせず、敵はプレイヤー画像へ、背景は水色の塗りつぶしへフォールバックする。
  * 13. オブジェクトの生存維持: 状態管理オブジェクト(state, imgs)は決して再定義・初期化せず、常に参照し続ける。
  * 14. 憲法完全表記: コード提示の際、本憲法リストを一切省略せず必ず全条文を記述する。
- * 15. UI永続性: HP・TURN表示は画面上部に固定し、スロットは下部に永続表示する。画面はロゴ(BORN MAGAZINE presents)→プロローグ→タイトル→(STORY MODEのみ)ストーリーシーン→デッキ編成(21枚固定・内訳自由)→バトル→決着(K.O./YOU WIN)、の順で遷移する。ストーリーシーンはプロローグと同じ仕組み(画像+1文字ずつのテキストを1ブロックにまとめ中央配置、1画面目のみフェードイン)で、story_1〜3.PNGの3画面を再生し、タイトルからSTORY MODEを選んだ時のみ(CONTINUE/RETRYでは再生しない)表示される。SKIPしなくても3画面終了後は自動でデッキ編成へ遷移する。STORY MODEの敵はENEMY_01〜05の5体で固定し(裏ボス等の追加は将来的に想定するが、現時点では5体固定)、勝利のたびに次の敵へ進む。決着画面ではCONTINUE(K.O.時)またはNEXT BATTLE(YOU WIN時)と、タイトルへ戻る(ロゴシーンへ)の2つのボタンを提供する。K.O.(敗北)時は「CONTINUE」表記で直前のデッキ編成へ(同じ敵と再戦)、YOU WIN(勝利)時は「NEXT BATTLE」表記で次の敵へ進めてからその敵のストーリーシーン(3画面)を経てデッキ編成へ遷移する。ただし5体目(最終)の敵をYOU WINで倒した場合は例外とし、NEXT BATTLE/タイトルへ戻るのボタンは表示せず、YOU WINの表示を5秒間見せた後、自動的にエンディング(プロローグ/ストーリーと同じ仕組みの画像+1文字ずつのテキストで5画面、ending_1〜5.PNG)→フェードアウトで暗転→エンドロール(下から上へスクロールするクレジット表示)→FIN.(真っ黒な画面の中央に白い太文字、10秒表示後にゆっくりフェードアウト)の順に演出を行い、最後に自動的にタイトルへ戻る。この一連の流れの間、敵の進行状況(storyEnemyIndex)は5体目のまま更新しない(advanceToNextEnemyを呼ばない)ため、タイトルのCONTINUEは5体目の敵と戦う前の状態から再開される。ロゴシーンはフェードイン→2秒表示→フェードアウトの後、自動でプロローグへ遷移する。プロローグは画像とテキストを1ブロックにまとめて画面中央に配置し、シネマサイズの画像(op_1〜4.PNG)と1文字ずつ表示されるテキストを4画面分再生する(1画面目のみブロック全体がフェードインする)。SKIPしなくても4画面終了後は自動でタイトルへ遷移する。バトル開始時は暗転→味方/敵のフェードイン→背景(bg.PNG)がcanvas上で中心から円形に拡大表示→「BATTLE START」が左からディゾルブで入り中央で静止した後、拡大しながら消える演出を経て、手札が裏向きで配られてから左から順にめくられ、その後操作可能になる(この配布演出はバトル開始時のみで、以降の補充では行わない)。タイトル画面にはSTORY MODE/TRAINING MODEの下にOPTIONを設置し、サウンドON/OFF(設定値の保存のみ、音自体は今後実装予定)・STORY MODEの進行状況(倒した敵の人数)のリセット・隠しアイテムの図鑑(今後実装予定、取得済みアイテムがある場合のみ表示)を提供する。タイトル画面のCONTINUEは、セーブデータが存在するだけでは表示されず、実際に敵2体目以降まで到達した記録(セーブデータのstoryEnemyIndexが1以上)がある場合のみ表示される。NEW GAMEを選んだ場合、今回のプレイのstoryEnemyIndexは0から始まるが、セーブデータ側のstoryEnemyIndexは即座には上書きされない(誤ってNEW GAMEを選んでしまっても、既存の進行状況は消えず、次に勝利してadvanceToNextEnemyが呼ばれるまで保持される)。OPTION画面の「進行状況(セーブデータ)のリセット」を実行した場合のみ、セーブデータのstoryEnemyIndexが0に戻り、タイトルのCONTINUEも即座に消える(隠しアイテムの図鑑等のリセットは別途用意する想定で、この「進行状況(セーブデータ)のリセット」とは別軸)。STORY MODEの進行状況(現在の敵)とデッキ編成は、localStorageを用いて端末に保存され、次回起動時に自動で復元される。
+ * 15. UI永続性: HP・TURN表示は画面上部に固定し、スロットは下部に永続表示する。画面はロゴ(BORN MAGAZINE presents)→プロローグ→タイトル→(STORY MODEのみ)ストーリーシーン→デッキ編成(21枚固定・内訳自由)→バトル→決着(K.O./YOU WIN)、の順で遷移する。ストーリーシーンはプロローグと同じ仕組み(画像+1文字ずつのテキストを1ブロックにまとめ中央配置、1画面目のみフェードイン)で、story_1〜3.PNGの3画面を再生し、タイトルからSTORY MODEを選んだ時のみ(CONTINUE/RETRYでは再生しない)表示される。SKIPしなくても3画面終了後は自動でデッキ編成へ遷移する。STORY MODEの敵はENEMY_01〜05の5体で固定し(裏ボス等の追加は将来的に想定するが、現時点では5体固定)、勝利のたびに次の敵へ進む。TRAINING MODEはデッキ編成画面を経由せず、タイトルから直接バトルへ入る(デッキという概念自体を持たないため)。決着画面ではCONTINUE(K.O.時)またはNEXT BATTLE(YOU WIN時)と、タイトルへ戻る(ロゴシーンへ)の2つのボタンを提供する。K.O.(敗北)時は「CONTINUE」表記で直前のデッキ編成へ(同じ敵と再戦)、YOU WIN(勝利)時は「NEXT BATTLE」表記で次の敵へ進めてからその敵のストーリーシーン(3画面)を経てデッキ編成へ遷移する。ただし5体目(最終)の敵をYOU WINで倒した場合は例外とし、NEXT BATTLE/タイトルへ戻るのボタンは表示せず、YOU WINの表示を5秒間見せた後、自動的にエンディング(プロローグ/ストーリーと同じ仕組みの画像+1文字ずつのテキストで5画面、ending_1〜5.PNG)→フェードアウトで暗転→エンドロール(下から上へスクロールするクレジット表示)→FIN.(真っ黒な画面の中央に白い太文字、10秒表示後にゆっくりフェードアウト)の順に演出を行い、最後に自動的にタイトルへ戻る。この一連の流れの間、敵の進行状況(storyEnemyIndex)は5体目のまま更新しない(advanceToNextEnemyを呼ばない)ため、タイトルのCONTINUEは5体目の敵と戦う前の状態から再開される。ロゴシーンはフェードイン→2秒表示→フェードアウトの後、自動でプロローグへ遷移する。プロローグは画像とテキストを1ブロックにまとめて画面中央に配置し、シネマサイズの画像(op_1〜4.PNG)と1文字ずつ表示されるテキストを4画面分再生する(1画面目のみブロック全体がフェードインする)。SKIPしなくても4画面終了後は自動でタイトルへ遷移する。バトル開始時は暗転→味方/敵のフェードイン→背景(bg.PNG)がcanvas上で中心から円形に拡大表示→「BATTLE START」が左からディゾルブで入り中央で静止した後、拡大しながら消える演出を経て、手札が裏向きで配られてから左から順にめくられ、その後操作可能になる(この配布演出はバトル開始時のみで、以降の補充では行わない)。タイトル画面にはSTORY MODE/TRAINING MODEの下にOPTIONを設置し、サウンドON/OFF(設定値の保存のみ、音自体は今後実装予定)・STORY MODEの進行状況(倒した敵の人数)のリセット・隠しアイテムの図鑑(今後実装予定、取得済みアイテムがある場合のみ表示)を提供する。タイトル画面のCONTINUEは、セーブデータが存在するだけでは表示されず、実際に敵2体目以降まで到達した記録(セーブデータのstoryEnemyIndexが1以上)がある場合のみ表示される。NEW GAMEを選んだ場合、今回のプレイのstoryEnemyIndexは0から始まるが、セーブデータ側のstoryEnemyIndexは即座には上書きされない(誤ってNEW GAMEを選んでしまっても、既存の進行状況は消えず、次に勝利してadvanceToNextEnemyが呼ばれるまで保持される)。OPTION画面の「進行状況(セーブデータ)のリセット」を実行した場合のみ、セーブデータのstoryEnemyIndexが0に戻り、タイトルのCONTINUEも即座に消える(隠しアイテムの図鑑等のリセットは別途用意する想定で、この「進行状況(セーブデータ)のリセット」とは別軸)。STORY MODEの進行状況(現在の敵)とデッキ編成は、localStorageを用いて端末に保存され、次回起動時に自動で復元される。
  * 16. 位置保持: 攻防のたびに初期位置へ戻るのではなく、中央で衝突→軽く距離を取る、を繰り返す。ホームポジションへ戻るのはターン完了時のみ。
  * 17. 体力ゲージ演出: ダメージ発生時、現在値が即座に減り、黄色いバーが0.6秒遅れて減少する。
  * 18. TURN表示仕様: 画面上部中央に「TURN」と「数字」を2行で太字(900)表示する。
@@ -475,6 +475,11 @@ function drawCard() {
 function updateDeckCountDisplay() {
     const el = document.getElementById('deckInfo');
     if (!el) return;
+    if (state.gameMode === 'training') {
+        el.style.display = 'none'; // TRAINING MODEは山札を使わないため非表示にする
+        return;
+    }
+    el.style.display = '';
     el.innerText = `DECK ${state.playerDeck.length}/${DB.DECK_TOTAL}`;
 }
 
@@ -854,6 +859,15 @@ function goDeckBuild(mode) {
     showScene('deck');
 }
 
+// TRAINING MODE専用: デッキ編成を経由せず、タイトルから直接バトルへ入る(手札は固定のPUNCH/UPPER/GUARD、選び放題)。
+// デッキ編成を使わないため、goBattleStartと異なりdeckCountsのセーブ書き込みは行わない。
+function goTrainingBattle() {
+    state.pendingMode = 'training';
+    resetBattleState();
+    showScene('battle');
+    playBattleIntro();
+}
+
 function tapFlickerThen(el, callback) {
     el.classList.remove('tap-flicker');
     void el.offsetWidth; // 連打時もアニメーションを確実に再生させるための強制リフロー
@@ -941,13 +955,16 @@ function draw(tRaw) {
         ctx.restore();
     }
 
-    // 残像(第24条)を先に描画
-    const TRAIL_LIFE = 220;
-    trails = trails.filter(tr => (t - tr.born) < TRAIL_LIFE);
+    // 残像(第24条、およびPUNCH+PUNCH+UPPERの強さ演出)を先に描画。
+    // 各残像は個別に寿命(life)・スプライト(sprite)・最大不透明度(maxAlpha)を持てる。省略時は従来のdash残像と同じ既定値になる。
+    trails = trails.filter(tr => (t - tr.born) < (tr.life || 220));
     trails.forEach(tr => {
+        const life = tr.life || 220;
+        const maxAlpha = tr.maxAlpha != null ? tr.maxAlpha : 0.35;
         const age = t - tr.born;
-        const alpha = 0.35 * (1 - age / TRAIL_LIFE);
-        const img = imgs[tr.side === 'E' ? enemySpriteName('dash.PNG') : 'dash.PNG'];
+        const alpha = maxAlpha * (1 - age / life);
+        const spriteName = tr.sprite || 'dash.PNG';
+        const img = imgs[tr.side === 'E' ? enemySpriteName(spriteName) : spriteName];
         if (!img || alpha <= 0) return;
         ctx.save();
         ctx.globalAlpha = alpha;
@@ -1033,7 +1050,7 @@ function playCard(handIdx) {
     const slotIdx = state.hands.indexOf(null);
     if (slotIdx === -1) return; // 場(5枠)がすでに埋まっている
     state.hands[slotIdx] = card;
-    state.playerHand[handIdx] = null;
+    if (state.gameMode !== 'training') state.playerHand[handIdx] = null; // TRAINING MODEは選び放題のため手札から取り除かない
     updateHandUI();
     updateUI();
 }
@@ -1053,13 +1070,13 @@ function resetHands() {
 
 async function dealInitialHandAnimation() {
     const s = document.getElementById('handRow'); s.innerHTML = '';
-    const n = state.playerHand.length; // 5
+    const n = state.playerHand.length; // STORY MODEは5、TRAINING MODEは3(PUNCH/UPPER/GUARD固定)
     const mid = (n - 1) / 2;
     const GAP_X = 48; // updateHandUI()と同じ配置計算に合わせる
     const ARC_K = 4;
     const cardEls = [];
 
-    // 1. まず5枚とも裏向きで、画面下からふわっと配られる
+    // 1. まず裏向きで、画面下からふわっと配られる(枚数はplayerHandの実際の長さに従う)
     state.playerHand.forEach((card, idx) => {
         const d = document.createElement('div');
         d.className = 'card card-back';
@@ -1106,8 +1123,8 @@ async function dealInitialHandAnimation() {
 function updateHandUI(animateIndices) {
     animateIndices = animateIndices || [];
     const s = document.getElementById('handRow'); s.innerHTML = '';
-    const n = state.playerHand.length; // 5
-    const mid = (n - 1) / 2; // 中央インデックス(2)
+    const n = state.playerHand.length; // STORY MODEは5、TRAINING MODEは3(PUNCH/UPPER/GUARD固定・選び放題)
+    const mid = (n - 1) / 2; // 中央インデックス
     const GAP_X = 48; // カード中心同士の横間隔(px)
     const ARC_K = 4;  // 円弧の深さ係数(大きいほど外側が下がる)
     state.playerHand.forEach((card, idx) => {
@@ -1287,11 +1304,18 @@ function resetBattleState() {
     trails = [];
     cardOutcomes = { P: new Array(5).fill(null), E: new Array(5).fill(null) };
 
-    // デッキ編成画面で決めた配分から山札を構築し、初期手札5枚を引く
-    state.playerDeck = buildDeckArray(deckCounts);
-    state.playerDiscard = [];
-    state.playerHand = new Array(5).fill(null);
-    for (let i = 0; i < 5; i++) state.playerHand[i] = drawCard();
+    // デッキ編成画面で決めた配分から山札を構築し、初期手札5枚を引く。
+    // TRAINING MODEのみ、山札を使わず固定でPUNCH/UPPER/GUARDの3枚を手札にする(タップしても減らない=選び放題)。
+    if (state.gameMode === 'training') {
+        state.playerDeck = [];
+        state.playerDiscard = [];
+        state.playerHand = ['PUNCH', 'UPPER', 'GUARD'];
+    } else {
+        state.playerDeck = buildDeckArray(deckCounts);
+        state.playerDiscard = [];
+        state.playerHand = new Array(5).fill(null);
+        for (let i = 0; i < 5; i++) state.playerHand[i] = drawCard();
+    }
 
     document.getElementById('hpP').style.width = '100%';
     document.getElementById('hpP_y').style.width = '100%';
@@ -1555,6 +1579,7 @@ async function runUpperCombo(attacker, defender, cursor) {
 
     // 上昇アニメーション: 地面(または現在の高さ)から浮遊高さまで、固定ステップ数・固定所要時間で上昇させる。
     // PUNCH+PUNCH+UPPERの場合は目標の高さが2倍になるため、同じ時間でより長い距離を移動する=体感速度も2倍になる。
+    // PUNCH+PUNCH+UPPERの上昇中は、通常のアッパーより強く見えるよう残像を残す(第24条の残像表現を流用)。
     const floatTargetY = isSuperUpper ? DB.POS.SUPER_FLOAT_Y : DB.POS.FLOAT_Y;
     const hopTargetY = isSuperUpper ? DB.POS.SUPER_HOP_Y : DB.POS.HOP_Y;
     const riseSteps = 6, riseStepMs = 45;
@@ -1563,6 +1588,10 @@ async function runUpperCombo(attacker, defender, cursor) {
         const t = s / riseSteps;
         setY(defender, defenderFromY + (floatTargetY - defenderFromY) * t);
         setY(attacker, attackerFromY + (hopTargetY - attackerFromY) * t);
+        if (isSuperUpper) {
+            trails.push({ side: attacker, x: getX(attacker), y: getY(attacker), born: performance.now(), sprite: 'upper.PNG', life: 260, maxAlpha: 0.5 });
+            trails.push({ side: defender, x: getX(defender), y: getY(defender), born: performance.now(), sprite: 'damage.PNG', life: 260, maxAlpha: 0.5 });
+        }
         await wait(riseStepMs);
     }
     await wait(430); // 空中での間(上昇分と合わせて元の700ms相当を維持)
@@ -1784,22 +1813,25 @@ async function resolveTurn() {
         state.pGuardStreak = 0;
         state.eGuardStreak = 0;
 
-        // 使用したプレイヤーカードを捨て札へ送り、使った枚数分だけ山から補充する
-        for (let i = 0; i < total; i++) {
-            if (state.hands[i]) state.playerDiscard.push(state.hands[i]);
-        }
-        const drawnIndices = [];
-        for (let i = 0; i < state.playerHand.length; i++) {
-            if (state.playerHand[i] === null) {
-                const c = drawCard(); // 山の残数を超えては引けない(nullなら空枠のまま残る)
-                if (c !== null) {
-                    state.playerHand[i] = c;
-                    drawnIndices.push(i);
+        // 使用したプレイヤーカードを捨て札へ送り、使った枚数分だけ山から補充する。
+        // TRAINING MODEは固定パレット(選び放題)のため、捨札・補充の概念自体がなく丸ごとスキップする。
+        if (state.gameMode !== 'training') {
+            for (let i = 0; i < total; i++) {
+                if (state.hands[i]) state.playerDiscard.push(state.hands[i]);
+            }
+            const drawnIndices = [];
+            for (let i = 0; i < state.playerHand.length; i++) {
+                if (state.playerHand[i] === null) {
+                    const c = drawCard(); // 山の残数を超えては引けない(nullなら空枠のまま残る)
+                    if (c !== null) {
+                        state.playerHand[i] = c;
+                        drawnIndices.push(i);
+                    }
                 }
             }
+            updateHandUI(drawnIndices); // 補充分だけ画面下から回転しつつ登場するアニメーション
+            updateDeckCountDisplay();
         }
-        updateHandUI(drawnIndices); // 補充分だけ画面下から回転しつつ登場するアニメーション
-        updateDeckCountDisplay();
 
         if (gameOverSide) {
             // 体力を0にする最後の一撃: 通常の帰還処理の代わりに専用の決着演出を実行
@@ -1915,7 +1947,11 @@ function closeRetryConfirm() { document.getElementById('retryConfirmPanel').clas
 function doOptionRetry() {
     closeRetryConfirm();
     closeOption();
-    goDeckBuild();
+    if (state.gameMode === 'training') {
+        goTrainingBattle(); // TRAINING MODEはデッキ編成を経由しないため直接バトルへ
+    } else {
+        goDeckBuild();
+    }
 }
 
 // OPTION内のRETURN TO TITLE: ロゴシーンまで戻る。確認ポップアップを挟む(ストーリーの進行状況はセーブ済みのまま消えない)。
