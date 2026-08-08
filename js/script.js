@@ -20,7 +20,7 @@
  * 18. TURN表示仕様: 画面上部中央に「TURN」と「数字」を2行で太字(900)表示する。
  * 19. 敵反転描画: 敵画像は常に左右反転して表示する。将来的に敵専用グラフィック(enemy_〇〇.PNG)を用意すれば自動的にそちらを優先して使用し、未用意の場合はプレイヤーと同じ画像にフォールバックする。
  * 20. 敵の主体性: 敵はデッキ編成を持たずプリセット/ランダムの手で応戦するが、プレイヤーと同じ枚数だけ必ず行動する。
- * 21. パンチコンボ演出: 空中コンボ中の連続パンチは punch.PNG と punch2.PNG を交互に使用する。
+ * 21. パンチコンボ演出: 連続するパンチは punch.PNG と punch2.PNG を交互に使用する。地上の通常ヒット(3すくみでPUNCHが連続して勝つ場合)・空中コンボ中の連続パンチのいずれも対象とし、両者は同じ交互カウンターを共有する(ターンをまたいでも交互は継続し、途切れない)。
  * 22. 厳格命名規則: 全アセットの拡張子は常に「.PNG」（大文字）で統一する。ファイル名部は小文字。
  * 23. 動作保証: 画像読み込み完了を待ってからゲームループを開始し、UIインタラクションを確定させる。
  * 24. 対面踏み込みの原則: 技を出す前に必ず双方が残像(afterimage)付きの dash.PNG で画面中央へ踏み込み、衝突地点で技を出し合う。
@@ -1471,8 +1471,10 @@ function nextQueuedMove(side, cursor) {
     return side === 'P' ? state.hands[idx] : state.enemyHands[idx];
 }
 
+// 地上の連続パンチも、空中コンボと同様にpunch.PNG/punch2.PNGを交互に使う(第21条)。
+// 本関数はPUNCH勝利時のみ呼ばれる想定だが、念のためPUNCH以外はmoveSpriteにフォールバックする。
 async function runNormalHit(winner, loser, move) {
-    setAct(winner, moveSprite(move));
+    setAct(winner, move === 'PUNCH' ? nextPunchSprite(winner) : moveSprite(move));
     setAct(loser, 'damage.PNG');
     const winnerStreakKey = winner === 'P' ? 'pPunchStreak' : 'ePunchStreak';
     const loserStreakKey = loser === 'P' ? 'pPunchStreak' : 'ePunchStreak';
