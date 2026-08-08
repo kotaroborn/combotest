@@ -7,7 +7,7 @@
  * 5. 着地同期: 通常コンボ終了時（メテオに至らない場合）は、攻守双方が地面(GROUND_Y)へ着地してから次の演出へ遷移する。
  * 6. 通常コンボ終了時の演出: 攻撃側は必ずdash.PNGへ、被弾側はdamage.PNGのまま着地させる。
  * 7. 画像状態管理: 待機中は必ず player.PNG / player2.PNG の呼吸(idle)へ復帰する。idle.PNGという単独ファイルは存在しない。
- * 8. ダメージ計算: PUNCH勝利(10、地上での連続ヒットのたびに+5され、ガード等で止められると途切れる)、UPPER初撃(5)、空中パンチ連続ヒット加算(2発目以降+5)、メテオ(50)、相討ち(3)。三すくみに負けた側のみ振動(shake)する。ダメージを受けた側は、量の大小にかかわらず必ず一瞬点滅する(applyDamage内で共通処理)。同じ手同士の相討ちの場合は双方が微ダメージを受けて振動し、反動で一歩下がる。GUARDが勝った場合(相手のPUNCHを防いだ場合)、勝った側は極小ダメージで振動し、負けた側はダメージなしだがしびれ、次のコマンドの成功率が1/2になる(どちらの側がガードしても発生する)。しびれは「固定ダメージを受ける」仕様ではなく、次の攻防で1/2の確率で無条件敗北する仕様である。ブロックされた瞬間、負けた側はまず自身が出していた技の姿勢(通常はpunch.PNGのまま)で振動し、直後にdamage.PNGへ切り替わって頭上にpiyo.PNGが反転を繰り返す「ピヨり」演出が始まる。このピヨりは固定時間の演出ではなく、次の攻防の結果が決まる瞬間まで継続する。ピヨり中は、通常なら双方が第24条の通りdash.PNGで移動する場面(攻防後の後退、次の攻防前の踏み込み)であっても、ピヨり側は次のコマンドが始まるまでその場に留まり続け、dashで動かない(相手側のみ通常通り移動する)。次の攻防が始まり判定が行われる瞬間、ピヨりは終了する。その時点で1/2の確率が外れた場合はしびれが解消され、3すくみ判定による通常の攻防がそのまま行われる。1/2の確率が的中した場合は無条件敗北となり、しびれた側はdamage.PNGのまま点滅を強めた後、相手が実際に出していた技の種類(PUNCH/UPPER/GUARD)に応じた通常の勝敗処理(空中コンボやガード成功も含む)が3すくみ判定なしで適用される。この無条件敗北によってGUARD成功の処理が適用される場合、しびれた側は実際に出していた技に関わらずdamage.PNGの姿勢になり(通常のGUARD成功時の「負けた側は自身の技の姿勢のまま」という表現は、実際にその技を出して負けた場合のみに限定される)、この時新たにしびれが発生すればピヨりも再び開始する(しびれの連鎖)。しびれはターンをまたいで持ち越さない仕様とし、そのターン中に消費されなかった場合はターン終了時に必ず解消される。ガード+ガード(チャージ): 同一ターン内でガード成功が2回連続すると、成功させた側の体が金色に発光し、次に出すカードの攻撃力が2倍になる。ガード成功がさらに3回連続以降となった場合は、チャージが消費されないままカウントだけが伸び、倍率が4倍(上限)に格上げされる(4倍時は金色の発光の外側に白いオーラがもう一段重なり、二重の輪として2倍と明確に区別できるようにする)。チャージは、ガード成功以外の結果(PUNCH/UPPER勝利・負け・相討ち)で次に出すカードが決着した時点で、勝敗に関わらず(勝っても負けても)消費される一度限りの効果であり、ガード成功時の自己反動ダメージ(TINY)には適用されない。ガード成功の連続カウントは同一ターン内のみ有効で、ターンが変わるとリセットされる。ただし発光と倍率効果そのもの(チャージ状態)はしびれ・ピヨりとは異なりターンをまたいで持ち越され、消費されるまで発光し続ける。
+ * 8. ダメージ計算: PUNCH勝利(10、地上での連続ヒットのたびに+5され、ガード等で止められると途切れる)、UPPER初撃(5)、空中パンチ連続ヒット加算(2発目以降+5)、メテオ(50)、相討ち(3)。三すくみに負けた側のみ振動(shake)する。ダメージを受けた側は、量の大小にかかわらず必ず一瞬点滅する(applyDamage内で共通処理)。同じ手同士の相討ちの場合は双方が微ダメージを受けて振動し、反動で一歩下がる。GUARDが勝った場合(相手のPUNCHを防いだ場合)、勝った側は極小ダメージで振動し、負けた側はダメージなしだがしびれ、次のコマンドの成功率が1/2になる(どちらの側がガードしても発生する)。しびれは「固定ダメージを受ける」仕様ではなく、次の攻防で1/2の確率で無条件敗北する仕様である。ブロックされた瞬間、負けた側はまず自身が出していた技の姿勢(通常はpunch.PNGのまま)で振動し、直後にdamage.PNGへ切り替わって頭上にpiyo.PNGが反転を繰り返す「ピヨり」演出が始まる。このピヨりは固定時間の演出ではなく、次の攻防の結果が決まる瞬間まで継続する。ピヨり中は、通常なら双方が第24条の通りdash.PNGで移動する場面(攻防後の後退、次の攻防前の踏み込み)であっても、ピヨり側は次のコマンドが始まるまでその場に留まり続け、dashで動かない(相手側のみ通常通り移動する)。次の攻防が始まり判定が行われる瞬間、ピヨりは終了する。その時点で1/2の確率が外れた場合はしびれが解消され、3すくみ判定による通常の攻防がそのまま行われる。1/2の確率が的中した場合は無条件敗北となり、しびれた側はdamage.PNGのまま点滅を強めた後、相手が実際に出していた技の種類(PUNCH/UPPER/GUARD)に応じた通常の勝敗処理(空中コンボやガード成功も含む)が3すくみ判定なしで適用される。この無条件敗北によってGUARD成功の処理が適用される場合、しびれた側は実際に出していた技に関わらずdamage.PNGの姿勢になり(通常のGUARD成功時の「負けた側は自身の技の姿勢のまま」という表現は、実際にその技を出して負けた場合のみに限定される)、この時新たにしびれが発生すればピヨりも再び開始する(しびれの連鎖)。しびれはターンをまたいで持ち越さない仕様とし、そのターン中に消費されなかった場合はターン終了時に必ず解消される。ガード+ガード(チャージ): 同一ターン内でガード成功が2回連続すると、成功させた側の体が金色に発光し、次に出すカードの攻撃力が2倍になる。ガード成功がさらに3回連続以降となった場合は、チャージが消費されないままカウントだけが伸び、倍率が4倍(上限)に格上げされる(4倍時は金色の発光の外側に白いオーラがもう一段重なり、二重の輪として2倍と明確に区別できるようにする)。チャージは、ガード成功以外の結果(PUNCH/UPPER勝利・負け・相討ち)で次に出すカードが決着した時点で、勝敗に関わらず(勝っても負けても)消費される一度限りの効果であり、ガード成功時の自己反動ダメージ(TINY)には適用されない。ガード成功の連続カウントは同一ターン内のみ有効で、ターンが変わるとリセットされる。ただし発光と倍率効果そのもの(チャージ状態)はしびれ・ピヨりとは異なりターンをまたいで持ち越され、消費されるまで発光し続ける。PUNCH+GUARD+PUNCH(追撃): 手札のどの位置であっても、PUNCH,GUARD,PUNCHの3枚が連続して出され、いずれも勝利した場合(相打ちは不可)、3枚目の直後に追撃が発生する。追撃はpunch.PNGとpunch2.PNGを素早く切り替えながら3連打し、3すくみ判定を行わずヒット確定で命中する。1発ごとに通常のPUNCH勝利初撃と同じダメージを与える(合計で通常の3倍、チャージ等の倍率の影響は受けない)。GUARD+PUNCH+GUARD+PUNCH+PUNCH(必殺技): 手札の1〜5枚目がこの並びで、1〜4枚目が勝利または相打ちだった場合(1枚でも敗北すると不成立)、5枚目のPUNCHは3すくみ判定を行わずヒット確定の必殺技に変化する。固定ダメージ(50、チャージ等の倍率の影響を受けない)を与え、被弾側をdamage.PNGのまま画面端まで吹き飛ばし、端に到達すると点滅した後knock2.PNGになり、通常のターン終了処理で定位置へ戻る。この必殺技でK.O.した場合は、画面端でdown.PNGのまま倒れ、通常の決着演出(ホームポジションへ戻ってからのバウンド)は行わない。この5枚の並びには2〜4枚目にPUNCH,GUARD,PUNCHが含まれるが、この場合は追撃技としては判定されない(必殺技の判定が優先され、追撃はキャンセルされる)。
  * 9. 座標復帰: ターン(5枠)全体の処理が完了した時点で、finally句にて必ずホームポジションへ dash.PNG の残像付きで帰還することを保証する。ただし体力が0になる最後の一撃を受けた場合は、この通常帰還処理の代わりに専用の決着演出（damage.PNGで点滅→スローに軽くバウンドしながら初期位置へ戻る→down.PNGで倒れる→K.O./YOU WIN表示）を実行する。
  * 10. 描画品質: imageSmoothingEnabled=false を維持しドット絵品質を担保。背景(bg.PNG)もキャラと同じcanvas上に同一の拡大率(SCALE)で描画し、ピクセルのズレを起こさない。背景画像の実サイズがcanvas比率(960:560)と異なる場合(例: 正方形で作られた画像)は、横幅いっぱいを使い、必要な高さぶんだけ画像の上側から切り取って描画する(下側は切り捨てる)。プロローグ・ストーリー・エンディングの画像(cine-img)についても同様に、指定サイズの画像を上側から切り取って表示する。
  * 11. モバイル対応: Flexboxとviewport固定によるレスポンシブ最適化。UI全体はappRootコンテナで正方形(1:1)に収め、画面中央に配置する。
@@ -44,7 +44,7 @@ const DB = {
         RETREAT_HALF: 200,  // 攻防のあと軽く距離を取る位置（ホームまでは戻らない）
         GROUND_MARGIN_PX: 3 // 地面バンドの高さ(ソースpx換算。キャラ下部3px想定)
     },
-    DMG: { P: 10, U: 5, M: 50, CLASH: 3, TINY: 1, P_COMBO_STEP: 5 }, // P:パンチ勝利 / U:アッパー初撃 / M:メテオ / CLASH:相討ち微ダメージ / TINY:ガードされたパンチの反撃 / P_COMBO_STEP:空中パンチ連続ヒットの増加量
+    DMG: { P: 10, U: 5, M: 50, CLASH: 3, TINY: 1, P_COMBO_STEP: 5, FINISHER: 50 }, // P:パンチ勝利 / U:アッパー初撃 / M:メテオ / CLASH:相討ち微ダメージ / TINY:ガードされたパンチの反撃 / P_COMBO_STEP:空中パンチ連続ヒットの増加量 / FINISHER:GUARD+PUNCH+GUARD+PUNCH+PUNCH成立時の必殺技(チャージ等の影響を受けない固定値)
     MAX_AIR_PUNCH: 3,
     BREATH_MS: 500, // player.PNG / player2.PNG の呼吸切替間隔
     DECK_TOTAL: 21 // デッキ合計枚数(内訳は編成画面で自由配分)
@@ -64,6 +64,9 @@ DB.POS.P_ATTACK_X = DB.POS.CENTER_X - DB.POS.ATTACK_HALF - DB.IMG_SIZE / 2;
 DB.POS.E_ATTACK_X = DB.POS.CENTER_X + DB.POS.ATTACK_HALF - DB.IMG_SIZE / 2;
 DB.POS.P_RETREAT_X = DB.POS.CENTER_X - DB.POS.RETREAT_HALF - DB.IMG_SIZE / 2;
 DB.POS.E_RETREAT_X = DB.POS.CENTER_X + DB.POS.RETREAT_HALF - DB.IMG_SIZE / 2;
+// 必殺技(GUARD+PUNCH+GUARD+PUNCH+PUNCH)で吹き飛ばす先の画面端座標
+DB.POS.EDGE_P_X = 10;
+DB.POS.EDGE_E_X = 960 - DB.IMG_SIZE - 10;
 // 背景アート推奨解像度: canvas(960×560)をSCALEで割った値 = 96×56px。1px=キャラの1pxと完全に一致する。
 DB.BG_SRC_W = 960 / DB.SCALE; // 96
 DB.BG_SRC_H = 560 / DB.SCALE; // 56
@@ -84,6 +87,11 @@ let state = {
     pPunchStreak: 0, ePunchStreak: 0, // 地上パンチの連続ヒット数(コンボではなく、単発同士の連続成功を記録)
     pGuardStreak: 0, eGuardStreak: 0, // ガード成功の連続回数(同一ターン内のみ。2回で2倍・3回以降は4倍が上限。ターン終了時にリセット)
     pChargeValue: 0, eChargeValue: 0, // チャージの倍率(0=無し、2、4)。ガード成功以外の次のカードで勝敗に関わらず消費される。ターンをまたいで持ち越す
+    pComboType: null, eComboType: null, // このターンの手札パターン('followup'=PUNCH+GUARD+PUNCH, 'finisher'=GUARD+PUNCH+GUARD+PUNCH+PUNCH, null=該当なし)。ターン開始時に手札から判定する
+    pComboStart: -1, eComboStart: -1, // followup該当時、手札内でPUNCH+GUARD+PUNCHが始まる位置(0始まり)。finisherは常に0固定
+    pComboAlive: false, eComboAlive: false, // 対応する各攻防が要件(勝ち、または必殺技は勝ちか相打ち)を満たし続けているか。1つでも要件を満たさなければfalseになりコンボは不成立になる
+    lastExchangeResult: null, // 直近の攻防結果 { P: 'win'|'lose'|'draw', E: 'win'|'lose'|'draw' }。resolveExchange/runFinisherが設定し、resolveTurnがコンボ判定に使う
+    finisherAlreadyDown: false, // 必殺技でK.O.した場合、画面端でdown.PNGのまま倒れる(通常のホーム帰還演出をスキップする合図)
     pGuardHoldPose: false, eGuardHoldPose: false, // 相手がしびれている間、ガード成功側の構えを維持するフラグ
     gameMode: 'story', pendingMode: 'story', // 'story' | 'training'
     storyEnemyIndex: 0, // STORY MODE: ENEMY_ORDER内の現在の敵の位置(連戦で進んでいく想定。セーブデータから復元される)
@@ -1306,6 +1314,11 @@ function resetBattleState() {
     state.eGuardStreak = 0;
     state.pChargeValue = 0;
     state.eChargeValue = 0;
+    state.pComboType = null; state.eComboType = null;
+    state.pComboStart = -1; state.eComboStart = -1;
+    state.pComboAlive = false; state.eComboAlive = false;
+    state.lastExchangeResult = null;
+    state.finisherAlreadyDown = false;
     state.pGuardHoldPose = false;
     state.eGuardHoldPose = false;
     state.gameMode = state.pendingMode || 'story'; // デッキ編成画面へ来た時に選んだモードを確定
@@ -1503,7 +1516,16 @@ async function waitBothLanded() {
     await wait(50);
 }
 
+// 決着演出: 体力を0にする最後の一撃を受けた側の専用シーケンス。
+// 必殺技(GUARD+PUNCH+GUARD+PUNCH+PUNCH)でK.O.した場合(state.finisherAlreadyDown)は、
+// 画面端で既にdown.PNGになっているため、通常のホーム帰還バウンド演出は行わずそのまま結果表示へ進む。
 async function runFinishSequence(loserSide) {
+    if (state.finisherAlreadyDown) {
+        await wait(700);
+        showResult(loserSide === 'P' ? 'KO' : 'WIN');
+        return;
+    }
+
     setAct(loserSide, 'damage.PNG');
     triggerBlink(loserSide, 1300);
     triggerShake(loserSide, 400);
@@ -1732,12 +1754,96 @@ function markCardOutcome(side, idx, outcomeClass) {
     if (outcomeClass) el.classList.add(outcomeClass);
 }
 
+// このターンの手札から特殊コンボの種類を判定する。
+// 'finisher'(GUARD+PUNCH+GUARD+PUNCH+PUNCH)は手札の1〜5枚目に固定で該当するかのみを見る。
+// 該当する場合は即座に返す(内部にPUNCH+GUARD+PUNCHの並びを含むが、followup判定へは進まないため自動的にキャンセルされる)。
+// 'followup'(PUNCH+GUARD+PUNCH)は、手札のどの位置でも3連続で出ていれば該当し、開始インデックス(start)も返す。
+function detectComboType(hand, total) {
+    if (total >= 5 && hand[0] === 'GUARD' && hand[1] === 'PUNCH' && hand[2] === 'GUARD' && hand[3] === 'PUNCH' && hand[4] === 'PUNCH') {
+        return { type: 'finisher', start: 0 };
+    }
+    for (let start = 0; start + 2 < total; start++) {
+        if (hand[start] === 'PUNCH' && hand[start + 1] === 'GUARD' && hand[start + 2] === 'PUNCH') {
+            return { type: 'followup', start };
+        }
+    }
+    return { type: null, start: -1 };
+}
+
+// PUNCH+GUARD+PUNCH(1〜3枚目が全て勝利)成立時の追撃。punch.PNG/punch2.PNGを素早く切り替えながら3連打し、必ずヒットする。
+// 合計ダメージは通常パンチ1発の3倍(1発ごとにDB.DMG.P、チャージ等の影響は受けない)。
+async function runFollowUpFlurry(attacker, defender) {
+    for (let i = 0; i < 3; i++) {
+        setAct(attacker, nextPunchSprite(attacker)); // 第21条
+        setAct(defender, 'damage.PNG');
+        applyDamage(defender, DB.DMG.P);
+        triggerShake(defender, 150);
+        await wait(120); // 素早い連打
+    }
+    await wait(200);
+    toIdle();
+}
+
+// GUARD+PUNCH+GUARD+PUNCH+PUNCH(1〜4枚目が全て勝ちまたは相打ち)成立時の必殺技。
+// 3すくみ判定を行わずヒット確定で固定ダメージ(チャージ等の影響を受けない)を与え、被弾側を画面端まで吹き飛ばす。
+// 被弾側はdamage.PNGのまま端まで飛び、ぶつかって点滅した後knock2.PNGになり、通常のターン終了処理で定位置へ戻る。
+// このダメージでK.O.した場合は、画面端でdown.PNGのまま倒れさせ、通常の決着演出(ホームへの帰還バウンド)はスキップする。
+async function runFinisher(attacker, defender, cursor) {
+    setAct(attacker, nextPunchSprite(attacker)); // 第21条
+    setAct(defender, 'damage.PNG');
+    markCardOutcome(defender, cursor.i, 'card-shatter'); // 3すくみ無視のヒットなのでヒビ割れ表現にする
+    applyDamage(defender, DB.DMG.FINISHER);
+    triggerShake(defender, 300);
+    await wait(150);
+
+    // 被弾側を画面端まで吹き飛ばす(damage.PNGのまま)
+    const edgeX = defender === 'P' ? DB.POS.EDGE_P_X : DB.POS.EDGE_E_X;
+    const fromX = getX(defender);
+    const flySteps = 8, flyStepMs = 30;
+    for (let s = 1; s <= flySteps; s++) {
+        setX(defender, fromX + (edgeX - fromX) * (s / flySteps));
+        await wait(flyStepMs);
+    }
+    setX(defender, edgeX);
+
+    // 端にぶつかって点滅
+    triggerBlink(defender, 500);
+    triggerShake(defender, 300);
+    await wait(500);
+
+    const isLethal = (defender === 'P' ? state.hpP : state.hpE) <= 0;
+    if (isLethal) {
+        setAct(defender, 'down.PNG'); // 画面端でそのまま倒れる。通常の決着演出のホーム帰還バウンドはスキップする
+        state.finisherAlreadyDown = true;
+        await wait(300);
+        return;
+    }
+
+    setAct(defender, 'knock2.PNG');
+    await wait(400);
+    // 「元の定位置に戻る」は、このターンの通常の終了処理(goHome)がまとめて行う
+}
+
 async function resolveExchange(pAct, eAct, cursor) {
     // チャージ(state.pChargeValue/eChargeValue)はここでは消費しない。
     // ガード成功時は消費せず連続カウントを伸ばして格上げし、それ以外(PUNCH/UPPER勝利・負け・相討ち)の
     // 結果が決まった時点で、各処理関数(runNormalHit/runUpperCombo/resolveExchange内の相討ち処理)がconsumeCharge()を呼んで消費する。
 
     await approachCenter(); // 第24条: 残像付きで中央へ踏み込む
+
+    // 必殺技(GUARD+PUNCH+GUARD+PUNCH+PUNCH、5枚目)の判定: 3すくみ・しびれ判定を行わずヒット確定で処理する
+    if (cursor.i === 4) {
+        const pFinisherReady = state.pComboType === 'finisher' && state.pComboAlive;
+        const eFinisherReady = state.eComboType === 'finisher' && state.eComboAlive;
+        if (pFinisherReady || eFinisherReady) {
+            const attacker = pFinisherReady ? 'P' : 'E'; // 両者同時成立は理論上稀なケースのためPを優先する
+            const defender = attacker === 'P' ? 'E' : 'P';
+            markCardOutcome(defender, cursor.i, 'card-shatter');
+            await runFinisher(attacker, defender, cursor);
+            state.lastExchangeResult = attacker === 'P' ? { P: 'win', E: 'lose' } : { P: 'lose', E: 'win' };
+            return;
+        }
+    }
 
     // しびれ判定: 直前の攻防でガードに阻まれた側は、1/2の確率でこの攻防に無条件で敗北する(3すくみ判定は行わない)
     if (state.pNumbed || state.eNumbed) {
@@ -1749,6 +1855,7 @@ async function resolveExchange(pAct, eAct, cursor) {
         if (Math.random() < 0.5) {
             markCardOutcome(numbedSide, cursor.i, 'card-shatter'); // 3すくみ無視の敗北: ヒビ割れる
             consumeCharge(numbedSide); // しびれで無条件敗北する側のチャージも、次のカードとして消費される
+            state.lastExchangeResult = numbedSide === 'P' ? { P: 'lose', E: 'win' } : { P: 'win', E: 'lose' };
             await runNumbFail(numbedSide, cursor, pAct, eAct);
             return;
         }
@@ -1762,6 +1869,7 @@ async function resolveExchange(pAct, eAct, cursor) {
         state.pGuardStreak = 0; // 相討ちではガードの連続記録も途切れる
         state.eGuardStreak = 0;
         consumeCharge('P'); consumeCharge('E'); // 相討ちはどちらもガード勝利ではないため、双方のチャージを消費する
+        state.lastExchangeResult = { P: 'draw', E: 'draw' };
         state.pAct = moveSprite(pAct);
         state.eAct = moveSprite(eAct);
         applyDamage('P', DB.DMG.CLASH);
@@ -1777,6 +1885,7 @@ async function resolveExchange(pAct, eAct, cursor) {
     const winner = result === 'win' ? 'P' : 'E';
     const loser = winner === 'P' ? 'E' : 'P';
     const winnerMove = winner === 'P' ? pAct : eAct;
+    state.lastExchangeResult = winner === 'P' ? { P: 'win', E: 'lose' } : { P: 'lose', E: 'win' };
     markCardOutcome(loser, cursor.i, 'card-lose'); // 敗者だけ暗くする。勝者は黄色いハイライトのまま
 
     if (winnerMove === 'UPPER') {
@@ -1813,6 +1922,17 @@ async function resolveTurn() {
     }
     drawEnemySlots();
 
+    // このターンの手札から特殊コンボの種類を判定する(GUARD+PUNCH+GUARD+PUNCH+PUNCHの必殺技、PUNCH+GUARD+PUNCHの追撃)。
+    // 手札は既に確定しているため、攻防が始まる前(敵の手が伏せられている段階)でも判定して問題ない。
+    const pCombo = detectComboType(state.hands, total);
+    const eCombo = detectComboType(state.enemyHands, total);
+    state.pComboType = pCombo.type; state.pComboStart = pCombo.start;
+    state.eComboType = eCombo.type; state.eComboStart = eCombo.start;
+    state.pComboAlive = state.pComboType !== null;
+    state.eComboAlive = state.eComboType !== null;
+    state.lastExchangeResult = null;
+    state.finisherAlreadyDown = false;
+
     try {
         while (cursor.i < total) {
             if (gameOverSide) break;
@@ -1828,6 +1948,20 @@ async function resolveTurn() {
             updateUI(cursor.i);       // 対戦中の味方カードを光らせる
 
             await resolveExchange(pAct, eAct, cursor);
+
+            // コンボ成立要件の判定を更新する(1つでも要件を満たさなければ不成立になる)。
+            // followup(PUNCH+GUARD+PUNCH)は該当する3枚(index: start〜start+2)がすべて勝ちである必要がある。
+            // finisher(GUARD+PUNCH+GUARD+PUNCH+PUNCH)は1〜4枚目(index0-3)が勝ちまたは相打ちである必要がある。
+            const res = state.lastExchangeResult;
+            if (res) {
+                if (state.pComboType === 'followup' && cursor.i >= state.pComboStart && cursor.i <= state.pComboStart + 2 && res.P !== 'win') state.pComboAlive = false;
+                if (state.pComboType === 'finisher' && cursor.i <= 3 && res.P === 'lose') state.pComboAlive = false;
+                if (state.eComboType === 'followup' && cursor.i >= state.eComboStart && cursor.i <= state.eComboStart + 2 && res.E !== 'win') state.eComboAlive = false;
+                if (state.eComboType === 'finisher' && cursor.i <= 3 && res.E === 'lose') state.eComboAlive = false;
+            }
+            // PUNCH+GUARD+PUNCHの3枚目(start+2枚目)が成立した直後に追撃を発生させる
+            if (state.pComboType === 'followup' && cursor.i === state.pComboStart + 2 && state.pComboAlive) await runFollowUpFlurry('P', 'E');
+            if (state.eComboType === 'followup' && cursor.i === state.eComboStart + 2 && state.eComboAlive) await runFollowUpFlurry('E', 'P');
 
             // TRAINING MODEは練習場のためK.O./YOU WIN判定を行わない(ターン終了時にHPが全回復する)
             if (state.gameMode !== 'training' && (state.hpP <= 0 || state.hpE <= 0)) {
