@@ -3,7 +3,7 @@
  * 1. 5枠設計: 画面下部に最初から5つの空枠を固定表示し、手札のカードをタップするたびに先頭から順に空枠を埋めていく仕様。手札は21枚のデッキ(内訳は事前のデッキ編成画面で自由配分)から5枚を引いて構成し、ターンで使った枚数分だけ山から補充するが、山の残数を超えては補充しない(枠が空いたままになる場合がある)。手札・山が共に尽きた時のみ、DECK表示の点滅→「Refresh」表示→0からのカウントアップ演出とともに捨札を山へリシャッフルする(配分比率は変化しない)。
  * 2. 敵コマンド非公開: プレイヤーが出した枚数だけ、その場で敵の手をランダム生成する。中身は伏せ札(?)で表示し、各攻防が始まる直前に1枚ずつ公開する(先読み不可・都度の読み合い)。
  * 3. 3すくみ: [PUNCH>UPPER][UPPER>GUARD][GUARD>PUNCH] の判定ロジック。勝敗は毎回この判定で決定する。同じ手同士がぶつかった場合は相討ちとする。
- * 4. 空中コンボ: 勝者の技がUPPERだった場合に発動。攻撃側の次の入力がPUNCHなら継続し、最大3発まで空中パンチを受け付ける。空中パンチは連続でヒットするほどダメージが増加する(1発目=基本値、2発目以降+増加量)。3発目は自動的にメテオへ変換される。
+ * 4. 空中コンボ: 勝者の技がUPPERだった場合に発動。攻撃側の次の入力がPUNCHなら継続し、最大3発まで空中パンチを受け付ける。空中パンチは連続でヒットするほどダメージが増加する(1発目=基本値、2発目以降+増加量)。3発目は自動的にメテオへ変換される。UPPERで浮かせる際は、地面(または現在の高さ)から浮遊高さまでアニメーションで上昇させる(固定ステップ数・固定時間)。PUNCH+PUNCH+UPPER: 直前2連続の地上PUNCH勝利にUPPERの勝利が続いた場合(同一ターン内・同じ側のみ。相討ちやガードされる等で連続記録が途切れた場合はリセットされる)、そのUPPERは通常の2倍の高さまで打ち上げ、上昇距離が2倍になる分、同じ所要時間でより速く到達する(体感速度も2倍)。ダメージもUPPER初撃分が2倍になる。以降のコンボ継続時の追従位置も、この高い位置に合わせて2倍の高さになる。コンボが継続せず着地する場合は、通常時と同様に固定ステップ数・固定時間でアニメーションさせるため、高い位置からでも間延びしない(距離が長い分、自然と速く見える)。
  * 5. 着地同期: 通常コンボ終了時（メテオに至らない場合）は、攻守双方が地面(GROUND_Y)へ着地してから次の演出へ遷移する。
  * 6. 通常コンボ終了時の演出: 攻撃側は必ずdash.PNGへ、被弾側はdamage.PNGのまま着地させる。
  * 7. 画像状態管理: 待機中は必ず player.PNG / player2.PNG の呼吸(idle)へ復帰する。idle.PNGという単独ファイルは存在しない。
@@ -55,6 +55,10 @@ DB.POS.GROUND_Y = 560 - DB.IMG_SIZE - (DB.POS.GROUND_MARGIN_PX * DB.SCALE); // 5
 DB.POS.FLOAT_Y = DB.POS.GROUND_Y - 200; // 被弾側がふわっと浮く高さ
 DB.POS.HOP_Y = DB.POS.GROUND_Y - Math.round((DB.POS.GROUND_Y - DB.POS.FLOAT_Y) / 3); // 打つ方の初撃の小ホップ(1/3)
 DB.POS.AIR_FOLLOW_Y = DB.POS.FLOAT_Y + 20; // コンボ継続中、打つ方が追従して浮く高さ
+// PUNCH+PUNCH+UPPER(直前2連続の地上PUNCH勝利に続くUPPER): 2倍の高さまで打ち上げる
+DB.POS.SUPER_FLOAT_Y = DB.POS.GROUND_Y - 400;
+DB.POS.SUPER_HOP_Y = DB.POS.GROUND_Y - Math.round((DB.POS.GROUND_Y - DB.POS.SUPER_FLOAT_Y) / 3);
+DB.POS.SUPER_AIR_FOLLOW_Y = DB.POS.SUPER_FLOAT_Y + 20;
 DB.POS.P_HOME_X = DB.POS.CENTER_X - DB.POS.HOME_HALF - DB.IMG_SIZE / 2;
 DB.POS.E_HOME_X = DB.POS.CENTER_X + DB.POS.HOME_HALF - DB.IMG_SIZE / 2;
 DB.POS.P_ATTACK_X = DB.POS.CENTER_X - DB.POS.ATTACK_HALF - DB.IMG_SIZE / 2;
@@ -888,6 +892,7 @@ function tapFlickerThen(el, callback) {
 function setAct(side, v) { if (side === 'P') state.pAct = v; else state.eAct = v; }
 
 function getX(side) { return side === 'P' ? state.pX : state.eX; }
+function getY(side) { return side === 'P' ? state.pY : state.eY; }
 
 function setX(side, v) { if (side === 'P') state.pX = v; else state.eX = v; }
 
@@ -1460,8 +1465,18 @@ async function retreatSlightly() { await moveBothX(DB.POS.P_RETREAT_X, DB.POS.E_
 
 async function goHome() { await moveBothX(DB.POS.P_HOME_X, DB.POS.E_HOME_X); }
 
+// 第5条: 着地同期。現在の高さ(通常/PUNCH+PUNCH+UPPERどちらでも実際のYを起点にする)から
+// 地面まで、固定ステップ数・固定所要時間でアニメーションさせる。高い位置からでも同じ時間で降りるため、
+// 見た目の落下速度は距離に応じて自然に速くなる(間延びしない)。
 async function waitBothLanded() {
-    // 第5条: 着地同期
+    const steps = 6, stepMs = 30;
+    const pFromY = state.pY, eFromY = state.eY;
+    for (let s = 1; s <= steps; s++) {
+        const t = s / steps;
+        state.pY = pFromY + (DB.POS.GROUND_Y - pFromY) * t;
+        state.eY = eFromY + (DB.POS.GROUND_Y - eFromY) * t;
+        await wait(stepMs);
+    }
     state.pY = DB.POS.GROUND_Y;
     state.eY = DB.POS.GROUND_Y;
     await wait(50);
@@ -1519,10 +1534,11 @@ async function runMeteor(attacker, defender) {
     setAct(defender, 'damage.PNG');
     await wait(400); // 一時停止
 
-    // 打たれる方が先に地面へ落下
+    // 打たれる方が先に地面へ落下(実際の現在の高さを起点にする。PUNCH+PUNCH+UPPERで通常より高い位置にいても正しく動作する)
+    const defenderFromY = getY(defender);
     const fallSteps = 5;
     for (let s = 1; s <= fallSteps; s++) {
-        setY(defender, DB.POS.FLOAT_Y + (DB.POS.GROUND_Y - DB.POS.FLOAT_Y) * (s / fallSteps));
+        setY(defender, defenderFromY + (DB.POS.GROUND_Y - defenderFromY) * (s / fallSteps));
         await wait(30);
     }
     setY(defender, DB.POS.GROUND_Y);
@@ -1530,9 +1546,10 @@ async function runMeteor(attacker, defender) {
     triggerBlink(defender, 900); // 振動＋点滅
 
     await wait(60); // 打つ方は少し遅れて急降下開始
+    const attackerFromY = getY(attacker);
     const atkFallSteps = 6;
     for (let s = 1; s <= atkFallSteps; s++) {
-        setY(attacker, DB.POS.AIR_FOLLOW_Y + (DB.POS.GROUND_Y - DB.POS.AIR_FOLLOW_Y) * (s / atkFallSteps));
+        setY(attacker, attackerFromY + (DB.POS.GROUND_Y - attackerFromY) * (s / atkFallSteps));
         await wait(35);
     }
     setY(attacker, DB.POS.GROUND_Y);
@@ -1543,18 +1560,34 @@ async function runMeteor(attacker, defender) {
 }
 
 async function runUpperCombo(attacker, defender, cursor) {
+    // PUNCH+PUNCH+UPPER: 直前2連続の地上PUNCH勝利(pPunchStreak/ePunchStreak >= 2)に続けてUPPERで勝った場合、
+    // このアッパーは2倍の高さ・2倍の速度で打ち上げ、ダメージも2倍になる。ストリークをリセットする前に判定する。
+    const winnerStreakKey = attacker === 'P' ? 'pPunchStreak' : 'ePunchStreak';
+    const isSuperUpper = state[winnerStreakKey] >= 2;
+
     // UPPERが決まった時点で地上パンチの連続記録は途切れる(コンボ中の空中パンチとは別カウント)
     state.pPunchStreak = 0;
     state.ePunchStreak = 0;
     state.pGuardStreak = 0; state.eGuardStreak = 0; // ガード以外で勝敗が決したのでガード連続記録は途切れる
-    // 初撃: 打つ方は1/3だけホップ、受ける方はふわっと大きく浮く
+
     setAct(attacker, 'upper.PNG');
     setAct(defender, 'damage.PNG');
-    setY(defender, DB.POS.FLOAT_Y);
-    setY(attacker, DB.POS.HOP_Y);
-    applyDamage(defender, DB.DMG.U * chargeMultOf(attacker));
+    applyDamage(defender, DB.DMG.U * chargeMultOf(attacker) * (isSuperUpper ? 2 : 1));
     triggerShake(defender, 300);
-    await wait(700);
+
+    // 上昇アニメーション: 地面(または現在の高さ)から浮遊高さまで、固定ステップ数・固定所要時間で上昇させる。
+    // PUNCH+PUNCH+UPPERの場合は目標の高さが2倍になるため、同じ時間でより長い距離を移動する=体感速度も2倍になる。
+    const floatTargetY = isSuperUpper ? DB.POS.SUPER_FLOAT_Y : DB.POS.FLOAT_Y;
+    const hopTargetY = isSuperUpper ? DB.POS.SUPER_HOP_Y : DB.POS.HOP_Y;
+    const riseSteps = 6, riseStepMs = 45;
+    const defenderFromY = getY(defender), attackerFromY = getY(attacker);
+    for (let s = 1; s <= riseSteps; s++) {
+        const t = s / riseSteps;
+        setY(defender, defenderFromY + (floatTargetY - defenderFromY) * t);
+        setY(attacker, attackerFromY + (hopTargetY - attackerFromY) * t);
+        await wait(riseStepMs);
+    }
+    await wait(430); // 空中での間(上昇分と合わせて元の700ms相当を維持)
 
     let airPunches = 0;
     while (true) {
@@ -1567,7 +1600,7 @@ async function runUpperCombo(attacker, defender, cursor) {
 
         if (airPunches < DB.MAX_AIR_PUNCH) {
             // 通常の空中パンチ: 打つ方が追従して浮き、空中で殴る。連続ヒットするほどダメージが増加する
-            setY(attacker, DB.POS.AIR_FOLLOW_Y);
+            setY(attacker, isSuperUpper ? DB.POS.SUPER_AIR_FOLLOW_Y : DB.POS.AIR_FOLLOW_Y);
             setAct(attacker, nextPunchSprite(attacker)); // 第21条
             markCardOutcome(defender, cursor.i, 'card-shatter'); // 3すくみ無視のコンボ継続: ヒビ割れる
             const comboDmg = (DB.DMG.P + (airPunches - 1) * DB.DMG.P_COMBO_STEP) * chargeMultOf(attacker); // 1発目=P, 2発目=P+STEP...
@@ -1582,7 +1615,7 @@ async function runUpperCombo(attacker, defender, cursor) {
         }
     }
 
-    // コンボ終了(メテオに至らない場合): 双方着地
+    // コンボ終了(メテオに至らない場合): アニメーション付きで双方着地(高い位置からでも間延びしない。第5条)
     await waitBothLanded();
     setAct(attacker, 'dash.PNG'); // 第6条
     setAct(defender, 'damage.PNG'); // 第6条
