@@ -11,7 +11,7 @@
  * 9. 座標復帰: ターン(5枠)全体の処理が完了した時点で、finally句にて必ずホームポジションへ dash.PNG の残像付きで帰還することを保証する。ただし体力が0になる最後の一撃を受けた場合は、この通常帰還処理の代わりに専用の決着演出（damage.PNGで点滅→スローに軽くバウンドしながら初期位置へ戻る→down.PNGで倒れる→K.O./YOU WIN表示）を実行する。
  * 10. 描画品質: imageSmoothingEnabled=false を維持しドット絵品質を担保。背景(bg.PNG)もキャラと同じcanvas上に同一の拡大率(SCALE)で描画し、ピクセルのズレを起こさない。背景画像の実サイズがcanvas比率(960:560)と異なる場合(例: 正方形で作られた画像)は、横幅いっぱいを使い、必要な高さぶんだけ画像の上側から切り取って描画する(下側は切り捨てる)。プロローグ・ストーリー・エンディングの画像(cine-img)についても同様に、指定サイズの画像を上側から切り取って表示する。
  * 11. モバイル対応: Flexboxとviewport固定によるレスポンシブ最適化。UI全体はappRootコンテナで正方形(1:1)に収め、画面中央に配置する。
- * 12. 描画資産の不変性: 外部ファイルを厳格に読み込み、存在しない場合は読み込みエラーを即座に特定する。ただし敵専用グラフィック(enemy_〇〇.PNG)と背景(bg.PNG)は任意の差し替え用アセットであり、存在しなくてもエラー扱いにせず、敵はプレイヤー画像へ、背景は水色の塗りつぶしへフォールバックする。
+ * 12. 描画資産の不変性: 外部ファイルを厳格に読み込み、存在しない場合は読み込みエラーを即座に特定する。ただし敵専用グラフィック(enemy_〇〇.PNG)と背景(bg.PNG)は任意の差し替え用アセットであり、存在しなくてもエラー扱いにせず、敵はプレイヤー画像へ、背景は水色の塗りつぶしへフォールバックする。背景はステージ(STORY MODEの対戦相手)ごとに個別の画像を持てる。bg.PNGは1体目(ENEMY_01)の背景を兼ね、2〜5体目はbg_2.PNG〜bg_5.PNG、TRAINING MODEはbg_training.PNGを使う。これらが未用意/読み込み失敗の場合は、1体目のbg.PNGへフォールバックする(bg.PNG自体が読み込めない場合のみ、上記の水色塗りつぶしになる)。
  * 13. オブジェクトの生存維持: 状態管理オブジェクト(state, imgs)は決して再定義・初期化せず、常に参照し続ける。
  * 14. 憲法完全表記: コード提示の際、本憲法リストを一切省略せず必ず全条文を記述する。
  * 15. UI永続性: HP・TURN表示は画面上部に固定し、スロットは下部に永続表示する。画面はロゴ(BORN MAGAZINE presents)→プロローグ→タイトル→(STORY MODEのみ)ストーリーシーン→デッキ編成(21枚固定・内訳自由)→バトル→決着(K.O./YOU WIN)、の順で遷移する。ストーリーシーンはプロローグと同じ仕組み(画像+1文字ずつのテキストを1ブロックにまとめ中央配置、1画面目のみフェードイン)で、story_1〜3.PNGの3画面を再生し、タイトルからSTORY MODEを選んだ時のみ(CONTINUE/RETRYでは再生しない)表示される。SKIPしなくても3画面終了後は自動でデッキ編成へ遷移する。STORY MODEの敵はENEMY_01〜05の5体で固定し(裏ボス等の追加は将来的に想定するが、現時点では5体固定)、勝利のたびに次の敵へ進む。TRAINING MODEはデッキ編成画面を経由せず、タイトルから直接バトルへ入る(デッキという概念自体を持たないため)。決着画面ではCONTINUE(K.O.時)またはNEXT BATTLE(YOU WIN時)と、タイトルへ戻る(ロゴシーンへ)の2つのボタンを提供する。K.O.(敗北)時は「CONTINUE」表記で直前のデッキ編成へ(同じ敵と再戦)、YOU WIN(勝利)時は「NEXT BATTLE」表記で次の敵へ進めてからその敵のストーリーシーン(3画面)を経てデッキ編成へ遷移する。ただし5体目(最終)の敵をYOU WINで倒した場合は例外とし、NEXT BATTLE/タイトルへ戻るのボタンは表示せず、YOU WINの表示を5秒間見せた後、自動的にエンディング(プロローグ/ストーリーと同じ仕組みの画像+1文字ずつのテキストで5画面、ending_1〜5.PNG)→フェードアウトで暗転→エンドロール(下から上へスクロールするクレジット表示)→FIN.(真っ黒な画面の中央に白い太文字、10秒表示後にゆっくりフェードアウト)の順に演出を行い、最後に自動的にタイトルへ戻る。この一連の流れの間、敵の進行状況(storyEnemyIndex)は5体目のまま更新しない(advanceToNextEnemyを呼ばない)ため、タイトルのCONTINUEは5体目の敵と戦う前の状態から再開される。ロゴシーンはフェードイン→2秒表示→フェードアウトの後、自動でプロローグへ遷移する。プロローグは画像とテキストを1ブロックにまとめて画面中央に配置し、シネマサイズの画像(op_1〜4.PNG)と1文字ずつ表示されるテキストを4画面分再生する(1画面目のみブロック全体がフェードインする)。SKIPしなくても4画面終了後は自動でタイトルへ遷移する。バトル開始時は暗転→味方/敵のフェードイン→背景(bg.PNG)がcanvas上で中心から円形に拡大表示→「BATTLE START」が左からディゾルブで入り中央で静止した後、拡大しながら消える演出を経て、手札が裏向きで配られてから左から順にめくられ、その後操作可能になる(この配布演出はバトル開始時のみで、以降の補充では行わない)。タイトル画面にはSTORY MODE/TRAINING MODEの下にOPTIONを設置し、サウンドON/OFF(設定値の保存のみ、音自体は今後実装予定)・STORY MODEの進行状況(倒した敵の人数)のリセット・隠しアイテムの図鑑(今後実装予定、取得済みアイテムがある場合のみ表示)を提供する。タイトル画面のCONTINUEは、セーブデータが存在するだけでは表示されず、実際に敵2体目以降まで到達した記録(セーブデータのstoryEnemyIndexが1以上)がある場合のみ表示される。NEW GAMEを選んだ場合、今回のプレイのstoryEnemyIndexは0から始まるが、セーブデータ側のstoryEnemyIndexは即座には上書きされない(誤ってNEW GAMEを選んでしまっても、既存の進行状況は消えず、次に勝利してadvanceToNextEnemyが呼ばれるまで保持される)。OPTION画面の「進行状況(セーブデータ)のリセット」を実行した場合のみ、セーブデータのstoryEnemyIndexが0に戻り、タイトルのCONTINUEも即座に消える(隠しアイテムの図鑑等のリセットは別途用意する想定で、この「進行状況(セーブデータ)のリセット」とは別軸)。STORY MODEの進行状況(現在の敵)とデッキ編成は、localStorageを用いて端末に保存され、次回起動時に自動で復元される。
@@ -157,10 +157,33 @@ DB.ASSETS.forEach(n => {
 
 // 背景(bg.PNG)はcanvasに直接描画するため、他アセットと同じ拡大パイプラインに乗る。
 // 任意アセット扱いとし、読み込めなくてもエラーにせずdraw()側でフォールバック色を使う。
+// bg.PNGは1stステージ(ENEMY_01)の背景を兼ねる。
 const bgImgLoader = new Image();
 bgImgLoader.onload = () => { imgs['bg.PNG'] = bgImgLoader; bgSettled = true; checkAllSettled(); };
 bgImgLoader.onerror = () => { bgSettled = true; checkAllSettled(); };
 bgImgLoader.src = 'assets/images/backgrounds/bg.PNG';
+
+// 2〜5体目のステージ背景、およびTRAINING MODE専用背景(任意アセット)。
+// 起動をブロックせず非同期に読み込み、未用意/読み込み失敗の場合はcurrentBgName()が1stステージのbg.PNGへフォールバックする。
+const BG_OPTIONAL_NAMES = ['bg_2.PNG', 'bg_3.PNG', 'bg_4.PNG', 'bg_5.PNG', 'bg_training.PNG'];
+BG_OPTIONAL_NAMES.forEach(name => {
+    const i = new Image();
+    i.onload = () => { imgs[name] = i; };
+    i.onerror = () => { /* 任意アセットのため未用意でもエラー扱いにしない。bg.PNGへフォールバック */ };
+    i.src = 'assets/images/backgrounds/' + name;
+});
+// 現在の状況(TRAINING MODE、またはSTORY MODEの現在の敵)に応じた背景ファイル名を返す。
+// 該当画像が未読み込みの場合は、1stステージを兼ねるbg.PNGへフォールバックする。
+function currentBgName() {
+    let name;
+    if (state.gameMode === 'training') {
+        name = 'bg_training.PNG';
+    } else {
+        const stageNum = (state.storyEnemyIndex % ENEMY_ORDER.length) + 1; // 1〜5
+        name = stageNum === 1 ? 'bg.PNG' : `bg_${stageNum}.PNG`;
+    }
+    return imgs[name] ? name : 'bg.PNG';
+}
 
 // ------- 敵専用グラフィックの差し替え余地(任意) -------
 // 第19条: 将来 enemy_〇〇.PNG を用意すれば自動的にそちらを優先して使用する。
@@ -939,13 +962,14 @@ function draw(tRaw) {
     const t = tRaw || performance.now();
     ctx.clearRect(0, 0, cvs.width, cvs.height);
 
-    // 背景(bg.PNG): キャラと同じ nearest-neighbor 拡大で描画。中心から広がる円形クリップで演出する。
+    // 背景: キャラと同じ nearest-neighbor 拡大で描画。中心から広がる円形クリップで演出する。
+    // TRAINING MODE、またはSTORY MODEの現在の敵に応じた背景(currentBgName)を使う。未読み込みなら1stステージのbg.PNGへフォールバックする。
     if (state.bgRevealRadius > 0) {
         ctx.save();
         ctx.beginPath();
         ctx.arc(cvs.width / 2, cvs.height / 2, state.bgRevealRadius, 0, Math.PI * 2);
         ctx.clip();
-        const bgImg = imgs['bg.PNG'];
+        const bgImg = imgs[currentBgName()];
         if (bgImg) {
             // 画像の実サイズに関わらず、canvas比率(960:560=12:7)ぶんだけ横幅いっぱいを使い、上側から切り取って描画する。
             // 例: 96x96で作られた背景でも、上側の96x56相当だけが使われる(下側は切り捨てられる)。
