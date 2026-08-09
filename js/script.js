@@ -18,7 +18,7 @@
  * 16. 位置保持: 攻防のたびに初期位置へ戻るのではなく、中央で衝突→軽く距離を取る、を繰り返す。ホームポジションへ戻るのはターン完了時のみ。
  * 17. 体力ゲージ演出: ダメージ発生時、現在値が即座に減り、黄色いバーが0.6秒遅れて減少する。
  * 18. TURN表示仕様: 画面上部中央に「TURN」と「数字」を2行で太字(900)表示する。
- * 19. 敵反転描画: 敵画像は常に左右反転して表示する。将来的に敵専用グラフィック(enemy_〇〇.PNG)を用意すれば自動的にそちらを優先して使用し、未用意の場合はプレイヤーと同じ画像にフォールバックする。
+ * 19. 敵反転描画: 敵画像は常に左右反転して表示する。敵(STORY MODEの対戦相手、またはTRAINING MODE)ごとに専用のグラフィックセット(assets/images/characters_enemy/enemy_1〜5/、training/)を用意でき、用意されていれば自動的にそちらを優先して使用し、未用意の場合はプレイヤーと同じ画像にフォールバックする。
  * 20. 敵の主体性: 敵はデッキ編成を持たずプリセット/ランダムの手で応戦するが、プレイヤーと同じ枚数だけ必ず行動する。ただしTRAINING MODEは例外とし、プレイヤーが実際に場に出した手それぞれに対して、必ず負ける手(PUNCHにはUPPER、UPPERにはGUARD、GUARDにはPUNCH)を1枚ずつ生成する。この生成はプレイヤーがGO!を押した時点(手が確定した後)に行われ、確定と同時に公開される。
  * 21. パンチコンボ演出: 連続するパンチは punch.PNG と punch2.PNG を交互に使用する。地上の通常ヒット(3すくみでPUNCHが連続して勝つ場合)・空中コンボ中の連続パンチのいずれも対象とし、両者は同じ交互カウンターを共有する(ターンをまたいでも交互は継続し、途切れない)。
  * 22. 厳格命名規則: 全アセットの拡張子は常に「.PNG」（大文字）で統一する。ファイル名部は小文字。
@@ -186,18 +186,28 @@ function currentBgName() {
 }
 
 // ------- 敵専用グラフィックの差し替え余地(任意) -------
-// 第19条: 将来 enemy_〇〇.PNG を用意すれば自動的にそちらを優先して使用する。
+// 第19条: 敵(STORY MODEの対戦相手、またはTRAINING MODE)ごとに専用のグラフィックセットを用意できる。
+// assets/images/characters_enemy/enemy_1/〜enemy_5/(STORY MODEの1〜5体目)、training/(TRAINING MODE)の
+// 各フォルダに、プレイヤーと同じ11種類のファイル名(player.PNG, damage.PNG など)を置く。
 // 未用意でも起動やUIをブロックせず、404になっても黙ってプレイヤー画像にフォールバックする。
-const ENEMY_PREFIX = 'enemy_';
+const ENEMY_SET_NAMES = ['enemy_1', 'enemy_2', 'enemy_3', 'enemy_4', 'enemy_5', 'training'];
 const ENEMY_OPTIONAL_KEYS = ['player', 'player2', 'upper', 'damage', 'knock', 'knock2', 'dash', 'punch', 'punch2', 'guard', 'down'];
-ENEMY_OPTIONAL_KEYS.forEach(key => {
-    const fname = ENEMY_PREFIX + key + '.PNG';
-    const i = new Image();
-    i.onload = () => { imgs[fname] = i; }; // 用意されていれば以後自動的にこちらが使われる
-    i.onerror = () => { /* 任意アセットのため未用意でもエラー扱いにしない */ };
-    i.src = 'assets/images/characters_enemy/' + fname;
+ENEMY_SET_NAMES.forEach(setName => {
+    ENEMY_OPTIONAL_KEYS.forEach(key => {
+        const imgKey = setName + '_' + key + '.PNG'; // imgs辞書内でのキー(例: 'enemy_3_damage.PNG')
+        const i = new Image();
+        i.onload = () => { imgs[imgKey] = i; }; // 用意されていれば以後自動的にこちらが使われる
+        i.onerror = () => { /* 任意アセットのため未用意でもエラー扱いにしない */ };
+        i.src = `assets/images/characters_enemy/${setName}/${key}.PNG`;
+    });
 });
-// 敵側の描画名を解決する。enemy_〇〇.PNGが読み込み済みならそちらを、なければプレイヤー画像を返す。
+// 現在の状況(TRAINING MODE、またはSTORY MODEの現在の敵)に応じた敵グラフィックセット名を返す('enemy_1'〜'enemy_5'または'training')
+function currentEnemySetName() {
+    if (state.gameMode === 'training') return 'training';
+    const idx = (state.storyEnemyIndex % ENEMY_ORDER.length) + 1; // 1〜5
+    return 'enemy_' + idx;
+}
+// 敵側の描画名を解決する。現在の敵グラフィックセットが読み込み済みならそちらを、なければプレイヤー画像を返す。
 
 
 // ------- カード画像(任意) -------
@@ -572,7 +582,7 @@ function checkAllSettled() {
 
 function enemySpriteName(baseName) {
     const key = baseName.replace('.PNG', '');
-    const enemyName = ENEMY_PREFIX + key + '.PNG';
+    const enemyName = currentEnemySetName() + '_' + key + '.PNG';
     return imgs[enemyName] ? enemyName : baseName;
 }
 
