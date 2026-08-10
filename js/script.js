@@ -2187,7 +2187,9 @@ function doOptionRetry() {
     if (state.gameMode === 'training') {
         goTrainingBattle(); // TRAINING MODEはデッキ編成を経由しないため直接バトルへ
     } else {
-        goDeckBuild();
+        // STORY MODEは、デッキ編成へ直接ではなく現在の敵のストーリーシーンから再生する。
+        // 戦う前の会話が相手の癖を読み取るヒントになるため、RETRY時も見返せるようにする。
+        goStoryThenDeck();
     }
 }
 
