@@ -14,7 +14,7 @@
  * 12. 描画資産の不変性: 外部ファイルを厳格に読み込み、存在しない場合は読み込みエラーを即座に特定する。ただし敵専用グラフィック(enemy_〇〇.PNG)と背景(bg.PNG)は任意の差し替え用アセットであり、存在しなくてもエラー扱いにせず、敵はプレイヤー画像へ、背景は水色の塗りつぶしへフォールバックする。背景はステージ(STORY MODEの対戦相手)ごとに個別の画像を持てる。bg.PNGは1体目(ENEMY_01)の背景を兼ね、2〜5体目はbg_2.PNG〜bg_5.PNG、TRAINING MODEはbg_training.PNGを使う。これらが未用意/読み込み失敗の場合は、1体目のbg.PNGへフォールバックする(bg.PNG自体が読み込めない場合のみ、上記の水色塗りつぶしになる)。
  * 13. オブジェクトの生存維持: 状態管理オブジェクト(state, imgs)は決して再定義・初期化せず、常に参照し続ける。
  * 14. 憲法完全表記: コード提示の際、本憲法リストを一切省略せず必ず全条文を記述する。
- * 15. UI永続性: HP・TURN表示は画面上部に固定し、スロットは下部に永続表示する。画面はロゴ(BORN MAGAZINE presents)→プロローグ→タイトル→(STORY MODEのみ)ストーリーシーン→デッキ編成(21枚固定・内訳自由)→バトル→決着(K.O./YOU WIN)、の順で遷移する。ストーリーシーンはプロローグと同じ仕組み(画像+1文字ずつのテキストを1ブロックにまとめ中央配置、1画面目のみフェードイン)で、story_1〜3.PNGの3画面を再生し、タイトルからSTORY MODEを選んだ時のみ(CONTINUE/RETRYでは再生しない)表示される。SKIPしなくても3画面終了後は自動でデッキ編成へ遷移する。STORY MODEの敵はENEMY_01〜05の5体で固定し(裏ボス等の追加は将来的に想定するが、現時点では5体固定)、勝利のたびに次の敵へ進む。TRAINING MODEはデッキ編成画面を経由せず、タイトルから直接バトルへ入る(デッキという概念自体を持たないため)。決着画面ではCONTINUE(K.O.時)またはNEXT BATTLE(YOU WIN時)と、タイトルへ戻る(ロゴシーンへ)の2つのボタンを提供する。K.O.(敗北)時は「CONTINUE」表記で直前のデッキ編成へ(同じ敵と再戦)、YOU WIN(勝利)時は「NEXT BATTLE」表記で次の敵へ進めてからその敵のストーリーシーン(3画面)を経てデッキ編成へ遷移する。ただし5体目(最終)の敵をYOU WINで倒した場合は例外とし、NEXT BATTLE/タイトルへ戻るのボタンは表示せず、YOU WINの表示を5秒間見せた後、自動的にエンディング(プロローグ/ストーリーと同じ仕組みの画像+1文字ずつのテキストで5画面、ending_1〜5.PNG)→フェードアウトで暗転→エンドロール(下から上へスクロールするクレジット表示)→FIN.(真っ黒な画面の中央に白い太文字、10秒表示後にゆっくりフェードアウト)の順に演出を行い、最後に自動的にタイトルへ戻る。この一連の流れの間、敵の進行状況(storyEnemyIndex)は5体目のまま更新しない(advanceToNextEnemyを呼ばない)ため、タイトルのCONTINUEは5体目の敵と戦う前の状態から再開される。ロゴシーンはフェードイン→2秒表示→フェードアウトの後、自動でプロローグへ遷移する。プロローグは画像とテキストを1ブロックにまとめて画面中央に配置し、シネマサイズの画像(op_1〜4.PNG)と1文字ずつ表示されるテキストを4画面分再生する(1画面目のみブロック全体がフェードインする)。SKIPしなくても4画面終了後は自動でタイトルへ遷移する。バトル開始時は暗転→味方/敵のフェードイン→背景(bg.PNG)がcanvas上で中心から円形に拡大表示→「BATTLE START」が左からディゾルブで入り中央で静止した後、拡大しながら消える演出を経て、手札が裏向きで配られてから左から順にめくられ、その後操作可能になる(この配布演出はバトル開始時のみで、以降の補充では行わない)。タイトル画面にはSTORY MODE/TRAINING MODEの下にOPTIONを設置し、サウンドON/OFF(設定値の保存のみ、音自体は今後実装予定)・STORY MODEの進行状況(倒した敵の人数)のリセット・隠しアイテムの図鑑(今後実装予定、取得済みアイテムがある場合のみ表示)を提供する。タイトル画面のCONTINUEは、セーブデータが存在するだけでは表示されず、実際に敵2体目以降まで到達した記録(セーブデータのstoryEnemyIndexが1以上)がある場合のみ表示される。NEW GAMEを選んだ場合、今回のプレイのstoryEnemyIndexは0から始まるが、セーブデータ側のstoryEnemyIndexは即座には上書きされない(誤ってNEW GAMEを選んでしまっても、既存の進行状況は消えず、次に勝利してadvanceToNextEnemyが呼ばれるまで保持される)。OPTION画面の「進行状況(セーブデータ)のリセット」を実行した場合のみ、セーブデータのstoryEnemyIndexが0に戻り、タイトルのCONTINUEも即座に消える(隠しアイテムの図鑑等のリセットは別途用意する想定で、この「進行状況(セーブデータ)のリセット」とは別軸)。STORY MODEの進行状況(現在の敵)とデッキ編成は、localStorageを用いて端末に保存され、次回起動時に自動で復元される。
+ * 15. UI永続性: HP・TURN表示は画面上部に固定し、スロットは下部に永続表示する。画面はロゴ(BORN MAGAZINE presents)→プロローグ→タイトル→(STORY MODEのみ)ストーリーシーン→デッキ編成(21枚固定・内訳自由)→バトル→決着(K.O./YOU WIN)、の順で遷移する。ストーリーシーンはプロローグと同じ仕組み(画像+1文字ずつのテキストを1ブロックにまとめ中央配置、1画面目のみフェードイン)で、敵ごとに用意されたstory_{敵番号}_1〜3.PNGの3画面を再生し、タイトルからSTORY MODEを選んだ時、またはRETRYした時に表示される(CONTINUEでは再生しない)。オープニング(プロローグ)とは異なり自動送りはせず、1画面ごとに画面タップで次へ進む(戦う前の会話が相手の癖を読み取るヒントになるため、プレイヤーが自分のペースで読めるようにしている。SKIPボタンは今まで通り利用できる)。3画面すべて読み終えるとデッキ編成へ遷移する。STORY MODEの敵はENEMY_01〜05の5体で固定し(裏ボス等の追加は将来的に想定するが、現時点では5体固定)、勝利のたびに次の敵へ進む。TRAINING MODEはデッキ編成画面を経由せず、タイトルから直接バトルへ入る(デッキという概念自体を持たないため)。決着画面ではCONTINUE(K.O.時)またはNEXT BATTLE(YOU WIN時)と、タイトルへ戻る(ロゴシーンへ)の2つのボタンを提供する。STORY MODEで被ダメージ0のまま勝利した場合(最終戦のエンディング分岐時も含む)、YOU WINの文字の上に、同程度の大きさ・金色の「PERFECT !」を追加表示する(K.O.時、TRAINING MODE、被弾ありの勝利では表示しない)。K.O.(敗北)時は「CONTINUE」表記で直前のデッキ編成へ(同じ敵と再戦)、YOU WIN(勝利)時は「NEXT BATTLE」表記で次の敵へ進めてからその敵のストーリーシーン(3画面)を経てデッキ編成へ遷移する。ただし5体目(最終)の敵をYOU WINで倒した場合は例外とし、NEXT BATTLE/タイトルへ戻るのボタンは表示せず、YOU WINの表示を5秒間見せた後、自動的にエンディング(プロローグ/ストーリーと同じ仕組みの画像+1文字ずつのテキストで5画面、ending_1〜5.PNG)→フェードアウトで暗転→エンドロール(下から上へスクロールするクレジット表示)→FIN.(真っ黒な画面の中央に白い太文字、10秒表示後にゆっくりフェードアウト)の順に演出を行い、最後に自動的にタイトルへ戻る。この一連の流れの間、敵の進行状況(storyEnemyIndex)は5体目のまま更新しない(advanceToNextEnemyを呼ばない)ため、タイトルのCONTINUEは5体目の敵と戦う前の状態から再開される。ロゴシーンはフェードイン→2秒表示→フェードアウトの後、自動でプロローグへ遷移する。プロローグは画像とテキストを1ブロックにまとめて画面中央に配置し、シネマサイズの画像(op_1〜4.PNG)と1文字ずつ表示されるテキストを4画面分再生する(1画面目のみブロック全体がフェードインする)。SKIPしなくても4画面終了後は自動でタイトルへ遷移する。バトル開始時は暗転→味方/敵のフェードイン→背景(bg.PNG)がcanvas上で中心から円形に拡大表示→「BATTLE START」が左からディゾルブで入り中央で静止した後、拡大しながら消える演出を経て、手札が裏向きで配られてから左から順にめくられ、その後操作可能になる(この配布演出はバトル開始時のみで、以降の補充では行わない)。タイトル画面にはSTORY MODE/TRAINING MODEの下にOPTIONを設置し、サウンドON/OFF(設定値の保存のみ、音自体は今後実装予定)・STORY MODEの進行状況(倒した敵の人数)のリセット・隠しアイテムの図鑑(今後実装予定、取得済みアイテムがある場合のみ表示)を提供する。タイトル画面のCONTINUEは、セーブデータが存在するだけでは表示されず、実際に敵2体目以降まで到達した記録(セーブデータのstoryEnemyIndexが1以上)がある場合のみ表示される。NEW GAMEを選んだ場合、今回のプレイのstoryEnemyIndexは0から始まるが、セーブデータ側のstoryEnemyIndexは即座には上書きされない(誤ってNEW GAMEを選んでしまっても、既存の進行状況は消えず、次に勝利してadvanceToNextEnemyが呼ばれるまで保持される)。OPTION画面の「進行状況(セーブデータ)のリセット」を実行した場合のみ、セーブデータのstoryEnemyIndexが0に戻り、タイトルのCONTINUEも即座に消える(隠しアイテムの図鑑等のリセットは別途用意する想定で、この「進行状況(セーブデータ)のリセット」とは別軸)。STORY MODEの進行状況(現在の敵)とデッキ編成は、localStorageを用いて端末に保存され、次回起動時に自動で復元される。実績システム(今後も追加していく前提の汎用的な仕組み)として、以下を用意する。いずれも解除状況はlocalStorageに永続保存され、次回起動時も解除済みのまま残る。(1)隠しタップ→サブストーリー→コスチュームの連鎖: 各敵のストーリーシーン画面(storyImgAreaの左上20%×20%の透明な領域)をタップすると、現在再生中の敵に対応するサブストーリーが解除される(5体分、それぞれ個別に解除される)。解除済みのサブストーリーは、タイトルOPTION画面の「SUB STORY」(1つ以上解除済みの場合のみ表示)から一覧・閲覧できる。さらに、そのサブストーリーを実際に開いて読む(体験する)と、その時点で対応する敵のコスチューム(見た目)が解除される(既存の敵専用グラフィックのセット、assets/images/characters_enemy/enemy_1〜5/を、プレイヤー自身の見た目として流用する)。解除済みのコスチュームは、タイトルOPTION画面の「COSTUME」(1つ以上解除済みの場合のみ表示)から選択でき、選択中のコスチュームはバトル中のプレイヤー側の描画すべてに反映される。(2)必殺技コンプ: PUNCH+PUNCH+UPPER・ガード+ガード(チャージ)・PUNCH+GUARD+PUNCH(追撃)・GUARD+PUNCH+GUARD+PUNCH+PUNCH(必殺技)の4種類を、これまでの対戦を通じて(バトルをまたいで積み上げ)1回ずつでも使用すると、SOUND TESTが解除される(タイトルOPTION画面の「SOUND TEST」、解除済みの場合のみ表示。実音声ファイル未配置の項目は再生時に何も鳴らないだけで、エラーにはしない)。
  * 16. 位置保持: 攻防のたびに初期位置へ戻るのではなく、中央で衝突→軽く距離を取る、を繰り返す。ホームポジションへ戻るのはターン完了時のみ。
  * 17. 体力ゲージ演出: ダメージ発生時、現在値が即座に減り、黄色いバーが0.6秒遅れて減少する。
  * 18. TURN表示仕様: 画面上部中央に「TURN」と「数字」を2行で太字(900)表示する。
@@ -107,6 +107,34 @@ let trails = []; // 第24条: dash.PNGの残像
 let cardOutcomes = { P: new Array(5).fill(null), E: new Array(5).fill(null) }; // ターン中の各カードの勝敗表現(card-lose/card-shatter)。ターン終了(両者が定位置へ戻り、場のカードが消えた後)にリセットする
 let deckCounts = { PUNCH: 7, UPPER: 7, GUARD: 7 }; // デッキ編成(合計21枚、内訳は自由)
 let unlockedItems = []; // 隠しアイテム(今後実装予定)。取得済みアイテムIDを貯めていく想定
+
+// ------- 実績システム(汎用・今後も追加していく前提) -------
+// 解除状況はすべてlocalStorageに永続保存し、ブラウザを閉じても解除済みのまま残る。
+let unlockedSubStories = []; // 解除済みサブストーリーのenemyIndex(0〜4)の配列
+let unlockedSkins = []; // 解除済みコスチュームのセット名('enemy_1'〜'enemy_5')の配列
+let soundTestUnlocked = false; // SOUND TESTが解除済みか
+let specialsUsed = { superUpper: false, charge: false, followUp: false, finisher: false }; // 4種の必殺技それぞれを、これまでの対戦を通じて1回でも使ったか(バトルをまたいで積み上げ)
+let selectedSkin = null; // 現在選択中のコスチューム('enemy_1'等、nullはデフォルトのプレイヤー見た目)
+
+// 各敵のストーリーシーン内に仕込む隠しタップで解除する、サブストーリーの仮テキスト(画像は今後配置予定、未配置ならプレースホルダー表示)
+const SUBSTORY_BY_ENEMY = {
+    ENEMY_01: { img: 'substory_1.PNG', title: '敵01(仮)の裏話', text: '（仮テキスト）誰にも言えない、敵01(仮)だけの秘密の物語がここに……' },
+    ENEMY_02: { img: 'substory_2.PNG', title: '敵02(仮)の裏話', text: '（仮テキスト）誰にも言えない、敵02(仮)だけの秘密の物語がここに……' },
+    ENEMY_03: { img: 'substory_3.PNG', title: '敵03(仮)の裏話', text: '（仮テキスト）誰にも言えない、敵03(仮)だけの秘密の物語がここに……' },
+    ENEMY_04: { img: 'substory_4.PNG', title: '敵04(仮)の裏話', text: '（仮テキスト）誰にも言えない、敵04(仮)だけの秘密の物語がここに……' },
+    ENEMY_05: { img: 'substory_5.PNG', title: '敵05(仮)の裏話', text: '（仮テキスト）誰にも言えない、敵05(仮)だけの秘密の物語がここに……' },
+};
+// サウンドテストの一覧(実ファイルはassets/audio/配下に今後配置。未配置の項目は再生時に何も鳴らないだけで、エラーにはしない)
+const SOUND_TEST_TRACKS = [
+    { name: 'bgm_title', label: 'BGM: タイトル' },
+    { name: 'bgm_battle', label: 'BGM: バトル' },
+    { name: 'bgm_victory', label: 'BGM: 勝利' },
+    { name: 'bgm_ending', label: 'BGM: エンディング' },
+    { name: 'se_punch', label: 'SE: パンチ' },
+    { name: 'se_guard', label: 'SE: ガード' },
+    { name: 'se_ko', label: 'SE: K.O.' },
+    { name: 'se_win', label: 'SE: YOU WIN' },
+];
 
 // ------- セーブ/ロード(localStorage) -------
 // このゲームは単体のHTMLファイルとして配布する想定のため、通常のWebサイトと同様にlocalStorageを使用する。
@@ -483,6 +511,44 @@ function applySaveDataOnBoot() {
     }
     if (typeof save.soundOn === 'boolean') state.soundOn = save.soundOn;
     if (Array.isArray(save.unlockedItems)) unlockedItems = save.unlockedItems;
+    if (Array.isArray(save.unlockedSubStories)) unlockedSubStories = save.unlockedSubStories;
+    if (Array.isArray(save.unlockedSkins)) unlockedSkins = save.unlockedSkins;
+    if (typeof save.soundTestUnlocked === 'boolean') soundTestUnlocked = save.soundTestUnlocked;
+    if (save.specialsUsed) {
+        specialsUsed = {
+            superUpper: !!save.specialsUsed.superUpper,
+            charge: !!save.specialsUsed.charge,
+            followUp: !!save.specialsUsed.followUp,
+            finisher: !!save.specialsUsed.finisher,
+        };
+    }
+    if (typeof save.selectedSkin === 'string' || save.selectedSkin === null) selectedSkin = save.selectedSkin;
+}
+
+// サブストーリーを解除する(ストーリーシーン内の隠しタップから呼ばれる)。既に解除済みなら何もしない。
+function unlockSubStory(enemyIdx) {
+    if (unlockedSubStories.includes(enemyIdx)) return;
+    unlockedSubStories.push(enemyIdx);
+    writeSaveData({ unlockedSubStories });
+}
+
+// コスチュームを解除する(STORY MODEでノーダメージ撃破した時に呼ばれる)。既に解除済みなら何もしない。
+function unlockSkin(skinName) {
+    if (unlockedSkins.includes(skinName)) return;
+    unlockedSkins.push(skinName);
+    writeSaveData({ unlockedSkins });
+}
+
+// 必殺技の使用履歴を記録する(バトルをまたいで積み上げる)。4種類すべて使用済みになった時点でSOUND TESTを解除する。
+function markSpecialUsed(key) {
+    if (specialsUsed[key]) return; // 既に記録済みなら何もしない
+    specialsUsed[key] = true;
+    writeSaveData({ specialsUsed });
+    const allUsed = specialsUsed.superUpper && specialsUsed.charge && specialsUsed.followUp && specialsUsed.finisher;
+    if (allUsed && !soundTestUnlocked) {
+        soundTestUnlocked = true;
+        writeSaveData({ soundTestUnlocked: true });
+    }
 }
 
 // ============================================================
@@ -584,6 +650,16 @@ function enemySpriteName(baseName) {
     const key = baseName.replace('.PNG', '');
     const enemyName = currentEnemySetName() + '_' + key + '.PNG';
     return imgs[enemyName] ? enemyName : baseName;
+}
+
+// プレイヤー側の描画名を解決する。実績で解除したコスチューム(selectedSkin)が選択されていれば、
+// 敵専用グラフィックとして読み込み済みの同じ画像セット(例: enemy_3_player.PNG)を流用してプレイヤーの見た目に適用する。
+// 未選択、または該当画像が読み込まれていない場合は通常のプレイヤー画像を返す。
+function playerSpriteName(baseName) {
+    if (!selectedSkin) return baseName;
+    const key = baseName.replace('.PNG', '');
+    const skinName = selectedSkin + '_' + key + '.PNG';
+    return imgs[skinName] ? skinName : baseName;
 }
 
 function applyCardVisual(el, type) {
@@ -721,6 +797,31 @@ let storyTapResolve = null; // タップ待ち中のPromiseのresolve関数(待�
 // storyContentタップ時に呼ばれる。タップ待ち中なら、待機しているplayStorySequence()を1つだけ先に進める
 function onStoryTap() {
     if (storyTapResolve) { storyTapResolve(); storyTapResolve = null; }
+}
+
+// ストーリーシーン内の隠しタップゾーンをタップした時に呼ばれる。現在再生中の敵に対応するサブストーリーを解除する。
+// 既に解除済みの場合は何も表示しない(何度タップしても無害)。
+function onStoryHiddenTap() {
+    const idx = state.storyEnemyIndex;
+    const alreadyUnlocked = unlockedSubStories.includes(idx);
+    unlockSubStory(idx);
+    if (!alreadyUnlocked) showUnlockToast('★ サブストーリーを解除しました ★');
+}
+
+// 実績解除時の簡易トースト表示(数秒でフェードアウトする)
+let unlockToastTimer = null;
+function showUnlockToast(message) {
+    let toast = document.getElementById('unlockToast');
+    if (!toast) {
+        toast = document.createElement('div');
+        toast.id = 'unlockToast';
+        toast.style.cssText = 'position:fixed; left:50%; top:20%; transform:translateX(-50%); background:rgba(0,0,0,0.85); color:#ffd23c; border:1px solid #ffd23c; border-radius:8px; padding:10px 18px; font-size:13px; font-weight:bold; z-index:9999; transition:opacity 0.4s; pointer-events:none;';
+        document.body.appendChild(toast);
+    }
+    toast.innerText = message;
+    toast.style.opacity = '1';
+    if (unlockToastTimer) clearTimeout(unlockToastTimer);
+    unlockToastTimer = setTimeout(() => { toast.style.opacity = '0'; }, 2200);
 }
 
 // タップされるまで待機するPromiseを返す
@@ -1037,7 +1138,7 @@ function draw(tRaw) {
     const pJit = t < state.pShakeUntil ? (Math.random() * 6 - 3) : 0;
     const pBlinkA = t < state.pBlinkUntil ? ((Math.floor((state.pBlinkUntil - t) / 80) % 2 === 0) ? 1 : 0.25) : 1;
     const pAlpha = pBlinkA * state.introCharAlpha;
-    const pImg = imgs[spriteFor(state.pAct, t)];
+    const pImg = imgs[playerSpriteName(spriteFor(state.pAct, t))];
     ctx.save();
     ctx.globalAlpha = pAlpha;
     if (state.pChargeValue > 0) { // ガード2連続成功以降のチャージ中は金色に発光する(次のコマンドまで持続)
@@ -1458,6 +1559,11 @@ function showResult(type) {
     const isFinalVictory = (type !== 'KO') && (state.storyEnemyIndex === ENEMY_ORDER.length - 1);
 
     document.getElementById('resultText').innerText = type === 'KO' ? 'K.O.' : 'YOU WIN';
+
+    // STORY MODEで被ダメージ0のまま勝利した場合、YOU WINの上に「PERFECT !」を表示する(実績の解除自体はここでは行わない)
+    const isPerfect = type !== 'KO' && state.gameMode === 'story' && state.hpP === 100;
+    document.getElementById('resultPerfectText').style.display = isPerfect ? '' : 'none';
+
     const continueBtn = document.getElementById('continueBtn');
     const backTitleBtn = document.getElementById('backTitleBtn');
 
@@ -1679,6 +1785,7 @@ async function runUpperCombo(attacker, defender, cursor) {
     // このアッパーは2倍の高さ・2倍の速度で打ち上げ、ダメージも2倍になる。ストリークをリセットする前に判定する。
     const winnerStreakKey = attacker === 'P' ? 'pPunchStreak' : 'ePunchStreak';
     const isSuperUpper = state[winnerStreakKey] >= 2;
+    if (isSuperUpper) markSpecialUsed('superUpper'); // 実績: PUNCH+PUNCH+UPPERの使用を記録
 
     // UPPERが決まった時点で地上パンチの連続記録は途切れる(コンボ中の空中パンチとは別カウント)
     state.pPunchStreak = 0;
@@ -1785,8 +1892,10 @@ async function runGuardSuccess(winner, loser, loserPoseOverride) {
     state[loserGuardStreakKey] = 0;
     if (state[winnerGuardStreakKey] >= 3) {
         if (winner === 'P') state.pChargeValue = 4; else state.eChargeValue = 4; // 3連続以降は4倍が上限
+        markSpecialUsed('charge'); // 実績: ガード+ガードの使用を記録
     } else if (state[winnerGuardStreakKey] >= 2) {
         if (winner === 'P') state.pChargeValue = 2; else state.eChargeValue = 2; // 2連続で2倍発動
+        markSpecialUsed('charge'); // 実績: ガード+ガードの使用を記録
     }
 
     await wait(400);
@@ -1911,6 +2020,7 @@ async function resolveExchange(pAct, eAct, cursor) {
             const defender = attacker === 'P' ? 'E' : 'P';
             markCardOutcome(defender, cursor.i, 'card-shatter');
             await runFinisher(attacker, defender, cursor);
+            markSpecialUsed('finisher'); // 実績: 必殺技の使用を記録
             state.lastExchangeResult = attacker === 'P' ? { P: 'win', E: 'lose' } : { P: 'lose', E: 'win' };
             return;
         }
@@ -2031,8 +2141,8 @@ async function resolveTurn() {
                 if (state.eComboType === 'finisher' && cursor.i <= 3 && res.E === 'lose') state.eComboAlive = false;
             }
             // PUNCH+GUARD+PUNCHの3枚目(start+2枚目)が成立した直後に追撃を発生させる
-            if (state.pComboType === 'followup' && cursor.i === state.pComboStart + 2 && state.pComboAlive) await runFollowUpFlurry('P', 'E');
-            if (state.eComboType === 'followup' && cursor.i === state.eComboStart + 2 && state.eComboAlive) await runFollowUpFlurry('E', 'P');
+            if (state.pComboType === 'followup' && cursor.i === state.pComboStart + 2 && state.pComboAlive) { await runFollowUpFlurry('P', 'E'); markSpecialUsed('followUp'); }
+            if (state.eComboType === 'followup' && cursor.i === state.eComboStart + 2 && state.eComboAlive) { await runFollowUpFlurry('E', 'P'); markSpecialUsed('followUp'); }
 
             // TRAINING MODEは練習場のためK.O./YOU WIN判定を行わない(ターン終了時にHPが全回復する)
             if (state.gameMode !== 'training' && (state.hpP <= 0 || state.hpE <= 0)) {
@@ -2158,6 +2268,10 @@ function closeOptionBackdrop(e) {
 function updateOptionUI() {
     document.querySelector(`input[name="soundRadio"][value="${state.soundOn ? 'on' : 'off'}"]`).checked = true;
     document.getElementById('optionItemsRow').style.display = unlockedItems.length > 0 ? 'flex' : 'none';
+    // 実績で解除された項目のみ、対応する行を表示する
+    document.getElementById('optionSubStoryRow').style.display = unlockedSubStories.length > 0 ? 'flex' : 'none';
+    document.getElementById('optionSoundTestRow').style.display = soundTestUnlocked ? 'flex' : 'none';
+    document.getElementById('optionCostumeRow').style.display = unlockedSkins.length > 0 ? 'flex' : 'none';
     // タイトルから開いた場合は「今のバトル」が存在しないため、RETRY/RETURN TO TITLEを隠す
     const isTitle = document.getElementById('sceneTitle').classList.contains('active');
     document.getElementById('optionFooter').style.display = isTitle ? 'none' : 'flex';
@@ -2193,6 +2307,104 @@ function doResetProgress() {
 function openItemGallery() {
     alert('図鑑機能は準備中です。');
 }
+
+// ------- SUB STORY(一覧/閲覧) -------
+function openSubStoryList() {
+    const rows = document.getElementById('subStoryListRows');
+    rows.innerHTML = '';
+    unlockedSubStories.slice().sort((a, b) => a - b).forEach(idx => {
+        const enemyKey = ENEMY_ORDER[idx];
+        const sub = SUBSTORY_BY_ENEMY[enemyKey];
+        if (!sub) return;
+        const row = document.createElement('div');
+        row.className = 'option-row';
+        row.innerHTML = `<span class="option-label">${sub.title}</span><button onclick="readSubStory(${idx})">読む</button>`;
+        rows.appendChild(row);
+    });
+    if (unlockedSubStories.length === 0) {
+        rows.innerHTML = '<p style="color:#888;">まだ何も解除されていません。</p>';
+    }
+    document.getElementById('subStoryListView').style.display = '';
+    document.getElementById('subStoryReadView').style.display = 'none';
+    document.getElementById('subStoryOverlay').classList.add('show');
+}
+function readSubStory(idx) {
+    const sub = SUBSTORY_BY_ENEMY[ENEMY_ORDER[idx]];
+    if (!sub) return;
+    const imgArea = document.getElementById('subStoryImgArea');
+    const fallback = document.getElementById('subStoryImgFallback');
+    if (imgs[sub.img]) {
+        imgArea.style.backgroundImage = `url('assets/images/cutscenes/substory/${sub.img}')`;
+        imgArea.classList.remove('placeholder');
+    } else {
+        imgArea.style.backgroundImage = 'none';
+        imgArea.classList.add('placeholder');
+        fallback.innerText = sub.img + ' (未配置)';
+    }
+    document.getElementById('subStoryText').innerText = sub.text;
+    document.getElementById('subStoryListView').style.display = 'none';
+    document.getElementById('subStoryReadView').style.display = '';
+
+    // 実績: サブストーリーを実際に読んだ(体験した)タイミングで、対応するキャラのコスチュームを解除する
+    const skinName = 'enemy_' + (idx + 1);
+    const alreadyUnlocked = unlockedSkins.includes(skinName);
+    unlockSkin(skinName);
+    if (!alreadyUnlocked) {
+        showUnlockToast('★ コスチュームを解除しました ★');
+        updateOptionUI(); // 背後で開いたままのOPTION画面のCOSTUME行を、閉じ直さなくても即座に表示させる
+    }
+}
+function backToSubStoryList() { openSubStoryList(); }
+function closeSubStory() { document.getElementById('subStoryOverlay').classList.remove('show'); }
+function closeSubStoryBackdrop(e) { if (e.target.id === 'subStoryOverlay') closeSubStory(); }
+
+// ------- SOUND TEST -------
+function openSoundTest() {
+    const rows = document.getElementById('soundTestRows');
+    rows.innerHTML = '';
+    SOUND_TEST_TRACKS.forEach(track => {
+        const row = document.createElement('div');
+        row.className = 'option-row';
+        row.innerHTML = `<span class="option-label">${track.label}</span><button onclick="playSoundTestTrack('${track.name}')">▶︎再生</button>`;
+        rows.appendChild(row);
+    });
+    document.getElementById('soundTestOverlay').classList.add('show');
+}
+function playSoundTestTrack(name) {
+    // 実ファイルが未配置の場合は静かに何もしない(他の任意アセットと同じフォールバック方針)
+    try {
+        const audio = new Audio(`assets/audio/${name.startsWith('bgm_') ? 'bgm' : 'se'}/${name}.mp3`);
+        audio.play().catch(() => { /* ファイル未配置・再生不可でも無視する */ });
+    } catch (e) { /* 同上 */ }
+}
+function closeSoundTest() { document.getElementById('soundTestOverlay').classList.remove('show'); }
+function closeSoundTestBackdrop(e) { if (e.target.id === 'soundTestOverlay') closeSoundTest(); }
+
+// ------- COSTUME(コスチューム選択) -------
+function openCostumeSelect() {
+    const rows = document.getElementById('costumeRows');
+    rows.innerHTML = '';
+    const defaultRow = document.createElement('div');
+    defaultRow.className = 'option-row';
+    defaultRow.innerHTML = `<span class="option-label">デフォルト</span><button onclick="selectCostume(null)">${selectedSkin === null ? '選択中' : '選ぶ'}</button>`;
+    rows.appendChild(defaultRow);
+    unlockedSkins.forEach(skinName => {
+        const idx = parseInt(skinName.replace('enemy_', ''), 10);
+        const label = `敵${idx}(仮)の見た目`;
+        const row = document.createElement('div');
+        row.className = 'option-row';
+        row.innerHTML = `<span class="option-label">${label}</span><button onclick="selectCostume('${skinName}')">${selectedSkin === skinName ? '選択中' : '選ぶ'}</button>`;
+        rows.appendChild(row);
+    });
+    document.getElementById('costumeOverlay').classList.add('show');
+}
+function selectCostume(skinName) {
+    selectedSkin = skinName;
+    writeSaveData({ selectedSkin });
+    openCostumeSelect(); // 選択状態を反映して再描画
+}
+function closeCostume() { document.getElementById('costumeOverlay').classList.remove('show'); }
+function closeCostumeBackdrop(e) { if (e.target.id === 'costumeOverlay') closeCostume(); }
 
 // OPTION内のRETRY: このバトル直前のデッキ編成へ戻る(現在のモードを維持)。確認ポップアップを挟む。
 function openRetryConfirm() { document.getElementById('retryConfirmPanel').classList.add('show'); }
