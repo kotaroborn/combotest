@@ -716,6 +716,18 @@ async function playPrologue() {
     goTitle(); // 4画面すべて終わったらSKIPしなくても自動でタイトルへ
 }
 
+let storyTapResolve = null; // タップ待ち中のPromiseのresolve関数(待っていない時はnull)
+
+// storyContentタップ時に呼ばれる。タップ待ち中なら、待機しているplayStorySequence()を1つだけ先に進める
+function onStoryTap() {
+    if (storyTapResolve) { storyTapResolve(); storyTapResolve = null; }
+}
+
+// タップされるまで待機するPromiseを返す
+function waitForStoryTap() {
+    return new Promise(resolve => { storyTapResolve = resolve; });
+}
+
 function goStoryThenDeck() {
     showScene('story');
     playStorySequence();
@@ -723,6 +735,7 @@ function goStoryThenDeck() {
 
 function skipStorySequence() {
     storyToken++; // 進行中のawaitループを無効化する
+    if (storyTapResolve) { storyTapResolve(); storyTapResolve = null; } // タップ待ちで止まっていれば解除する(でないとトークン確認まで到達できない)
     goDeckBuild('story');
 }
 
@@ -770,11 +783,14 @@ async function playStorySequence() {
         }
 
         if (storyToken !== myToken) return;
-        await wait(2000); // 1ページ読み終えてから次の画面まで、もう少し長めに読ませる
+        // オープニング(プロローグ)とは異なり、ストーリーシーンは自動送りにしない。
+        // 戦いのヒントになる会話のため、プレイヤーが自分のペースで読めるよう画面タップで次へ進める(SKIPは従来通り別途利用可能)。
+        await waitForStoryTap();
+        if (storyToken !== myToken) return; // タップ待ち中にSKIPされていた場合はここで中断する
     }
 
     if (storyToken !== myToken) return;
-    goDeckBuild('story'); // 3画面すべて終わったらSKIPしなくても自動でデッキ編成へ
+    goDeckBuild('story'); // 3画面すべて終わったらデッキ編成へ
 }
 
 // エンディング5画面を再生する(スキップ不可。5人目撃破後の専用演出のため)
