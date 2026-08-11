@@ -14,7 +14,7 @@
  * 12. 描画資産の不変性: 外部ファイルを厳格に読み込み、存在しない場合は読み込みエラーを即座に特定する。ただし敵専用グラフィック(enemy_〇〇.PNG)と背景(bg.PNG)は任意の差し替え用アセットであり、存在しなくてもエラー扱いにせず、敵はプレイヤー画像へ、背景は水色の塗りつぶしへフォールバックする。背景はステージ(STORY MODEの対戦相手)ごとに個別の画像を持てる。bg.PNGは1体目(ENEMY_01)の背景を兼ね、2〜5体目はbg_2.PNG〜bg_5.PNG、TRAINING MODEはbg_training.PNGを使う。これらが未用意/読み込み失敗の場合は、1体目のbg.PNGへフォールバックする(bg.PNG自体が読み込めない場合のみ、上記の水色塗りつぶしになる)。
  * 13. オブジェクトの生存維持: 状態管理オブジェクト(state, imgs)は決して再定義・初期化せず、常に参照し続ける。
  * 14. 憲法完全表記: コード提示の際、本憲法リストを一切省略せず必ず全条文を記述する。
- * 15. UI永続性: HP・TURN表示は画面上部に固定し、スロットは下部に永続表示する。画面はロゴ(BORN MAGAZINE presents)→プロローグ→タイトル→(STORY MODEのみ)ストーリーシーン→デッキ編成(21枚固定・内訳自由)→バトル→決着(K.O./YOU WIN)、の順で遷移する。ストーリーシーンはプロローグと同じ仕組み(画像+1文字ずつのテキストを1ブロックにまとめ中央配置、1画面目のみフェードイン)で、敵ごとに用意されたstory_{敵番号}_1〜3.PNGの3画面を再生し、タイトルからSTORY MODEを選んだ時、またはRETRYした時に表示される(CONTINUEでは再生しない)。オープニング(プロローグ)とは異なり自動送りはせず、1画面ごとに画面タップで次へ進む(戦う前の会話が相手の癖を読み取るヒントになるため、プレイヤーが自分のペースで読めるようにしている。SKIPボタンは今まで通り利用できる)。3画面すべて読み終えるとデッキ編成へ遷移する。STORY MODEの敵はENEMY_01〜05の5体で固定し(裏ボス等の追加は将来的に想定するが、現時点では5体固定)、勝利のたびに次の敵へ進む。TRAINING MODEはデッキ編成画面を経由せず、タイトルから直接バトルへ入る(デッキという概念自体を持たないため)。決着画面ではCONTINUE(K.O.時)またはNEXT BATTLE(YOU WIN時)と、タイトルへ戻る(ロゴシーンへ)の2つのボタンを提供する。STORY MODEで被ダメージ0のまま勝利した場合(最終戦のエンディング分岐時も含む)、YOU WINの文字の上に、同程度の大きさ・金色の「PERFECT !」を追加表示する(K.O.時、TRAINING MODE、被弾ありの勝利では表示しない)。K.O.(敗北)時は「CONTINUE」表記で直前のデッキ編成へ(同じ敵と再戦)、YOU WIN(勝利)時は「NEXT BATTLE」表記で次の敵へ進めてからその敵のストーリーシーン(3画面)を経てデッキ編成へ遷移する。ただし5体目(最終)の敵をYOU WINで倒した場合は例外とし、NEXT BATTLE/タイトルへ戻るのボタンは表示せず、YOU WINの表示を5秒間見せた後、自動的にエンディング(プロローグ/ストーリーと同じ仕組みの画像+1文字ずつのテキストで5画面、ending_1〜5.PNG)→フェードアウトで暗転→エンドロール(下から上へスクロールするクレジット表示)→FIN.(真っ黒な画面の中央に白い太文字、10秒表示後にゆっくりフェードアウト)の順に演出を行い、最後に自動的にタイトルへ戻る。この一連の流れの間、敵の進行状況(storyEnemyIndex)は5体目のまま更新しない(advanceToNextEnemyを呼ばない)ため、タイトルのCONTINUEは5体目の敵と戦う前の状態から再開される。ロゴシーンはフェードイン→2秒表示→フェードアウトの後、自動でプロローグへ遷移する。プロローグは画像とテキストを1ブロックにまとめて画面中央に配置し、シネマサイズの画像(op_1〜4.PNG)と1文字ずつ表示されるテキストを4画面分再生する(1画面目のみブロック全体がフェードインする)。SKIPしなくても4画面終了後は自動でタイトルへ遷移する。バトル開始時は暗転→味方/敵のフェードイン→背景(bg.PNG)がcanvas上で中心から円形に拡大表示→「BATTLE START」が左からディゾルブで入り中央で静止した後、拡大しながら消える演出を経て、手札が裏向きで配られてから左から順にめくられ、その後操作可能になる(この配布演出はバトル開始時のみで、以降の補充では行わない)。タイトル画面にはSTORY MODE/TRAINING MODEの下にOPTIONを設置し、サウンドON/OFF(設定値の保存のみ、音自体は今後実装予定)・STORY MODEの進行状況(倒した敵の人数)のリセット・隠しアイテムの図鑑(今後実装予定、取得済みアイテムがある場合のみ表示)を提供する。タイトル画面のCONTINUEは、セーブデータが存在するだけでは表示されず、実際に敵2体目以降まで到達した記録(セーブデータのstoryEnemyIndexが1以上)がある場合のみ表示される。NEW GAMEを選んだ場合、今回のプレイのstoryEnemyIndexは0から始まるが、セーブデータ側のstoryEnemyIndexは即座には上書きされない(誤ってNEW GAMEを選んでしまっても、既存の進行状況は消えず、次に勝利してadvanceToNextEnemyが呼ばれるまで保持される)。OPTION画面の「進行状況(セーブデータ)のリセット」を実行した場合のみ、セーブデータのstoryEnemyIndexが0に戻り、タイトルのCONTINUEも即座に消える(隠しアイテムの図鑑等のリセットは別途用意する想定で、この「進行状況(セーブデータ)のリセット」とは別軸)。STORY MODEの進行状況(現在の敵)とデッキ編成は、localStorageを用いて端末に保存され、次回起動時に自動で復元される。実績システム(今後も追加していく前提の汎用的な仕組み)として、以下を用意する。いずれも解除状況はlocalStorageに永続保存され、次回起動時も解除済みのまま残る。(1)隠しタップ→サブストーリー→コスチュームの連鎖: 各敵のストーリーシーン3画面のうち1枚(敵ごとに異なる画面に割り当てる。現時点では仮の割り当てで、画像が揃い次第調整予定)の、画像エリア左上20%×20%の透明な領域をタップすると、現在再生中の敵に対応するサブストーリーが解除される(5体分、それぞれ個別に解除される)。それ以外の2画面ではこの隠しタップは無効(押せない)。解除済みのサブストーリーは、タイトルOPTION画面の「SUB STORY」(1つ以上解除済みの場合のみ表示)から一覧・閲覧できる。さらに、そのサブストーリーを実際に開いて読む(体験する)と、その時点で対応する敵のコスチューム(見た目)が解除される(既存の敵専用グラフィックのセット、assets/images/characters_enemy/enemy_1〜5/を、プレイヤー自身の見た目として流用する)。解除済みのコスチュームは、タイトルOPTION画面の「COSTUME」(1つ以上解除済みの場合のみ表示)から選択でき、選択中のコスチュームはバトル中のプレイヤー側の描画すべてに反映される。(2)必殺技コンプ: PUNCH+PUNCH+UPPER・ガード+ガード(チャージ)・PUNCH+GUARD+PUNCH(追撃)・GUARD+PUNCH+GUARD+PUNCH+PUNCH(必殺技)の4種類を、これまでの対戦を通じて(バトルをまたいで積み上げ)1回ずつでも使用すると、SOUND TESTが解除される(タイトルOPTION画面の「SOUND TEST」、解除済みの場合のみ表示。実音声ファイル未配置の項目は再生時に何も鳴らないだけで、エラーにはしない)。
+ * 15. UI永続性: HP・TURN表示は画面上部に固定し、スロットは下部に永続表示する。画面はロゴ(BORN MAGAZINE presents)→プロローグ→タイトル→(STORY MODEのみ)ストーリーシーン→デッキ編成(21枚固定・内訳自由)→バトル→決着(K.O./YOU WIN)、の順で遷移する。ストーリーシーンはプロローグと同じ仕組み(画像+1文字ずつのテキストを1ブロックにまとめ中央配置、1画面目のみフェードイン)で、敵ごとに用意されたstory_{敵番号}_1〜3.PNGの3画面を再生し、タイトルからSTORY MODEを選んだ時、またはRETRYした時に表示される(CONTINUEでは再生しない)。オープニング(プロローグ)とは異なり自動送りはせず、1画面ごとに画面タップで次へ進む(戦う前の会話が相手の癖を読み取るヒントになるため、プレイヤーが自分のペースで読めるようにしている。SKIPボタンは今まで通り利用できる)。3画面すべて読み終えるとデッキ編成へ遷移する。STORY MODEの敵はENEMY_01〜05の5体で固定し(裏ボス等の追加は将来的に想定するが、現時点では5体固定)、勝利のたびに次の敵へ進む。TRAINING MODEはデッキ編成画面を経由せず、タイトルから直接バトルへ入る(デッキという概念自体を持たないため)。決着画面ではCONTINUE(K.O.時)またはNEXT BATTLE(YOU WIN時)と、タイトルへ戻る(ロゴシーンへ)の2つのボタンを提供する。STORY MODEで被ダメージ0のまま勝利した場合(最終戦のエンディング分岐時も含む)、YOU WINの文字の上に、同程度の大きさ・金色の「PERFECT !」を追加表示する(K.O.時、TRAINING MODE、被弾ありの勝利では表示しない)。K.O.(敗北)時は「CONTINUE」表記で直前のデッキ編成へ(同じ敵と再戦)、YOU WIN(勝利)時は「NEXT BATTLE」表記で次の敵へ進めてからその敵のストーリーシーン(3画面)を経てデッキ編成へ遷移する。ただし5体目(最終)の敵をYOU WINで倒した場合は例外とし、NEXT BATTLE/タイトルへ戻るのボタンは表示せず、YOU WINの表示を5秒間見せた後、自動的にエンディング(プロローグ/ストーリーと同じ仕組みの画像+1文字ずつのテキストで5画面、ending_1〜5.PNG)→フェードアウトで暗転→エンドロール(下から上へスクロールするクレジット表示)→FIN.(真っ黒な画面の中央に白い太文字、10秒表示後にゆっくりフェードアウト)の順に演出を行い、最後に自動的にタイトルへ戻る。この一連の流れの間、敵の進行状況(storyEnemyIndex)は5体目のまま更新しない(advanceToNextEnemyを呼ばない)ため、タイトルのCONTINUEは5体目の敵と戦う前の状態から再開される。ロゴシーンはフェードイン→2秒表示→フェードアウトの後、自動でプロローグへ遷移する。プロローグは画像とテキストを1ブロックにまとめて画面中央に配置し、シネマサイズの画像(op_1〜4.PNG)と1文字ずつ表示されるテキストを4画面分再生する(1画面目のみブロック全体がフェードインする)。SKIPしなくても4画面終了後は自動でタイトルへ遷移する。バトル開始時は暗転→味方/敵のフェードイン→背景(bg.PNG)がcanvas上で中心から円形に拡大表示→「BATTLE START」が左からディゾルブで入り中央で静止した後、拡大しながら消える演出を経て、手札が裏向きで配られてから左から順にめくられ、その後操作可能になる(この配布演出はバトル開始時のみで、以降の補充では行わない)。タイトル画面にはSTORY MODE/TRAINING MODEの下にOPTIONを設置し、サウンドON/OFF(BGM/SEの再生有無に連動する。BGMはシーン遷移のたびに切り替わり、Web Audio APIでシームレスループ再生する。ファイル未配置の場合は無音のままエラーにはしない)・STORY MODEの進行状況(倒した敵の人数)のリセット・隠しアイテムの図鑑(今後実装予定、取得済みアイテムがある場合のみ表示)を提供する。タイトル画面のCONTINUEは、セーブデータが存在するだけでは表示されず、実際に敵2体目以降まで到達した記録(セーブデータのstoryEnemyIndexが1以上)がある場合のみ表示される。NEW GAMEを選んだ場合、今回のプレイのstoryEnemyIndexは0から始まるが、セーブデータ側のstoryEnemyIndexは即座には上書きされない(誤ってNEW GAMEを選んでしまっても、既存の進行状況は消えず、次に勝利してadvanceToNextEnemyが呼ばれるまで保持される)。OPTION画面の「進行状況(セーブデータ)のリセット」を実行した場合のみ、セーブデータのstoryEnemyIndexが0に戻り、タイトルのCONTINUEも即座に消える(隠しアイテムの図鑑等のリセットは別途用意する想定で、この「進行状況(セーブデータ)のリセット」とは別軸)。STORY MODEの進行状況(現在の敵)とデッキ編成は、localStorageを用いて端末に保存され、次回起動時に自動で復元される。実績システム(今後も追加していく前提の汎用的な仕組み)として、以下を用意する。いずれも解除状況はlocalStorageに永続保存され、次回起動時も解除済みのまま残る。(1)隠しタップ→サブストーリー→コスチュームの連鎖: 各敵のストーリーシーン3画面のうち1枚(敵ごとに異なる画面に割り当てる。現時点では仮の割り当てで、画像が揃い次第調整予定)の、画像エリア左上20%×20%の透明な領域をタップすると、現在再生中の敵に対応するサブストーリーが解除される(5体分、それぞれ個別に解除される)。それ以外の2画面ではこの隠しタップは無効(押せない)。解除済みのサブストーリーは、タイトルOPTION画面の「SUB STORY」(1つ以上解除済みの場合のみ表示)から一覧・閲覧できる。さらに、そのサブストーリーを実際に開いて読む(体験する)と、その時点で対応する敵のコスチューム(見た目)が解除される(既存の敵専用グラフィックのセット、assets/images/characters_enemy/enemy_1〜5/を、プレイヤー自身の見た目として流用する)。解除済みのコスチュームは、タイトルOPTION画面の「COSTUME」(1つ以上解除済みの場合のみ表示)から選択でき、選択中のコスチュームはバトル中のプレイヤー側の描画すべてに反映される。(2)必殺技コンプ: PUNCH+PUNCH+UPPER・ガード+ガード(チャージ)・PUNCH+GUARD+PUNCH(追撃)・GUARD+PUNCH+GUARD+PUNCH+PUNCH(必殺技)の4種類を、これまでの対戦を通じて(バトルをまたいで積み上げ)1回ずつでも使用すると、SOUND TESTが解除される(タイトルOPTION画面の「SOUND TEST」、解除済みの場合のみ表示。実音声ファイル未配置の項目は再生時に何も鳴らないだけで、エラーにはしない)。
  * 16. 位置保持: 攻防のたびに初期位置へ戻るのではなく、中央で衝突→軽く距離を取る、を繰り返す。ホームポジションへ戻るのはターン完了時のみ。
  * 17. 体力ゲージ演出: ダメージ発生時、現在値が即座に減り、黄色いバーが0.6秒遅れて減少する。
  * 18. TURN表示仕様: 画面上部中央に「TURN」と「数字」を2行で太字(900)表示する。
@@ -95,7 +95,7 @@ let state = {
     pGuardHoldPose: false, eGuardHoldPose: false, // 相手がしびれている間、ガード成功側の構えを維持するフラグ
     gameMode: 'story', pendingMode: 'story', // 'story' | 'training'
     storyEnemyIndex: 0, // STORY MODE: ENEMY_ORDER内の現在の敵の位置(連戦で進んでいく想定。セーブデータから復元される)
-    soundOn: true, // OPTION画面のサウンドON/OFF(音自体は今後実装予定)
+    soundOn: true, // OPTION画面のサウンドON/OFF。BGM/SEの再生有無に連動する
     introCharAlpha: 1, // バトル開始演出: 味方/敵のフェードイン係数(0〜1)
     bgRevealRadius: 0, // バトル開始演出: 背景を中心から広げる円形クリップの半径(0で真っ暗)
     playerDeck: [], playerDiscard: [], playerHand: new Array(5).fill(null), // 山札/捨札/手札
@@ -127,12 +127,49 @@ const STORY_HIDDEN_TAP_SCREEN_BY_ENEMY = {
     ENEMY_05: 0, // 1枚目
 };
 
+// 各敵のストーリーシーン内に仕込む隠しタップで解除する、サブストーリーの仮テキスト(画像は今後配置予定、未配置ならプレースホルダー表示)。
+// 本編のストーリーシーンと同じく、3枚の画像+テキストで展開する。
 const SUBSTORY_BY_ENEMY = {
-    ENEMY_01: { img: 'substory_1.PNG', title: '敵01(仮)の裏話', text: '（仮テキスト）誰にも言えない、敵01(仮)だけの秘密の物語がここに……' },
-    ENEMY_02: { img: 'substory_2.PNG', title: '敵02(仮)の裏話', text: '（仮テキスト）誰にも言えない、敵02(仮)だけの秘密の物語がここに……' },
-    ENEMY_03: { img: 'substory_3.PNG', title: '敵03(仮)の裏話', text: '（仮テキスト）誰にも言えない、敵03(仮)だけの秘密の物語がここに……' },
-    ENEMY_04: { img: 'substory_4.PNG', title: '敵04(仮)の裏話', text: '（仮テキスト）誰にも言えない、敵04(仮)だけの秘密の物語がここに……' },
-    ENEMY_05: { img: 'substory_5.PNG', title: '敵05(仮)の裏話', text: '（仮テキスト）誰にも言えない、敵05(仮)だけの秘密の物語がここに……' },
+    ENEMY_01: {
+        title: '敵01(仮)の裏話',
+        screens: [
+            { img: 'substory_1_1.PNG', text: '（仮テキスト・敵01 裏話 1/3）誰にも言えない、敵01(仮)だけの秘密の物語がここに……' },
+            { img: 'substory_1_2.PNG', text: '（仮テキスト・敵01 裏話 2/3）その過去には、まだ語られていない出来事があった。' },
+            { img: 'substory_1_3.PNG', text: '（仮テキスト・敵01 裏話 3/3）そして今、その真実がようやく明かされる。' },
+        ],
+    },
+    ENEMY_02: {
+        title: '敵02(仮)の裏話',
+        screens: [
+            { img: 'substory_2_1.PNG', text: '（仮テキスト・敵02 裏話 1/3）誰にも言えない、敵02(仮)だけの秘密の物語がここに……' },
+            { img: 'substory_2_2.PNG', text: '（仮テキスト・敵02 裏話 2/3）その過去には、まだ語られていない出来事があった。' },
+            { img: 'substory_2_3.PNG', text: '（仮テキスト・敵02 裏話 3/3）そして今、その真実がようやく明かされる。' },
+        ],
+    },
+    ENEMY_03: {
+        title: '敵03(仮)の裏話',
+        screens: [
+            { img: 'substory_3_1.PNG', text: '（仮テキスト・敵03 裏話 1/3）誰にも言えない、敵03(仮)だけの秘密の物語がここに……' },
+            { img: 'substory_3_2.PNG', text: '（仮テキスト・敵03 裏話 2/3）その過去には、まだ語られていない出来事があった。' },
+            { img: 'substory_3_3.PNG', text: '（仮テキスト・敵03 裏話 3/3）そして今、その真実がようやく明かされる。' },
+        ],
+    },
+    ENEMY_04: {
+        title: '敵04(仮)の裏話',
+        screens: [
+            { img: 'substory_4_1.PNG', text: '（仮テキスト・敵04 裏話 1/3）誰にも言えない、敵04(仮)だけの秘密の物語がここに……' },
+            { img: 'substory_4_2.PNG', text: '（仮テキスト・敵04 裏話 2/3）その過去には、まだ語られていない出来事があった。' },
+            { img: 'substory_4_3.PNG', text: '（仮テキスト・敵04 裏話 3/3）そして今、その真実がようやく明かされる。' },
+        ],
+    },
+    ENEMY_05: {
+        title: '敵05(仮)の裏話',
+        screens: [
+            { img: 'substory_5_1.PNG', text: '（仮テキスト・敵05 裏話 1/3）誰にも言えない、敵05(仮)だけの秘密の物語がここに……' },
+            { img: 'substory_5_2.PNG', text: '（仮テキスト・敵05 裏話 2/3）その過去には、まだ語られていない出来事があった。' },
+            { img: 'substory_5_3.PNG', text: '（仮テキスト・敵05 裏話 3/3）そして今、その真実がようやく明かされる。' },
+        ],
+    },
 };
 // サウンドテストの一覧(実ファイルはassets/audio/配下に今後配置。未配置の項目は再生時に何も鳴らないだけで、エラーにはしない)
 const SOUND_TEST_TRACKS = [
@@ -684,9 +721,97 @@ function applyCardVisual(el, type) {
     }
 }
 
+// ------- サウンド(BGM/SE) -------
+// BGMはWeb Audio APIでシームレスループ再生する(オンデマンド読み込み、起動をブロックしない)。
+// SEは軽量なため起動時にまとめて先読みし、複数の音が重なっても途切れないよう毎回新しい再生ノードを作る。
+// ファイルの拡張子はBGM/SEどちらもmp3を基本としつつ、SEはwavで用意される場合もあるため両方を順に試す。
+// いずれの拡張子でも見つからない場合は、他の任意アセットと同じくエラーにせず無音のままにする。
+const AUDIO_EXTENSIONS = ['mp3', 'wav'];
+
+let audioCtx = null; // 初回再生時に生成する(ブラウザの自動再生制限のため、無音のcontextを先に作らない)
+function getAudioCtx() {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') audioCtx.resume(); // iOS Safari等、ユーザー操作後でないと再開しないブラウザ対策
+    return audioCtx;
+}
+
+// 指定した種別(bgm/se)・名前の音声をfetch+decodeしてAudioBufferとして返す。読み込めなければnull。
+async function loadAudioBuffer(kind, name) {
+    for (const ext of AUDIO_EXTENSIONS) {
+        try {
+            const res = await fetch(`assets/audio/${kind}/${name}.${ext}`);
+            if (!res.ok) continue;
+            const arrayBuffer = await res.arrayBuffer();
+            return await getAudioCtx().decodeAudioData(arrayBuffer);
+        } catch (e) { /* この拡張子では読み込めなかった。次の拡張子を試す(両方だめなら未配置として扱う) */ }
+    }
+    return null;
+}
+
+let currentBgmSource = null; // 現在再生中のBGMのAudioBufferSourceNode
+let currentBgmName = null; // 現在再生中(またはリクエスト中)のBGM名。同一BGMの多重再生防止に使う
+const bgmBufferCache = {}; // 一度読み込んだBGMのAudioBufferをキャッシュ(再入場のたびの再読み込みを省く)
+
+// 指定したBGMをシームレスループで再生する。既に同じBGMがリクエスト/再生中なら何もしない。
+// state.soundOnがfalseの場合、次にONにした時すぐ再生できるよう読み込みだけ行い、実際の再生はしない。
+async function playBGM(name) {
+    if (currentBgmName === name) return;
+    currentBgmName = name;
+    stopBGM();
+
+    let buffer = bgmBufferCache[name];
+    if (buffer === undefined) {
+        buffer = await loadAudioBuffer('bgm', name);
+        bgmBufferCache[name] = buffer; // 未配置(null)もキャッシュし、毎回fetchし直さない
+    }
+    if (currentBgmName !== name) return; // 読み込み中に別のBGM要求へ切り替わっていたら中断
+    if (!buffer || !state.soundOn) return;
+
+    const ctx = getAudioCtx();
+    const source = ctx.createBufferSource();
+    source.buffer = buffer;
+    source.loop = true; // AudioBufferSourceNodeのloopはサンプル単位でシームレス
+    source.connect(ctx.destination);
+    source.start(0);
+    currentBgmSource = source;
+}
+
+function stopBGM() {
+    if (currentBgmSource) {
+        try { currentBgmSource.stop(); } catch (e) { /* 既に停止済み等は無視 */ }
+        currentBgmSource.disconnect();
+        currentBgmSource = null;
+    }
+}
+
+const seBufferCache = {}; // SEは軽量なため、一度読み込んだAudioBufferを使い回す
+// SEを再生する。state.soundOnがfalseなら何もしない。連打・重なりに対応するため毎回新しい再生ノードを作る。
+async function playSE(name) {
+    if (!state.soundOn) return;
+    let buffer = seBufferCache[name];
+    if (buffer === undefined) {
+        buffer = await loadAudioBuffer('se', name);
+        seBufferCache[name] = buffer;
+    }
+    if (!buffer || !state.soundOn) return; // 読み込み待ちの間にOFFにされた場合も考慮
+    const ctx = getAudioCtx();
+    const source = ctx.createBufferSource();
+    source.buffer = buffer;
+    source.connect(ctx.destination);
+    source.start(0);
+}
+
+// SEは軽量なため起動時にまとめて先読みしておく(初回再生時の遅延をなくす。起動処理自体はブロックしない)
+function preloadSE() {
+    ['se_punch', 'se_guard', 'se_ko', 'se_win'].forEach(name => {
+        loadAudioBuffer('se', name).then(buf => { seBufferCache[name] = buf; });
+    });
+}
+
 function boot() {
     // 第23条: 全画像の読み込み確定を待ってからループ開始・UI有効化
     applySaveDataOnBoot(); // 進行状況・デッキ編成・サウンド設定をセーブデータから復元
+    preloadSE(); // SEは軽量なので先読みしておく(起動をブロックしない非同期処理)
     document.getElementById('startBtn').disabled = false;
     document.getElementById('trainingBtn').disabled = false;
     document.getElementById('optionBtn').disabled = false;
@@ -909,6 +1034,7 @@ async function playStorySequence() {
 
 // エンディング5画面を再生する(スキップ不可。5人目撃破後の専用演出のため)
 async function playEndingSequence() {
+    playBGM('bgm_ending');
     const content = document.getElementById('endingContent');
     const imgArea = document.getElementById('endingImgArea');
     const fallback = document.getElementById('endingImgFallback');
@@ -998,7 +1124,7 @@ function showScene(name) {
 
 function goPrologue() { hideResult(); showScene('prologue'); playPrologue(); }
 
-function goTitle() { showScene('title'); updateTitleContinueVisibility(); }
+function goTitle() { showScene('title'); updateTitleContinueVisibility(); playBGM('bgm_title'); }
 
 // NEW GAME: 今回のプレイのstoryEnemyIndexだけを0にする(セーブデータ側は書き換えない)。
 // こうすることで、誤ってNEW GAMEを押してしまっても、既存の進行状況(敵2以降まで到達したセーブ)は消えずに残る。
@@ -1035,6 +1161,7 @@ function goTrainingBattle() {
     resetBattleState();
     showScene('battle');
     playBattleIntro();
+    playBGM('bgm_battle');
 }
 
 function tapFlickerThen(el, callback) {
@@ -1456,6 +1583,7 @@ function goBattleStart() {
     resetBattleState();
     showScene('battle');
     playBattleIntro();
+    playBGM('bgm_battle');
 }
 
 function resetBattleState() {
@@ -1572,6 +1700,15 @@ function showResult(type) {
     const isFinalVictory = (type !== 'KO') && (state.storyEnemyIndex === ENEMY_ORDER.length - 1);
 
     document.getElementById('resultText').innerText = type === 'KO' ? 'K.O.' : 'YOU WIN';
+
+    // 決着音・決着BGM: K.O.は効果音のみでバトルBGMを止め、YOU WINは効果音と共に勝利BGMへ切り替える
+    if (type === 'KO') {
+        playSE('se_ko');
+        stopBGM();
+    } else {
+        playSE('se_win');
+        playBGM('bgm_victory');
+    }
 
     // STORY MODEで被ダメージ0のまま勝利した場合、YOU WINの上に「PERFECT !」を表示する(実績の解除自体はここでは行わない)
     const isPerfect = type !== 'KO' && state.gameMode === 'story' && state.hpP === 100;
@@ -1750,6 +1887,7 @@ async function runNormalHit(winner, loser, move) {
     consumeCharge(winner); consumeCharge(loser); // ガード勝利以外なので、双方のチャージをここで消費する
     applyDamage(loser, dmg);
     triggerShake(loser, 350); // 第8条: 負けた側のみ振動
+    if (move === 'PUNCH') playSE('se_punch');
 
     // 威力が増していく演出: 2発目は少し後退、3発目はホーム位置まで大きく後退する(1発目・4発目相当は後退なし)
     if (cyclePos === 1) {
@@ -1891,6 +2029,7 @@ async function runGuardSuccess(winner, loser, loserPoseOverride) {
     setAct(winner, 'guard.PNG');
     setAct(loser, loserPoseOverride || 'punch.PNG'); // ブロックされた瞬間の姿勢(通常はパンチのまま)
     applyDamage(winner, DB.DMG.TINY); // 自己反動の微ダメージのため、チャージ倍率は適用しない
+    playSE('se_guard');
     triggerShake(winner, 250);
     triggerShake(loser, 400); // しびれによる振動(ダメージなし)
     if (loser === 'P') state.pNumbed = true; else state.eNumbed = true; // 次のコマンドの成功率が1/2になる
@@ -2300,8 +2439,16 @@ function updateOptionUI() {
 }
 
 function setSound(on) {
-    state.soundOn = on; // 音声自体は今後実装予定。現時点では設定値の保存のみ行う。
+    state.soundOn = on;
     writeSaveData({ soundOn: on });
+    if (!on) {
+        stopBGM(); // OFFにした瞬間、鳴っているBGMを止める
+    } else if (currentBgmName) {
+        // 直前まで鳴らそうとしていたBGMがあれば、ONに戻した時点で再生を試みる
+        const name = currentBgmName;
+        currentBgmName = null; // playBGMの「同じ名前なら何もしない」ガードを一旦外す
+        playBGM(name);
+    }
 }
 
 function openResetConfirm() { document.getElementById('resetConfirmPanel').classList.add('show'); }
@@ -2341,24 +2488,55 @@ function openSubStoryList() {
     document.getElementById('subStoryReadView').style.display = 'none';
     document.getElementById('subStoryOverlay').classList.add('show');
 }
-function readSubStory(idx) {
+let subStoryToken = 0;
+let subStoryTapResolve = null; // サブストーリーのタップ待ち中のPromiseのresolve関数
+
+function onSubStoryTap() {
+    if (subStoryTapResolve) { subStoryTapResolve(); subStoryTapResolve = null; }
+}
+function waitForSubStoryTap() {
+    return new Promise(resolve => { subStoryTapResolve = resolve; });
+}
+
+// サブストーリーを再生する。本編のストーリーシーンと同じく3画面(画像+1文字ずつのテキスト)を、タップで送りながら表示する。
+// 3画面すべて読み終えたタイミングで、対応する敵のコスチュームを解除する。
+async function readSubStory(idx) {
     const sub = SUBSTORY_BY_ENEMY[ENEMY_ORDER[idx]];
     if (!sub) return;
+    const myToken = ++subStoryToken;
     const imgArea = document.getElementById('subStoryImgArea');
     const fallback = document.getElementById('subStoryImgFallback');
-    if (imgs[sub.img]) {
-        imgArea.style.backgroundImage = `url('assets/images/cutscenes/substory/${sub.img}')`;
-        imgArea.classList.remove('placeholder');
-    } else {
-        imgArea.style.backgroundImage = 'none';
-        imgArea.classList.add('placeholder');
-        fallback.innerText = sub.img + ' (未配置)';
-    }
-    document.getElementById('subStoryText').innerText = sub.text;
+    const textEl = document.getElementById('subStoryText');
+
     document.getElementById('subStoryListView').style.display = 'none';
     document.getElementById('subStoryReadView').style.display = '';
 
-    // 実績: サブストーリーを実際に読んだ(体験した)タイミングで、対応するキャラのコスチュームを解除する
+    for (let i = 0; i < sub.screens.length; i++) {
+        const screen = sub.screens[i];
+        if (subStoryToken !== myToken) return; // 戻る/閉じるで中断されていたら止める
+
+        if (imgs[screen.img]) {
+            imgArea.style.backgroundImage = `url('assets/images/cutscenes/substory/${screen.img}')`;
+            imgArea.classList.remove('placeholder');
+        } else {
+            imgArea.style.backgroundImage = 'none';
+            imgArea.classList.add('placeholder');
+            fallback.innerText = screen.img + ' (未配置)';
+        }
+
+        textEl.innerText = '';
+        for (let c = 0; c < screen.text.length; c++) {
+            if (subStoryToken !== myToken) return;
+            textEl.innerText += screen.text[c];
+            await wait(45);
+        }
+
+        if (subStoryToken !== myToken) return;
+        await waitForSubStoryTap(); // 本編と同じくタップで次へ(自動送りしない)
+        if (subStoryToken !== myToken) return;
+    }
+
+    // 実績: サブストーリーを3画面すべて読み終えた(体験した)タイミングで、対応する敵のコスチュームを解除する
     const skinName = 'enemy_' + (idx + 1);
     const alreadyUnlocked = unlockedSkins.includes(skinName);
     unlockSkin(skinName);
@@ -2366,9 +2544,18 @@ function readSubStory(idx) {
         showUnlockToast('★ コスチュームを解除しました ★');
         updateOptionUI(); // 背後で開いたままのOPTION画面のCOSTUME行を、閉じ直さなくても即座に表示させる
     }
+    backToSubStoryList();
 }
-function backToSubStoryList() { openSubStoryList(); }
-function closeSubStory() { document.getElementById('subStoryOverlay').classList.remove('show'); }
+function backToSubStoryList() {
+    subStoryToken++; // 再生中なら中断する
+    if (subStoryTapResolve) { subStoryTapResolve(); subStoryTapResolve = null; }
+    openSubStoryList();
+}
+function closeSubStory() {
+    subStoryToken++; // 再生中なら中断する
+    if (subStoryTapResolve) { subStoryTapResolve(); subStoryTapResolve = null; }
+    document.getElementById('subStoryOverlay').classList.remove('show');
+}
 function closeSubStoryBackdrop(e) { if (e.target.id === 'subStoryOverlay') closeSubStory(); }
 
 // ------- SOUND TEST -------
@@ -2383,12 +2570,17 @@ function openSoundTest() {
     });
     document.getElementById('soundTestOverlay').classList.add('show');
 }
-function playSoundTestTrack(name) {
-    // 実ファイルが未配置の場合は静かに何もしない(他の任意アセットと同じフォールバック方針)
-    try {
-        const audio = new Audio(`assets/audio/${name.startsWith('bgm_') ? 'bgm' : 'se'}/${name}.mp3`);
-        audio.play().catch(() => { /* ファイル未配置・再生不可でも無視する */ });
-    } catch (e) { /* 同上 */ }
+async function playSoundTestTrack(name) {
+    // SOUND TESTはOFF設定でも試聴できるようにしたいので、一時的にON扱いで再生する(設定自体は変更しない)
+    const wasOn = state.soundOn;
+    state.soundOn = true;
+    if (name.startsWith('bgm_')) {
+        currentBgmName = null; // 同じBGMが既にリクエスト中でも試聴できるようガードを外す
+        await playBGM(name);
+    } else {
+        await playSE(name);
+    }
+    state.soundOn = wasOn;
 }
 function closeSoundTest() { document.getElementById('soundTestOverlay').classList.remove('show'); }
 function closeSoundTestBackdrop(e) { if (e.target.id === 'soundTestOverlay') closeSoundTest(); }
