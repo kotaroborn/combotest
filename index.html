@@ -35,7 +35,7 @@
 <!-- ストーリーシーン(STORY MODE専用): デッキ編成の前に挟む導入。プロローグと同じ仕組みを流用、3画面 -->
 <div id="sceneStory" class="scene">
     <div id="storyContent" class="cine-block" onclick="onStoryTap()">
-        <div id="storyImgArea" class="cine-img"><div id="storyImgFallback" class="cine-img-fallback"></div></div>
+        <div id="storyImgArea" class="cine-img"><div id="storyImgFallback" class="cine-img-fallback"></div><div id="storyHiddenTap" onclick="event.stopPropagation(); onStoryHiddenTap();" style="position:absolute; top:0; left:0; width:20%; height:20%;"></div></div>
         <div id="storyTextBox" class="cine-textbox">
             <p id="storyText" class="cine-text"></p>
         </div>
@@ -131,6 +131,7 @@
 </div>
 <!-- 決着オーバーレイ: ヘッダー・場・手札すべてを含む画面全体を覆う -->
 <div id="resultOverlay">
+    <div id="resultPerfectText" style="display:none;">PERFECT !</div>
     <div id="resultText"></div>
     <button id="continueBtn" onclick="goDeckBuild()">CONTINUE</button>
     <button id="backTitleBtn" onclick="goLogo()">タイトルへ戻る</button>
@@ -198,6 +199,18 @@
                 <span class="option-label">図鑑(取得アイテム)</span>
                 <button onclick="openItemGallery()">見る</button>
             </div>
+            <div class="option-row" id="optionSubStoryRow" style="display:none;">
+                <span class="option-label">SUB STORY</span>
+                <button onclick="openSubStoryList()">見る</button>
+            </div>
+            <div class="option-row" id="optionSoundTestRow" style="display:none;">
+                <span class="option-label">SOUND TEST</span>
+                <button onclick="openSoundTest()">見る</button>
+            </div>
+            <div class="option-row" id="optionCostumeRow" style="display:none;">
+                <span class="option-label">COSTUME</span>
+                <button onclick="openCostumeSelect()">見る</button>
+            </div>
             <div class="option-row">
                 <span class="option-label">進行状況(セーブデータ)</span>
                 <button id="resetProgressBtn" onclick="openResetConfirm()">リセット</button>
@@ -232,6 +245,48 @@
     </div>
 </div>
 
+<!-- SUB STORY一覧/閲覧ポップアップ -->
+<div id="subStoryOverlay" class="popup-overlay" onclick="closeSubStoryBackdrop(event)">
+    <div class="popup-panel">
+        <button class="popup-close" onclick="closeSubStory()">×</button>
+        <div class="howto-content">
+            <h2>SUB STORY</h2>
+            <div id="subStoryListView">
+                <div id="subStoryListRows"></div>
+            </div>
+            <div id="subStoryReadView" style="display:none;">
+                <button class="text-btn" onclick="backToSubStoryList()">◀︎戻る</button>
+                <div class="cine-block" style="margin-top:8px;">
+                    <div id="subStoryImgArea" class="cine-img"><div id="subStoryImgFallback" class="cine-img-fallback"></div></div>
+                    <div class="cine-textbox"><p id="subStoryText" class="cine-text"></p></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- SOUND TESTポップアップ -->
+<div id="soundTestOverlay" class="popup-overlay" onclick="closeSoundTestBackdrop(event)">
+    <div class="popup-panel">
+        <button class="popup-close" onclick="closeSoundTest()">×</button>
+        <div class="howto-content">
+            <h2>SOUND TEST</h2>
+            <div id="soundTestRows"></div>
+            <p style="color:#888; font-size:11px;">(音声ファイル未配置の項目は再生されません)</p>
+        </div>
+    </div>
+</div>
+
+<!-- COSTUME選択ポップアップ -->
+<div id="costumeOverlay" class="popup-overlay" onclick="closeCostumeBackdrop(event)">
+    <div class="popup-panel">
+        <button class="popup-close" onclick="closeCostume()">×</button>
+        <div class="howto-content">
+            <h2>COSTUME</h2>
+            <div id="costumeRows"></div>
+        </div>
+    </div>
+</div>
 
 </div>
 <script src="js/script.js"></script>
