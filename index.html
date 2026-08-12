@@ -195,6 +195,14 @@
                     <label class="option-radio"><input type="radio" name="soundRadio" value="off" onchange="setSound(false)">OFF</label>
                 </div>
             </div>
+            <div class="option-row">
+                <span class="option-label">BGM音量</span>
+                <input type="range" id="bgmVolumeSlider" min="0" max="100" step="5" oninput="setBgmVolume(this.value/100)">
+            </div>
+            <div class="option-row">
+                <span class="option-label">SE音量</span>
+                <input type="range" id="seVolumeSlider" min="0" max="100" step="5" oninput="setSeVolume(this.value/100)">
+            </div>
             <div class="option-row" id="optionItemsRow">
                 <span class="option-label">図鑑(取得アイテム)</span>
                 <button onclick="openItemGallery()">見る</button>
