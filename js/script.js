@@ -14,7 +14,7 @@
  * 12. 描画資産の不変性: 外部ファイルを厳格に読み込み、存在しない場合は読み込みエラーを即座に特定する。ただし敵専用グラフィック(enemy_〇〇.PNG)と背景(bg.PNG)は任意の差し替え用アセットであり、存在しなくてもエラー扱いにせず、敵はプレイヤー画像へ、背景は水色の塗りつぶしへフォールバックする。背景はステージ(STORY MODEの対戦相手)ごとに個別の画像を持てる。bg.PNGは1体目(ENEMY_01)の背景を兼ね、2〜5体目はbg_2.PNG〜bg_5.PNG、TRAINING MODEはbg_training.PNGを使う。これらが未用意/読み込み失敗の場合は、1体目のbg.PNGへフォールバックする(bg.PNG自体が読み込めない場合のみ、上記の水色塗りつぶしになる)。
  * 13. オブジェクトの生存維持: 状態管理オブジェクト(state, imgs)は決して再定義・初期化せず、常に参照し続ける。
  * 14. 憲法完全表記: コード提示の際、本憲法リストを一切省略せず必ず全条文を記述する。
- * 15. UI永続性: HP・TURN表示は画面上部に固定し、スロットは下部に永続表示する。画面はロゴ(BORN MAGAZINE presents)→プロローグ→タイトル→(STORY MODEのみ)ストーリーシーン→デッキ編成(21枚固定・内訳自由)→バトル→決着(K.O./YOU WIN)、の順で遷移する。ストーリーシーンはプロローグと同じ仕組み(画像+1文字ずつのテキストを1ブロックにまとめ中央配置、1画面目のみフェードイン)で、敵ごとに用意されたstory_{敵番号}_1〜3.PNGの3画面を再生し、タイトルからSTORY MODEを選んだ時、またはRETRYした時に表示される(CONTINUEでは再生しない)。オープニング(プロローグ)とは異なり自動送りはせず、1画面ごとに画面タップで次へ進む(戦う前の会話が相手の癖を読み取るヒントになるため、プレイヤーが自分のペースで読めるようにしている。SKIPボタンは今まで通り利用できる)。3画面すべて読み終えるとデッキ編成へ遷移する。STORY MODEの敵はENEMY_01〜05の5体で固定し(裏ボス等の追加は将来的に想定するが、現時点では5体固定)、勝利のたびに次の敵へ進む。TRAINING MODEはデッキ編成画面を経由せず、タイトルから直接バトルへ入る(デッキという概念自体を持たないため)。決着画面ではCONTINUE(K.O.時)またはNEXT BATTLE(YOU WIN時)と、タイトルへ戻る(ロゴシーンへ)の2つのボタンを提供する。STORY MODEで被ダメージ0のまま勝利した場合(最終戦のエンディング分岐時も含む)、YOU WINの文字の上に、同程度の大きさ・金色の「PERFECT !」を追加表示する(K.O.時、TRAINING MODE、被弾ありの勝利では表示しない)。K.O.(敗北)時は「CONTINUE」表記で直前のデッキ編成へ(同じ敵と再戦)、YOU WIN(勝利)時は「NEXT BATTLE」表記で次の敵へ進めてからその敵のストーリーシーン(3画面)を経てデッキ編成へ遷移する。ただし5体目(最終)の敵をYOU WINで倒した場合は例外とし、NEXT BATTLE/タイトルへ戻るのボタンは表示せず、YOU WINの表示を5秒間見せた後、自動的にエンディング(プロローグ/ストーリーと同じ仕組みの画像+1文字ずつのテキストで5画面、ending_1〜5.PNG)→フェードアウトで暗転→エンドロール(下から上へスクロールするクレジット表示)→FIN.(真っ黒な画面の中央に白い太文字、10秒表示後にゆっくりフェードアウト)の順に演出を行い、最後に自動的にタイトルへ戻る。この一連の流れの間、敵の進行状況(storyEnemyIndex)は5体目のまま更新しない(advanceToNextEnemyを呼ばない)ため、タイトルのCONTINUEは5体目の敵と戦う前の状態から再開される。ロゴシーンはフェードイン→2秒表示→フェードアウトの後、自動でプロローグへ遷移する。プロローグは画像とテキストを1ブロックにまとめて画面中央に配置し、シネマサイズの画像(op_1〜4.PNG)と1文字ずつ表示されるテキストを4画面分再生する(1画面目のみブロック全体がフェードインする)。SKIPしなくても4画面終了後は自動でタイトルへ遷移する。バトル開始時は暗転→味方/敵のフェードイン→背景(bg.PNG)がcanvas上で中心から円形に拡大表示→「BATTLE START」が左からディゾルブで入り中央で静止した後、拡大しながら消える演出を経て、手札が裏向きで配られてから左から順にめくられ、その後操作可能になる(この配布演出はバトル開始時のみで、以降の補充では行わない)。タイトル画面にはSTORY MODE/TRAINING MODEの下にOPTIONを設置し、サウンドON/OFF(BGM/SEの再生有無に連動する。BGMはシーン遷移のたびに切り替わり、Web Audio APIでシームレスループ再生する。ファイル未配置の場合は無音のままエラーにはしない)・STORY MODEの進行状況(倒した敵の人数)のリセット・隠しアイテムの図鑑(今後実装予定、取得済みアイテムがある場合のみ表示)を提供する。BGMの割り当ては、オープニング(プロローグ)=bgm_prologue、ストーリーシーン(全敵共通)=bgm_story、TRAINING MODEのバトル=bgm_battle、STORY MODEのバトルはステージ(敵)ごとに個別のBGM(bgm_battle_1〜5)を持ち、該当ファイルが未配置の場合は汎用のbgm_battleへフォールバックする。YOU WIN(勝利)=bgm_victory、エンディング=bgm_ending、K.O.(敗北)時は専用BGMを設けずBGMを停止する。タイトル画面のCONTINUEは、セーブデータが存在するだけでは表示されず、実際に敵2体目以降まで到達した記録(セーブデータのstoryEnemyIndexが1以上)がある場合のみ表示される。NEW GAMEを選んだ場合、今回のプレイのstoryEnemyIndexは0から始まるが、セーブデータ側のstoryEnemyIndexは即座には上書きされない(誤ってNEW GAMEを選んでしまっても、既存の進行状況は消えず、次に勝利してadvanceToNextEnemyが呼ばれるまで保持される)。OPTION画面の「進行状況(セーブデータ)のリセット」を実行した場合のみ、セーブデータのstoryEnemyIndexが0に戻り、タイトルのCONTINUEも即座に消える(隠しアイテムの図鑑等のリセットは別途用意する想定で、この「進行状況(セーブデータ)のリセット」とは別軸)。STORY MODEの進行状況(現在の敵)とデッキ編成は、localStorageを用いて端末に保存され、次回起動時に自動で復元される。実績システム(今後も追加していく前提の汎用的な仕組み)として、以下を用意する。いずれも解除状況はlocalStorageに永続保存され、次回起動時も解除済みのまま残る。(1)隠しタップ→サブストーリー→コスチュームの連鎖: 各敵のストーリーシーン3画面のうち1枚(敵ごとに異なる画面に割り当てる。現時点では仮の割り当てで、画像が揃い次第調整予定)の、画像エリア左上20%×20%の透明な領域をタップすると、現在再生中の敵に対応するサブストーリーが解除される(5体分、それぞれ個別に解除される)。それ以外の2画面ではこの隠しタップは無効(押せない)。解除済みのサブストーリーは、タイトルOPTION画面の「SUB STORY」(1つ以上解除済みの場合のみ表示)から一覧・閲覧できる。さらに、そのサブストーリーを実際に開いて読む(体験する)と、その時点で対応する敵のコスチューム(見た目)が解除される(既存の敵専用グラフィックのセット、assets/images/characters_enemy/enemy_1〜5/を、プレイヤー自身の見た目として流用する)。解除済みのコスチュームは、タイトルOPTION画面の「COSTUME」(1つ以上解除済みの場合のみ表示)から選択でき、選択中のコスチュームはバトル中のプレイヤー側の描画すべてに反映される。(2)必殺技コンプ: PUNCH+PUNCH+UPPER・ガード+ガード(チャージ)・PUNCH+GUARD+PUNCH(追撃)・GUARD+PUNCH+GUARD+PUNCH+PUNCH(必殺技)の4種類を、これまでの対戦を通じて(バトルをまたいで積み上げ)1回ずつでも使用すると、SOUND TESTが解除される(タイトルOPTION画面の「SOUND TEST」、解除済みの場合のみ表示。実音声ファイル未配置の項目は再生時に何も鳴らないだけで、エラーにはしない)。
+ * 15. UI永続性: HP・TURN表示は画面上部に固定し、スロットは下部に永続表示する。画面はロゴ(BORN MAGAZINE presents)→プロローグ→タイトル→(STORY MODEのみ)ストーリーシーン→デッキ編成(21枚固定・内訳自由)→バトル→決着(K.O./YOU WIN)、の順で遷移する。ストーリーシーンはプロローグと同じ仕組み(画像+1文字ずつのテキストを1ブロックにまとめ中央配置、1画面目のみフェードイン)で、敵ごとに用意されたstory_{敵番号}_1〜3.PNGの3画面を再生し、タイトルからSTORY MODEを選んだ時、またはRETRYした時に表示される(CONTINUEでは再生しない)。オープニング(プロローグ)とは異なり自動送りはせず、1画面ごとに画面タップで次へ進む(戦う前の会話が相手の癖を読み取るヒントになるため、プレイヤーが自分のペースで読めるようにしている。SKIPボタンは今まで通り利用できる)。3画面すべて読み終えるとデッキ編成へ遷移する。STORY MODEの敵はENEMY_01〜05の5体で固定し(裏ボス等の追加は将来的に想定するが、現時点では5体固定)、勝利のたびに次の敵へ進む。TRAINING MODEはデッキ編成画面を経由せず、タイトルから直接バトルへ入る(デッキという概念自体を持たないため)。決着画面ではCONTINUE(K.O.時)またはNEXT BATTLE(YOU WIN時)と、タイトルへ戻る(ロゴシーンへ)の2つのボタンを提供する。STORY MODEで被ダメージ0のまま勝利した場合(最終戦のエンディング分岐時も含む)、YOU WINの文字の上に、同程度の大きさ・金色の「PERFECT !」を追加表示する(K.O.時、TRAINING MODE、被弾ありの勝利では表示しない)。K.O.(敗北)時は「CONTINUE」表記で直前のデッキ編成へ(同じ敵と再戦)、YOU WIN(勝利)時は「NEXT BATTLE」表記で次の敵へ進めてからその敵のストーリーシーン(3画面)を経てデッキ編成へ遷移する。ただし5体目(最終)の敵をYOU WINで倒した場合は例外とし、NEXT BATTLE/タイトルへ戻るのボタンは表示せず、YOU WINの表示を5秒間見せた後、自動的にエンディング(プロローグ/ストーリーと同じ仕組みの画像+1文字ずつのテキストで5画面、ending_1〜5.PNG)→フェードアウトで暗転→エンドロール(下から上へスクロールするクレジット表示)→FIN.(真っ黒な画面の中央に白い太文字、10秒表示後にゆっくりフェードアウト)の順に演出を行い、最後に自動的にタイトルへ戻る。この一連の流れの間、敵の進行状況(storyEnemyIndex)は5体目のまま更新しない(advanceToNextEnemyを呼ばない)ため、タイトルのCONTINUEは5体目の敵と戦う前の状態から再開される。ロゴシーンはフェードイン→2秒表示→フェードアウトの後、自動でプロローグへ遷移する。プロローグは画像とテキストを1ブロックにまとめて画面中央に配置し、シネマサイズの画像(op_1〜4.PNG)と1文字ずつ表示されるテキストを4画面分再生する(1画面目のみブロック全体がフェードインする)。SKIPしなくても4画面終了後は自動でタイトルへ遷移する。バトル開始時は暗転→味方/敵のフェードイン→背景(bg.PNG)がcanvas上で中心から円形に拡大表示→「BATTLE START」が左からディゾルブで入り中央で静止した後、拡大しながら消える演出を経て、手札が裏向きで配られてから左から順にめくられ、その後操作可能になる(この配布演出はバトル開始時のみで、以降の補充では行わない)。タイトル画面にはSTORY MODE/TRAINING MODEの下にOPTIONを設置し、サウンドON/OFF(BGM/SEの再生有無に連動する。BGMはシーン遷移のたびに切り替わり、Web Audio APIでシームレスループ再生する。ファイル未配置の場合は無音のままエラーにはしない)・BGM音量/SE音量(それぞれ個別のスライダーで0〜100%に調整でき、Web Audio APIのゲインノードで即座に反映される。BGMは既定で50%、SEは既定で100%とし、SEが聞き取りやすいようBGMを控えめにしている)・STORY MODEの進行状況(倒した敵の人数)のリセット・隠しアイテムの図鑑(今後実装予定、取得済みアイテムがある場合のみ表示)を提供する。BGMの割り当ては、オープニング(プロローグ)=bgm_prologue、ストーリーシーン(全敵共通)=bgm_story、TRAINING MODEのバトル=bgm_battle、STORY MODEのバトルはステージ(敵)ごとに個別のBGM(bgm_battle_1〜5)を持ち、該当ファイルが未配置の場合は汎用のbgm_battleへフォールバックする。YOU WIN(勝利)=bgm_victory、エンディング=bgm_ending、K.O.(敗北)時は専用BGMを設けずBGMを停止する。タイトル画面のCONTINUEは、セーブデータが存在するだけでは表示されず、実際に敵2体目以降まで到達した記録(セーブデータのstoryEnemyIndexが1以上)がある場合のみ表示される。NEW GAMEを選んだ場合、今回のプレイのstoryEnemyIndexは0から始まるが、セーブデータ側のstoryEnemyIndexは即座には上書きされない(誤ってNEW GAMEを選んでしまっても、既存の進行状況は消えず、次に勝利してadvanceToNextEnemyが呼ばれるまで保持される)。OPTION画面の「進行状況(セーブデータ)のリセット」を実行した場合のみ、セーブデータのstoryEnemyIndexが0に戻り、タイトルのCONTINUEも即座に消える(隠しアイテムの図鑑等のリセットは別途用意する想定で、この「進行状況(セーブデータ)のリセット」とは別軸)。STORY MODEの進行状況(現在の敵)とデッキ編成は、localStorageを用いて端末に保存され、次回起動時に自動で復元される。実績システム(今後も追加していく前提の汎用的な仕組み)として、以下を用意する。いずれも解除状況はlocalStorageに永続保存され、次回起動時も解除済みのまま残る。(1)隠しタップ→サブストーリー→コスチュームの連鎖: 各敵のストーリーシーン3画面のうち1枚(敵ごとに異なる画面に割り当てる。現時点では仮の割り当てで、画像が揃い次第調整予定)の、画像エリア左上20%×20%の透明な領域をタップすると、現在再生中の敵に対応するサブストーリーが解除される(5体分、それぞれ個別に解除される)。それ以外の2画面ではこの隠しタップは無効(押せない)。解除済みのサブストーリーは、タイトルOPTION画面の「SUB STORY」(1つ以上解除済みの場合のみ表示)から一覧・閲覧できる。さらに、そのサブストーリーを実際に開いて読む(体験する)と、その時点で対応する敵のコスチューム(見た目)が解除される(既存の敵専用グラフィックのセット、assets/images/characters_enemy/enemy_1〜5/を、プレイヤー自身の見た目として流用する)。解除済みのコスチュームは、タイトルOPTION画面の「COSTUME」(1つ以上解除済みの場合のみ表示)から選択でき、選択中のコスチュームはバトル中のプレイヤー側の描画すべてに反映される。(2)必殺技コンプ: PUNCH+PUNCH+UPPER・ガード+ガード(チャージ)・PUNCH+GUARD+PUNCH(追撃)・GUARD+PUNCH+GUARD+PUNCH+PUNCH(必殺技)の4種類を、これまでの対戦を通じて(バトルをまたいで積み上げ)1回ずつでも使用すると、SOUND TESTが解除される(タイトルOPTION画面の「SOUND TEST」、解除済みの場合のみ表示。実音声ファイル未配置の項目は再生時に何も鳴らないだけで、エラーにはしない)。
  * 16. 位置保持: 攻防のたびに初期位置へ戻るのではなく、中央で衝突→軽く距離を取る、を繰り返す。ホームポジションへ戻るのはターン完了時のみ。
  * 17. 体力ゲージ演出: ダメージ発生時、現在値が即座に減り、黄色いバーが0.6秒遅れて減少する。
  * 18. TURN表示仕様: 画面上部中央に「TURN」と「数字」を2行で太字(900)表示する。
@@ -96,6 +96,8 @@ let state = {
     gameMode: 'story', pendingMode: 'story', // 'story' | 'training'
     storyEnemyIndex: 0, // STORY MODE: ENEMY_ORDER内の現在の敵の位置(連戦で進んでいく想定。セーブデータから復元される)
     soundOn: true, // OPTION画面のサウンドON/OFF。BGM/SEの再生有無に連動する
+    bgmVolume: 0.5, // BGM音量(0〜1)。SEを聴き取りやすくするため既定を控えめにしている
+    seVolume: 1.0, // SE音量(0〜1)
     introCharAlpha: 1, // バトル開始演出: 味方/敵のフェードイン係数(0〜1)
     bgRevealRadius: 0, // バトル開始演出: 背景を中心から広げる円形クリップの半径(0で真っ暗)
     playerDeck: [], playerDiscard: [], playerHand: new Array(5).fill(null), // 山札/捨札/手札
@@ -564,6 +566,8 @@ function applySaveDataOnBoot() {
         };
     }
     if (typeof save.soundOn === 'boolean') state.soundOn = save.soundOn;
+    if (typeof save.bgmVolume === 'number') state.bgmVolume = save.bgmVolume;
+    if (typeof save.seVolume === 'number') state.seVolume = save.seVolume;
     if (Array.isArray(save.unlockedItems)) unlockedItems = save.unlockedItems;
     if (Array.isArray(save.unlockedSubStories)) unlockedSubStories = save.unlockedSubStories;
     if (Array.isArray(save.unlockedSkins)) unlockedSkins = save.unlockedSkins;
@@ -742,6 +746,38 @@ function getAudioCtx() {
     return audioCtx;
 }
 
+// BGM/SEそれぞれ専用のゲインノードを介して出力する(個別に音量調整できるようにするため)
+let bgmGainNode = null;
+function getBgmGainNode() {
+    if (!bgmGainNode) {
+        const ctx = getAudioCtx();
+        bgmGainNode = ctx.createGain();
+        bgmGainNode.gain.value = state.bgmVolume;
+        bgmGainNode.connect(ctx.destination);
+    }
+    return bgmGainNode;
+}
+let seGainNode = null;
+function getSeGainNode() {
+    if (!seGainNode) {
+        const ctx = getAudioCtx();
+        seGainNode = ctx.createGain();
+        seGainNode.gain.value = state.seVolume;
+        seGainNode.connect(ctx.destination);
+    }
+    return seGainNode;
+}
+function setBgmVolume(v) {
+    state.bgmVolume = v;
+    writeSaveData({ bgmVolume: v });
+    if (bgmGainNode) bgmGainNode.gain.value = v;
+}
+function setSeVolume(v) {
+    state.seVolume = v;
+    writeSaveData({ seVolume: v });
+    if (seGainNode) seGainNode.gain.value = v;
+}
+
 // 指定した種別(bgm/se)・名前の音声をfetch+decodeしてAudioBufferとして返す。読み込めなければnull。
 async function loadAudioBuffer(kind, name) {
     for (const ext of AUDIO_EXTENSIONS) {
@@ -787,7 +823,7 @@ async function playBGM(name, fallbackName) {
     const source = ctx.createBufferSource();
     source.buffer = buffer;
     source.loop = true; // AudioBufferSourceNodeのloopはサンプル単位でシームレス
-    source.connect(ctx.destination);
+    source.connect(getBgmGainNode());
     source.start(0);
     currentBgmSource = source;
 }
@@ -813,7 +849,7 @@ async function playSE(name) {
     const ctx = getAudioCtx();
     const source = ctx.createBufferSource();
     source.buffer = buffer;
-    source.connect(ctx.destination);
+    source.connect(getSeGainNode());
     source.start(0);
 }
 
@@ -2438,6 +2474,8 @@ function closeOptionBackdrop(e) {
 
 function updateOptionUI() {
     document.querySelector(`input[name="soundRadio"][value="${state.soundOn ? 'on' : 'off'}"]`).checked = true;
+    document.getElementById('bgmVolumeSlider').value = Math.round(state.bgmVolume * 100);
+    document.getElementById('seVolumeSlider').value = Math.round(state.seVolume * 100);
     document.getElementById('optionItemsRow').style.display = unlockedItems.length > 0 ? 'flex' : 'none';
     // 実績で解除された項目のみ、対応する行を表示する
     document.getElementById('optionSubStoryRow').style.display = unlockedSubStories.length > 0 ? 'flex' : 'none';
