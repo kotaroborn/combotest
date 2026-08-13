@@ -56,6 +56,7 @@
     <button id="startBtn" class="text-btn" onclick="tapFlickerThen(this, () => goNewGame())" disabled>NEW GAME</button>
     <button id="trainingBtn" class="text-btn" onclick="tapFlickerThen(this, () => goTrainingBattle())" disabled>TRAINING MODE</button>
     <button id="optionBtn" class="text-btn" onclick="openOption()" disabled>OPTION</button>
+    <button id="bonusContentsBtn" class="text-btn" onclick="openBonusContents()" style="display:none;">BONUS<br>CONTENTS</button>
     <button class="howto-btn howto-corner" onclick="openHowTo()">HOW<br>TO</button>
 </div>
 
@@ -207,14 +208,6 @@
                 <span class="option-label">図鑑(取得アイテム)</span>
                 <button onclick="openItemGallery()">見る</button>
             </div>
-            <div class="option-row" id="optionSubStoryRow" style="display:none;">
-                <span class="option-label">SUB STORY</span>
-                <button onclick="openSubStoryList()">見る</button>
-            </div>
-            <div class="option-row" id="optionSoundTestRow" style="display:none;">
-                <span class="option-label">SOUND TEST</span>
-                <button onclick="openSoundTest()">見る</button>
-            </div>
             <div class="option-row" id="optionCostumeRow" style="display:none;">
                 <span class="option-label">COSTUME</span>
                 <button onclick="openCostumeSelect()">見る</button>
@@ -223,7 +216,7 @@
                 <span class="option-label">進行状況(セーブデータ)</span>
                 <button id="resetProgressBtn" onclick="openResetConfirm()">リセット</button>
             </div>
-            <p style="color:#888; font-size:11px;">(サウンド・図鑑機能は今後実装予定です)</p>
+            <p style="color:#888; font-size:11px;">(図鑑機能は今後実装予定です)</p>
         </div>
         <div class="howto-footer" id="optionFooter">
             <button id="optionRetryBtn" onclick="openRetryConfirm()">RETRY</button>
@@ -253,6 +246,24 @@
     </div>
 </div>
 
+<!-- BONUS CONTENTS: タイトル画面専用。SUB STORY/SOUND TESTへの入口(何か1つでも解除されていれば表示) -->
+<div id="bonusContentsOverlay" class="popup-overlay" onclick="closeBonusContentsBackdrop(event)">
+    <div class="popup-panel">
+        <button class="popup-close" onclick="closeBonusContents()">×</button>
+        <div class="howto-content">
+            <h2>BONUS CONTENTS</h2>
+            <div class="option-row" id="bonusSubStoryRow" style="display:none;">
+                <span class="option-label">SUB STORY</span>
+                <button onclick="openSubStoryList()">見る</button>
+            </div>
+            <div class="option-row" id="bonusSoundTestRow" style="display:none;">
+                <span class="option-label">SOUND TEST</span>
+                <button onclick="openSoundTest()">見る</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- SUB STORY一覧/閲覧ポップアップ -->
 <div id="subStoryOverlay" class="popup-overlay" onclick="closeSubStoryBackdrop(event)">
     <div class="popup-panel">
@@ -264,7 +275,7 @@
             </div>
             <div id="subStoryReadView" style="display:none;">
                 <button class="text-btn" onclick="backToSubStoryList()">◀︎戻る</button>
-                <div class="cine-block" style="margin-top:8px;" onclick="onSubStoryTap()">
+                <div id="subStoryBlock" class="cine-block" style="margin-top:8px;" onclick="onSubStoryTap()">
                     <div id="subStoryImgArea" class="cine-img"><div id="subStoryImgFallback" class="cine-img-fallback"></div></div>
                     <div class="cine-textbox"><p id="subStoryText" class="cine-text"></p></div>
                 </div>
