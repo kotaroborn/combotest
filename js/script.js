@@ -202,6 +202,9 @@ const SOUND_TEST_TRACKS = [
     { name: 'se_guard', label: 'SE: ガード' },
     { name: 'se_meteor', label: 'SE: メテオ' },
     { name: 'se_finisher', label: 'SE: 必殺技' },
+    { name: 'se_clash_punch', label: 'SE: あいこ(PUNCH)' },
+    { name: 'se_clash_upper', label: 'SE: あいこ(UPPER)' },
+    { name: 'se_clash_guard', label: 'SE: あいこ(GUARD)' },
     { name: 'se_ko', label: 'SE: K.O.' },
     { name: 'se_win', label: 'SE: YOU WIN' },
 ];
@@ -882,7 +885,7 @@ async function playSE(name) {
 async function preloadSE() {
     const punchBuffer = await loadAudioBuffer('se', 'se_punch');
     seBufferCache['se_punch'] = punchBuffer;
-    ['se_guard', 'se_ko', 'se_win', 'se_upper', 'se_meteor', 'se_finisher'].forEach(async name => {
+    ['se_guard', 'se_ko', 'se_win', 'se_upper', 'se_meteor', 'se_finisher', 'se_clash_punch', 'se_clash_upper', 'se_clash_guard'].forEach(async name => {
         const buf = await loadAudioBuffer('se', name);
         seBufferCache[name] = buf || punchBuffer; // 未配置ならse_punchで代用(不安な無音を避ける)
     });
@@ -2354,6 +2357,8 @@ async function resolveExchange(pAct, eAct, cursor) {
         state.eAct = moveSprite(eAct);
         applyDamage('P', DB.DMG.CLASH);
         applyDamage('E', DB.DMG.CLASH);
+        // あいこ専用のSE。出した手の種類に応じて鳴らす(いずれも未配置ならse_punchで代用される)
+        playSE(pAct === 'PUNCH' ? 'se_clash_punch' : pAct === 'UPPER' ? 'se_clash_upper' : 'se_clash_guard');
         triggerShake('P', 300);
         triggerShake('E', 300);
         await wait(250);
