@@ -198,7 +198,10 @@ const SOUND_TEST_TRACKS = [
     { name: 'bgm_victory', label: 'BGM: 勝利' },
     { name: 'bgm_ending', label: 'BGM: エンディング' },
     { name: 'se_punch', label: 'SE: パンチ' },
+    { name: 'se_upper', label: 'SE: アッパー' },
     { name: 'se_guard', label: 'SE: ガード' },
+    { name: 'se_meteor', label: 'SE: メテオ' },
+    { name: 'se_finisher', label: 'SE: 必殺技' },
     { name: 'se_ko', label: 'SE: K.O.' },
     { name: 'se_win', label: 'SE: YOU WIN' },
 ];
@@ -879,7 +882,7 @@ async function playSE(name) {
 async function preloadSE() {
     const punchBuffer = await loadAudioBuffer('se', 'se_punch');
     seBufferCache['se_punch'] = punchBuffer;
-    ['se_guard', 'se_ko', 'se_win'].forEach(async name => {
+    ['se_guard', 'se_ko', 'se_win', 'se_upper', 'se_meteor', 'se_finisher'].forEach(async name => {
         const buf = await loadAudioBuffer('se', name);
         seBufferCache[name] = buf || punchBuffer; // 未配置ならse_punchで代用(不安な無音を避ける)
     });
@@ -2031,6 +2034,7 @@ async function runNormalHit(winner, loser, move) {
 
 async function runMeteor(attacker, defender) {
     applyDamage(defender, DB.DMG.M * chargeMultOf(attacker));
+    playSE('se_meteor'); // 未配置ならse_punchで代用される
     setAct(attacker, 'knock.PNG');
     setAct(defender, 'damage.PNG');
     await wait(400); // 一時停止
@@ -2075,6 +2079,7 @@ async function runUpperCombo(attacker, defender, cursor) {
     setAct(attacker, 'upper.PNG');
     setAct(defender, 'damage.PNG');
     applyDamage(defender, DB.DMG.U * chargeMultOf(attacker) * (isSuperUpper ? 2 : 1));
+    playSE('se_upper'); // 未配置ならse_punchで代用される
     triggerShake(defender, 300);
 
     // 上昇アニメーション: 地面(または現在の高さ)から浮遊高さまで、固定ステップ数・固定所要時間で上昇させる。
@@ -2125,6 +2130,7 @@ async function runUpperCombo(attacker, defender, cursor) {
             markCardOutcome(defender, cursor.i, 'card-shatter'); // 3すくみ無視のコンボ継続: ヒビ割れる
             const comboDmg = (DB.DMG.P + (airPunches - 1) * DB.DMG.P_COMBO_STEP) * chargeMultOf(attacker); // 1発目=P, 2発目=P+STEP...
             applyDamage(defender, comboDmg);
+            playSE('se_punch');
             triggerShake(defender, 200);
             await wait(500);
         } else {
@@ -2238,6 +2244,7 @@ async function runFollowUpFlurry(attacker, defender) {
         setAct(attacker, nextPunchSprite(attacker)); // 第21条
         setAct(defender, 'damage.PNG');
         applyDamage(defender, DB.DMG.P);
+        playSE('se_punch');
         triggerShake(defender, 150);
         await wait(120); // 素早い連打
     }
@@ -2254,6 +2261,7 @@ async function runFinisher(attacker, defender, cursor) {
     setAct(defender, 'damage.PNG');
     markCardOutcome(defender, cursor.i, 'card-shatter'); // 3すくみ無視のヒットなのでヒビ割れ表現にする
     applyDamage(defender, DB.DMG.FINISHER);
+    playSE('se_finisher'); // 未配置ならse_punchで代用される
     triggerShake(defender, 300);
     await wait(150);
 
