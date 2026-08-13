@@ -348,6 +348,18 @@
         .option-radio-group { display: flex; gap: 12px; }
         .option-radio { display: flex; align-items: center; gap: 4px; font-size: 12px; color: #eee; cursor: pointer; }
         .option-radio input { accent-color: #a00; }
+        /* 音量スライダーの目盛り: つまみの左右パディング分(スライダーの実トラック幅)に合わせて配置する */
+        .volume-control { position: relative; width: 140px; }
+        .volume-control input[type="range"] { width: 100%; display: block; margin: 0; accent-color: #a00; }
+        .volume-ticks {
+            position: absolute; left: 8px; right: 8px; top: 50%; transform: translateY(-1px);
+            height: 0; pointer-events: none;
+        }
+        .volume-ticks .tick {
+            position: absolute; top: 0; width: 1px; height: 5px; background: #555;
+            transform: translate(-50%, 0);
+        }
+        .volume-ticks .tick-long { height: 10px; background: #888; }
         .confirm-panel {
             display: none; position: absolute; inset: 0; background: rgba(10,10,10,0.96);
             flex-direction: column; align-items: center; justify-content: center; gap: 20px;
