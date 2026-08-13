@@ -93,7 +93,7 @@
         .logo-sub { font-size: 13px; letter-spacing: 6px; color: #aaa; }
 
         /* ------- シネマ演出共通(プロローグ・ストーリーシーンで共用): 画像 + 1文字ずつのテキストを1ブロックにまとめ、中央配置 ------- */
-        #scenePrologue, #sceneStory, #sceneEnding { justify-content: center; align-items: center; }
+        #scenePrologue, #sceneStory, #sceneEnding, #sceneSubStoryRead { justify-content: center; align-items: center; }
         .cine-block { flex: none; display: flex; flex-direction: column; width: 100%; opacity: 0; }
         .cine-img {
             width: 100%; aspect-ratio: 2.4 / 1; /* シネマサイズ(ワイド) */
@@ -142,25 +142,29 @@
             15%, 45%, 75% { filter: brightness(2.4); text-shadow: 0 0 10px rgba(255,255,255,0.95); }
             30%, 60%, 90% { filter: brightness(1); text-shadow: none; }
         }
-        #skipBtn, #skipStoryBtn {
+        #skipBtn, #skipStoryBtn, #backSubStoryBtn {
             position: absolute; right: 14px; bottom: 14px;
             font-size: 13px; color: #eee;
         }
         #titleContinueBtn {
-            position: absolute; left: 50%; bottom: 31%; transform: translateX(-50%);
+            position: absolute; left: 50%; bottom: 39%; transform: translateX(-50%);
             font-size: 13px; letter-spacing: 3.5px;
         }
         #startBtn {
-            position: absolute; left: 50%; bottom: 25%; transform: translateX(-50%);
+            position: absolute; left: 50%; bottom: 33%; transform: translateX(-50%);
             font-size: 13px; letter-spacing: 6.8px;
         }
         #trainingBtn {
-            position: absolute; left: 50%; bottom: 18%; transform: translateX(-50%);
+            position: absolute; left: 50%; bottom: 26%; transform: translateX(-50%);
             font-size: 13px; letter-spacing: 3.5px; color: #bbb;
         }
         #optionBtn {
-            position: absolute; left: 50%; bottom: 12%; transform: translateX(-50%);
+            position: absolute; left: 50%; bottom: 20%; transform: translateX(-50%);
             font-size: 11px; letter-spacing: 3px; color: #888;
+        }
+        #bonusContentsBtn {
+            position: absolute; left: 50%; bottom: 12%; transform: translateX(-50%);
+            font-size: 11px; letter-spacing: 3px; color: #888; line-height: 1.4;
         }
 
         /* ------- デッキ編成シーン ------- */
@@ -295,6 +299,7 @@
         }
         #howToBtn { flex: 0 0 48px; } /* バトル画面ではcontrols行の一部 */
         .howto-corner { position: absolute; left: 14px; bottom: 14px; } /* タイトル/デッキ編成では画面左下に固定 */
+        .title-copyright { position: absolute; right: 14px; bottom: 14px; color: #555; font-size: 9px; letter-spacing: 0.5px; }
         #clrBtn { flex: 0 0 76px; background: #444; font-size: 13px; } /* 縮小してGO寄りに */
         #goBtn { background: #a00; } /* 押せる時は赤のまま */
         #goBtn:disabled, #clrBtn:disabled { background: #333; }
