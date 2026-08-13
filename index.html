@@ -199,11 +199,41 @@
             </div>
             <div class="option-row">
                 <span class="option-label">BGM音量</span>
-                <input type="range" id="bgmVolumeSlider" min="0" max="100" step="5" oninput="setBgmVolume(this.value/100)">
+                <div class="volume-control">
+                    <input type="range" id="bgmVolumeSlider" min="0" max="100" step="5" oninput="setBgmVolume(this.value/100)">
+                    <div class="volume-ticks">
+                        <span class="tick tick-long" style="left:0%;"></span>
+                        <span class="tick" style="left:10%;"></span>
+                        <span class="tick" style="left:20%;"></span>
+                        <span class="tick" style="left:30%;"></span>
+                        <span class="tick" style="left:40%;"></span>
+                        <span class="tick tick-long" style="left:50%;"></span>
+                        <span class="tick" style="left:60%;"></span>
+                        <span class="tick" style="left:70%;"></span>
+                        <span class="tick" style="left:80%;"></span>
+                        <span class="tick" style="left:90%;"></span>
+                        <span class="tick tick-long" style="left:100%;"></span>
+                    </div>
+                </div>
             </div>
             <div class="option-row">
                 <span class="option-label">SE音量</span>
-                <input type="range" id="seVolumeSlider" min="0" max="100" step="5" oninput="setSeVolume(this.value/100)">
+                <div class="volume-control">
+                    <input type="range" id="seVolumeSlider" min="0" max="100" step="5" oninput="setSeVolume(this.value/100)">
+                    <div class="volume-ticks">
+                        <span class="tick tick-long" style="left:0%;"></span>
+                        <span class="tick" style="left:10%;"></span>
+                        <span class="tick" style="left:20%;"></span>
+                        <span class="tick" style="left:30%;"></span>
+                        <span class="tick" style="left:40%;"></span>
+                        <span class="tick tick-long" style="left:50%;"></span>
+                        <span class="tick" style="left:60%;"></span>
+                        <span class="tick" style="left:70%;"></span>
+                        <span class="tick" style="left:80%;"></span>
+                        <span class="tick" style="left:90%;"></span>
+                        <span class="tick tick-long" style="left:100%;"></span>
+                    </div>
+                </div>
             </div>
             <div class="option-row" id="optionItemsRow">
                 <span class="option-label">図鑑(取得アイテム)</span>
@@ -217,7 +247,6 @@
                 <span class="option-label">進行状況(セーブデータ)</span>
                 <button id="resetProgressBtn" onclick="openResetConfirm()">リセット</button>
             </div>
-            <p style="color:#888; font-size:11px;">(図鑑機能は今後実装予定です)</p>
         </div>
         <div class="howto-footer" id="optionFooter">
             <button id="optionRetryBtn" onclick="openRetryConfirm()">RETRY</button>
