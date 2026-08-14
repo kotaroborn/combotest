@@ -7,7 +7,7 @@
  * 5. 着地同期: 通常コンボ終了時（メテオに至らない場合）は、攻守双方が地面(GROUND_Y)へ着地してから次の演出へ遷移する。
  * 6. 通常コンボ終了時の演出: 攻撃側は必ずdash.PNGへ、被弾側はdamage.PNGのまま着地させる。
  * 7. 画像状態管理: 待機中は必ず player.PNG / player2.PNG の呼吸(idle)へ復帰する。idle.PNGという単独ファイルは存在しない。
- * 8. ダメージ計算: PUNCH勝利(基本10、地上での連続ヒットは1発目=基本値・2発目=+5・3発目=+10の3発周期で、4発目は1発目の基本値に戻ってこの周期を繰り返す。ガード等で止められる、または相手に勝敗が決するとこの周期はリセットされ、次に地上PUNCHで勝った時は1発目の基本値から再開する。この連続ヒット記録はターンをまたいでも持ち越さず、ターン終了時に必ずリセットされる。威力が増していく演出として、負けた側の位置も周期に連動する: 1発目は追加の後退なし、2発目は後退位置(RETREAT_X)まで後退、3発目はホームポジション(HOME_X)まで大きく後退し、4発目は1発目と同様に追加の後退なしに戻る)、UPPER初撃(5)、空中パンチ連続ヒット加算(2発目以降+5)、メテオ(50)、相討ち(3)。三すくみに負けた側のみ振動(shake)する。ダメージを受けた側は、量の大小にかかわらず必ず一瞬点滅する(applyDamage内で共通処理)。同じ手同士の相討ちの場合は双方が微ダメージを受けて振動し、反動で一歩下がる。GUARDが勝った場合(相手のPUNCHを防いだ場合)、勝った側は極小ダメージで振動し、負けた側はダメージなしだがしびれ、次のコマンドの成功率が1/2になる(どちらの側がガードしても発生する)。しびれは「固定ダメージを受ける」仕様ではなく、次の攻防で1/2の確率で無条件敗北する仕様である。ブロックされた瞬間、負けた側はまず自身が出していた技の姿勢(通常はpunch.PNGのまま)で振動し、直後にdamage.PNGへ切り替わって頭上にpiyo.PNGが反転を繰り返す「ピヨり」演出が始まる。このピヨりは固定時間の演出ではなく、次の攻防の結果が決まる瞬間まで継続する。ピヨり中は、通常なら双方が第24条の通りdash.PNGで移動する場面(攻防後の後退、次の攻防前の踏み込み)であっても、ピヨり側は次のコマンドが始まるまでその場に留まり続け、dashで動かない(相手側のみ通常通り移動する)。次の攻防が始まり判定が行われる瞬間、ピヨりは終了する。その時点で1/2の確率が外れた場合はしびれが解消され、3すくみ判定による通常の攻防がそのまま行われる。1/2の確率が的中した場合は無条件敗北となり、しびれた側はdamage.PNGのまま点滅を強めた後、相手が実際に出していた技の種類(PUNCH/UPPER/GUARD)に応じた通常の勝敗処理(空中コンボやガード成功も含む)が3すくみ判定なしで適用される。この無条件敗北によってGUARD成功の処理が適用される場合、しびれた側は実際に出していた技に関わらずdamage.PNGの姿勢になり(通常のGUARD成功時の「負けた側は自身の技の姿勢のまま」という表現は、実際にその技を出して負けた場合のみに限定される)、この時新たにしびれが発生すればピヨりも再び開始する(しびれの連鎖)。しびれはターンをまたいで持ち越さない仕様とし、そのターン中に消費されなかった場合はターン終了時に必ず解消される。ガード+ガード(チャージ): 同一ターン内でガード成功が2回連続すると、成功させた側の体が金色に発光し、次に出すカードの攻撃力が2倍になる。ガード成功がさらに3回連続以降となった場合は、チャージが消費されないままカウントだけが伸び、倍率が4倍(上限)に格上げされる(4倍時は金色の発光の外側に白いオーラがもう一段重なり、二重の輪として2倍と明確に区別できるようにする)。チャージは、ガード成功以外の結果(PUNCH/UPPER勝利・負け・相討ち)で次に出すカードが決着した時点で、勝敗に関わらず(勝っても負けても)消費される一度限りの効果であり、ガード成功時の自己反動ダメージ(TINY)には適用されない。UPPERが決まりコンボが継続する場合、チャージはUPPER初撃のダメージにのみ適用され、初撃の直後に消費される(以降の空中コンボ継続やメテオへの変換は、それぞれ追加で出したカードの結果であり、通常倍率で計算される)。ガード成功の連続カウントは同一ターン内のみ有効で、ターンが変わるとリセットされる。ただし発光と倍率効果そのもの(チャージ状態)はしびれ・ピヨりとは異なりターンをまたいで持ち越され、消費されるまで発光し続ける。PUNCH+GUARD+PUNCH(追撃): 手札のどの位置であっても、PUNCH,GUARD,PUNCHの3枚が連続して出され、いずれも勝利した場合(相打ちは不可)、3枚目の直後に追撃が発生する。追撃はpunch.PNGとpunch2.PNGを素早く切り替えながら3連打し、3すくみ判定を行わずヒット確定で命中する。1発ごとに通常のPUNCH勝利初撃と同じダメージを与える(合計で通常の3倍、チャージ等の倍率の影響は受けない)。GUARD+PUNCH+GUARD+PUNCH+PUNCH(必殺技): 手札の1〜5枚目がこの並びで、1〜4枚目が勝利または相打ちだった場合(1枚でも敗北すると不成立)、5枚目のPUNCHは3すくみ判定を行わずヒット確定の必殺技に変化する。固定ダメージ(50、チャージ等の倍率の影響を受けない)を与え、被弾側をdamage.PNGのまま画面端まで吹き飛ばし、端に到達すると点滅した後knock2.PNGになり、通常のターン終了処理で定位置へ戻る。この必殺技でK.O.した場合は、画面端でdown.PNGのまま倒れ、通常の決着演出(ホームポジションへ戻ってからのバウンド)は行わない。この5枚の並びには2〜4枚目にPUNCH,GUARD,PUNCHが含まれるが、この場合は追撃技としては判定されない(必殺技の判定が優先され、追撃はキャンセルされる)。
+ * 8. ダメージ計算: PUNCH勝利(基本10、地上での連続ヒットは1発目=基本値・2発目=+5・3発目=+10の3発周期で、4発目は1発目の基本値に戻ってこの周期を繰り返す。ガード等で止められる、または相手に勝敗が決するとこの周期はリセットされ、次に地上PUNCHで勝った時は1発目の基本値から再開する。この連続ヒット記録はターンをまたいでも持ち越さず、ターン終了時に必ずリセットされる。威力が増していく演出として、負けた側の位置も周期に連動する: 1発目は追加の後退なし、2発目は後退位置(RETREAT_X)まで後退、3発目はホームポジション(HOME_X)まで大きく後退し、4発目は1発目と同様に追加の後退なしに戻る)、UPPER初撃(5)、空中パンチ連続ヒット加算(2発目以降+5)、メテオ(35。初撃UPPERから空中コンボ・メテオまで全てヒットさせた場合の合計は5+10+15+35=65になるよう調整している)、相討ち(3)。三すくみに負けた側のみ振動(shake)する。ダメージを受けた側は、量の大小にかかわらず必ず一瞬点滅する(applyDamage内で共通処理)。同じ手同士の相討ちの場合は双方が微ダメージを受けて振動し、反動で一歩下がる。GUARDが勝った場合(相手のPUNCHを防いだ場合)、勝った側は極小ダメージで振動し、負けた側はダメージなしだがしびれ、次のコマンドの成功率が1/2になる(どちらの側がガードしても発生する)。しびれは「固定ダメージを受ける」仕様ではなく、次の攻防で1/2の確率で無条件敗北する仕様である。ブロックされた瞬間、負けた側はまず自身が出していた技の姿勢(通常はpunch.PNGのまま)で振動し、直後にdamage.PNGへ切り替わって頭上にpiyo.PNGが反転を繰り返す「ピヨり」演出が始まる。このピヨりは固定時間の演出ではなく、次の攻防の結果が決まる瞬間まで継続する。ピヨり中は、通常なら双方が第24条の通りdash.PNGで移動する場面(攻防後の後退、次の攻防前の踏み込み)であっても、ピヨり側は次のコマンドが始まるまでその場に留まり続け、dashで動かない(相手側のみ通常通り移動する)。次の攻防が始まり判定が行われる瞬間、ピヨりは終了する。その時点で1/2の確率が外れた場合はしびれが解消され、3すくみ判定による通常の攻防がそのまま行われる。1/2の確率が的中した場合は無条件敗北となり、しびれた側はdamage.PNGのまま点滅を強めた後、相手が実際に出していた技の種類(PUNCH/UPPER/GUARD)に応じた通常の勝敗処理(空中コンボやガード成功も含む)が3すくみ判定なしで適用される。この無条件敗北によってGUARD成功の処理が適用される場合、しびれた側は実際に出していた技に関わらずdamage.PNGの姿勢になり(通常のGUARD成功時の「負けた側は自身の技の姿勢のまま」という表現は、実際にその技を出して負けた場合のみに限定される)、この時新たにしびれが発生すればピヨりも再び開始する(しびれの連鎖)。しびれはターンをまたいで持ち越さない仕様とし、そのターン中に消費されなかった場合はターン終了時に必ず解消される。ガード+ガード(チャージ): 同一ターン内でガード成功が2回連続すると、成功させた側の体が金色に発光し、次に出すカードの攻撃力が2倍になる。ガード成功がさらに3回連続以降となった場合は、チャージが消費されないままカウントだけが伸び、倍率が4倍(上限)に格上げされる(4倍時は金色の発光の外側に白いオーラがもう一段重なり、二重の輪として2倍と明確に区別できるようにする)。チャージは、ガード成功以外の結果(PUNCH/UPPER勝利・負け・相討ち)で次に出すカードが決着した時点で、勝敗に関わらず(勝っても負けても)消費される一度限りの効果であり、ガード成功時の自己反動ダメージ(TINY)には適用されない。UPPERが決まりコンボが継続する場合、チャージはUPPER初撃のダメージにのみ適用され、初撃の直後に消費される(以降の空中コンボ継続やメテオへの変換は、それぞれ追加で出したカードの結果であり、通常倍率で計算される)。ガード成功の連続カウントは同一ターン内のみ有効で、ターンが変わるとリセットされる。ただし発光と倍率効果そのもの(チャージ状態)はしびれ・ピヨりとは異なりターンをまたいで持ち越され、消費されるまで発光し続ける。UPPER+GUARD+UPPER: 隣り合う2枚でUPPER勝利の直後にGUARD勝利すると、「次に出すカードがUPPERの時だけ有効な」専用のチャージが発動する(発光は水色。ガード+ガードの金色チャージとは別枠で、同時に成立することもある)。このGUARD自体はダメージにこそならないが、勝った側が既に打ち上げていた相手を、通常の素早い着地の代わりにこのGUARDの間ゆっくり降下させる演出になる。次に出したカードがUPPERで勝った場合、そのUPPERはPUNCH+PUNCH+UPPERと全く同じ扱い(2倍の高さ・2倍の速度・2倍のダメージ)になり、この専用チャージは消費される。UPPER以外のカードだった場合は、何も起きずにこの専用チャージだけが消費される(通常のチャージと同じルール)。PUNCH+GUARD+PUNCH(追撃): 手札のどの位置であっても、PUNCH,GUARD,PUNCHの3枚が連続して出され、いずれも勝利した場合(相打ちは不可)、3枚目の直後に追撃が発生する。追撃はpunch.PNGとpunch2.PNGを素早く切り替えながら3連打し、3すくみ判定を行わずヒット確定で命中する。1発ごとに通常のPUNCH勝利初撃と同じダメージを与える(合計で通常の3倍、チャージ等の倍率の影響は受けない)。GUARD+PUNCH+GUARD+PUNCH+PUNCH(必殺技): 手札の1〜5枚目がこの並びで、1〜4枚目が勝利または相打ちだった場合(1枚でも敗北すると不成立)、5枚目のPUNCHは3すくみ判定を行わずヒット確定の必殺技に変化する。固定ダメージ(50、チャージ等の倍率の影響を受けない)を与え、被弾側をdamage.PNGのまま画面端まで吹き飛ばし、端に到達すると点滅した後knock2.PNGになり、通常のターン終了処理で定位置へ戻る。この必殺技でK.O.した場合は、画面端でdown.PNGのまま倒れ、通常の決着演出(ホームポジションへ戻ってからのバウンド)は行わない。この5枚の並びには2〜4枚目にPUNCH,GUARD,PUNCHが含まれるが、この場合は追撃技としては判定されない(必殺技の判定が優先され、追撃はキャンセルされる)。
  * 9. 座標復帰: ターン(5枠)全体の処理が完了した時点で、finally句にて必ずホームポジションへ dash.PNG の残像付きで帰還することを保証する。ただし体力が0になる最後の一撃を受けた場合は、この通常帰還処理の代わりに専用の決着演出（damage.PNGで点滅→スローに軽くバウンドしながら初期位置へ戻る→down.PNGで倒れる→K.O./YOU WIN表示）を実行する。
  * 10. 描画品質: imageSmoothingEnabled=false を維持しドット絵品質を担保。背景(bg.PNG)もキャラと同じcanvas上に同一の拡大率(SCALE)で描画し、ピクセルのズレを起こさない。背景画像の実サイズがcanvas比率(960:560)と異なる場合(例: 正方形で作られた画像)は、横幅いっぱいを使い、必要な高さぶんだけ画像の上側から切り取って描画する(下側は切り捨てる)。プロローグ・ストーリー・エンディングの画像(cine-img)についても同様に、指定サイズの画像を上側から切り取って表示する。
  * 11. モバイル対応: Flexboxとviewport固定によるレスポンシブ最適化。UI全体はappRootコンテナで正方形(1:1)に収め、画面中央に配置する。
@@ -44,7 +44,7 @@ const DB = {
         RETREAT_HALF: 200,  // 攻防のあと軽く距離を取る位置（ホームまでは戻らない）
         GROUND_MARGIN_PX: 3 // 地面バンドの高さ(ソースpx換算。キャラ下部3px想定)
     },
-    DMG: { P: 10, U: 5, M: 50, CLASH: 3, TINY: 1, P_COMBO_STEP: 5, FINISHER: 50 }, // P:パンチ勝利 / U:アッパー初撃 / M:メテオ / CLASH:相討ち微ダメージ / TINY:ガードされたパンチの反撃 / P_COMBO_STEP:空中パンチ連続ヒットの増加量 / FINISHER:GUARD+PUNCH+GUARD+PUNCH+PUNCH成立時の必殺技(チャージ等の影響を受けない固定値)
+    DMG: { P: 10, U: 5, M: 35, CLASH: 3, TINY: 1, P_COMBO_STEP: 5, FINISHER: 50 }, // P:パンチ勝利 / U:アッパー初撃 / M:メテオ(初撃5+追撃10+追撃15+メテオ35=合計65になるよう調整) / CLASH:相討ち微ダメージ / TINY:ガードされたパンチの反撃 / P_COMBO_STEP:空中パンチ連続ヒットの増加量 / FINISHER:GUARD+PUNCH+GUARD+PUNCH+PUNCH成立時の必殺技(チャージ等の影響を受けない固定値)
     MAX_AIR_PUNCH: 3,
     BREATH_MS: 500, // player.PNG / player2.PNG の呼吸切替間隔
     DECK_TOTAL: 21 // デッキ合計枚数(内訳は編成画面で自由配分)
@@ -87,6 +87,8 @@ let state = {
     pPunchStreak: 0, ePunchStreak: 0, // 地上パンチの連続ヒット数(コンボではなく、単発同士の連続成功を記録)
     pGuardStreak: 0, eGuardStreak: 0, // ガード成功の連続回数(同一ターン内のみ。2回で2倍・3回以降は4倍が上限。ターン終了時にリセット)
     pChargeValue: 0, eChargeValue: 0, // チャージの倍率(0=無し、2、4)。ガード成功以外の次のカードで勝敗に関わらず消費される。ターンをまたいで持ち越す
+    pUpperChargeReady: false, eUpperChargeReady: false, // UPPER→GUARDの連続成功で発動するチャージ(次に出すカードがUPPERの時だけ2倍高く速く強いアッパーになる)。水色の発光で示す。ターンをまたいで持ち越す
+    pLastWinWasUpper: false, eLastWinWasUpper: false, // 直前の攻防でこの側がUPPERで勝ったか(UPPER→GUARDの連続検知に使う、毎攻防resolveExchangeの冒頭でリセットする一時フラグ)
     pComboType: null, eComboType: null, // このターンの手札パターン('followup'=PUNCH+GUARD+PUNCH, 'finisher'=GUARD+PUNCH+GUARD+PUNCH+PUNCH, null=該当なし)。ターン開始時に手札から判定する
     pComboStart: -1, eComboStart: -1, // followup該当時、手札内でPUNCH+GUARD+PUNCHが始まる位置(0始まり)。finisherは常に0固定
     pComboAlive: false, eComboAlive: false, // 対応する各攻防が要件(勝ち、または必殺技は勝ちか相打ち)を満たし続けているか。1つでも要件を満たさなければfalseになりコンボは不成立になる
@@ -115,7 +117,7 @@ let unlockedItems = []; // 隠しアイテム(今後実装予定)。取得済み
 let unlockedSubStories = []; // 解除済みサブストーリーのenemyIndex(0〜4)の配列
 let unlockedSkins = []; // 解除済みコスチュームのセット名('enemy_1'〜'enemy_5')の配列
 let soundTestUnlocked = false; // SOUND TESTが解除済みか
-let specialsUsed = { superUpper: false, charge: false, followUp: false, finisher: false }; // 4種の必殺技それぞれを、これまでの対戦を通じて1回でも使ったか(バトルをまたいで積み上げ)
+let specialsUsed = { superUpper: false, charge: false, followUp: false, finisher: false, upperGuardUpper: false }; // 各種必殺技を、これまでの対戦を通じて1回でも使ったか(バトルをまたいで積み上げ)。SOUND TESTの解放条件は当初の4種のまま(upperGuardUpperは将来の実績拡張用に記録のみ)
 let selectedSkin = null; // 現在選択中のコスチューム('enemy_1'等、nullはデフォルトのプレイヤー見た目)
 let gameClearedOnce = false; // STORY MODEを一度でも最後(5人目)までクリアしたか。COSTUMEの解放条件の一部
 let costumeUnlockAnnounced = false; // タイトル画面でCOSTUME解放のポップアップを既に一度見せたか(繰り返し表示しないため)
@@ -595,6 +597,7 @@ function applySaveDataOnBoot() {
             charge: !!save.specialsUsed.charge,
             followUp: !!save.specialsUsed.followUp,
             finisher: !!save.specialsUsed.finisher,
+            upperGuardUpper: !!save.specialsUsed.upperGuardUpper,
         };
     }
     if (typeof save.selectedSkin === 'string' || save.selectedSkin === null) selectedSkin = save.selectedSkin;
@@ -1421,18 +1424,26 @@ function draw(tRaw) {
     const pImg = imgs[playerSpriteName(spriteFor(state.pAct, t))];
     ctx.save();
     ctx.globalAlpha = pAlpha;
+    const pGlowPulse = (Math.sin(t / 180) + 1) / 2; // 0〜1でゆっくり明滅
+    if (state.pUpperChargeReady && pImg) {
+        // UPPER+GUARD+UPPER用のチャージ: 水色の発光(ガード+ガードの金色とは別の色で見分けられるようにする)
+        ctx.save();
+        ctx.shadowColor = 'rgba(80, 220, 255, 0.95)';
+        ctx.shadowBlur = 14 + pGlowPulse * 16;
+        ctx.drawImage(pImg, state.pX + pJit, state.pY + pJit, DB.IMG_SIZE, DB.IMG_SIZE);
+        ctx.restore();
+    }
     if (state.pChargeValue > 0) { // ガード2連続成功以降のチャージ中は金色に発光する(次のコマンドまで持続)
-        const glowPulse = (Math.sin(t / 180) + 1) / 2; // 0〜1でゆっくり明滅
         if (state.pChargeValue >= 4 && pImg) {
             // 3連続以降(4倍)は、外側に白いオーラをもう一段重ねて2倍と明確に区別する
             ctx.save();
             ctx.shadowColor = 'rgba(255, 255, 255, 0.95)';
-            ctx.shadowBlur = 36 + glowPulse * 20;
+            ctx.shadowBlur = 36 + pGlowPulse * 20;
             ctx.drawImage(pImg, state.pX + pJit, state.pY + pJit, DB.IMG_SIZE, DB.IMG_SIZE);
             ctx.restore();
         }
         ctx.shadowColor = 'rgba(255, 215, 60, 0.95)';
-        ctx.shadowBlur = 14 + glowPulse * 16;
+        ctx.shadowBlur = 14 + pGlowPulse * 16;
     }
     if (pImg) ctx.drawImage(pImg, state.pX + pJit, state.pY + pJit, DB.IMG_SIZE, DB.IMG_SIZE);
     else { ctx.fillStyle = '#0f0'; ctx.fillRect(state.pX, state.pY, DB.IMG_SIZE, DB.IMG_SIZE); }
@@ -1445,19 +1456,28 @@ function draw(tRaw) {
     const eImg = imgs[enemySpriteName(spriteFor(state.eAct, t))];
     ctx.save();
     ctx.globalAlpha = eAlpha;
+    const eGlowPulse = (Math.sin(t / 180) + 1) / 2;
+    if (state.eUpperChargeReady && eImg) {
+        // UPPER+GUARD+UPPER用のチャージ: 水色の発光
+        ctx.save();
+        ctx.scale(-1, 1);
+        ctx.shadowColor = 'rgba(80, 220, 255, 0.95)';
+        ctx.shadowBlur = 14 + eGlowPulse * 16;
+        ctx.drawImage(eImg, -(state.eX + eJit) - DB.IMG_SIZE, state.eY + eJit, DB.IMG_SIZE, DB.IMG_SIZE);
+        ctx.restore();
+    }
     if (state.eChargeValue > 0) { // ガード2連続成功以降のチャージ中は金色に発光する(次のコマンドまで持続)
-        const glowPulse = (Math.sin(t / 180) + 1) / 2;
         if (state.eChargeValue >= 4 && eImg) {
             // 3連続以降(4倍)は、外側に白いオーラをもう一段重ねて2倍と明確に区別する
             ctx.save();
             ctx.scale(-1, 1);
             ctx.shadowColor = 'rgba(255, 255, 255, 0.95)';
-            ctx.shadowBlur = 36 + glowPulse * 20;
+            ctx.shadowBlur = 36 + eGlowPulse * 20;
             ctx.drawImage(eImg, -(state.eX + eJit) - DB.IMG_SIZE, state.eY + eJit, DB.IMG_SIZE, DB.IMG_SIZE);
             ctx.restore();
         }
         ctx.shadowColor = 'rgba(255, 215, 60, 0.95)';
-        ctx.shadowBlur = 14 + glowPulse * 16;
+        ctx.shadowBlur = 14 + eGlowPulse * 16;
     }
     if (eImg) {
         ctx.save(); ctx.scale(-1, 1); // 第19条: 敵は常に反転
@@ -1747,6 +1767,10 @@ function resetBattleState() {
     state.eGuardStreak = 0;
     state.pChargeValue = 0;
     state.eChargeValue = 0;
+    state.pUpperChargeReady = false;
+    state.eUpperChargeReady = false;
+    state.pLastWinWasUpper = false;
+    state.eLastWinWasUpper = false;
     state.pComboType = null; state.eComboType = null;
     state.pComboStart = -1; state.eComboStart = -1;
     state.pComboAlive = false; state.eComboAlive = false;
@@ -1902,6 +1926,12 @@ function consumeCharge(side) {
     if (side === 'P') state.pChargeValue = 0; else state.eChargeValue = 0;
 }
 
+// UPPER→GUARDの連続で発動するチャージ(次に出すカードがUPPERの時だけ有効)を消費する。
+// 通常のチャージ(consumeCharge)と同じく、勝敗に関わらず次に出したカードで必ず消費される。
+function consumeUpperCharge(side) {
+    if (side === 'P') state.pUpperChargeReady = false; else state.eUpperChargeReady = false;
+}
+
 function applyDamage(target, amount) {
     if (target === 'E') {
         state.hpE = Math.max(0, state.hpE - amount);
@@ -2030,6 +2060,8 @@ async function runNormalHit(winner, loser, move) {
     state[loserStreakKey] = 0; // 負けた側の連続記録は途切れる
     state.pGuardStreak = 0; state.eGuardStreak = 0; // ガード以外で勝敗が決したのでガード連続記録は途切れる
     consumeCharge(winner); consumeCharge(loser); // ガード勝利以外なので、双方のチャージをここで消費する
+    consumeUpperCharge(winner); consumeUpperCharge(loser); // UPPER+GUARD+UPPER用のチャージも同様に消費する
+    state.pLastWinWasUpper = false; state.eLastWinWasUpper = false; // このPUNCH勝利はUPPER勝利ではないため、連続検知用フラグをリセットする
     applyDamage(loser, dmg);
     triggerShake(loser, 350); // 第8条: 負けた側のみ振動
     if (move === 'PUNCH') playSE('se_punch');
@@ -2080,9 +2112,17 @@ async function runMeteor(attacker, defender) {
 async function runUpperCombo(attacker, defender, cursor) {
     // PUNCH+PUNCH+UPPER: 直前2連続の地上PUNCH勝利(pPunchStreak/ePunchStreak >= 2)に続けてUPPERで勝った場合、
     // このアッパーは2倍の高さ・2倍の速度で打ち上げ、ダメージも2倍になる。ストリークをリセットする前に判定する。
+    // UPPER+GUARD+UPPER: 直前にUPPER→GUARDと連続成功した場合のチャージ(pUpperChargeReady)が有効な場合も同様の扱いになる。
     const winnerStreakKey = attacker === 'P' ? 'pPunchStreak' : 'ePunchStreak';
-    const isSuperUpper = state[winnerStreakKey] >= 2;
-    if (isSuperUpper) markSpecialUsed('superUpper'); // 実績: PUNCH+PUNCH+UPPERの使用を記録
+    const upperChargeKey = attacker === 'P' ? 'pUpperChargeReady' : 'eUpperChargeReady';
+    const viaPunchPunch = state[winnerStreakKey] >= 2;
+    const viaUpperGuard = state[upperChargeKey];
+    const isSuperUpper = viaPunchPunch || viaUpperGuard;
+    if (viaPunchPunch) markSpecialUsed('superUpper'); // 実績: PUNCH+PUNCH+UPPERの使用を記録
+
+    // このUPPERの勝敗が決まったので、UPPER→GUARDの連続検知用フラグを更新する(次のGUARDが直前の勝敗を正しく参照できるように)
+    if (attacker === 'P') { state.pLastWinWasUpper = true; state.eLastWinWasUpper = false; }
+    else { state.eLastWinWasUpper = true; state.pLastWinWasUpper = false; }
 
     // UPPERが決まった時点で地上パンチの連続記録は途切れる(コンボ中の空中パンチとは別カウント)
     state.pPunchStreak = 0;
@@ -2094,9 +2134,11 @@ async function runUpperCombo(attacker, defender, cursor) {
     applyDamage(defender, DB.DMG.U * chargeMultOf(attacker) * (isSuperUpper ? 2 : 1));
     playSE('se_upper'); // 未配置ならse_punchで代用される
     triggerShake(defender, 300);
-    // チャージ(ガード+ガード)は「次に出すカードの初撃」のみに適用される一度限りの効果のため、
+    // チャージ(ガード+ガード、UPPER+GUARD+UPPER)は「次に出すカードの初撃」のみに適用される一度限りの効果のため、
     // ここで即座に消費する。以降の空中コンボ継続・メテオには適用しない(通常倍率で計算する)。
     consumeCharge(attacker); consumeCharge(defender);
+    consumeUpperCharge(attacker); consumeUpperCharge(defender);
+    if (viaUpperGuard) markSpecialUsed('upperGuardUpper'); // 実績: UPPER+GUARD+UPPERの使用を記録
 
     // 上昇アニメーション: 地面(または現在の高さ)から浮遊高さまで、固定ステップ数・固定所要時間で上昇させる。
     // PUNCH+PUNCH+UPPERの場合は目標の高さが2倍になるため、同じ時間でより長い距離を移動する=体感速度も2倍になる。
@@ -2157,7 +2199,17 @@ async function runUpperCombo(attacker, defender, cursor) {
         }
     }
 
-    // コンボ終了(メテオに至らない場合): アニメーション付きで双方着地(高い位置からでも間延びしない。第5条)
+    // コンボ終了(メテオに至らない場合): 次の手がGUARDの場合は、そのGUARDの中でゆっくり降下させる演出のため、
+    // ここでの素早い着地アニメーションはスキップし、高さをそのまま維持する(UPPER+GUARD+UPPERの下準備)。
+    // まだ空中にいるため、呼吸(IDLE)姿勢には戻さずポーズを維持する。
+    if (nextQueuedMove(attacker, cursor) === 'GUARD') {
+        setAct(attacker, 'dash.PNG'); // 第6条
+        setAct(defender, 'damage.PNG'); // 第6条
+        await wait(300);
+        return;
+    }
+
+    // 通常時: アニメーション付きで双方着地(高い位置からでも間延びしない。第5条)
     await waitBothLanded();
     setAct(attacker, 'dash.PNG'); // 第6条
     setAct(defender, 'damage.PNG'); // 第6条
@@ -2183,6 +2235,18 @@ async function runGuardSuccess(winner, loser, loserPoseOverride) {
     if (loser === 'P') state.pNumbed = true; else state.eNumbed = true; // 次のコマンドの成功率が1/2になる
     if (winner === 'P') state.pGuardHoldPose = true; else state.eGuardHoldPose = true; // 相手がしびれている間、ガードの構えを維持する
     consumeCharge(loser); // 敗者側は「次に出したカード」がガードに防がれて負けたので、持っていたチャージがあればここで消費される
+    consumeUpperCharge(loser); // UPPER+GUARD+UPPER用のチャージも同様に、敗者側が持っていればここで消費される
+
+    // UPPER+GUARD+UPPER: 勝者が直前の攻防でUPPERにも勝っていた場合、このGUARD成功で
+    // 「次に出すカードがUPPERの時だけ有効な」チャージ(水色の発光)が発動する。
+    const winnerLastUpperKey = winner === 'P' ? 'pLastWinWasUpper' : 'eLastWinWasUpper';
+    const wasUpperGuardChain = state[winnerLastUpperKey];
+    if (wasUpperGuardChain) {
+        if (winner === 'P') state.pUpperChargeReady = true; else state.eUpperChargeReady = true;
+    }
+    // このGUARDの勝敗が決まったので、UPPER→GUARD連続検知用フラグを更新する(GUARD自体はUPPER勝利ではないため両者falseにする)
+    state.pLastWinWasUpper = false;
+    state.eLastWinWasUpper = false;
 
     // ガード+ガード(チャージ): 同一ターン内でガード成功が2回連続すると2倍、3回連続以降は4倍(上限)になる。
     // ガード成功自体はチャージを消費しない(次に出したカードが実際に攻撃として命中/失敗した時に初めて消費される)。
@@ -2196,6 +2260,21 @@ async function runGuardSuccess(winner, loser, loserPoseOverride) {
     } else if (state[winnerGuardStreakKey] >= 2) {
         if (winner === 'P') state.pChargeValue = 2; else state.eChargeValue = 2; // 2連続で2倍発動
         markSpecialUsed('charge'); // 実績: ガード+ガードの使用を記録
+    }
+
+    // UPPER+GUARD+UPPER: 直前のUPPERで空中にいた敗者側(および軽く跳ねていた勝者側)を、
+    // このGUARDの間にゆっくり降下させる(素早い着地の代わり。ガード成功の一連の演出とほぼ同じ尺で降ろす)
+    if (wasUpperGuardChain) {
+        const descSteps = 8, descStepMs = 55;
+        const loserFromY = getY(loser), winnerFromY = getY(winner);
+        for (let s = 1; s <= descSteps; s++) {
+            const t = s / descSteps;
+            setY(loser, loserFromY + (DB.POS.GROUND_Y - loserFromY) * t);
+            setY(winner, winnerFromY + (DB.POS.GROUND_Y - winnerFromY) * t);
+            await wait(descStepMs);
+        }
+        setY(loser, DB.POS.GROUND_Y);
+        setY(winner, DB.POS.GROUND_Y);
     }
 
     await wait(400);
@@ -2338,6 +2417,8 @@ async function resolveExchange(pAct, eAct, cursor) {
         if (Math.random() < 0.5) {
             markCardOutcome(numbedSide, cursor.i, 'card-shatter'); // 3すくみ無視の敗北: ヒビ割れる
             consumeCharge(numbedSide); // しびれで無条件敗北する側のチャージも、次のカードとして消費される
+            consumeUpperCharge(numbedSide); // UPPER+GUARD+UPPER用のチャージも同様に消費する
+            if (numbedSide === 'P') state.pLastWinWasUpper = false; else state.eLastWinWasUpper = false; // 無条件敗北なのでUPPER勝利ではない
             state.lastExchangeResult = numbedSide === 'P' ? { P: 'lose', E: 'win' } : { P: 'win', E: 'lose' };
             await runNumbFail(numbedSide, cursor, pAct, eAct);
             return;
@@ -2352,6 +2433,8 @@ async function resolveExchange(pAct, eAct, cursor) {
         state.pGuardStreak = 0; // 相討ちではガードの連続記録も途切れる
         state.eGuardStreak = 0;
         consumeCharge('P'); consumeCharge('E'); // 相討ちはどちらもガード勝利ではないため、双方のチャージを消費する
+        consumeUpperCharge('P'); consumeUpperCharge('E'); // UPPER+GUARD+UPPER用のチャージも同様に消費する
+        state.pLastWinWasUpper = false; state.eLastWinWasUpper = false; // 相討ちはどちらもUPPER勝利ではないため、連続検知用フラグをリセットする
         state.lastExchangeResult = { P: 'draw', E: 'draw' };
         state.pAct = moveSprite(pAct);
         state.eAct = moveSprite(eAct);
