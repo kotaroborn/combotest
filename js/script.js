@@ -3,7 +3,7 @@
  * 1. 5枠設計: 画面下部に最初から5つの空枠を固定表示し、手札のカードをタップするたびに先頭から順に空枠を埋めていく仕様。手札は21枚のデッキ(内訳は事前のデッキ編成画面で自由配分)から5枚を引いて構成し、ターンで使った枚数分だけ山から補充するが、山の残数を超えては補充しない(枠が空いたままになる場合がある)。手札・山が共に尽きた時のみ、DECK表示の点滅→「Refresh」表示→0からのカウントアップ演出とともに捨札を山へリシャッフルする(配分比率は変化しない)。ただしTRAINING MODEは例外とし、デッキという概念自体を持たない。手札はPUNCH/UPPER/GUARDを1枚ずつ固定した3枚のみで、タップしても手札からは取り除かれず何度でも選び直せる(選び放題)。5枠の場自体はSTORY MODEと同様に機能する。
  * 2. 敵コマンド非公開: プレイヤーが出した枚数だけ、その場で敵の手をランダム生成する。中身は伏せ札(?)で表示し、各攻防が始まる直前に1枚ずつ公開する(先読み不可・都度の読み合い)。
  * 3. 3すくみ: [PUNCH>UPPER][UPPER>GUARD][GUARD>PUNCH] の判定ロジック。勝敗は毎回この判定で決定する。同じ手同士がぶつかった場合は相討ちとする。
- * 4. 空中コンボ: 勝者の技がUPPERだった場合に発動。攻撃側の次の入力がPUNCHなら継続し、最大3発まで空中パンチを受け付ける。空中パンチは連続でヒットするほどダメージが増加する(1発目=基本値、2発目以降+増加量)。3発目は自動的にメテオへ変換される。UPPERで浮かせる際は、地面(または現在の高さ)から浮遊高さまでアニメーションで上昇させる(固定ステップ数・固定時間)。1発目の追撃が発生する際、攻撃側は初撃の小ホップ位置(HOP_Y、通常またはPUNCH+PUNCH+UPPERならSUPER_HOP_Y)から、コンボ継続中の追従位置(AIR_FOLLOW_Y)まで、瞬時にジャンプさせず滑らかにアニメーションさせる(通常時・PUNCH+PUNCH+UPPER時とも同じ扱い)。PUNCH+PUNCH+UPPER: 直前2連続の地上PUNCH勝利にUPPERの勝利が続いた場合(同一ターン内・同じ側のみ。相討ちやガードされる等で連続記録が途切れた場合はリセットされる)、そのUPPERは通常の2倍の高さまで打ち上げ、上昇距離が2倍になる分、同じ所要時間でより速く到達する(体感速度も2倍)。ダメージもUPPER初撃分が2倍になる。ただし空中コンボが続く場合は、通常の空中コンボと同じ高さで行う。1発目の追撃までに、通常より高い位置(SUPER_FLOAT_Y/SUPER_HOP_Y)から通常の高さ(FLOAT_Y/AIR_FOLLOW_Y)まで滑らかに降下させ、以降のコンボ継続時の追従位置は通常時と同じになる。上昇中は、通常のUPPERとの違いを強調するため、攻撃側(upper.PNGの姿勢)・被弾側(damage.PNGの姿勢)それぞれの残像を残す(通常のUPPERでは残像は発生しない)。コンボが継続せず着地する場合は、通常時と同様に固定ステップ数・固定時間でアニメーションさせるため、高い位置からでも間延びしない(距離が長い分、自然と速く見える)。
+ * 4. 空中コンボ: 勝者の技がUPPERだった場合に発動。攻撃側の次の入力がPUNCHなら継続し、最大3発まで空中パンチを受け付ける。空中パンチは連続でヒットするほどダメージが増加する(1発目=基本値、2発目以降+増加量)。3発目は自動的にメテオへ変換される。UPPERで浮かせる際は、地面(または現在の高さ)から浮遊高さまでアニメーションで上昇させる(固定ステップ数・固定時間)。1発目の追撃が発生する際、攻撃側は初撃の小ホップ位置(HOP_Y、通常またはPUNCH+PUNCH+UPPERならSUPER_HOP_Y)から動かさず、打ち上げられた被弾側の方が、その攻撃側の高さ(=アッパーが当たった高さ)まで瞬時にジャンプせず滑らかに落ちてきて、その高さでコンボが始まる(通常時・PUNCH+PUNCH+UPPER時とも同じ扱い)。2発目以降は、1発目で既に同じ高さに揃っているため、両者とも高さは変わらない。PUNCH+PUNCH+UPPER: 直前2連続の地上PUNCH勝利にUPPERの勝利が続いた場合(同一ターン内・同じ側のみ。相討ちやガードされる等で連続記録が途切れた場合はリセットされる)、そのUPPERは通常の2倍の高さまで打ち上げ、上昇距離が2倍になる分、同じ所要時間でより速く到達する(体感速度も2倍)。ダメージもUPPER初撃分が2倍になる。ただし空中コンボが続く場合は、通常の空中コンボと同じ扱いになる(攻撃側はSUPER_HOP_Yのまま動かさず、被弾側がその高さまで滑らかに落ちてくる)。上昇中は、通常のUPPERとの違いを強調するため、攻撃側(upper.PNGの姿勢)・被弾側(damage.PNGの姿勢)それぞれの残像を残す(通常のUPPERでは残像は発生しない)。コンボが継続せず着地する場合は、通常時と同様に固定ステップ数・固定時間でアニメーションさせるため、高い位置からでも間延びしない(距離が長い分、自然と速く見える)。
  * 5. 着地同期: 通常コンボ終了時（メテオに至らない場合）は、攻守双方が地面(GROUND_Y)へ着地してから次の演出へ遷移する。
  * 6. 通常コンボ終了時の演出: 攻撃側は必ずdash.PNGへ、被弾側はdamage.PNGのまま着地させる。
  * 7. 画像状態管理: 待機中は必ず player.PNG / player2.PNG の呼吸(idle)へ復帰する。idle.PNGという単独ファイルは存在しない。
@@ -54,7 +54,6 @@ DB.IMG_SIZE = DB.SRC_PX * DB.SCALE; // 32×10=320。ソースpxとcanvasユニ�
 DB.POS.GROUND_Y = 560 - DB.IMG_SIZE - (DB.POS.GROUND_MARGIN_PX * DB.SCALE); // 560 - 320 - 30 = 210
 DB.POS.FLOAT_Y = DB.POS.GROUND_Y - 200; // 被弾側がふわっと浮く高さ
 DB.POS.HOP_Y = DB.POS.GROUND_Y - Math.round((DB.POS.GROUND_Y - DB.POS.FLOAT_Y) / 3); // 打つ方の初撃の小ホップ(1/3)
-DB.POS.AIR_FOLLOW_Y = DB.POS.FLOAT_Y + 20; // コンボ継続中、打つ方が追従して浮く高さ
 // PUNCH+PUNCH+UPPER(直前2連続の地上PUNCH勝利に続くUPPER): 2倍の高さまで打ち上げる(初撃のみ)
 DB.POS.SUPER_FLOAT_Y = DB.POS.GROUND_Y - 400;
 DB.POS.SUPER_HOP_Y = DB.POS.GROUND_Y - Math.round((DB.POS.GROUND_Y - DB.POS.SUPER_FLOAT_Y) / 3);
@@ -2172,21 +2171,20 @@ async function runUpperCombo(attacker, defender, cursor) {
 
         if (airPunches < DB.MAX_AIR_PUNCH) {
             if (airPunches === 1) {
-                // 1発目の追撃: 打つ方を(通常のHOP_Y、またはPUNCH+PUNCH+UPPERならSUPER_HOP_Y)から、
-                // 追従位置(AIR_FOLLOW_Y)まで滑らかに移動させる(一瞬でジャンプさせない)。
-                // super時は被弾側もSUPER_FLOAT_YからFLOAT_Yまで同時に戻す(通常時は既にFLOAT_Yのため実質変化なし)。
-                const descSteps = 4, descStepMs = 25;
-                const attackerFromY = getY(attacker), defenderFromY = getY(defender);
+                // 1発目の追撃: 打ち上げられた側(被弾側)が、アッパーの当たった高さ(攻撃側の現在の高さ。
+                // 通常ならHOP_Y、PUNCH+PUNCH+UPPERならSUPER_HOP_Y)まで滑らかに落ちてきて、その高さでコンボが始まる。
+                // 攻撃側は構えたまま動かさない(打つ方が浮き上がるのではなく、相手が落ちてくる方が自然なため)。
+                const meetY = getY(attacker);
+                const defenderFromY = getY(defender);
+                const descSteps = 5, descStepMs = 30;
                 for (let s = 1; s <= descSteps; s++) {
                     const dt = s / descSteps;
-                    setY(attacker, attackerFromY + (DB.POS.AIR_FOLLOW_Y - attackerFromY) * dt);
-                    setY(defender, defenderFromY + (DB.POS.FLOAT_Y - defenderFromY) * dt);
+                    setY(defender, defenderFromY + (meetY - defenderFromY) * dt);
                     await wait(descStepMs);
                 }
-            } else {
-                // 2発目以降: 打つ方は既にAIR_FOLLOW_Yにいるため、そのまま維持する
-                setY(attacker, DB.POS.AIR_FOLLOW_Y);
+                setY(defender, meetY);
             }
+            // 2発目以降は、1発目で既に同じ高さに揃っているため、両者とも高さの変更は不要
             setAct(attacker, nextPunchSprite(attacker)); // 第21条
             markCardOutcome(defender, cursor.i, 'card-shatter'); // 3すくみ無視のコンボ継続: ヒビ割れる
             const comboDmg = (DB.DMG.P + (airPunches - 1) * DB.DMG.P_COMBO_STEP) * chargeMultOf(attacker); // 1発目=P, 2発目=P+STEP...
