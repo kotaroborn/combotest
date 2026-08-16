@@ -40,6 +40,7 @@
         #playerName { text-align: left; }
         #enemyName { text-align: right; }
         #turnDisplay { text-align:center; font-weight:900; line-height:1.1; }
+        #turnStageLabel { font-size: 8px; font-weight: 700; color: #999; letter-spacing: 0.5px; line-height: 1.4; }
         #gameArea {
             width: 100%;
             aspect-ratio: 960 / 560; /* canvas内部解像度と完全に一致させ、左右の黒帯を無くす */
@@ -54,10 +55,14 @@
             position: absolute; top: 50%; left: -80%;
             transform: translate(-50%, -50%) scale(1);
             opacity: 0;
-            font-size: 40px; font-weight: 900; letter-spacing: 2px; color: #fff;
-            text-shadow: 0 0 14px rgba(255,255,255,0.8);
+            display: flex; flex-direction: column; align-items: center; gap: 8px;
             white-space: nowrap; z-index: 20; pointer-events: none;
         }
+        #battleStageLabel, #battleStartLabel {
+            font-size: 40px; font-weight: 900; letter-spacing: 2px; color: #fff;
+            text-shadow: 0 0 14px rgba(255,255,255,0.8);
+        }
+        #battleStageLabel:empty { display: none; } /* TRAINING MODE等、ステージ表記が無い場合は行自体を詰める */
         #battleStartText.enter {
             transition: left 0.65s ease-out, opacity 0.65s ease-out;
             left: 50%;
