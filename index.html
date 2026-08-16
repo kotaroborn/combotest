@@ -100,7 +100,7 @@
         </div>
         <div class="char-name" id="playerName">VAL</div>
     </div>
-    <div id="turnDisplay">TURN<br>0</div>
+    <div id="turnDisplay">TURN<br><span id="turnNumber">0</span><br><span id="turnStageLabel"></span></div>
     <div class="hp-col">
         <div class="hp-wrap">
             <div class="hp-bar-bg"></div>
@@ -113,7 +113,10 @@
 <div id="gameArea">
     <canvas id="cvs" width="960" height="560"></canvas>
     <div id="enemySlots"></div>
-    <div id="battleStartText">BATTLE START</div>
+    <div id="battleStartText">
+        <div id="battleStageLabel"></div>
+        <div id="battleStartLabel">BATTLE START</div>
+    </div>
 </div>
 <div id="ui">
     <div id="slots"></div>
