@@ -1,6 +1,6 @@
 /** 
  * 【憲法二十六条：全文】
- * 1. 5枠設計: 画面下部に最初から5つの空枠を固定表示し、手札のカードをタップするたびに先頭から順に空枠を埋めていく仕様。手札は21枚のデッキ(内訳は事前のデッキ編成画面で自由配分)から5枚を引いて構成し、ターンで使った枚数分だけ山から補充するが、山の残数を超えては補充しない(枠が空いたままになる場合がある)。手札・山が共に尽きた時のみ、DECK表示の点滅→「Refresh」表示→0からのカウントアップ演出とともに捨札を山へリシャッフルする(配分比率は変化しない)。ただしTRAINING MODEは例外とし、デッキという概念自体を持たない。手札はPUNCH/UPPER/GUARDを1枚ずつ固定した3枚のみで、タップしても手札からは取り除かれず何度でも選び直せる(選び放題)。5枠の場自体はSTORY MODEと同様に機能する。
+ * 1. 5枠設計: 画面下部に最初から5つの空枠を固定表示し、手札のカードをタップするたびに先頭から順に空枠を埋めていく仕様。手札は21枚のデッキ(内訳は事前のデッキ編成画面で自由配分)から5枚を引いて構成し、ターンで使った枚数分だけ山から補充するが、山の残数を超えては補充しない(枠が空いたままになる場合がある)。手札・山が共に尽きた時のみ、DECK表示の点滅→「Refresh」表示→0からのカウントアップ演出とともに捨札を山へリシャッフルする(配分比率は変化しない。この一連のRefresh演出は通常のアニメーションの倍速で行う)。Refresh後に補充される5枚の手札は、バトル開始時と同じく裏向きで配られてから左から順にめくられる演出になる(以降の通常補充では行わない、Refresh限定の演出)。ただしTRAINING MODEは例外とし、デッキという概念自体を持たない。手札はPUNCH/UPPER/GUARDを1枚ずつ固定した3枚のみで、タップしても手札からは取り除かれず何度でも選び直せる(選び放題)。5枠の場自体はSTORY MODEと同様に機能する。
  * 2. 敵コマンド非公開: プレイヤーが出した枚数だけ、その場で敵の手をランダム生成する。中身は伏せ札(?)で表示し、各攻防が始まる直前に1枚ずつ公開する(先読み不可・都度の読み合い)。
  * 3. 3すくみ: [PUNCH>UPPER][UPPER>GUARD][GUARD>PUNCH] の判定ロジック。勝敗は毎回この判定で決定する。同じ手同士がぶつかった場合は相討ちとする。
  * 4. 空中コンボ: 勝者の技がUPPERだった場合に発動。攻撃側の次の入力がPUNCHなら継続し、最大3発まで空中パンチを受け付ける。空中パンチは連続でヒットするほどダメージが増加する(1発目=基本値、2発目以降+増加量)。3発目は自動的にメテオへ変換される。UPPERで浮かせる際は、地面(または現在の高さ)から浮遊高さまでアニメーションで上昇させる(固定ステップ数・固定時間)。1発目の追撃が発生する際、攻撃側は初撃の小ホップ位置(HOP_Y、通常またはPUNCH+PUNCH+UPPERならSUPER_HOP_Y)から動かさず、打ち上げられた被弾側の方が、その攻撃側の高さ(=アッパーが当たった高さ)まで瞬時にジャンプせず滑らかに落ちてきて、その高さでコンボが始まる(通常時・PUNCH+PUNCH+UPPER時とも同じ扱い)。2発目以降は、1発目で既に同じ高さに揃っているため、両者とも高さは変わらない。PUNCH+PUNCH+UPPER: 直前2連続の地上PUNCH勝利にUPPERの勝利が続いた場合(同一ターン内・同じ側のみ。相討ちやガードされる等で連続記録が途切れた場合はリセットされる)、そのUPPERは通常の2倍の高さまで打ち上げ、上昇距離が2倍になる分、同じ所要時間でより速く到達する(体感速度も2倍)。ダメージもUPPER初撃分が2倍になる。ただし空中コンボが続く場合は、通常の空中コンボと同じ扱いになる(攻撃側はSUPER_HOP_Yのまま動かさず、被弾側がその高さまで滑らかに落ちてくる)。上昇中は、通常のUPPERとの違いを強調するため、攻撃側(upper.PNGの姿勢)・被弾側(damage.PNGの姿勢)それぞれの残像を残す(通常のUPPERでは残像は発生しない)。コンボが継続せず着地する場合は、通常時と同様に固定ステップ数・固定時間でアニメーションさせるため、高い位置からでも間延びしない(距離が長い分、自然と速く見える)。
@@ -14,7 +14,7 @@
  * 12. 描画資産の不変性: 外部ファイルを厳格に読み込み、存在しない場合は読み込みエラーを即座に特定する。ただし敵専用グラフィック(enemy_〇〇.PNG)と背景(bg.PNG)は任意の差し替え用アセットであり、存在しなくてもエラー扱いにせず、敵はプレイヤー画像へ、背景は水色の塗りつぶしへフォールバックする。背景はステージ(STORY MODEの対戦相手)ごとに個別の画像を持てる。bg.PNGは1体目(ENEMY_01)の背景を兼ね、2〜5体目はbg_2.PNG〜bg_5.PNG、TRAINING MODEはbg_training.PNGを使う。これらが未用意/読み込み失敗の場合は、1体目のbg.PNGへフォールバックする(bg.PNG自体が読み込めない場合のみ、上記の水色塗りつぶしになる)。
  * 13. オブジェクトの生存維持: 状態管理オブジェクト(state, imgs)は決して再定義・初期化せず、常に参照し続ける。
  * 14. 憲法完全表記: コード提示の際、本憲法リストを一切省略せず必ず全条文を記述する。
- * 15. UI永続性: HP・TURN表示は画面上部に固定し、スロットは下部に永続表示する。画面はロゴ(BORN MAGAZINE presents)→プロローグ→タイトル→(STORY MODEのみ)ストーリーシーン→デッキ編成(21枚固定・内訳自由)→バトル→決着(K.O./YOU WIN)、の順で遷移する。ストーリーシーンはプロローグと同じ仕組み(画像+1文字ずつのテキストを1ブロックにまとめ中央配置、1画面目のみフェードイン)で、敵ごとに用意されたstory_{敵番号}_1〜3.PNGの3画面を再生し、タイトルからSTORY MODEを選んだ時、またはRETRYした時に表示される(CONTINUEでは再生しない)。オープニング(プロローグ)とは異なり自動送りはせず、1画面ごとに画面タップで次へ進む(戦う前の会話が相手の癖を読み取るヒントになるため、プレイヤーが自分のペースで読めるようにしている。SKIPボタンは今まで通り利用できる)。3画面すべて読み終えるとデッキ編成へ遷移する。STORY MODEの敵はENEMY_01〜05の5体で固定し(裏ボス等の追加は将来的に想定するが、現時点では5体固定)、勝利のたびに次の敵へ進む。TRAINING MODEはデッキ編成画面を経由せず、タイトルから直接バトルへ入る(デッキという概念自体を持たないため)。決着画面ではCONTINUE(K.O.時)またはNEXT BATTLE(YOU WIN時)と、タイトルへ戻る(ロゴシーンへ)の2つのボタンを提供する。STORY MODEで被ダメージ0のまま勝利した場合(最終戦のエンディング分岐時も含む)、YOU WINの文字の上に、同程度の大きさ・金色の「PERFECT !」を追加表示する(K.O.時、TRAINING MODE、被弾ありの勝利では表示しない)。K.O.(敗北)時は「CONTINUE」表記で直前のデッキ編成へ(同じ敵と再戦)、YOU WIN(勝利)時は「NEXT BATTLE」表記で次の敵へ進めてからその敵のストーリーシーン(3画面)を経てデッキ編成へ遷移する。ただし5体目(最終)の敵をYOU WINで倒した場合は例外とし、NEXT BATTLE/タイトルへ戻るのボタンは表示せず、YOU WINの表示を5秒間見せた後、自動的にエンディング(プロローグ/ストーリーと同じ仕組みの画像+1文字ずつのテキストで5画面、ending_1〜5.PNG)→フェードアウトで暗転→エンドロール(下から上へスクロールするクレジット表示)→FIN.(真っ黒な画面の中央に白い太文字、10秒表示後にゆっくりフェードアウト)の順に演出を行い、最後に自動的にタイトルへ戻る。この一連の流れの間、敵の進行状況(storyEnemyIndex)は5体目のまま更新しない(advanceToNextEnemyを呼ばない)ため、タイトルのCONTINUEは5体目の敵と戦う前の状態から再開される。ロゴシーンはフェードイン→2秒表示→フェードアウトの後、自動でプロローグへ遷移する。プロローグは画像とテキストを1ブロックにまとめて画面中央に配置し、シネマサイズの画像(op_1〜4.PNG)と1文字ずつ表示されるテキストを4画面分再生する(1画面目のみブロック全体がフェードインする)。SKIPしなくても4画面終了後は自動でタイトルへ遷移する。バトル開始時は暗転→味方/敵のフェードイン→背景(bg.PNG)がcanvas上で中心から円形に拡大表示→「BATTLE START」が左からディゾルブで入り中央で静止した後、拡大しながら消える演出を経て、手札が裏向きで配られてから左から順にめくられ、その後操作可能になる(この配布演出はバトル開始時のみで、以降の補充では行わない)。タイトル画面にはSTORY MODE/TRAINING MODEの下にOPTION、その下にBONUS CONTENTS(後述の実績システムで何か1つでも解除されていれば表示)を設置する。OPTIONは、サウンドON/OFF(BGM/SEの再生有無に連動する。BGMはシーン遷移のたびに切り替わり、Web Audio APIでシームレスループ再生する。ファイル未配置の場合は無音のままエラーにはしない)・BGM音量/SE音量(それぞれ個別のスライダーで0〜100%に調整でき、Web Audio APIのゲインノードで即座に反映される。BGMは既定で50%、SEは既定で100%とし、SEが聞き取りやすいようBGMを控えめにしている)・STORY MODEの進行状況(倒した敵の人数)のリセット・隠しアイテムの図鑑(今後実装予定、取得済みアイテムがある場合のみ表示)・COSTUME(後述の実績システムの解放条件を満たした場合のみ表示)を提供する。BONUS CONTENTSはOPTIONとは別のポップアップで、SUB STORY・SOUND TEST(いずれも後述の実績システムで解除された場合のみ、それぞれ個別に表示)への入口を提供する。バトル中に開けるOPTIONにはSUB STORY/SOUND TESTを含めない(サブストーリーはネタバレを含みうるため、タイトルに戻ってから落ち着いて閲覧する想定)。BGMの割り当ては、オープニング(プロローグ)=bgm_prologue、ストーリーシーン(全敵共通)=bgm_story、TRAINING MODEのバトル=bgm_battle、STORY MODEのバトルはステージ(敵)ごとに個別のBGM(bgm_battle_1〜5)を持ち、該当ファイルが未配置の場合は汎用のbgm_battleへフォールバックする。YOU WIN(勝利)=bgm_victory、エンディング=bgm_ending、K.O.(敗北)時は専用BGMを設けずBGMを停止する。タイトル画面のCONTINUEは、セーブデータが存在するだけでは表示されず、実際に敵2体目以降まで到達した記録(セーブデータのstoryEnemyIndexが1以上)がある場合のみ表示される。NEW GAMEを選んだ場合、今回のプレイのstoryEnemyIndexは0から始まるが、セーブデータ側のstoryEnemyIndexは即座には上書きされない(誤ってNEW GAMEを選んでしまっても、既存の進行状況は消えず、次に勝利してadvanceToNextEnemyが呼ばれるまで保持される)。OPTION画面の「進行状況(セーブデータ)のリセット」を実行した場合のみ、セーブデータのstoryEnemyIndexが0に戻り、タイトルのCONTINUEも即座に消える(隠しアイテムの図鑑等のリセットは別途用意する想定で、この「進行状況(セーブデータ)のリセット」とは別軸)。STORY MODEの進行状況(現在の敵)とデッキ編成は、localStorageを用いて端末に保存され、次回起動時に自動で復元される。実績システム(今後も追加していく前提の汎用的な仕組み)として、以下を用意する。いずれも解除状況はlocalStorageに永続保存され、次回起動時も解除済みのまま残る。(1)隠しタップ→サブストーリー→コスチュームの連鎖: 各敵のストーリーシーン3画面のうち1枚(敵ごとに異なる画面に割り当てる。現時点では仮の割り当てで、画像が揃い次第調整予定)の、画像エリア左上20%×20%の透明な領域をタップすると、現在再生中の敵に対応するサブストーリーが解除される(5体分、それぞれ個別に解除される)。それ以外の2画面ではこの隠しタップは無効(押せない)。解除済みのサブストーリーは、タイトルBONUS CONTENTS画面の「SUB STORY」(ポップアップ)から一覧を確認でき、実際に読む際は戦う前のストーリーシーンと同じフルスクリーン形式(専用のsceneSubStoryRead)に切り替わる(読み終える、または「戻る」を押すとSUB STORYの一覧(ポップアップ)へ戻る)。さらに、そのサブストーリーを実際に開いて読む(体験する)と、その時点で対応する敵のコスチューム(見た目)そのものは解除される(既存の敵専用グラフィックのセット、assets/images/characters_enemy/enemy_1〜5/を、プレイヤー自身の見た目として流用する)。ただしCOSTUMEがOPTION画面に実際に表示される(選択できるようになる)には、これに加えてSTORY MODEを一度最後(5人目)までクリアしていること(gameClearedOnce)も必要で、両方の条件を満たすまではコスチューム自体は解除済みでもOPTIONには現れない。(2)必殺技コンプ: PUNCH+PUNCH+UPPER・ガード+ガード(チャージ)・PUNCH+GUARD+PUNCH(追撃)・GUARD+PUNCH+GUARD+PUNCH+PUNCH(必殺技)の4種類を、これまでの対戦を通じて(バトルをまたいで積み上げ)1回ずつでも使用すると、SOUND TESTが解除される(タイトルBONUS CONTENTS画面の「SOUND TEST」。実音声ファイル未配置の項目は再生時に何も鳴らないだけで、エラーにはしない)。実績の解除時には、画面上部から弾むようにスライドインし少し待ってスライドアウトする通知(コンシューマーゲームの実績解除演出を模したもの。複数同時発生時はキューに積んで順番に表示する)を出す。サブストーリー解除時はその場で即座に通知するが、BONUS CONTENTS自体の解放(SUB STORY/SOUND TESTのいずれか1つ以上が解除された初回)とCOSTUMEの解放(上記2条件が揃った初回)は、次にタイトル画面へ戻った時点で通知する(それぞれ一度通知したら繰り返さない)。
+ * 15. UI永続性: HP・TURN表示は画面上部に固定し、スロットは下部に永続表示する。画面はロゴ(BORN MAGAZINE presents)→プロローグ→タイトル→(STORY MODEのみ)ストーリーシーン→デッキ編成(21枚固定・内訳自由)→バトル→決着(K.O./YOU WIN)、の順で遷移する。ストーリーシーンはプロローグと同じ仕組み(画像+1文字ずつのテキストを1ブロックにまとめ中央配置、1画面目のみフェードイン)で、敵ごとに用意されたstory_{敵番号}_1〜3.PNGの3画面を再生し、タイトルからSTORY MODEを選んだ時、またはRETRYした時に表示される(CONTINUEでは再生しない)。オープニング(プロローグ)とは異なり自動送りはせず、1画面ごとに画面タップで次へ進む(戦う前の会話が相手の癖を読み取るヒントになるため、プレイヤーが自分のペースで読めるようにしている。SKIPボタンは今まで通り利用できる)。3画面すべて読み終えるとデッキ編成へ遷移する。STORY MODEの敵はENEMY_01〜05の5体で固定し(裏ボス等の追加は将来的に想定するが、現時点では5体固定)、勝利のたびに次の敵へ進む。TRAINING MODEはデッキ編成画面を経由せず、タイトルから直接バトルへ入る(デッキという概念自体を持たないため)。決着画面ではCONTINUE(K.O.時)またはNEXT BATTLE(YOU WIN時)と、タイトルへ戻る(ロゴシーンへ)の2つのボタンを提供する。STORY MODEで被ダメージ0のまま勝利した場合(最終戦のエンディング分岐時も含む)、YOU WINの文字の上に、同程度の大きさ・金色の「PERFECT !」を追加表示する(K.O.時、TRAINING MODE、被弾ありの勝利では表示しない)。K.O.(敗北)時は「CONTINUE」表記で直前のデッキ編成へ(同じ敵と再戦)、YOU WIN(勝利)時は「NEXT BATTLE」表記で次の敵へ進めてからその敵のストーリーシーン(3画面)を経てデッキ編成へ遷移する。ただし5体目(最終)の敵をYOU WINで倒した場合は例外とし、NEXT BATTLE/タイトルへ戻るのボタンは表示せず、YOU WINの表示を5秒間見せた後、自動的にエンディング(プロローグ/ストーリーと同じ仕組みの画像+1文字ずつのテキストで5画面、ending_1〜5.PNG)→フェードアウトで暗転→エンドロール(下から上へスクロールするクレジット表示)→FIN.(真っ黒な画面の中央に白い太文字、10秒表示後にゆっくりフェードアウト)の順に演出を行い、最後に自動的にタイトルへ戻る。この一連の流れの間、敵の進行状況(storyEnemyIndex)は5体目のまま更新しない(advanceToNextEnemyを呼ばない)ため、タイトルのCONTINUEは5体目の敵と戦う前の状態から再開される。ロゴシーンはフェードイン→2秒表示→フェードアウトの後、自動でプロローグへ遷移する。プロローグは画像とテキストを1ブロックにまとめて画面中央に配置し、シネマサイズの画像(op_1〜4.PNG)と1文字ずつ表示されるテキストを4画面分再生する(1画面目のみブロック全体がフェードインする)。SKIPしなくても4画面終了後は自動でタイトルへ遷移する。バトル開始時は暗転→味方/敵のフェードイン→背景(bg.PNG)がcanvas上で中心から円形に拡大表示→「BATTLE START」が左からディゾルブで入り中央で静止した後、拡大しながら消える演出を経て、手札が裏向きで配られてから左から順にめくられ、その後操作可能になる(この配布演出はバトル開始時と、山札Refresh後の手札補充時のみで、通常の補充では行わない)。STORY MODEでは、この「BATTLE START」の1行上に、同じ大きさ・中央揃えで現在のステージ表記(「1ST STAGE」〜「5TH STAGE」、対戦相手の並び順=storyEnemyIndexに対応)を添える(TRAINING MODEでは表示しない)。あわせて、画面上部のTURN表示(TURN/ターン数)の下にも、小さな1行でこのステージ表記を常時表示する。タイトル画面にはSTORY MODE/TRAINING MODEの下にOPTION、その下にBONUS CONTENTS(後述の実績システムで何か1つでも解除されていれば表示)を設置する。OPTIONは、サウンドON/OFF(BGM/SEの再生有無に連動する。BGMはシーン遷移のたびに切り替わり、Web Audio APIでシームレスループ再生する。ファイル未配置の場合は無音のままエラーにはしない)・BGM音量/SE音量(それぞれ個別のスライダーで0〜100%に調整でき、Web Audio APIのゲインノードで即座に反映される。BGMは既定で50%、SEは既定で100%とし、SEが聞き取りやすいようBGMを控えめにしている)・STORY MODEの進行状況(倒した敵の人数)のリセット・隠しアイテムの図鑑(今後実装予定、取得済みアイテムがある場合のみ表示)・COSTUME(後述の実績システムの解放条件を満たした場合のみ表示)を提供する。BONUS CONTENTSはOPTIONとは別のポップアップで、SUB STORY・SOUND TEST(いずれも後述の実績システムで解除された場合のみ、それぞれ個別に表示)への入口を提供する。バトル中に開けるOPTIONにはSUB STORY/SOUND TESTを含めない(サブストーリーはネタバレを含みうるため、タイトルに戻ってから落ち着いて閲覧する想定)。BGMの割り当ては、オープニング(プロローグ)=bgm_prologue、ストーリーシーン(全敵共通)=bgm_story、TRAINING MODEのバトル=bgm_battle、STORY MODEのバトルはステージ(敵)ごとに個別のBGM(bgm_battle_1〜5)を持ち、該当ファイルが未配置の場合は汎用のbgm_battleへフォールバックする。YOU WIN(勝利)=bgm_victory、エンディング=bgm_ending、K.O.(敗北)時は専用BGMを設けずBGMを停止する。タイトル画面のCONTINUEは、セーブデータが存在するだけでは表示されず、実際に敵2体目以降まで到達した記録(セーブデータのstoryEnemyIndexが1以上)がある場合のみ表示される。NEW GAMEを選んだ場合、今回のプレイのstoryEnemyIndexは0から始まるが、セーブデータ側のstoryEnemyIndexは即座には上書きされない(誤ってNEW GAMEを選んでしまっても、既存の進行状況は消えず、次に勝利してadvanceToNextEnemyが呼ばれるまで保持される)。OPTION画面の「進行状況(セーブデータ)のリセット」を実行した場合のみ、セーブデータのstoryEnemyIndexが0に戻り、タイトルのCONTINUEも即座に消える(隠しアイテムの図鑑等のリセットは別途用意する想定で、この「進行状況(セーブデータ)のリセット」とは別軸)。STORY MODEの進行状況(現在の敵)とデッキ編成は、localStorageを用いて端末に保存され、次回起動時に自動で復元される。実績システム(今後も追加していく前提の汎用的な仕組み)として、以下を用意する。いずれも解除状況はlocalStorageに永続保存され、次回起動時も解除済みのまま残る。(1)隠しタップ→サブストーリー→コスチュームの連鎖: 各敵のストーリーシーン3画面のうち1枚(敵ごとに異なる画面に割り当てる。現時点では仮の割り当てで、画像が揃い次第調整予定)の、画像エリア左上20%×20%の透明な領域をタップすると、現在再生中の敵に対応するサブストーリーが解除される(5体分、それぞれ個別に解除される)。それ以外の2画面ではこの隠しタップは無効(押せない)。解除済みのサブストーリーは、タイトルBONUS CONTENTS画面の「SUB STORY」(ポップアップ)から一覧を確認でき、実際に読む際は戦う前のストーリーシーンと同じフルスクリーン形式(専用のsceneSubStoryRead)に切り替わる(読み終える、または「戻る」を押すとSUB STORYの一覧(ポップアップ)へ戻る)。さらに、そのサブストーリーを実際に開いて読む(体験する)と、その時点で対応する敵のコスチューム(見た目)そのものは解除される(既存の敵専用グラフィックのセット、assets/images/characters_enemy/enemy_1〜5/を、プレイヤー自身の見た目として流用する)。ただしCOSTUMEがOPTION画面に実際に表示される(選択できるようになる)には、これに加えてSTORY MODEを一度最後(5人目)までクリアしていること(gameClearedOnce)も必要で、両方の条件を満たすまではコスチューム自体は解除済みでもOPTIONには現れない。(2)必殺技コンプ: PUNCH+PUNCH+UPPER・ガード+ガード(チャージ)・PUNCH+GUARD+PUNCH(追撃)・GUARD+PUNCH+GUARD+PUNCH+PUNCH(必殺技)の4種類を、これまでの対戦を通じて(バトルをまたいで積み上げ)1回ずつでも使用すると、SOUND TESTが解除される(タイトルBONUS CONTENTS画面の「SOUND TEST」。実音声ファイル未配置の項目は再生時に何も鳴らないだけで、エラーにはしない)。実績の解除時には、画面上部から弾むようにスライドインし少し待ってスライドアウトする通知(コンシューマーゲームの実績解除演出を模したもの。複数同時発生時はキューに積んで順番に表示する)を出す。サブストーリー解除時はその場で即座に通知するが、BONUS CONTENTS自体の解放(SUB STORY/SOUND TESTのいずれか1つ以上が解除された初回)とCOSTUMEの解放(上記2条件が揃った初回)は、次にタイトル画面へ戻った時点で通知する(それぞれ一度通知したら繰り返さない)。
  * 16. 位置保持: 攻防のたびに初期位置へ戻るのではなく、中央で衝突→軽く距離を取る、を繰り返す。ホームポジションへ戻るのはターン完了時のみ。
  * 17. 体力ゲージ演出: ダメージ発生時、現在値が即座に減り、黄色いバーが0.6秒遅れて減少する。
  * 18. TURN表示仕様: 画面上部中央に「TURN」と「数字」を2行で太字(900)表示する。
@@ -459,13 +459,21 @@ updateUI(); // 第1条: 起動直後から5つの空枠を表示する
 // deck: PUNCH/UPPER/GUARDの「出やすさ」の重み(枚数感覚でそのまま指定できる)
 // favoritePatterns: よく出す組み合わせ(例: ['GUARD','PUNCH'])。今後ここに配列を追加していく想定。まだ未設定。
 const ENEMY_PRESETS = {
-    ENEMY_01: { name: '敵01(仮)', deck: { PUNCH: 7, UPPER: 7, GUARD: 7 }, favoritePatterns: [] },
+    ENEMY_01: { name: 'Noah', deck: { PUNCH: 7, UPPER: 7, GUARD: 7 }, favoritePatterns: [] },
     ENEMY_02: { name: '敵02(仮)', deck: { PUNCH: 7, UPPER: 7, GUARD: 7 }, favoritePatterns: [] },
     ENEMY_03: { name: '敵03(仮)', deck: { PUNCH: 7, UPPER: 7, GUARD: 7 }, favoritePatterns: [] },
     ENEMY_04: { name: '敵04(仮)', deck: { PUNCH: 7, UPPER: 7, GUARD: 7 }, favoritePatterns: [] },
     ENEMY_05: { name: '敵05(仮)', deck: { PUNCH: 7, UPPER: 7, GUARD: 7 }, favoritePatterns: [] },
 };
 const ENEMY_ORDER = ['ENEMY_01', 'ENEMY_02', 'ENEMY_03', 'ENEMY_04', 'ENEMY_05']; // 連戦の順番
+const STAGE_ORDINALS = ['1ST', '2ND', '3RD', '4TH', '5TH']; // ENEMY_ORDERのインデックスに対応する序数表記
+
+// 現在のステージ表記(例: '1ST STAGE')を返す。STORY MODEのみ表示し、TRAINING MODEでは空文字を返す(表示箇所ごとに非表示扱いにする)
+function currentStageLabel() {
+    if (state.gameMode !== 'story') return '';
+    const ordinal = STAGE_ORDINALS[state.storyEnemyIndex] || (state.storyEnemyIndex + 1) + 'TH';
+    return ordinal + ' STAGE';
+}
 
 // ------- シーン管理 (プロローグ → タイトル → バトル) -------
 
@@ -676,9 +684,9 @@ async function runDeckRefresh() {
 
     for (let i = 0; i < 3; i++) {
         deckEl.style.opacity = '0.15';
-        await wait(150);
+        await wait(75); // 倍速(元は150ms)
         deckEl.style.opacity = '1';
-        await wait(150);
+        await wait(75); // 倍速(元は150ms)
     }
 
     // ここで実際に捨札を山へ戻す(配分比率は変わらない)
@@ -687,7 +695,7 @@ async function runDeckRefresh() {
     const target = state.playerDeck.length;
 
     const steps = 30;
-    const stepMs = 2500 / steps;
+    const stepMs = 1250 / steps; // 倍速(元は2500ms)
     for (let s = 1; s <= steps; s++) {
         const val = Math.round(target * (s / steps));
         deckEl.innerText = `DECK ${val}/${DB.DECK_TOTAL}`;
@@ -1805,7 +1813,7 @@ function resetBattleState() {
     document.getElementById('hpP_y').style.width = '100%';
     document.getElementById('hpE').style.width = '100%';
     document.getElementById('hpE_y').style.width = '100%';
-    document.getElementById('turnDisplay').innerHTML = 'TURN<br>0';
+    document.getElementById('turnDisplay').innerHTML = `TURN<br>0<br><span id="turnStageLabel">${currentStageLabel()}</span>`;
     document.querySelectorAll('.controls button').forEach(b => b.disabled = true); // 演出完了までは操作不可
     document.getElementById('howToBtn').disabled = false; // HOW TOは常に押せる
     document.getElementById('optionBattleBtn').disabled = false; // OPTIONも同様
@@ -1844,7 +1852,8 @@ async function playBattleIntro() {
     }
     state.bgRevealRadius = maxRadius;
 
-    // BATTLE START: 左からディゾルブして中央で停止
+    // BATTLE START: 左からディゾルブして中央で停止(STORY MODEのみ、上の行にステージ表記を添える)
+    document.getElementById('battleStageLabel').innerText = currentStageLabel();
     const bst = document.getElementById('battleStartText');
     bst.classList.add('enter');
     await wait(650);
@@ -2482,7 +2491,7 @@ async function resolveTurn() {
     document.getElementById('optionBattleBtn').disabled = false; // OPTIONも同様
 
     state.turn++;
-    document.getElementById('turnDisplay').innerHTML = `TURN<br>${state.turn}`;
+    document.getElementById('turnDisplay').innerHTML = `TURN<br>${state.turn}<br><span id="turnStageLabel">${currentStageLabel()}</span>`;
 
     const cursor = { i: 0 };
     const total = filledCount();
@@ -2615,15 +2624,15 @@ async function resolveTurn() {
             const handIsEmpty = state.playerHand.every(c => c === null);
             if (handIsEmpty && state.playerDeck.length === 0) {
                 await runDeckRefresh();
-                const refillIndices = [];
                 for (let i = 0; i < state.playerHand.length; i++) {
                     if (state.playerHand[i] === null) {
                         const c = drawCard();
-                        if (c !== null) { state.playerHand[i] = c; refillIndices.push(i); }
+                        if (c !== null) state.playerHand[i] = c;
                     }
                 }
-                updateHandUI(refillIndices);
                 updateDeckCountDisplay();
+                // refresh後の5枚も、バトル開始時と同じく裏向きで配ってから左から順にめくる演出にする
+                await dealInitialHandAnimation();
             }
 
             await fadeOutQueueCards(); // 場のカードがふわっと消える
