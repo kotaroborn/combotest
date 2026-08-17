@@ -14,7 +14,7 @@
  * 12. 描画資産の不変性: 外部ファイルを厳格に読み込み、存在しない場合は読み込みエラーを即座に特定する。ただし敵専用グラフィック(enemy_〇〇.PNG)と背景(bg.PNG)は任意の差し替え用アセットであり、存在しなくてもエラー扱いにせず、敵はプレイヤー画像へ、背景は水色の塗りつぶしへフォールバックする。背景はステージ(STORY MODEの対戦相手)ごとに個別の画像を持てる。bg.PNGは1体目(ENEMY_01)の背景を兼ね、2〜5体目はbg_2.PNG〜bg_5.PNG、TRAINING MODEはbg_training.PNGを使う。これらが未用意/読み込み失敗の場合は、1体目のbg.PNGへフォールバックする(bg.PNG自体が読み込めない場合のみ、上記の水色塗りつぶしになる)。
  * 13. オブジェクトの生存維持: 状態管理オブジェクト(state, imgs)は決して再定義・初期化せず、常に参照し続ける。
  * 14. 憲法完全表記: コード提示の際、本憲法リストを一切省略せず必ず全条文を記述する。
- * 15. UI永続性: HP・TURN表示は画面上部に固定し、スロットは下部に永続表示する。画面はロゴ(BORN MAGAZINE presents)→プロローグ→タイトル→(STORY MODEのみ)ストーリーシーン→デッキ編成(21枚固定・内訳自由)→バトル→決着(K.O./YOU WIN)、の順で遷移する。ストーリーシーンはプロローグと同じ仕組み(画像+1文字ずつのテキストを1ブロックにまとめ中央配置、1画面目のみフェードイン)で、敵ごとに用意されたstory_{敵番号}_1〜3.PNGの3画面を再生し、タイトルからSTORY MODEを選んだ時、またはRETRYした時に表示される(CONTINUEでは再生しない)。オープニング(プロローグ)とは異なり自動送りはせず、1画面ごとに画面タップで次へ進む(戦う前の会話が相手の癖を読み取るヒントになるため、プレイヤーが自分のペースで読めるようにしている。SKIPボタンは今まで通り利用できる)。3画面すべて読み終えるとデッキ編成へ遷移する。STORY MODEの敵はENEMY_01〜05の5体で固定し(裏ボス等の追加は将来的に想定するが、現時点では5体固定)、勝利のたびに次の敵へ進む。TRAINING MODEはデッキ編成画面を経由せず、タイトルから直接バトルへ入る(デッキという概念自体を持たないため)。決着画面ではCONTINUE(K.O.時)またはNEXT BATTLE(YOU WIN時)と、タイトルへ戻る(ロゴシーンへ)の2つのボタンを提供する。STORY MODEで被ダメージ0のまま勝利した場合(最終戦のエンディング分岐時も含む)、YOU WINの文字の上に、同程度の大きさ・金色の「PERFECT !」を追加表示する(K.O.時、TRAINING MODE、被弾ありの勝利では表示しない)。K.O.(敗北)時は「CONTINUE」表記で直前のデッキ編成へ(同じ敵と再戦)、YOU WIN(勝利)時は「NEXT BATTLE」表記で次の敵へ進めてからその敵のストーリーシーン(3画面)を経てデッキ編成へ遷移する。ただし5体目(最終)の敵をYOU WINで倒した場合は例外とし、NEXT BATTLE/タイトルへ戻るのボタンは表示せず、YOU WINの表示を5秒間見せた後、自動的にエンディング(プロローグ/ストーリーと同じ仕組みの画像+1文字ずつのテキストで5画面、ending_1〜5.PNG)→フェードアウトで暗転→エンドロール(下から上へスクロールするクレジット表示)→FIN.(真っ黒な画面の中央に白い太文字、10秒表示後にゆっくりフェードアウト)の順に演出を行い、最後に自動的にタイトルへ戻る。この一連の流れの間、敵の進行状況(storyEnemyIndex)は5体目のまま更新しない(advanceToNextEnemyを呼ばない)ため、タイトルのCONTINUEは5体目の敵と戦う前の状態から再開される。ロゴシーンはフェードイン→2秒表示→フェードアウトの後、自動でプロローグへ遷移する。プロローグは画像とテキストを1ブロックにまとめて画面中央に配置し、シネマサイズの画像(op_1〜4.PNG)と1文字ずつ表示されるテキストを4画面分再生する(1画面目のみブロック全体がフェードインする)。SKIPしなくても4画面終了後は自動でタイトルへ遷移する。バトル開始時は暗転→味方/敵のフェードイン→背景(bg.PNG)がcanvas上で中心から円形に拡大表示→(STORY MODEの2ND/4TH/5THステージのみ、後述のステージ固有の敵登場演出)→「BATTLE START」が左からディゾルブで入り中央で静止した後、拡大しながら消える演出を経て、手札が裏向きで配られてから左から順にめくられ、その後操作可能になる(この配布演出はバトル開始時と、山札Refresh後の手札補充時のみで、通常の補充では行わない)。ステージ固有の敵登場演出(該当ステージでは、敵は味方と同時にはフェードインせず、背景表示後にこの演出で個別に登場する): 2NDステージは、dash.PNGの姿勢・残像付きで、画面右外から一定速度でゆっくりdashして定位置に到着する(通常戦闘中のdash移動よりも遅い速度)。4THステージは、空中コンボで打ち上げられた時と同じ高さ(FLOAT_Y)から、フェードインしながら等速(加速なし)で定位置までゆっくり降りてくる。5THステージは、画面全体が白く4回明滅→0.5秒待機→もう一度4回明滅した後、2度目の明滅が収まった直後に定位置へじわっとフェードインする。1ST/3RDステージ、およびTRAINING MODEは、この演出を挟まず従来通り味方と敵が同時にフェードインする。STORY MODEでは、この「BATTLE START」の1行上に、同じ大きさ・中央揃えで現在のステージ表記(「1ST STAGE」〜「5TH STAGE」、対戦相手の並び順=storyEnemyIndexに対応)を添える(TRAINING MODEでは表示しない)。あわせて、画面上部のTURN表示(TURN/ターン数)の下にも、小さな1行でこのステージ表記を常時表示する。タイトル画面にはSTORY MODE/TRAINING MODEの下にOPTION、その下にBONUS CONTENTS(後述の実績システムで何か1つでも解除されていれば表示)を設置する。OPTIONは、サウンドON/OFF(BGM/SEの再生有無に連動する。BGMはシーン遷移のたびに切り替わり、Web Audio APIでシームレスループ再生する。ファイル未配置の場合は無音のままエラーにはしない)・BGM音量/SE音量(それぞれ個別のスライダーで0〜100%に調整でき、Web Audio APIのゲインノードで即座に反映される。BGMは既定で50%、SEは既定で100%とし、SEが聞き取りやすいようBGMを控えめにしている)・STORY MODEの進行状況(倒した敵の人数)のリセット・隠しアイテムの図鑑(今後実装予定、取得済みアイテムがある場合のみ表示)・COSTUME(後述の実績システムの解放条件を満たした場合のみ表示)を提供する。BONUS CONTENTSはOPTIONとは別のポップアップで、SUB STORY・SOUND TEST(いずれも後述の実績システムで解除された場合のみ、それぞれ個別に表示)への入口を提供する。バトル中に開けるOPTIONにはSUB STORY/SOUND TESTを含めない(サブストーリーはネタバレを含みうるため、タイトルに戻ってから落ち着いて閲覧する想定)。BGMの割り当ては、オープニング(プロローグ)=bgm_prologue、ストーリーシーン(全敵共通)=bgm_story、TRAINING MODEのバトル=bgm_battle、STORY MODEのバトルはステージ(敵)ごとに個別のBGM(bgm_battle_1〜5)を持ち、該当ファイルが未配置の場合は汎用のbgm_battleへフォールバックする。YOU WIN(勝利)=bgm_victory、エンディング=bgm_ending、K.O.(敗北)時は専用BGMを設けずBGMを停止する。タイトル画面のCONTINUEは、セーブデータが存在するだけでは表示されず、実際に敵2体目以降まで到達した記録(セーブデータのstoryEnemyIndexが1以上)がある場合のみ表示される。NEW GAMEを選んだ場合、今回のプレイのstoryEnemyIndexは0から始まるが、セーブデータ側のstoryEnemyIndexは即座には上書きされない(誤ってNEW GAMEを選んでしまっても、既存の進行状況は消えず、次に勝利してadvanceToNextEnemyが呼ばれるまで保持される)。OPTION画面の「進行状況(セーブデータ)のリセット」を実行した場合のみ、セーブデータのstoryEnemyIndexが0に戻り、タイトルのCONTINUEも即座に消える(隠しアイテムの図鑑等のリセットは別途用意する想定で、この「進行状況(セーブデータ)のリセット」とは別軸)。STORY MODEの進行状況(現在の敵)とデッキ編成は、localStorageを用いて端末に保存され、次回起動時に自動で復元される。実績システム(今後も追加していく前提の汎用的な仕組み)として、以下を用意する。いずれも解除状況はlocalStorageに永続保存され、次回起動時も解除済みのまま残る。(1)隠しタップ→サブストーリー→コスチュームの連鎖: 各敵のストーリーシーン3画面のうち1枚(敵ごとに異なる画面に割り当てる。現時点では仮の割り当てで、画像が揃い次第調整予定)の、画像エリア左上20%×20%の透明な領域をタップすると、現在再生中の敵に対応するサブストーリーが解除される(5体分、それぞれ個別に解除される)。それ以外の2画面ではこの隠しタップは無効(押せない)。解除済みのサブストーリーは、タイトルBONUS CONTENTS画面の「SUB STORY」(ポップアップ)から一覧を確認でき、実際に読む際は戦う前のストーリーシーンと同じフルスクリーン形式(専用のsceneSubStoryRead)に切り替わる(読み終える、または「戻る」を押すとSUB STORYの一覧(ポップアップ)へ戻る)。さらに、そのサブストーリーを実際に開いて読む(体験する)と、その時点で対応する敵のコスチューム(見た目)そのものは解除される(既存の敵専用グラフィックのセット、assets/images/characters_enemy/enemy_1〜5/を、プレイヤー自身の見た目として流用する)。ただしCOSTUMEがOPTION画面に実際に表示される(選択できるようになる)には、これに加えてSTORY MODEを一度最後(5人目)までクリアしていること(gameClearedOnce)も必要で、両方の条件を満たすまではコスチューム自体は解除済みでもOPTIONには現れない。(2)SOUND TESTの解除: STORY MODEでエンディングを迎え、タイトル画面に戻ると解除される(gameClearedOnceと同一条件。以前は必殺技4種のコンプリートが条件だったが、必殺技とコンボの見分けがつきにくいとの理由で変更した。各必殺技の使用履歴自体はspecialsUsedとして引き続き記録するが、SOUND TESTの解除条件には使わない)。解除後はタイトルBONUS CONTENTS画面の「SOUND TEST」から聴ける。SOUND TEST画面はまずBGM/SEのカテゴリ選択画面を表示し、選ぶと該当カテゴリの一覧(1画面6件、ページ送りボタンで切り替え)に遷移する。一覧画面には「戻る」ボタン(カテゴリ選択へ戻る)がある。各行の再生ボタンは記号(▶)のみで、再生中のトラックは同じボタンが⏸(一時停止)表示に変わり、再度タップすると停止する。ページを切り替える、戻るボタンを押す、ポップアップを閉じる、のいずれの操作でも再生中のプレビューは自動的に停止する。このプレビュー再生は本編のBGM/SE再生(state.soundOnやBGM/SE音量設定)とは独立したノードで行い、本編の再生中BGMを止めてしまうことはない。また通常再生と異なり、未配置ファイルの代用(se_punchでの肩代わり)は行わず、そのまま無音にする(どのファイルが未配置かを正確に確認できるようにするため)。実音声ファイル未配置の項目は再生時に何も鳴らないだけで、エラーにはしない。実績の解除時には、画面上部から弾むようにスライドインし少し待ってスライドアウトする通知(コンシューマーゲームの実績解除演出を模したもの。複数同時発生時はキューに積んで順番に表示する)を出す。サブストーリー解除時はその場で即座に通知するが、BONUS CONTENTS自体の解放(SUB STORY/SOUND TESTのいずれか1つ以上が解除された初回)とCOSTUMEの解放(上記2条件が揃った初回)は、次にタイトル画面へ戻った時点で通知する(それぞれ一度通知したら繰り返さない)。
+ * 15. UI永続性: HP・TURN表示は画面上部に固定し、スロットは下部に永続表示する。画面はロゴ(BORN MAGAZINE presents)→プロローグ→タイトル→(STORY MODEのみ)ストーリーシーン→デッキ編成(21枚固定・内訳自由)→バトル→決着(K.O./YOU WIN)、の順で遷移する。ストーリーシーンはプロローグと同じ仕組み(画像+1文字ずつのテキストを1ブロックにまとめ中央配置、1画面目のみフェードイン)で、敵ごとに用意されたstory_{敵番号}_1〜3.PNGの3画面を再生し、タイトルからSTORY MODEを選んだ時、またはRETRYした時に表示される(CONTINUEでは再生しない)。オープニング(プロローグ)とは異なり自動送りはせず、1画面ごとに画面タップで次へ進む(戦う前の会話が相手の癖を読み取るヒントになるため、プレイヤーが自分のペースで読めるようにしている。SKIPボタンは今まで通り利用できる)。3画面すべて読み終えるとデッキ編成へ遷移する。STORY MODEの敵はENEMY_01〜05の5体で固定し(裏ボス等の追加は将来的に想定するが、現時点では5体固定)、勝利のたびに次の敵へ進む。TRAINING MODEはデッキ編成画面を経由せず、タイトルから直接バトルへ入る(デッキという概念自体を持たないため)。決着画面ではCONTINUE(K.O.時)またはNEXT BATTLE(YOU WIN時)と、タイトルへ戻る(ロゴシーンへ)の2つのボタンを提供する。STORY MODEで被ダメージ0のまま勝利した場合(最終戦のエンディング分岐時も含む)、YOU WINの文字の上に、同程度の大きさ・金色の「PERFECT !」を追加表示する(K.O.時、TRAINING MODE、被弾ありの勝利では表示しない)。K.O.(敗北)時は「CONTINUE」表記で直前のデッキ編成へ(同じ敵と再戦)、YOU WIN(勝利)時は「NEXT BATTLE」表記で次の敵へ進めてからその敵のストーリーシーン(3画面)を経てデッキ編成へ遷移する。ただし5体目(最終)の敵をYOU WINで倒した場合は例外とし、NEXT BATTLE/タイトルへ戻るのボタンは表示せず、YOU WINの表示を5秒間見せた後、自動的にエンディング(プロローグ/ストーリーと同じ仕組みの画像+1文字ずつのテキストで5画面、ending_1〜5.PNG)→フェードアウトで暗転→エンドロール(下から上へスクロールするクレジット表示)→FIN.(真っ黒な画面の中央に白い太文字、10秒表示後にゆっくりフェードアウト)の順に演出を行い、最後に自動的にタイトルへ戻る。この一連の流れの間、敵の進行状況(storyEnemyIndex)は5体目のまま更新しない(advanceToNextEnemyを呼ばない)ため、タイトルのCONTINUEは5体目の敵と戦う前の状態から再開される。ロゴシーンはフェードイン→2秒表示→フェードアウトの後、自動でプロローグへ遷移する。プロローグは画像とテキストを1ブロックにまとめて画面中央に配置し、シネマサイズの画像(op_1〜4.PNG)と1文字ずつ表示されるテキストを4画面分再生する(1画面目のみブロック全体がフェードインする)。SKIPしなくても4画面終了後は自動でタイトルへ遷移する。バトル開始時は暗転→味方/敵のフェードイン→背景(bg.PNG)がcanvas上で中心から円形に拡大表示→(STORY MODEの2ND/4TH/5THステージのみ、後述のステージ固有の敵登場演出)→「BATTLE START」が左からディゾルブで入り中央で静止した後、拡大しながら消える演出を経て、手札が裏向きで配られてから左から順にめくられ、その後操作可能になる(この配布演出はバトル開始時と、山札Refresh後の手札補充時のみで、通常の補充では行わない)。ステージ固有の敵登場演出(該当ステージでは、敵は味方と同時にはフェードインせず、背景表示後にこの演出で個別に登場する): 2NDステージは、dash.PNGの姿勢・残像付きで、画面右外から一定速度でゆっくりdashして定位置に到着する(通常戦闘中のdash移動よりも遅い速度)。4THステージは、空中コンボで打ち上げられた時と同じ高さ(FLOAT_Y)から、フェードインしながら等速(加速なし)で定位置までゆっくり降りてくる。5THステージは、画面全体が白く4回明滅→0.5秒待機→もう一度4回明滅した後、2度目の明滅が収まった直後に定位置へじわっとフェードインする。1ST/3RDステージ、およびTRAINING MODEは、この演出を挟まず従来通り味方と敵が同時にフェードインする。STORY MODEでは、この「BATTLE START」の1行上に、同じ大きさ・中央揃えで現在のステージ表記(「1ST STAGE」〜「5TH STAGE」、対戦相手の並び順=storyEnemyIndexに対応)を添える(TRAINING MODEでは表示しない)。あわせて、画面上部のTURN表示(TURN/ターン数)の下にも、小さな1行でこのステージ表記を常時表示する。タイトル画面にはSTORY MODE/TRAINING MODEの下にOPTION、その下にBONUS CONTENTS(後述の実績システムで何か1つでも解除されていれば表示)を設置する。OPTIONは、サウンドON/OFF(BGM/SEの再生有無に連動する。BGMはシーン遷移のたびに切り替わり、Web Audio APIでシームレスループ再生する。ファイル未配置の場合は無音のままエラーにはしない)・BGM音量/SE音量(それぞれ個別のスライダーで0〜100%に調整でき、Web Audio APIのゲインノードで即座に反映される。BGMは既定で50%、SEは既定で100%とし、SEが聞き取りやすいようBGMを控えめにしている)・STORY MODEの進行状況(倒した敵の人数)のリセット・隠しアイテムの図鑑(今後実装予定、取得済みアイテムがある場合のみ表示)・COSTUME(後述の実績システムの解放条件を満たした場合のみ表示)を提供する。BONUS CONTENTSはOPTIONとは別のポップアップで、SUB STORY・SOUND TEST(いずれも後述の実績システムで解除された場合のみ、それぞれ個別に表示)への入口を提供する(タイトル画面のボタン表示は文字数の都合で「BONUS」と短縮表記する)。BONUS CONTENTS・SUB STORY・SOUND TESTのいずれの画面にも、右上に×ボタンを設置する。×ボタンはどの階層からでもBONUS関連のポップアップをすべて一度に閉じる(1段階だけ戻るのではなく、常にBONUS自体を完全に終了させる)。一方、SUB STORY一覧・SOUND TESTのカテゴリ選択・SOUND TESTの一覧など、BONUS本体より下位の階層には必ず「◀︎戻る」ボタンを設置し、1階層だけ上へ戻る(BONUS本体自体は閉じない)。バトル中に開けるOPTIONにはSUB STORY/SOUND TESTを含めない(サブストーリーはネタバレを含みうるため、タイトルに戻ってから落ち着いて閲覧する想定)。BGMの割り当ては、オープニング(プロローグ)=bgm_prologue、ストーリーシーン(全敵共通)=bgm_story、TRAINING MODEのバトル=bgm_battle、STORY MODEのバトルはステージ(敵)ごとに個別のBGM(bgm_battle_1〜5)を持ち、該当ファイルが未配置の場合は汎用のbgm_battleへフォールバックする。YOU WIN(勝利)=bgm_victory、エンディング=bgm_ending、K.O.(敗北)時は専用BGMを設けずBGMを停止する。タイトル画面のCONTINUEは、セーブデータが存在するだけでは表示されず、実際に敵2体目以降まで到達した記録(セーブデータのstoryEnemyIndexが1以上)がある場合のみ表示される。NEW GAMEを選んだ場合、今回のプレイのstoryEnemyIndexは0から始まるが、セーブデータ側のstoryEnemyIndexは即座には上書きされない(誤ってNEW GAMEを選んでしまっても、既存の進行状況は消えず、次に勝利してadvanceToNextEnemyが呼ばれるまで保持される)。OPTION画面の「進行状況(セーブデータ)のリセット」を実行した場合のみ、セーブデータのstoryEnemyIndexが0に戻り、タイトルのCONTINUEも即座に消える(隠しアイテムの図鑑等のリセットは別途用意する想定で、この「進行状況(セーブデータ)のリセット」とは別軸)。STORY MODEの進行状況(現在の敵)とデッキ編成は、localStorageを用いて端末に保存され、次回起動時に自動で復元される。実績システム(今後も追加していく前提の汎用的な仕組み)として、以下を用意する。いずれも解除状況はlocalStorageに永続保存され、次回起動時も解除済みのまま残る。(1)隠しタップ→サブストーリー→コスチュームの連鎖: 各敵のストーリーシーン3画面のうち1枚(敵ごとに異なる画面に割り当てる。現時点では仮の割り当てで、画像が揃い次第調整予定)の、画像エリア左上20%×20%の透明な領域をタップすると、現在再生中の敵に対応するサブストーリーが解除される(5体分、それぞれ個別に解除される)。それ以外の2画面ではこの隠しタップは無効(押せない)。解除済みのサブストーリーは、タイトルBONUS CONTENTS画面の「SUB STORY」(ポップアップ)から一覧を確認でき、実際に読む際は戦う前のストーリーシーンと同じフルスクリーン形式(専用のsceneSubStoryRead)に切り替わる(読み終える、または「戻る」を押すとSUB STORYの一覧(ポップアップ)へ戻る)。さらに、そのサブストーリーを実際に開いて読む(体験する)と、その時点で対応する敵のコスチューム(見た目)そのものは解除される(既存の敵専用グラフィックのセット、assets/images/characters_enemy/enemy_1〜5/を、プレイヤー自身の見た目として流用する)。ただしCOSTUMEがOPTION画面に実際に表示される(選択できるようになる)には、これに加えてSTORY MODEを一度最後(5人目)までクリアしていること(gameClearedOnce)も必要で、両方の条件を満たすまではコスチューム自体は解除済みでもOPTIONには現れない。(2)SOUND TESTの解除: STORY MODEでエンディングを迎え、タイトル画面に戻ると解除される(gameClearedOnceと同一条件。以前は必殺技4種のコンプリートが条件だったが、必殺技とコンボの見分けがつきにくいとの理由で変更した。各必殺技の使用履歴自体はspecialsUsedとして引き続き記録するが、SOUND TESTの解除条件には使わない)。解除後はタイトルBONUS CONTENTS画面の「SOUND TEST」から聴ける。SOUND TEST画面はまずBGM/SEのカテゴリ選択画面を表示し、選ぶと該当カテゴリの一覧(1画面6件、ページ送りボタンで切り替え)に遷移する。一覧画面には「戻る」ボタン(カテゴリ選択へ戻る)がある。各行の再生ボタンは記号(▶)のみで、再生中のトラックは同じボタンが⏸(一時停止)表示に変わり、再度タップすると停止する。ページを切り替える、戻るボタンを押す、ポップアップを閉じる、のいずれの操作でも再生中のプレビューは自動的に停止する。このプレビュー再生は本編のBGM/SE再生(state.soundOnやBGM/SE音量設定)とは独立したノードで行い、本編の再生中BGMを止めてしまうことはない。また通常再生と異なり、未配置ファイルの代用(se_punchでの肩代わり)は行わず、そのまま無音にする(どのファイルが未配置かを正確に確認できるようにするため)。実音声ファイル未配置の項目は再生時に何も鳴らないだけで、エラーにはしない。実績の解除時には、画面上部から弾むようにスライドインし少し待ってスライドアウトする通知(コンシューマーゲームの実績解除演出を模したもの。複数同時発生時はキューに積んで順番に表示する)を出す。サブストーリー解除時はその場で即座に通知するが、BONUS CONTENTS自体の解放(SUB STORY/SOUND TESTのいずれか1つ以上が解除された初回)は、次にタイトル画面へ戻った時点で通知する。COSTUMEの解放通知(上記2条件が揃った初回)は、どちらの条件が後から揃うかによってタイミングが変わる: エンディングを見ることで2条件目が揃う場合(サブストーリーを先に読んでいた場合)は、次にタイトル画面へ戻った時点で通知する。既にエンディングを見た後にサブストーリーを見ることで2条件目が揃う場合は、次のタイトル復帰を待たず、そのサブストーリーを読み終えた直後(サブストーリー一覧へ戻る前)に通知する。いずれの通知も一度行ったら繰り返さない。
  * 16. 位置保持: 攻防のたびに初期位置へ戻るのではなく、中央で衝突→軽く距離を取る、を繰り返す。ホームポジションへ戻るのはターン完了時のみ。
  * 17. 体力ゲージ演出: ダメージ発生時、現在値が即座に減り、黄色いバーが0.6秒遅れて減少する。
  * 18. TURN表示仕様: 画面上部中央に「TURN」と「数字」を2行で太字(900)表示する。
@@ -196,17 +196,17 @@ Object.values(SUBSTORY_BY_ENEMY).forEach(sub => {
 });
 // サウンドテストの一覧(実ファイルはassets/audio/配下に今後配置。未配置の項目は再生時に何も鳴らないだけで、エラーにはしない)
 const SOUND_TEST_TRACKS = [
-    { name: 'bgm_title', label: 'BGM: タイトル' },
-    { name: 'bgm_prologue', label: 'BGM: オープニング' },
-    { name: 'bgm_story', label: 'BGM: ストーリー(全敵共通)' },
-    { name: 'bgm_battle', label: 'BGM: バトル(TRAINING MODE / 汎用)' },
-    { name: 'bgm_battle_1', label: 'BGM: バトル(敵01)' },
-    { name: 'bgm_battle_2', label: 'BGM: バトル(敵02)' },
-    { name: 'bgm_battle_3', label: 'BGM: バトル(敵03)' },
-    { name: 'bgm_battle_4', label: 'BGM: バトル(敵04)' },
-    { name: 'bgm_battle_5', label: 'BGM: バトル(敵05)' },
-    { name: 'bgm_victory', label: 'BGM: 勝利' },
-    { name: 'bgm_ending', label: 'BGM: エンディング' },
+    { name: 'bgm_title', label: 'title' },
+    { name: 'bgm_prologue', label: 'opening' },
+    { name: 'bgm_story', label: 'story' },
+    { name: 'bgm_battle', label: 'Mifune' },
+    { name: 'bgm_battle_1', label: 'Noah' },
+    { name: 'bgm_battle_2', label: 'Rita' },
+    { name: 'bgm_battle_3', label: 'Gald' },
+    { name: 'bgm_battle_4', label: 'Jack' },
+    { name: 'bgm_battle_5', label: 'Alv' },
+    { name: 'bgm_victory', label: 'winner' },
+    { name: 'bgm_ending', label: 'ending' },
     { name: 'se_punch', label: 'SE: パンチ' },
     { name: 'se_upper', label: 'SE: アッパー' },
     { name: 'se_guard', label: 'SE: ガード' },
@@ -2783,6 +2783,17 @@ function closeBonusContents() {
 }
 function closeBonusContentsBackdrop(e) { if (e.target.id === 'bonusContentsOverlay') closeBonusContents(); }
 
+// BONUS関連のポップアップ(BONUS本体・SUB STORY・SOUND TEST)をすべて閉じる。
+// どの階層の×ボタンから呼ばれても、BONUS自体を完全に終了させる(戻るボタンとは異なり1段階ずつ戻らない)。
+function closeAllBonus() {
+    stopSoundTestPlayback();
+    subStoryToken++; // サブストーリー再生中なら中断する
+    if (subStoryTapResolve) { subStoryTapResolve(); subStoryTapResolve = null; }
+    document.getElementById('bonusContentsOverlay').classList.remove('show');
+    document.getElementById('subStoryOverlay').classList.remove('show');
+    document.getElementById('soundTestOverlay').classList.remove('show');
+}
+
 function closeOption() {
     document.getElementById('optionOverlay').classList.remove('show');
 }
@@ -2917,10 +2928,18 @@ async function readSubStory(idx) {
     }
 
     // 実績: サブストーリーを3画面すべて読み終えた(体験した)タイミングで、対応する敵のコスチュームを解除する。
-    // ただしCOSTUME機能自体の解放通知は、「STORY MODEを一度クリアした」条件も揃った上でタイトル画面から行う(checkUnlockAnnouncements)。
     const skinName = 'enemy_' + (idx + 1);
     unlockSkin(skinName);
-    if (gameClearedOnce) updateOptionUI(); // 既にクリア済みなら、背後で開いたままのOPTION画面のCOSTUME行を即座に表示させる
+    if (gameClearedOnce) {
+        updateOptionUI(); // 既にクリア済みなら、背後で開いたままのOPTION画面のCOSTUME行を即座に表示させる
+        // 既にエンディングを見た後にサブストーリーを見た場合は、次にタイトルへ戻るのを待たず、読み終えた直後にCOSTUME解放を通知する
+        if (!costumeUnlockAnnounced) {
+            costumeUnlockAnnounced = true;
+            writeSaveData({ costumeUnlockAnnounced: true });
+            showUnlockToast('COSTUME 解放！');
+        }
+    }
+    // (エンディングをまだ見ていない場合は、後から見てタイトルへ戻った時点でcheckUnlockAnnouncementsが通知する)
     backToSubStoryList();
 }
 function backToSubStoryList() {
@@ -2949,10 +2968,9 @@ function openSoundTest() {
 function renderSoundTestScreen() {
     stopSoundTestPlayback();
     const body = document.getElementById('soundTestBody');
-    const backBtn = document.getElementById('soundTestBackBtn');
+    // 戻るボタンは常に表示する(カテゴリ選択画面でもBONUS本体へ戻れるように)
 
     if (soundTestCategory === null) {
-        backBtn.style.display = 'none';
         body.innerHTML = `
             <div class="sound-test-category-row">
                 <button onclick="selectSoundTestCategory('bgm')">BGM</button>
@@ -2962,7 +2980,6 @@ function renderSoundTestScreen() {
         return;
     }
 
-    backBtn.style.display = '';
     const prefix = soundTestCategory === 'bgm' ? 'bgm_' : 'se_';
     const tracks = SOUND_TEST_TRACKS.filter(t => t.name.startsWith(prefix));
     const totalPages = Math.max(1, Math.ceil(tracks.length / SOUND_TEST_PAGE_SIZE));
@@ -2998,6 +3015,11 @@ function soundTestChangePage(delta) {
 }
 
 function soundTestBack() {
+    if (soundTestCategory === null) {
+        // カテゴリ選択画面(第2階層)からの「戻る」は、BONUS本体(第1階層)へ戻る
+        closeSoundTest();
+        return;
+    }
     soundTestCategory = null;
     soundTestPage = 0;
     renderSoundTestScreen();
