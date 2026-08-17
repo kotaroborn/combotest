@@ -56,7 +56,7 @@
     <button id="startBtn" class="text-btn" onclick="tapFlickerThen(this, () => goNewGame())" disabled>NEW GAME</button>
     <button id="trainingBtn" class="text-btn" onclick="tapFlickerThen(this, () => goTrainingBattle())" disabled>TRAINING MODE</button>
     <button id="optionBtn" class="text-btn" onclick="openOption()" disabled>OPTION</button>
-    <button id="bonusContentsBtn" class="text-btn" onclick="openBonusContents()" style="display:none;">BONUS<br>CONTENTS</button>
+    <button id="bonusContentsBtn" class="text-btn" onclick="openBonusContents()" style="display:none;">BONUS</button>
     <button class="howto-btn howto-corner" onclick="openHowTo()">HOW<br>TO</button>
     <div class="title-copyright">©BORN MAGAZINE 2026</div>
 </div>
@@ -282,7 +282,7 @@
 <!-- BONUS CONTENTS: タイトル画面専用。SUB STORY/SOUND TESTへの入口(何か1つでも解除されていれば表示) -->
 <div id="bonusContentsOverlay" class="popup-overlay" onclick="closeBonusContentsBackdrop(event)">
     <div class="popup-panel">
-        <button class="popup-close" onclick="closeBonusContents()">×</button>
+        <button class="popup-close" onclick="closeAllBonus()">×</button>
         <div class="howto-content">
             <h2>BONUS CONTENTS</h2>
             <div class="option-row" id="bonusSubStoryRow" style="display:none;">
@@ -300,9 +300,10 @@
 <!-- SUB STORY一覧/閲覧ポップアップ -->
 <div id="subStoryOverlay" class="popup-overlay" onclick="closeSubStoryBackdrop(event)">
     <div class="popup-panel">
-        <button class="popup-close" onclick="closeSubStory()">×</button>
+        <button class="popup-close" onclick="closeAllBonus()">×</button>
         <div class="howto-content">
             <h2>SUB STORY</h2>
+            <button class="sound-test-back-btn" onclick="closeSubStory()">◀︎戻る</button>
             <div id="subStoryListView">
                 <div id="subStoryListRows"></div>
             </div>
@@ -322,10 +323,10 @@
 <!-- SOUND TESTポップアップ -->
 <div id="soundTestOverlay" class="popup-overlay" onclick="closeSoundTestBackdrop(event)">
     <div class="popup-panel">
-        <button class="popup-close" onclick="closeSoundTest()">×</button>
+        <button class="popup-close" onclick="closeAllBonus()">×</button>
         <div class="howto-content">
             <h2>SOUND TEST</h2>
-            <button id="soundTestBackBtn" class="sound-test-back-btn" onclick="soundTestBack()" style="display:none;">◀︎戻る</button>
+            <button id="soundTestBackBtn" class="sound-test-back-btn" onclick="soundTestBack()">◀︎戻る</button>
             <div id="soundTestBody"></div>
         </div>
     </div>
