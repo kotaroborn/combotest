@@ -920,6 +920,15 @@ document.addEventListener('visibilitychange', () => {
 function boot() {
     // 第23条: 全画像の読み込み確定を待ってからループ開始・UI有効化
     applySaveDataOnBoot(); // 進行状況・デッキ編成・サウンド設定をセーブデータから復元
+
+    // ▼▼▼ 動作確認用の一時デバッグ設定 ▼▼▼
+    // 友人テスト用に、エンディングを見なくてもBONUS CONTENTS/SOUND TESTが見られるよう強制的に解放している。
+    // セーブ済みデータの復元(直前のapplySaveDataOnBoot)より後に上書きすることで、
+    // 既存のセーブデータがあっても確実に解放状態になるようにしている。
+    // 【本番リリース前に必ずこの3行を削除すること】
+    gameClearedOnce = true;
+    // ▲▲▲ 動作確認用の一時デバッグ設定 ▲▲▲
+
     preloadSE(); // SEは軽量なので先読みしておく(起動をブロックしない非同期処理)
     document.getElementById('startBtn').disabled = false;
     document.getElementById('trainingBtn').disabled = false;
