@@ -333,6 +333,30 @@
         .howto-content { flex: 1; font-size: 12px; line-height: 1.8; overflow: hidden; }
         .howto-content h2 { margin-top: 0; font-size: 16px; }
         .howto-footer { flex: none; display: flex; gap: 10px; padding-top: 10px; }
+        /* ------- SOUND TEST ------- */
+        .sound-test-back-btn {
+            background: none; border: none; color: #ccc; font-size: 13px;
+            padding: 4px 0 10px; cursor: pointer; display: block;
+        }
+        .sound-test-category-row { display: flex; gap: 16px; justify-content: center; margin-top: 30px; }
+        .sound-test-category-row button {
+            width: 120px; height: 60px; font-size: 16px; font-weight: bold;
+            background: #333; color: #fff; border: 1px solid #666; border-radius: 8px; cursor: pointer;
+        }
+        .sound-test-play-btn {
+            width: 32px; height: 32px; border-radius: 50%; flex: none;
+            background: #a00; color: #fff; border: none; font-size: 13px;
+            display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0;
+        }
+        .sound-test-pager {
+            display: flex; align-items: center; justify-content: center; gap: 16px;
+            margin-top: 8px; font-size: 12px; color: #ccc;
+        }
+        .sound-test-pager button {
+            width: 30px; height: 30px; border-radius: 50%; background: #333; color: #fff;
+            border: 1px solid #666; cursor: pointer; font-size: 13px; padding: 0;
+        }
+        .sound-test-pager button:disabled { opacity: 0.3; cursor: default; }
         .howto-footer button {
             flex: 1; border: none; border-radius: 6px; padding: 11px 0;
             font-size: 12px; font-weight: bold; letter-spacing: 0.5px; cursor: pointer;
