@@ -55,11 +55,11 @@
             position: absolute; top: 50%; left: -80%;
             transform: translate(-50%, -50%) scale(1);
             opacity: 0;
-            display: flex; flex-direction: column; align-items: center; gap: 8px;
+            display: flex; flex-direction: column; align-items: center; gap: 0;
             white-space: nowrap; z-index: 20; pointer-events: none;
         }
         #battleStageLabel, #battleStartLabel {
-            font-size: 40px; font-weight: 900; letter-spacing: 2px; color: #fff;
+            font-size: 40px; font-weight: 900; letter-spacing: 2px; color: #fff; line-height: 1.05;
             text-shadow: 0 0 14px rgba(255,255,255,0.8);
         }
         #battleStageLabel:empty { display: none; } /* TRAINING MODE等、ステージ表記が無い場合は行自体を詰める */
