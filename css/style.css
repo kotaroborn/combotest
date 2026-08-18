@@ -330,13 +330,15 @@
             background: #444; color: #fff; border: none; font-size: 16px; line-height: 1;
             padding: 0; cursor: pointer;
         }
-        .howto-content { flex: 1; font-size: 12px; line-height: 1.8; overflow: hidden; }
-        .howto-content h2 { margin-top: 0; font-size: 16px; }
+        .howto-content { flex: 1; font-size: 12px; line-height: 1.8; overflow: hidden; display: flex; flex-direction: column; min-height: 0; }
+        .howto-content h2 { margin-top: 0; font-size: 16px; flex: none; }
         .howto-footer { flex: none; display: flex; gap: 10px; padding-top: 10px; }
+        #soundTestBody { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+        .sound-test-rows { flex: 1; min-height: 0; overflow: hidden; }
         /* ------- SOUND TEST ------- */
         .sound-test-back-btn {
             background: none; border: none; color: #ccc; font-size: 13px;
-            padding: 4px 0 10px; cursor: pointer; display: block;
+            padding: 4px 0 10px; cursor: pointer; display: block; flex: none;
         }
         .sound-test-category-row { display: flex; gap: 16px; justify-content: center; margin-top: 30px; }
         .sound-test-category-row button {
