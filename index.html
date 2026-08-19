@@ -43,12 +43,18 @@
     <button id="skipStoryBtn" class="text-btn" onclick="skipStorySequence()">▶︎SKIP</button>
 </div>
 
-<!-- タイトルシーン: ロゴは仮表示（title_logo.PNGが見つかれば自動で画像に切り替わる） -->
-<div id="sceneTitle" class="scene">
+<!-- タイトルシーン: ロゴは仮表示（title_logo.PNGが見つかれば自動で画像に切り替わる）。
+     画面タップで、ロゴ合流アニメーションをスキップしてくっきり表示まで進める -->
+<div id="sceneTitle" class="scene" onclick="skipTitleLogoIntro()">
     <div class="scene-inner" style="justify-content:flex-start; padding-top:18%;">
-        <div class="title-logo-wrap">
-            <img id="titleLogoImg" src="assets/images/logo/title_logo.PNG" alt="コマンドバトル"
-                 onerror="this.style.display='none'; document.getElementById('titleLogoFallback').style.display='block';">
+        <div class="title-logo-wrap" id="titleLogoWrap">
+            <img id="titleLogoEchoL" class="title-logo-echo" src="assets/images/logo/title_logo.PNG" alt=""
+                 onerror="this.style.display='none';">
+            <img id="titleLogoEchoR" class="title-logo-echo" src="assets/images/logo/title_logo.PNG" alt=""
+                 onerror="this.style.display='none';">
+            <div id="titleLogoFlash"></div>
+            <img id="titleLogoImg" src="assets/images/logo/title_logo.PNG" alt="コマンドバトル" style="opacity:0;"
+                 onerror="this.style.display='none'; document.getElementById('titleLogoFallback').style.display='block'; document.getElementById('titleLogoEchoL').style.display='none'; document.getElementById('titleLogoEchoR').style.display='none';">
             <div id="titleLogoFallback" class="title-logo-fallback">コマンドバトル</div>
         </div>
     </div>
