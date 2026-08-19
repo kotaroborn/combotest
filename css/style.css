@@ -314,6 +314,7 @@
         #howToBtn { flex: 0 0 48px; } /* バトル画面ではcontrols行の一部 */
         .howto-corner { position: absolute; left: 14px; bottom: 14px; } /* タイトル/デッキ編成では画面左下に固定 */
         .title-copyright { position: absolute; right: 14px; bottom: 14px; color: #555; font-size: 9px; letter-spacing: 0.5px; }
+        .title-version { text-align: center; color: #444; font-size: 8px; letter-spacing: 0.5px; margin-top: 6px; }
         #clrBtn { flex: 0 0 76px; background: #444; font-size: 13px; } /* 縮小してGO寄りに */
         #goBtn { background: #a00; } /* 押せる時は赤のまま */
         #goBtn:disabled, #clrBtn:disabled { background: #333; }
