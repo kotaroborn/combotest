@@ -9,6 +9,12 @@
 <body>
 <div id="appRoot">
 
+<!-- 起動直後、最低限の画像(キャラ基本ポーズ)が揃うまでの間、真っ先に表示する読み込み中の目印。
+     JSの実行や他の画像の読み込みを一切待たず、HTMLの解析だけで即座に表示される。boot()完了時にフェードアウトする -->
+<div id="nowLoadingScreen">
+    <div id="nowLoadingText">NOW LOADING...</div>
+</div>
+
 <!-- ロゴシーン: BORN MAGAZINE presents。フェードイン→2秒表示→フェードアウトしてプロローグへ。画面タップでスキップ可能 -->
 <div id="sceneLogo" class="scene active" onclick="skipLogo()">
     <div id="logoContent">
@@ -57,7 +63,7 @@
                  onerror="this.style.display='none'; document.getElementById('titleLogoFallback').style.display='block'; document.getElementById('titleLogoEchoL').style.display='none'; document.getElementById('titleLogoEchoR').style.display='none';">
             <div id="titleLogoFallback" class="title-logo-fallback">コマンドバトル</div>
         </div>
-        <div class="title-version">ver. 0.9.001</div>
+        <div class="title-version">ver. 0.9.003</div>
     </div>
     <button id="titleContinueBtn" class="text-btn" onclick="tapFlickerThen(this, () => goContinueGame())" style="display:none;">CONTINUE</button>
     <button id="startBtn" class="text-btn" onclick="tapFlickerThen(this, () => goNewGame())" disabled>NEW GAME</button>
