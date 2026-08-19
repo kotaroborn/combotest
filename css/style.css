@@ -130,9 +130,18 @@
             animation: prologueCursorBlink 0.8s steps(1) infinite;
         }
         @keyframes prologueCursorBlink { 50% { opacity: 0; } }
-        .title-logo-wrap { max-width: 80%; }
+        .title-logo-wrap { max-width: 80%; position: relative; }
         #titleLogoImg { max-width: 100%; display: block; image-rendering: pixelated; }
         .title-logo-fallback { display: none; font-size: 34px; font-weight: 900; letter-spacing: 3px; }
+        .title-logo-echo {
+            position: absolute; top: 0; left: 0; max-width: 100%; display: block;
+            image-rendering: pixelated; opacity: 0; pointer-events: none; will-change: transform, opacity;
+        }
+        #titleLogoFlash {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            width: 20px; height: 20px; border-radius: 50%; background: #fff;
+            opacity: 0; pointer-events: none; filter: blur(3px);
+        }
 
         /* ボックスなし・テキストのみのボタン(SKIP/START) */
         .text-btn {
