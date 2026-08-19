@@ -249,18 +249,22 @@ let bgSettled = false; // bg.PNGは任意アセット。成功/失敗に関わ�
 // プロローグ/ストーリー/サブストーリー/エンディングの画像は、対象の枚数がステージ・実績の増加とともに
 // 増えていくため、起動時に全部まとめて読み込むと(そのシーンに辿り着かない場合も含めて)無駄に重くなる。
 // そのため、対象のシーンを実際に再生する直前だけ読み込みを開始する(遅延読み込み)。
-const cutsceneLoadStarted = {}; // 読み込み開始済みの画像名(imgsに入るまでの間、二重リクエストを防ぐ)
+const cutsceneLoadPromises = {}; // name -> 読み込み完了(成功/失敗問わず)を表すPromise。二重リクエスト防止と、呼び出し側が完了を待てるようにする両方を兼ねる
 function loadCutsceneImage(name, folder) {
-    if (imgs[name] || cutsceneLoadStarted[name]) return; // 読み込み済み、または読み込み中なら何もしない
-    cutsceneLoadStarted[name] = true;
-    const i = new Image();
-    i.onload = () => { imgs[name] = i; };
-    i.onerror = () => { /* 任意アセットのため未用意でもエラー扱いにしない。プレースホルダー表示にフォールバック */ };
-    i.src = `assets/images/cutscenes/${folder}/${name}`;
+    if (imgs[name]) return Promise.resolve(imgs[name]);
+    if (cutsceneLoadPromises[name]) return cutsceneLoadPromises[name];
+    const p = new Promise(resolve => {
+        const i = new Image();
+        i.onload = () => { imgs[name] = i; resolve(i); };
+        i.onerror = () => { resolve(null); /* 任意アセットのため未用意でもエラー扱いにしない。呼び出し側はnullならプレースホルダー表示にフォールバックする */ };
+        i.src = `assets/images/cutscenes/${folder}/${name}`;
+    });
+    cutsceneLoadPromises[name] = p;
+    return p;
 }
-// 1シーン分(3〜5画面)の画像をまとめて遅延読み込み開始する
+// 1シーン分(3〜5画面)の画像をまとめて遅延読み込みし、全て決着(成功/失敗問わず)するまで待てるPromiseを返す
 function loadCutsceneScreens(screens, folder) {
-    screens.forEach(sc => loadCutsceneImage(sc.img, folder));
+    return Promise.all(screens.map(sc => loadCutsceneImage(sc.img, folder)));
 }
 
 document.querySelectorAll('.controls button').forEach(b => b.disabled = true);
@@ -985,7 +989,6 @@ function skipPrologue() {
 }
 
 async function playPrologue() {
-    loadCutsceneScreens(OPENING_SCREENS, 'opening'); // 再生直前に遅延読み込みを開始する
     playBGM('bgm_prologue');
     const myToken = ++prologueToken;
     const content = document.getElementById('prologueContent');
@@ -999,6 +1002,9 @@ async function playPrologue() {
     textEl.innerText = '';
     imgArea.classList.remove('placeholder');
     imgArea.style.backgroundImage = 'none';
+
+    await loadCutsceneScreens(OPENING_SCREENS, 'opening'); // 表示を始める前に4画面分の読み込み完了を待つ(未配置ならnullで解決されすぐ進む)
+    if (prologueToken !== myToken) return; // 読み込み待ちの間にSKIPされていたら中断
 
     for (let i = 0; i < OPENING_SCREENS.length; i++) {
         const screen = OPENING_SCREENS[i];
@@ -1110,7 +1116,6 @@ function skipStorySequence() {
 }
 
 async function playStorySequence() {
-    loadCutsceneScreens(currentStoryScreens(), 'story'); // 再生直前に、現在の敵の3画面分だけ遅延読み込みを開始する
     playBGM('bgm_story'); // ストーリーシーンは敵によらず共通のBGMを流す
     const myToken = ++storyToken;
     const content = document.getElementById('storyContent');
@@ -1126,6 +1131,9 @@ async function playStorySequence() {
     imgArea.style.backgroundImage = 'none';
 
     const screens = currentStoryScreens(); // 現在の敵(state.storyEnemyIndex)に対応する3画面
+    await loadCutsceneScreens(screens, 'story'); // 表示を始める前に3画面分の読み込み完了を待つ(未配置ならnullで解決されすぐ進む)
+    if (storyToken !== myToken) return; // 読み込み待ちの間にSKIPされていたら中断
+
     for (let i = 0; i < screens.length; i++) {
         const screen = screens[i];
         if (storyToken !== myToken) return; // SKIPされていたら中断
@@ -1170,7 +1178,6 @@ async function playStorySequence() {
 
 // エンディング5画面を再生する(スキップ不可。5人目撃破後の専用演出のため)
 async function playEndingSequence() {
-    loadCutsceneScreens(ENDING_SCREENS, 'ending'); // 再生直前に遅延読み込みを開始する
     playBGM('bgm_ending');
     const content = document.getElementById('endingContent');
     const imgArea = document.getElementById('endingImgArea');
@@ -1182,6 +1189,8 @@ async function playEndingSequence() {
     textEl.innerText = '';
     imgArea.classList.remove('placeholder');
     imgArea.style.backgroundImage = 'none';
+
+    await loadCutsceneScreens(ENDING_SCREENS, 'ending'); // 表示を始める前に5画面分の読み込み完了を待つ(未配置ならnullで解決されすぐ進む)
 
     for (let i = 0; i < ENDING_SCREENS.length; i++) {
         const screen = ENDING_SCREENS[i];
@@ -2939,7 +2948,6 @@ function waitForSubStoryTap() {
 async function readSubStory(idx) {
     const sub = SUBSTORY_BY_ENEMY[ENEMY_ORDER[idx]];
     if (!sub) return;
-    loadCutsceneScreens(sub.screens, 'substory'); // 再生直前に、このサブストーリー分だけ遅延読み込みを開始する
     const myToken = ++subStoryToken;
     const imgArea = document.getElementById('subStoryImgArea');
     const fallback = document.getElementById('subStoryImgFallback');
@@ -2955,6 +2963,9 @@ async function readSubStory(idx) {
     await wait(30); // 直前のopacity:0が確実に描画されてからフェードインを開始させる
     block.style.transition = 'opacity 0.6s ease-in';
     block.style.opacity = '1';
+
+    await loadCutsceneScreens(sub.screens, 'substory'); // 表示を始める前に3画面分の読み込み完了を待つ(未配置ならnullで解決されすぐ進む)
+    if (subStoryToken !== myToken) return; // 読み込み待ちの間に戻る/閉じるで中断されていたら止める
 
     for (let i = 0; i < sub.screens.length; i++) {
         const screen = sub.screens[i];
