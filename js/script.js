@@ -930,6 +930,13 @@ function boot() {
     document.getElementById('trainingBtn').disabled = false;
     document.getElementById('optionBtn').disabled = false;
     updateTitleContinueVisibility();
+    // 最低限の画像(DB.ASSETS)が揃い、ここまで到達した時点でNOW LOADING表示を隠す
+    const nowLoading = document.getElementById('nowLoadingScreen');
+    if (nowLoading) {
+        nowLoading.style.opacity = '0';
+        setTimeout(() => { nowLoading.style.display = 'none'; }, 300);
+    }
+
     draw();
     playLogo();
 }
