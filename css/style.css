@@ -22,6 +22,21 @@
             margin: auto;
             box-shadow: 0 0 24px rgba(0,0,0,0.8);
         }
+        /* ------- 起動直後のNOW LOADING表示: 最低限の画像が揃うまでappRootの最前面に重ねる ------- */
+        #nowLoadingScreen {
+            position: absolute; inset: 0; z-index: 999;
+            background: #000;
+            display: flex; align-items: center; justify-content: center;
+            transition: opacity 0.3s ease-out;
+        }
+        #nowLoadingText {
+            color: #ccc; font-size: 13px; font-weight: 700; letter-spacing: 3px;
+            animation: nowLoadingPulse 1.4s ease-in-out infinite;
+        }
+        @keyframes nowLoadingPulse {
+            0%, 100% { opacity: 0.35; }
+            50% { opacity: 1; }
+        }
         #gameHeader {
             height: 74px;
             padding-top: env(safe-area-inset-top, 0px); /* 第26条: 時計回避余白 */
