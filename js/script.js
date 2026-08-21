@@ -22,7 +22,7 @@
  * 20. 敵の主体性: 敵はデッキ編成を持たずプリセット/ランダムの手で応戦するが、プレイヤーと同じ枚数だけ必ず行動する。ただしTRAINING MODEは例外とし、プレイヤーが実際に場に出した手それぞれに対して、必ず負ける手(PUNCHにはUPPER、UPPERにはGUARD、GUARDにはPUNCH)を1枚ずつ生成する。この生成はプレイヤーがGO!を押した時点(手が確定した後)に行われ、確定と同時に公開される。
  * 21. パンチコンボ演出: 連続するパンチは punch.PNG と punch2.PNG を交互に使用する。地上の通常ヒット(3すくみでPUNCHが連続して勝つ場合)・空中コンボ中の連続パンチのいずれも対象とし、両者は同じ交互カウンターを共有する(ターンをまたいでも交互は継続し、途切れない)。
  * 22. 厳格命名規則: 全アセットの拡張子は常に「.PNG」（大文字）で統一する。ファイル名部は小文字。
- * 23. 動作保証: オープニング(ロゴ/プロローグ)〜タイトルの表示に画像読み込み完了を待たせない(バトル用キャラ画像は使わないため)。ゲームループ(draw)とUIインタラクションの確定(boot)は、ページ読み込み後ただちに行う。バトルで使うキャラ画像(DB.ASSETS)・背景は並行して読み込みを進め、実際にバトルへ入る直前(STORY MODEはgoBattleStart、TRAINING MODEはgoTrainingBattle)でその完了を待つ(battleAssetsReadyのPromise)。読み込みが間に合っていない場合のみ、この待ち時間の間だけ再度NOW LOADING表示を出す。
+ * 23. 動作保証: オープニング(ロゴ/プロローグ)〜タイトル〜バトル開始のいずれも、画像読み込み完了を待たせない。ゲームループ(draw)とUIインタラクションの確定(boot)は、ページ読み込み後ただちに行う。バトルで使うキャラ画像(DB.ASSETS)・背景は、ページ読み込み直後から裏で並行して読み込みを進めるが、バトル開始(STORY MODEのgoBattleStart、TRAINING MODEのgoTrainingBattle)自体はこれを待たない。ロゴ〜プロローグ〜タイトル〜(STORY MODEはデッキ編成)を経てバトル開始に至るまでの導線、およびバトル開始演出(暗転→フェードイン→背景演出→BATTLE START)自体の数秒間が、実質的な読み込みの猶予時間になる。万一この間に読み込みが間に合わなかった場合のみ、draw()側の既存フォールバック表示(緑/赤の四角)が一時的に使われ、読み込みが完了し次第そのフレームから自動的に実画像へ切り替わる(あくまで保険であり、通常発生する想定ではない。バトル開始時に専用のローディング画面を挟むことはしない)。
  * 24. 対面踏み込みの原則: 技を出す前に必ず双方が残像(afterimage)付きの dash.PNG で画面中央へ踏み込み、衝突地点で技を出し合う。
  * 25. 厳格不可逆の原則: いかなる理由があろうとも、憲法の簡略化、および条文の意図的な省略・解釈の矮小化を禁止する。すべてを等しく実装すること。
  * 26. アーケード配置原則: UIは上部に時計回避余白を、下部にメニュー回避余白を確保し、左に攻撃、右に機能ボタンを配置する。
@@ -267,13 +267,11 @@ function loadCutsceneScreens(screens, folder) {
     return Promise.all(screens.map(sc => loadCutsceneImage(sc.img, folder)));
 }
 
-// バトルで使うキャラ画像(DB.ASSETS)・背景(bg.PNG)の読み込み完了を表すPromise。
-// オープニング/タイトルはこれらの画像を使わないため、起動(boot)はこれを待たずに即座に行う。
-// 実際にバトルへ入る直前(goBattleStart/goTrainingBattle)でだけこれを待つことで、
-// 「オープニング〜タイトルまでは最短で表示し、バトルに使う画像は裏で並行して読み込む」動きにする。
-let battleAssetsReadyFlag = false; // Promiseは一度解決したかを同期的に調べられないため、判定用に別途持つ
-let battleAssetsReadyResolve;
-const battleAssetsReady = new Promise(resolve => { battleAssetsReadyResolve = resolve; });
+// バトルで使うキャラ画像(DB.ASSETS)・背景(bg.PNG)の読み込み状況フラグ。
+// オープニング/タイトル/バトル開始のいずれも、この読み込み完了を待たない(バトル演出自体の数秒を読み込みの猶予時間にする)。
+// 万一バトル開始時点で読み込みが間に合っていない場合は、draw()側の既存フォールバック表示(緑/赤の四角)が
+// 一時的に使われ、読み込みが完了し次第そのフレームから自動的に実画像へ切り替わる(あくまで保険で、通常は発生しない想定)。
+let battleAssetsReadyFlag = false;
 
 document.querySelectorAll('.controls button').forEach(b => b.disabled = true);
 document.getElementById('howToBtn').disabled = false; // HOW TOはゲーム状態に関係なく常に押せるようにする
@@ -743,26 +741,7 @@ function checkAllSettled() {
         if (loadFailed.length > 0) {
             console.error('第12条違反: 以下のアセットが読み込めませんでした →', loadFailed.join(', '));
         }
-        battleAssetsReadyFlag = true;
-        battleAssetsReadyResolve();
-    }
-}
-
-// バトルへ入る直前に呼ぶ。バトル用画像が既に読み込み済みなら何もせず即座に返る(通常はこちら)。
-// まだ読み込みが間に合っていない場合のみ、NOW LOADINGを再表示して読み込み完了を待つ。
-async function ensureBattleAssetsReady() {
-    if (battleAssetsReadyFlag) return;
-    const nowLoading = document.getElementById('nowLoadingScreen');
-    if (nowLoading) {
-        nowLoading.style.transition = 'none';
-        nowLoading.style.display = 'flex';
-        nowLoading.style.opacity = '1';
-    }
-    await battleAssetsReady;
-    if (nowLoading) {
-        nowLoading.style.transition = 'opacity 0.3s ease-out';
-        nowLoading.style.opacity = '0';
-        setTimeout(() => { nowLoading.style.display = 'none'; }, 300);
+        battleAssetsReadyFlag = true; // 現状どこからも参照していないが、読み込み状況の把握用に保持しておく
     }
 }
 
@@ -945,7 +924,7 @@ document.addEventListener('visibilitychange', () => {
 
 function boot() {
     // オープニング(ロゴ/プロローグ)〜タイトルはバトル用画像(DB.ASSETS)を使わないため、その読み込み完了を待たずに起動する。
-    // バトル用画像は`battleAssetsReady`が並行して読み込みを続け、実際にバトルへ入る直前(goBattleStart/goTrainingBattle)で待つ。
+    // バトル用画像は裏で並行して読み込みを続け、バトル開始時には待たない(バトル演出時間そのものを読み込みの猶予にする)。
     applySaveDataOnBoot(); // 進行状況・デッキ編成・サウンド設定をセーブデータから復元
 
     // ▼▼▼ 動作確認用の一時デバッグ設定 ▼▼▼
@@ -1427,9 +1406,8 @@ function goDeckBuild(mode) {
 
 // TRAINING MODE専用: デッキ編成を経由せず、タイトルから直接バトルへ入る(手札は固定のPUNCH/UPPER/GUARD、選び放題)。
 // デッキ編成を使わないため、goBattleStartと異なりdeckCountsのセーブ書き込みは行わない。
-async function goTrainingBattle() {
+function goTrainingBattle() {
     state.pendingMode = 'training';
-    await ensureBattleAssetsReady();
     resetBattleState();
     showScene('battle');
     playBattleIntro();
@@ -1876,9 +1854,8 @@ function drawEnemySlots(activeIndex) {
 // ============================================================
 // バトル進行
 // ============================================================
-async function goBattleStart() {
+function goBattleStart() {
     writeSaveData({ deckCounts: { PUNCH: deckCounts.PUNCH, UPPER: deckCounts.UPPER, GUARD: deckCounts.GUARD } }); // デッキ編成を保存
-    await ensureBattleAssetsReady();
     resetBattleState();
     showScene('battle');
     playBattleIntro();
