@@ -384,6 +384,7 @@
             border: 1px solid #666; cursor: pointer; font-size: 13px; padding: 0;
         }
         .sound-test-pager button:disabled { opacity: 0.3; cursor: default; }
+        .costume-from-bonus-note { color: #888; font-size: 11px; line-height: 1.6; margin-top: 16px; }
         .howto-footer button {
             flex: 1; border: none; border-radius: 6px; padding: 11px 0;
             font-size: 12px; font-weight: bold; letter-spacing: 0.5px; cursor: pointer;
