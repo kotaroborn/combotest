@@ -63,7 +63,7 @@
                  onerror="this.style.display='none'; document.getElementById('titleLogoFallback').style.display='block'; document.getElementById('titleLogoEchoL').style.display='none'; document.getElementById('titleLogoEchoR').style.display='none';">
             <div id="titleLogoFallback" class="title-logo-fallback">コマンドバトル</div>
         </div>
-        <div class="title-version">ver. 0.9.006</div>
+        <div class="title-version">ver. 0.9.007</div>
     </div>
     <button id="titleContinueBtn" class="text-btn" onclick="tapFlickerThen(this, () => goContinueGame())" style="display:none;">CONTINUE</button>
     <button id="startBtn" class="text-btn" onclick="tapFlickerThen(this, () => goNewGame())" disabled>NEW GAME</button>
@@ -149,7 +149,7 @@
 </div>
 <!-- 決着オーバーレイ: ヘッダー・場・手札すべてを含む画面全体を覆う -->
 <div id="resultOverlay">
-    <div id="resultPerfectText" style="display:none;">PERFECT !</div>
+    <div id="resultPerfectText" style="display:none;">COMBO PERFECT!!</div>
     <div id="resultText"></div>
     <button id="continueBtn" onclick="goDeckBuild()">CONTINUE</button>
     <button id="backTitleBtn" onclick="goLogo()">タイトルへ戻る</button>
