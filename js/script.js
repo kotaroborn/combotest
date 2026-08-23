@@ -26,6 +26,7 @@
  * 24. 対面踏み込みの原則: 技を出す前に必ず双方が残像(afterimage)付きの dash.PNG で画面中央へ踏み込み、衝突地点で技を出し合う。
  * 25. 厳格不可逆の原則: いかなる理由があろうとも、憲法の簡略化、および条文の意図的な省略・解釈の矮小化を禁止する。すべてを等しく実装すること。
  * 26. アーケード配置原則: UIは上部に時計回避余白を、下部にメニュー回避余白を確保し、左に攻撃、右に機能ボタンを配置する。
+ * 27. COMBOカウンター: バトル中の連続成功(通常のPUNCH/UPPER/GUARD勝利、空中コンボの各撃、メテオ、PUNCH+GUARD+PUNCH追撃の3連打それぞれ、必殺技も含む、成功する技すべて)をCOMBOとしてカウントする。ターンによって区切らず、バトル全体を通して連続する(相討ち・敗北のいずれかを経験するまで伸び続ける)。敵・味方それぞれ独立してカウントする。表示は2COMBO以上でのみ行い、バトル背景内の左上(味方、枠外で言う名前の下に相当する位置)・右上(敵)に、その場でポップするように(軽く跳ねて戻る)出現し、連続成功が途切れると直前の値を保持したまま短時間でフッとフェードアウトする。「COMBO」の文字と数字はどちらも斜体で、数字はCOMBOよりもひとまわり大きいフォントサイズにする。COMBOが5・10・15に到達した瞬間は、通常より一段大きく膨らみながら金色に光るきらびやかな強調演出を追加で重ねる。STORY MODEで、バトル開始から敵を倒すまでの間、味方が一度もCOMBOを途切れさせなかった(相討ち・敗北を一度も経験しなかった)場合、決着画面のYOU WINの文字の上に「COMBO PERFECT!!」を表示する(以前あった被ダメージ0による「PERFECT !」表示は廃止し、この条件に置き換えた)。このCOMBOカウンター・COMBO PERFECT表示は純粋な演出用の記録であり、ダメージ計算・チャージ・しびれ等の既存のゲームロジックには一切影響しない。
  */
 
 // ============================================================
@@ -92,6 +93,13 @@ let state = {
     pComboType: null, eComboType: null, // このターンの手札パターン('followup'=PUNCH+GUARD+PUNCH, 'finisher'=GUARD+PUNCH+GUARD+PUNCH+PUNCH, null=該当なし)。ターン開始時に手札から判定する
     pComboStart: -1, eComboStart: -1, // followup該当時、手札内でPUNCH+GUARD+PUNCHが始まる位置(0始まり)。finisherは常に0固定
     pComboAlive: false, eComboAlive: false, // 対応する各攻防が要件(勝ち、または必殺技は勝ちか相打ち)を満たし続けているか。1つでも要件を満たさなければfalseになりコンボは不成立になる
+    // ------- COMBOカウンター(第26条とは別概念。上記pComboType等は手札パターン判定名で、こちらは連続成功回数の表示用) -------
+    pHitCombo: 0, eHitCombo: 0, // 現在の連続成功回数。GUARD成功・空中コンボ・メテオ・追撃・必殺技も含め、成功する技すべてでカウントする。ターンをまたいでも持ち越す
+    pHitComboEverBroken: false, eHitComboEverBroken: false, // このバトル中に一度でも連続が途切れた(負け/相討ちを経験した)か。COMBO PERFECT判定に使う。バトル開始時にリセット
+    pHitComboDisplayValue: 0, eHitComboDisplayValue: 0, // 表示に使う値。フェードアウト中は直前の値を保持し続ける
+    pHitComboFadeStartAt: 0, eHitComboFadeStartAt: 0, // フェードアウト開始時刻(0=フェードアウト中でない)。連続が途切れた際「フッと消す」演出用
+    pHitComboPopAt: 0, eHitComboPopAt: 0, // 直近で連続成功回数が増えた時刻。ポップ(飛び上がる)アニメーション用
+    pHitComboMilestoneAt: 0, eHitComboMilestoneAt: 0, // 直近で5/10/15に到達した時刻。きらびやか強調演出用
     lastExchangeResult: null, // 直近の攻防結果 { P: 'win'|'lose'|'draw', E: 'win'|'lose'|'draw' }。resolveExchange/runFinisherが設定し、resolveTurnがコンボ判定に使う
     finisherAlreadyDown: false, // 必殺技でK.O.した場合、画面端でdown.PNGのまま倒れる(通常のホーム帰還演出をスキップする合図)
     pGuardHoldPose: false, eGuardHoldPose: false, // 相手がしびれている間、ガード成功側の構えを維持するフラグ
@@ -1480,6 +1488,90 @@ function toIdle() {
 function startPiyo(side) { state.piyoSide = side; }
 function stopPiyo() { state.piyoSide = null; }
 
+// COMBOカウンターの描画。2以上のみ表示し、以下の演出を重ねる:
+// ・増えた瞬間: 軽く上へポップする(sinカーブで跳ねて戻る)
+// ・途切れた瞬間: 直前の値を保持したまま短時間でフッとフェードアウトする
+// ・5/10/15到達時: 一瞬だけ膨らみながら金色に光るきらびやかな強調演出
+// COMBOは斜体、数字はCOMBOよりやや大きいフォントサイズで、同じ斜体にする。
+function drawComboCounter(side, anchorX, align) {
+    const p = side === 'P';
+    const combo = state[p ? 'pHitCombo' : 'eHitCombo'];
+    const dispValue = state[p ? 'pHitComboDisplayValue' : 'eHitComboDisplayValue'];
+    const fadeStart = state[p ? 'pHitComboFadeStartAt' : 'eHitComboFadeStartAt'];
+    const popAt = state[p ? 'pHitComboPopAt' : 'eHitComboPopAt'];
+    const milestoneAt = state[p ? 'pHitComboMilestoneAt' : 'eHitComboMilestoneAt'];
+    const now = performance.now();
+
+    let opacity, showValue;
+    const FADE_MS = 450;
+    if (combo >= 2) {
+        opacity = 1;
+        showValue = combo;
+    } else if (fadeStart > 0) {
+        const elapsed = now - fadeStart;
+        if (elapsed >= FADE_MS) return; // フェードアウト完了、表示しない
+        opacity = 1 - (elapsed / FADE_MS);
+        showValue = dispValue;
+    } else {
+        return; // 2未満・フェード中でもない = 非表示
+    }
+
+    // ポップ演出(増えた瞬間、軽く跳ねる)
+    const POP_MS = 220;
+    let popOffsetY = 0, popScale = 1;
+    const popElapsed = now - popAt;
+    if (popElapsed >= 0 && popElapsed < POP_MS) {
+        const pt = popElapsed / POP_MS;
+        popOffsetY = -Math.sin(pt * Math.PI) * 10;
+        popScale = 1 + Math.sin(pt * Math.PI) * 0.25;
+    }
+
+    // マイルストーン(5/10/15)強調演出(一瞬だけ大きく膨らみながら金色に光る)
+    const MILESTONE_MS = 700;
+    const milestoneElapsed = now - milestoneAt;
+    const isMilestoneActive = milestoneElapsed >= 0 && milestoneElapsed < MILESTONE_MS;
+    let milestoneScale = 1, milestoneGlow = 0;
+    if (isMilestoneActive) {
+        const mt = milestoneElapsed / MILESTONE_MS;
+        milestoneScale = 1 + Math.sin(mt * Math.PI) * 0.6;
+        milestoneGlow = Math.sin(mt * Math.PI);
+    }
+
+    const comboFontSize = 18, numberFontSize = 26;
+    const color = isMilestoneActive ? '#ffd23c' : '#fff';
+
+    ctx.save();
+    ctx.globalAlpha = opacity;
+    ctx.translate(anchorX, 46 + popOffsetY);
+    ctx.scale(popScale * milestoneScale, popScale * milestoneScale);
+    ctx.textBaseline = 'alphabetic';
+    ctx.fillStyle = color;
+    if (isMilestoneActive) {
+        ctx.shadowColor = 'rgba(255,210,60,0.9)';
+        ctx.shadowBlur = 16 * milestoneGlow;
+    } else {
+        ctx.shadowColor = 'rgba(0,0,0,0.7)';
+        ctx.shadowBlur = 4;
+    }
+
+    const comboText = 'COMBO';
+    const numberText = String(showValue);
+    ctx.font = `italic 900 ${comboFontSize}px sans-serif`;
+    const comboWidth = ctx.measureText(comboText).width;
+    ctx.font = `italic 900 ${numberFontSize}px sans-serif`;
+    const numberWidth = ctx.measureText(numberText).width;
+    const gap = 6;
+    const totalWidth = comboWidth + gap + numberWidth;
+    const startX = align === 'left' ? 0 : -totalWidth; // 右揃えの場合、全体をtotalWidth分左へオフセットする
+
+    ctx.font = `italic 900 ${comboFontSize}px sans-serif`;
+    ctx.fillText(comboText, startX, 0);
+    ctx.font = `italic 900 ${numberFontSize}px sans-serif`;
+    ctx.fillText(numberText, startX + comboWidth + gap, 4); // 数字が大きい分、ベースラインを少し下げて視覚的に揃える
+
+    ctx.restore();
+}
+
 function draw(tRaw) {
     const t = tRaw || performance.now();
     ctx.clearRect(0, 0, cvs.width, cvs.height);
@@ -1622,6 +1714,11 @@ function draw(tRaw) {
             ctx.restore();
         }
     }
+
+    // COMBOカウンター(第26条とは別の演出用記録。バトル背景の左上=味方、右上=敵)。2以上のみ表示し、
+    // 増えた瞬間に軽くポップ、途切れるとフッとフェードアウトし、5/10/15到達時はきらびやかに強調する。
+    drawComboCounter('P', 24, 'left');
+    drawComboCounter('E', cvs.width - 24, 'right');
 
     // 画面全体を白く明滅させる演出(5THステージの敵登場等で使用)。他の描画すべての最後に重ねる
     if (state.screenFlashAlpha > 0) {
@@ -1896,6 +1993,12 @@ function resetBattleState() {
     state.pComboType = null; state.eComboType = null;
     state.pComboStart = -1; state.eComboStart = -1;
     state.pComboAlive = false; state.eComboAlive = false;
+    state.pHitCombo = 0; state.eHitCombo = 0;
+    state.pHitComboEverBroken = false; state.eHitComboEverBroken = false;
+    state.pHitComboDisplayValue = 0; state.eHitComboDisplayValue = 0;
+    state.pHitComboFadeStartAt = 0; state.eHitComboFadeStartAt = 0;
+    state.pHitComboPopAt = 0; state.eHitComboPopAt = 0;
+    state.pHitComboMilestoneAt = 0; state.eHitComboMilestoneAt = 0;
     state.lastExchangeResult = null;
     state.finisherAlreadyDown = false;
     state.pGuardHoldPose = false;
@@ -2071,8 +2174,8 @@ function showResult(type) {
         playBGM('bgm_victory');
     }
 
-    // STORY MODEで被ダメージ0のまま勝利した場合、YOU WINの上に「PERFECT !」を表示する(実績の解除自体はここでは行わない)
-    const isPerfect = type !== 'KO' && state.gameMode === 'story' && state.hpP === 100;
+    // 最初から最後まで一度もCOMBOが途切れずに勝利した場合、YOU WINの上に「COMBO PERFECT!!」を表示する(実績の解除自体はここでは行わない)
+    const isPerfect = type !== 'KO' && state.gameMode === 'story' && !state.pHitComboEverBroken;
     document.getElementById('resultPerfectText').style.display = isPerfect ? '' : 'none';
 
     const continueBtn = document.getElementById('continueBtn');
@@ -2241,7 +2344,38 @@ function nextQueuedMove(side, cursor) {
 
 // 地上の連続パンチも、空中コンボと同様にpunch.PNG/punch2.PNGを交互に使う(第21条)。
 // 本関数はPUNCH勝利時のみ呼ばれる想定だが、念のためPUNCH以外はmoveSpriteにフォールバックする。
+// COMBOカウンター: 連続成功回数を1増やす。GUARD成功・空中コンボの各撃・メテオ・追撃・必殺技のいずれも、
+// 成功する技すべてで呼ぶ(第26条: このCOMBO表示はダメージ計算等のゲームロジックに一切影響しない、純粋な演出用の記録)。
+function hitComboSuccess(side) {
+    const comboKey = side === 'P' ? 'pHitCombo' : 'eHitCombo';
+    const dispKey = side === 'P' ? 'pHitComboDisplayValue' : 'eHitComboDisplayValue';
+    const fadeKey = side === 'P' ? 'pHitComboFadeStartAt' : 'eHitComboFadeStartAt';
+    const popKey = side === 'P' ? 'pHitComboPopAt' : 'eHitComboPopAt';
+    const milestoneKey = side === 'P' ? 'pHitComboMilestoneAt' : 'eHitComboMilestoneAt';
+    state[comboKey]++;
+    state[dispKey] = state[comboKey];
+    state[fadeKey] = 0; // フェードアウト中だった場合は打ち切り、表示を継続する
+    state[popKey] = performance.now();
+    if (state[comboKey] === 5 || state[comboKey] === 10 || state[comboKey] === 15) {
+        state[milestoneKey] = performance.now(); // 5/10/15到達時のみ、きらびやか強調演出を追加で出す
+    }
+}
+// COMBOカウンター: 連続成功が途切れた(負けた、または相討ちだった)ことを記録する。
+// 表示中(2以上)だった場合は、直前の値を保持したままフェードアウトを開始する(「フッと消す」演出)。
+function hitComboBreak(side) {
+    const comboKey = side === 'P' ? 'pHitCombo' : 'eHitCombo';
+    const fadeKey = side === 'P' ? 'pHitComboFadeStartAt' : 'eHitComboFadeStartAt';
+    const everBrokenKey = side === 'P' ? 'pHitComboEverBroken' : 'eHitComboEverBroken';
+    if (state[comboKey] >= 2 && state[fadeKey] === 0) {
+        state[fadeKey] = performance.now();
+    }
+    state[everBrokenKey] = true; // COMBO PERFECT判定用: このバトル中に一度でも途切れたことを記録する
+    state[comboKey] = 0;
+}
+
 async function runNormalHit(winner, loser, move) {
+    hitComboSuccess(winner);
+    hitComboBreak(loser);
     setAct(winner, move === 'PUNCH' ? nextPunchSprite(winner) : moveSprite(move));
     setAct(loser, 'damage.PNG');
     const winnerStreakKey = winner === 'P' ? 'pPunchStreak' : 'ePunchStreak';
@@ -2270,6 +2404,8 @@ async function runNormalHit(winner, loser, move) {
 }
 
 async function runMeteor(attacker, defender) {
+    hitComboSuccess(attacker);
+    hitComboBreak(defender);
     applyDamage(defender, DB.DMG.M * chargeMultOf(attacker));
     playSE('se_meteor'); // 未配置ならse_punchで代用される
     setAct(attacker, 'knock.PNG');
@@ -2302,6 +2438,8 @@ async function runMeteor(attacker, defender) {
 }
 
 async function runUpperCombo(attacker, defender, cursor) {
+    hitComboSuccess(attacker);
+    hitComboBreak(defender);
     // PUNCH+PUNCH+UPPER: 直前2連続の地上PUNCH勝利(pPunchStreak/ePunchStreak >= 2)に続けてUPPERで勝った場合、
     // このアッパーは2倍の高さ・2倍の速度で打ち上げ、ダメージも2倍になる。ストリークをリセットする前に判定する。
     // UPPER+GUARD+UPPER: 直前にUPPER→GUARDと連続成功した場合のチャージ(pUpperChargeReady)が有効な場合も同様の扱いになる。
@@ -2376,6 +2514,7 @@ async function runUpperCombo(attacker, defender, cursor) {
                 setY(defender, meetY);
             }
             // 2発目以降は、1発目で既に同じ高さに揃っているため、両者とも高さの変更は不要
+            hitComboSuccess(attacker); // 空中コンボの各撃もCOMBOとして数える(第26条: 空中打ち上げ時の無防備状態への攻撃を含む)
             setAct(attacker, nextPunchSprite(attacker)); // 第21条
             markCardOutcome(defender, cursor.i, 'card-shatter'); // 3すくみ無視のコンボ継続: ヒビ割れる
             const comboDmg = (DB.DMG.P + (airPunches - 1) * DB.DMG.P_COMBO_STEP) * chargeMultOf(attacker); // 1発目=P, 2発目=P+STEP...
@@ -2427,6 +2566,8 @@ async function runUpperCombo(attacker, defender, cursor) {
 // ブロックされた瞬間からピヨり(頭上のpiyo.PNG)を開始し、以後damage.PNGの姿勢のまま維持する(IDLEには戻さない)。
 // このピヨり状態は、次の攻防でしびれ判定が解決される瞬間(resolveExchange)まで継続する。
 async function runGuardSuccess(winner, loser, loserPoseOverride) {
+    hitComboSuccess(winner);
+    hitComboBreak(loser);
     state.pPunchStreak = 0; // ガードでパンチが止まった場合も連続記録は途切れる
     state.ePunchStreak = 0;
     setAct(winner, 'guard.PNG');
@@ -2522,7 +2663,9 @@ function detectComboType(hand, total) {
 // PUNCH+GUARD+PUNCH(1〜3枚目が全て勝利)成立時の追撃。punch.PNG/punch2.PNGを素早く切り替えながら3連打し、必ずヒットする。
 // 合計ダメージは通常パンチ1発の3倍(1発ごとにDB.DMG.P、チャージ等の影響は受けない)。
 async function runFollowUpFlurry(attacker, defender) {
+    hitComboBreak(defender);
     for (let i = 0; i < 3; i++) {
+        hitComboSuccess(attacker); // 追撃は3連打それぞれをCOMBOとして数える
         setAct(attacker, nextPunchSprite(attacker)); // 第21条
         setAct(defender, 'damage.PNG');
         applyDamage(defender, DB.DMG.P);
@@ -2539,6 +2682,8 @@ async function runFollowUpFlurry(attacker, defender) {
 // 被弾側はdamage.PNGのまま端まで飛び、ぶつかって点滅した後knock2.PNGになり、通常のターン終了処理で定位置へ戻る。
 // このダメージでK.O.した場合は、画面端でdown.PNGのまま倒れさせ、通常の決着演出(ホームへの帰還バウンド)はスキップする。
 async function runFinisher(attacker, defender, cursor) {
+    hitComboSuccess(attacker);
+    hitComboBreak(defender);
     setAct(attacker, nextPunchSprite(attacker)); // 第21条
     setAct(defender, 'damage.PNG');
     markCardOutcome(defender, cursor.i, 'card-shatter'); // 3すくみ無視のヒットなのでヒビ割れ表現にする
@@ -2624,6 +2769,7 @@ async function resolveExchange(pAct, eAct, cursor) {
     const result = judge(pAct, eAct);
     if (result === 'draw') {
         // 相討ち: 同じ手同士がぶつかる場合、双方が微ダメージを受けて振動し、反動で一歩下がる
+        hitComboBreak('P'); hitComboBreak('E'); // 相討ちはどちらも「成功」ではないため、双方のCOMBOが途切れる
         state.pPunchStreak = 0; // 相討ちでは連続記録が途切れる
         state.ePunchStreak = 0;
         state.pGuardStreak = 0; // 相討ちではガードの連続記録も途切れる
