@@ -258,7 +258,7 @@
             text-shadow: 0 0 14px rgba(255,255,255,0.7); white-space: nowrap;
         }
         #resultPerfectText {
-            font-size: 40px; font-weight: 900; letter-spacing: 3px; color: #ffd23c;
+            font-size: 26px; font-weight: 900; letter-spacing: 2px; color: #ffd23c;
             text-shadow: 0 0 14px rgba(255,210,60,0.8); white-space: nowrap;
             margin-bottom: -12px; /* resultTextとの間隔をgapより少し詰める */
         }
