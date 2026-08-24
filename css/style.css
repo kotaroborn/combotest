@@ -157,7 +157,9 @@
         @keyframes prologueCursorBlink { 50% { opacity: 0; } }
         .title-logo-wrap { max-width: 80%; position: relative; }
         #titleLogoImg { max-width: 100%; display: block; image-rendering: pixelated; }
-        .title-logo-fallback { display: none; font-size: 34px; font-weight: 900; letter-spacing: 3px; }
+        .title-logo-fallback { display: none; }
+        .title-logo-fallback-main { font-size: 34px; font-weight: 900; letter-spacing: 3px; }
+        .title-logo-fallback-sub { font-size: 15px; font-weight: 700; letter-spacing: 4px; color: #ccc; margin-top: 4px; }
         .title-logo-echo {
             position: absolute; top: 0; left: 0; max-width: 100%; display: block;
             image-rendering: pixelated; opacity: 0; pointer-events: none; will-change: transform, opacity;
