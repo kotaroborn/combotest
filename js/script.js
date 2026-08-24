@@ -933,34 +933,46 @@ document.addEventListener('visibilitychange', () => {
 function boot() {
     // オープニング(ロゴ/プロローグ)〜タイトルはバトル用画像(DB.ASSETS)を使わないため、その読み込み完了を待たずに起動する。
     // バトル用画像は裏で並行して読み込みを続け、バトル開始時には待たない(バトル演出時間そのものを読み込みの猶予にする)。
-    applySaveDataOnBoot(); // 進行状況・デッキ編成・サウンド設定をセーブデータから復元
+    // 以下の初期化処理は必ずtry/catchで囲み、万一どこかで予期しない例外が発生しても、
+    // NOW LOADING表示だけは確実に解除する(でないと画面が永久に「NOW LOADING」のまま止まってしまうため)。
+    try {
+        applySaveDataOnBoot(); // 進行状況・デッキ編成・サウンド設定をセーブデータから復元
 
-    // ▼▼▼ 動作確認用の一時デバッグ設定 ▼▼▼
-    // 友人テスト用に、エンディングを見なくてもBONUS CONTENTS/SOUND TESTが見られるよう強制的に解放している。
-    // あわせて、SUB STORY・COSTUMEも全解放しておく(隠しタップやサブストーリー閲覧を経由しなくても確認できるように)。
-    // セーブ済みデータの復元(直前のapplySaveDataOnBoot)より後に上書きすることで、
-    // 既存のセーブデータがあっても確実に解放状態になるようにしている。
-    // 【本番リリース前に必ずこのブロックを削除すること】
-    gameClearedOnce = true;
-    unlockedSubStories = [0, 1, 2, 3, 4]; // 5体分すべてのサブストーリーを解放
-    unlockedSkins = ['enemy_1', 'enemy_2', 'enemy_3', 'enemy_4', 'enemy_5']; // 5体分すべてのコスチュームを解放
-    // ▲▲▲ 動作確認用の一時デバッグ設定 ▲▲▲
+        // ▼▼▼ 動作確認用の一時デバッグ設定 ▼▼▼
+        // 友人テスト用に、エンディングを見なくてもBONUS CONTENTS/SOUND TESTが見られるよう強制的に解放している。
+        // あわせて、SUB STORY・COSTUMEも全解放しておく(隠しタップやサブストーリー閲覧を経由しなくても確認できるように)。
+        // セーブ済みデータの復元(直前のapplySaveDataOnBoot)より後に上書きすることで、
+        // 既存のセーブデータがあっても確実に解放状態になるようにしている。
+        // 【本番リリース前に必ずこのブロックを削除すること】
+        gameClearedOnce = true;
+        unlockedSubStories = [0, 1, 2, 3, 4]; // 5体分すべてのサブストーリーを解放
+        unlockedSkins = ['enemy_1', 'enemy_2', 'enemy_3', 'enemy_4', 'enemy_5']; // 5体分すべてのコスチュームを解放
+        // ▲▲▲ 動作確認用の一時デバッグ設定 ▲▲▲
 
-    preloadSE(); // SEは軽量なので先読みしておく(起動をブロックしない非同期処理)
-    document.getElementById('startBtn').disabled = false;
-    document.getElementById('trainingBtn').disabled = false;
-    document.getElementById('optionBtn').disabled = false;
-    updateTitleContinueVisibility();
-    updateSpeedUI(); // セーブデータから復元したbattleSpeedX2をボタン表示に反映する
-    // オープニング〜タイトルの表示に必要な準備がここまでで整ったので、NOW LOADING表示を隠す
+        preloadSE(); // SEは軽量なので先読みしておく(起動をブロックしない非同期処理)
+        document.getElementById('startBtn').disabled = false;
+        document.getElementById('trainingBtn').disabled = false;
+        document.getElementById('optionBtn').disabled = false;
+        updateTitleContinueVisibility();
+        updateSpeedUI(); // セーブデータから復元したbattleSpeedX2をボタン表示に反映する
+    } catch (e) {
+        console.error('boot()の初期化処理でエラーが発生しましたが、NOW LOADINGは解除して起動を続行します:', e);
+    }
+
+    // オープニング〜タイトルの表示に必要な準備がここまでで整ったので、NOW LOADING表示を隠す。
+    // 上のtry/catchの外に置くことで、初期化処理の一部が失敗してもここは必ず実行される。
     const nowLoading = document.getElementById('nowLoadingScreen');
     if (nowLoading) {
         nowLoading.style.opacity = '0';
         setTimeout(() => { nowLoading.style.display = 'none'; }, 300);
     }
 
-    draw();
-    playLogo();
+    try {
+        draw();
+        playLogo();
+    } catch (e) {
+        console.error('boot()のdraw/playLogoでエラーが発生しました:', e);
+    }
 }
 
 // ============================================================
