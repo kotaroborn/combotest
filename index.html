@@ -10,9 +10,13 @@
 <div id="appRoot">
 
 <!-- 起動直後、最低限の画像(キャラ基本ポーズ)が揃うまでの間、真っ先に表示する読み込み中の目印。
-     JSの実行や他の画像の読み込みを一切待たず、HTMLの解析だけで即座に表示される。boot()完了時にフェードアウトする -->
+     JSの実行や他の画像の読み込みを一切待たず、HTMLの解析だけで即座に表示される。boot()完了時にフェードアウトする。
+     ゲージはjs/script.js本体(ファイルサイズが最も大きく、これのダウンロード完了までboot()が動かない)の
+     取得進捗を、下のインラインスクリプト(fetchのReadableStreamで実バイト数を追跡)が更新する -->
 <div id="nowLoadingScreen">
     <div id="nowLoadingText">NOW LOADING...</div>
+    <div id="nowLoadingBarTrack"><div id="nowLoadingBar"></div></div>
+    <div id="nowLoadingPercent">0%</div>
 </div>
 
 <!-- ロゴシーン: BORN MAGAZINE presents。フェードイン→2秒表示→フェードアウトしてプロローグへ。画面タップでスキップ可能 -->
@@ -63,7 +67,7 @@
                  onerror="this.style.display='none'; document.getElementById('titleLogoFallback').style.display='block'; document.getElementById('titleLogoEchoL').style.display='none'; document.getElementById('titleLogoEchoR').style.display='none';">
             <div id="titleLogoFallback" class="title-logo-fallback">コマンドバトル</div>
         </div>
-        <div class="title-version">ver. 0.9.007</div>
+        <div class="title-version">ver. 0.9.012</div>
     </div>
     <button id="titleContinueBtn" class="text-btn" onclick="tapFlickerThen(this, () => goContinueGame())" style="display:none;">CONTINUE</button>
     <button id="startBtn" class="text-btn" onclick="tapFlickerThen(this, () => goNewGame())" disabled>NEW GAME</button>
@@ -141,6 +145,7 @@
     <div class="controls">
         <button id="howToBtn" class="howto-btn" onclick="openHowTo()">HOW<br>TO</button>
         <button id="optionBattleBtn" class="howto-btn" onclick="openOption()">OPT<br>ION</button>
+        <button id="speedToggleBtn" class="howto-btn speed-toggle-btn" onclick="toggleBattleSpeed()" style="visibility:hidden;">▶︎</button>
         <div class="fn-group">
             <button onclick="resetHands()" id="clrBtn" disabled>CANCEL</button>
             <button onclick="resolveTurn()" id="goBtn" disabled>GO!</button>
@@ -310,6 +315,14 @@
                 <span class="option-label">COSTUME</span>
                 <button onclick="openCostumeSelect(true)">見る</button>
             </div>
+            <div class="option-row" id="bonusSpeedRow" style="display:none;">
+                <span class="option-label">SPEED</span>
+                <div class="speed-select-group">
+                    <button id="bonusSpeedBtn1x" onclick="setBattleSpeed(false)">▶︎</button>
+                    <button id="bonusSpeedBtn2x" onclick="setBattleSpeed(true)">▶︎▶︎</button>
+                </div>
+            </div>
+            <p id="bonusSpeedNote" class="bonus-note" style="display:none;">※バトル中にも変更可能です。</p>
         </div>
     </div>
 </div>
@@ -362,6 +375,76 @@
 </div>
 
 </div>
-<script src="js/script.js"></script>
+<script>
+// js/script.js本体(ファイルサイズが最も大きい単一ファイルで、これのダウンロード完了までboot()が動かずNOW LOADINGが続く)を、
+// 通常のscriptタグではなくfetch+ReadableStreamで取得し、実際に受信したバイト数からNOW LOADINGのゲージを更新する。
+// fetch自体やストリーム読み取りに失敗した場合(古いブラウザ、CORS等)は、必ず通常のscriptタグ読み込みにフォールバックする
+// (ゲージは動かないが、ゲームの起動自体は今まで通り保証される)。
+(function() {
+    var SCRIPT_URL = 'js/script.js';
+    var bar = document.getElementById('nowLoadingBar');
+    var percentEl = document.getElementById('nowLoadingPercent');
+
+    function loadViaPlainTag() {
+        var s = document.createElement('script');
+        s.src = SCRIPT_URL;
+        document.body.appendChild(s);
+    }
+
+    function setProgress(pct) {
+        if (bar) bar.style.width = pct + '%';
+        if (percentEl) percentEl.innerText = pct + '%';
+    }
+
+    if (!window.fetch || !window.ReadableStream) {
+        loadViaPlainTag(); // 必要なAPIが無い環境は素直にscriptタグで読み込む
+        return;
+    }
+
+    var indeterminateTimer = null;
+
+    fetch(SCRIPT_URL).then(function(response) {
+        if (!response.ok || !response.body) throw new Error('fetch failed: ' + response.status);
+        var totalStr = response.headers.get('Content-Length');
+        var total = totalStr ? parseInt(totalStr, 10) : 0;
+        var reader = response.body.getReader();
+        var chunks = [];
+        var loaded = 0;
+
+        if (!total) {
+            // サーバーがContent-Lengthを返さない場合、正確な%が出せないため往復インジケータにする
+            if (percentEl) percentEl.style.display = 'none';
+            var dir = 1, pos = 0;
+            indeterminateTimer = setInterval(function() {
+                pos += dir * 4;
+                if (pos >= 70 || pos <= 0) dir *= -1;
+                if (bar) bar.style.width = pos + '%';
+            }, 80);
+        }
+
+        function pump() {
+            return reader.read().then(function(result) {
+                if (result.done) {
+                    if (indeterminateTimer) { clearInterval(indeterminateTimer); indeterminateTimer = null; }
+                    setProgress(100);
+                    return new Blob(chunks).text();
+                }
+                chunks.push(result.value);
+                loaded += result.value.length;
+                if (total > 0) setProgress(Math.min(99, Math.round((loaded / total) * 100)));
+                return pump();
+            });
+        }
+        return pump();
+    }).then(function(code) {
+        var s = document.createElement('script');
+        s.text = code; // 取得済みのコードをそのまま実行する(通常のscriptタグ読み込みと等価)
+        document.body.appendChild(s);
+    }).catch(function() {
+        if (indeterminateTimer) clearInterval(indeterminateTimer);
+        loadViaPlainTag();
+    });
+})();
+</script>
 </body>
 </html>
