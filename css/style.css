@@ -331,6 +331,12 @@
         .title-copyright { position: absolute; right: 14px; bottom: 14px; color: #555; font-size: 9px; letter-spacing: 0.5px; }
         .title-version { text-align: center; color: #444; font-size: 8px; letter-spacing: 0.5px; margin-top: 6px; }
         #clrBtn { flex: 0 0 76px; background: #444; font-size: 13px; } /* 縮小してGO寄りに */
+        .speed-toggle-btn { font-size: 16px; } /* 通常時はhowto-btnの配色(#333背景・白文字)をそのまま使う */
+        .speed-toggle-btn.speed-active { background: #fff; color: #000; }
+        .speed-select-group { display: flex; gap: 6px; }
+        .speed-select-group button { background: #333; color: #fff; min-width: 44px; font-size: 14px; padding: 8px 0; }
+        .speed-select-group button.selected { background: #fff; color: #000; }
+        .bonus-note { color: #888; font-size: 11px; line-height: 1.6; margin-top: 16px; }
         #goBtn { background: #a00; } /* 押せる時は赤のまま */
         #goBtn:disabled, #clrBtn:disabled { background: #333; }
 
