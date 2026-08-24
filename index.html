@@ -3,8 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>コマンドバトル</title>
+    <title>CLASH5 - CROSS DIMENSION</title>
     <link rel="stylesheet" href="css/style.css">
+
+    <!-- ホーム画面追加時のアイコン・見た目設定。実際のアイコン画像(下記パス)は別途用意が必要(ASSETS.md参照)。
+         画像が未配置でも404になるだけでエラーにはならず、通常のブラウザ表示には一切影響しない。 -->
+    <link rel="apple-touch-icon" href="assets/images/icons/apple-touch-icon.png"> <!-- iOSのホーム画面アイコン(180×180推奨) -->
+    <link rel="icon" type="image/png" sizes="192x192" href="assets/images/icons/icon-192.png">
+    <link rel="icon" type="image/png" sizes="512x512" href="assets/images/icons/icon-512.png">
+    <link rel="manifest" href="manifest.json"> <!-- Android/Chromeの「ホーム画面に追加」用 -->
+    <meta name="apple-mobile-web-app-capable" content="yes"> <!-- iOSでホーム画面から起動した際、Safariのアドレスバー等を隠してフルスクリーン風にする -->
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="CLASH5"> <!-- iOSホーム画面アイコン下のラベル(長い正式名称だと折り返し・省略されるため短縮表記) -->
+    <meta name="theme-color" content="#000000"> <!-- Android等でブラウザのアドレスバー等を黒に合わせる -->
 </head>
 <body>
 <div id="appRoot">
@@ -63,11 +74,14 @@
             <img id="titleLogoEchoR" class="title-logo-echo" src="assets/images/logo/title_logo.PNG" alt=""
                  onerror="this.style.display='none';">
             <div id="titleLogoFlash"></div>
-            <img id="titleLogoImg" src="assets/images/logo/title_logo.PNG" alt="コマンドバトル" style="opacity:0;"
+            <img id="titleLogoImg" src="assets/images/logo/title_logo.PNG" alt="CLASH5 - CROSS DIMENSION" style="opacity:0;"
                  onerror="this.style.display='none'; document.getElementById('titleLogoFallback').style.display='block'; document.getElementById('titleLogoEchoL').style.display='none'; document.getElementById('titleLogoEchoR').style.display='none';">
-            <div id="titleLogoFallback" class="title-logo-fallback">コマンドバトル</div>
+            <div id="titleLogoFallback" class="title-logo-fallback">
+                <div class="title-logo-fallback-main">CLASH5</div>
+                <div class="title-logo-fallback-sub">CROSS DIMENSION</div>
+            </div>
         </div>
-        <div class="title-version">ver. 0.9.012</div>
+        <div class="title-version">ver. 0.9.013</div>
     </div>
     <button id="titleContinueBtn" class="text-btn" onclick="tapFlickerThen(this, () => goContinueGame())" style="display:none;">CONTINUE</button>
     <button id="startBtn" class="text-btn" onclick="tapFlickerThen(this, () => goNewGame())" disabled>NEW GAME</button>
@@ -182,7 +196,7 @@
         <p class="credits-line">（仮）</p>
         <p class="credits-line credits-title">SPECIAL THANKS</p>
         <p class="credits-line">（仮）</p>
-        <p class="credits-line credits-title" style="margin-top:60px;">コマンドバトル</p>
+        <p class="credits-line credits-title" style="margin-top:60px;">CLASH5 - CROSS DIMENSION</p>
     </div>
 </div>
 
