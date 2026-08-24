@@ -128,12 +128,18 @@ const STORY_HIDDEN_TAP_SCREEN_BY_ENEMY = {
     ENEMY_04: 1, // 2枚目
     ENEMY_05: 0, // 1枚目
 };
+// 隠しタップの対象位置(画像内での中心座標、%指定)。指定が無い敵は仮の位置(左上寄り)のままにする。
+// ENEMY_01は「ノアの大事な形見」が写っている位置(画像内 x:61%, y:56%あたり)に合わせてある。
+const STORY_HIDDEN_TAP_POS_BY_ENEMY = {
+    ENEMY_01: { x: 61, y: 56 },
+};
+const STORY_HIDDEN_TAP_DEFAULT_POS = { x: 10, y: 10 }; // 位置未指定の敵はこれまで通り左上寄り(仮)のまま
 
 // 各敵のストーリーシーン内に仕込む隠しタップで解除する、サブストーリーの仮テキスト(画像は今後配置予定、未配置ならプレースホルダー表示)。
 // 本編のストーリーシーンと同じく、3枚の画像+テキストで展開する。
 const SUBSTORY_BY_ENEMY = {
     ENEMY_01: {
-        title: '敵01(仮)の裏話',
+        title: 'ノアの大事な形見',
         screens: [
             { img: 'substory_1_1.PNG', text: '（仮テキスト・敵01 裏話 1/3）誰にも言えない、敵01(仮)だけの秘密の物語がここに……' },
             { img: 'substory_1_2.PNG', text: '（仮テキスト・敵01 裏話 2/3）その過去には、まだ語られていない出来事があった。' },
@@ -480,10 +486,10 @@ updateUI(); // 第1条: 起動直後から5つの空枠を表示する
 // favoritePatterns: よく出す組み合わせ(例: ['GUARD','PUNCH'])。今後ここに配列を追加していく想定。まだ未設定。
 const ENEMY_PRESETS = {
     ENEMY_01: { name: 'Noah', deck: { PUNCH: 7, UPPER: 7, GUARD: 7 }, favoritePatterns: [] },
-    ENEMY_02: { name: '敵02(仮)', deck: { PUNCH: 7, UPPER: 7, GUARD: 7 }, favoritePatterns: [] },
-    ENEMY_03: { name: '敵03(仮)', deck: { PUNCH: 7, UPPER: 7, GUARD: 7 }, favoritePatterns: [] },
-    ENEMY_04: { name: '敵04(仮)', deck: { PUNCH: 7, UPPER: 7, GUARD: 7 }, favoritePatterns: [] },
-    ENEMY_05: { name: '敵05(仮)', deck: { PUNCH: 7, UPPER: 7, GUARD: 7 }, favoritePatterns: [] },
+    ENEMY_02: { name: 'Rita', deck: { PUNCH: 7, UPPER: 7, GUARD: 7 }, favoritePatterns: [] },
+    ENEMY_03: { name: 'Gald', deck: { PUNCH: 7, UPPER: 7, GUARD: 7 }, favoritePatterns: [] },
+    ENEMY_04: { name: 'Jack', deck: { PUNCH: 7, UPPER: 7, GUARD: 7 }, favoritePatterns: [] },
+    ENEMY_05: { name: 'Alv', deck: { PUNCH: 7, UPPER: 7, GUARD: 7 }, favoritePatterns: [] },
 };
 const ENEMY_ORDER = ['ENEMY_01', 'ENEMY_02', 'ENEMY_03', 'ENEMY_04', 'ENEMY_05']; // 連戦の順番
 const STAGE_ORDINALS = ['1ST', '2ND', '3RD', '4TH', '5TH']; // ENEMY_ORDERのインデックスに対応する序数表記
@@ -1099,7 +1105,10 @@ function onStoryHiddenTap() {
     const idx = state.storyEnemyIndex;
     const alreadyUnlocked = unlockedSubStories.includes(idx);
     unlockSubStory(idx);
-    if (!alreadyUnlocked) showUnlockToast('SUB STORY 解放！');
+    if (!alreadyUnlocked) {
+        const sub = SUBSTORY_BY_ENEMY[ENEMY_ORDER[idx]];
+        showUnlockToast({ small: `SUB STORY ${idx + 1}`, large: sub.title });
+    }
 }
 
 // 実績解除時の簡易トースト表示(数秒でフェードアウトする)
@@ -1120,14 +1129,20 @@ async function processUnlockToastQueue() {
     if (!toast) {
         toast = document.createElement('div');
         toast.id = 'unlockToast';
-        toast.style.cssText = 'position:fixed; left:50%; top:0; transform:translateX(-50%) translateY(-120%);'
+        // top はセーフエリア(iPhoneのDynamic Island/ノッチ等)の分だけ下げておく。
+        // ホーム画面追加→ウェブアプリとして起動した場合、ブラウザのアドレスバー等の余白が無くなり画面いっぱいに表示されるため、
+        // 通常のSafari表示では気にならなくても、ウェブアプリ表示だとこの余白を入れないとDynamic Islandと重なってしまう。
+        toast.style.cssText = 'position:fixed; left:50%; top:env(safe-area-inset-top, 0px); transform:translateX(-50%) translateY(-120%);'
             + 'background:linear-gradient(135deg, #1a1a1a, #2a2a2a); color:#ffd23c;'
             + 'border:2px solid #ffd23c; border-top:none; border-radius:0 0 10px 10px;'
             + 'padding:12px 28px; font-size:14px; font-weight:900; letter-spacing:1px; text-align:center;'
             + 'z-index:9999; pointer-events:none; box-shadow:0 4px 20px rgba(0,0,0,0.6); white-space:nowrap;';
         document.body.appendChild(toast);
     }
-    toast.innerHTML = '<span style="font-size:10px; letter-spacing:3px; color:#888; display:block;">UNLOCKED</span>' + message;
+    toast.innerHTML = '<span style="font-size:10px; letter-spacing:3px; color:#888; display:block;">UNLOCKED</span>'
+        + (typeof message === 'string'
+            ? message // 従来通りの単一行表示(BONUS CONTENTS解放！等)
+            : `<span style="font-size:12px; display:block;">${message.small}</span><span style="font-size:19px; display:block; margin-top:2px;">${message.large}</span>`); // SUB STORY解放時: 番号(小)+タイトル(大)の2段階表示
 
     toast.style.transition = 'none';
     toast.style.transform = 'translateX(-50%) translateY(-120%)';
@@ -1197,7 +1212,14 @@ async function playStorySequence() {
         }
         // 隠しタップは3画面のうち対象の1枚だけで有効にする(敵ごとに違う画面。それ以外の画面では押せないようにする)
         const hiddenTapScreenIdx = STORY_HIDDEN_TAP_SCREEN_BY_ENEMY[ENEMY_ORDER[state.storyEnemyIndex]] ?? 1;
-        document.getElementById('storyHiddenTap').style.display = (i === hiddenTapScreenIdx) ? '' : 'none';
+        const hiddenTapEl = document.getElementById('storyHiddenTap');
+        hiddenTapEl.style.display = (i === hiddenTapScreenIdx) ? '' : 'none';
+        if (i === hiddenTapScreenIdx) {
+            // 敵ごとに指定された中心座標(%)に、判定用の矩形(幅20%×高さ20%)の中心を合わせる
+            const pos = STORY_HIDDEN_TAP_POS_BY_ENEMY[ENEMY_ORDER[state.storyEnemyIndex]] || STORY_HIDDEN_TAP_DEFAULT_POS;
+            hiddenTapEl.style.left = (pos.x - 10) + '%';
+            hiddenTapEl.style.top = (pos.y - 10) + '%';
+        }
 
         if (i === 0) {
             // 一番はじめの画面だけフェードインで始める
@@ -3435,7 +3457,8 @@ function openCostumeSelect(fromBonus) {
     rows.appendChild(defaultRow);
     unlockedSkins.slice().sort((a, b) => parseInt(a.replace('enemy_', ''), 10) - parseInt(b.replace('enemy_', ''), 10)).forEach(skinName => {
         const idx = parseInt(skinName.replace('enemy_', ''), 10);
-        const label = `敵${idx}(仮)の見た目`;
+        const enemyName = ENEMY_PRESETS['ENEMY_0' + idx] ? ENEMY_PRESETS['ENEMY_0' + idx].name : `敵${idx}`;
+        const label = `${enemyName}の見た目`;
         const row = document.createElement('div');
         row.className = 'option-row';
         row.innerHTML = `<span class="option-label">${label}</span><button onclick="selectCostume('${skinName}')">${selectedSkin === skinName ? '選択中' : '選ぶ'}</button>`;
