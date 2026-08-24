@@ -943,6 +943,7 @@ function boot() {
     // NOW LOADING表示だけは確実に解除する(でないと画面が永久に「NOW LOADING」のまま止まってしまうため)。
     try {
         applySaveDataOnBoot(); // 進行状況・デッキ編成・サウンド設定をセーブデータから復元
+        if (selectedSkin) loadEnemySet(selectedSkin); // 前回セッションで選択済みのコスチュームがあれば、対戦する敵に関わらずここで先読みしておく
 
         // ▼▼▼ 動作確認用の一時デバッグ設定 ▼▼▼
         // 友人テスト用に、エンディングを見なくてもBONUS CONTENTS/SOUND TESTが見られるよう強制的に解放している。
@@ -1132,7 +1133,9 @@ async function processUnlockToastQueue() {
         // top はセーフエリア(iPhoneのDynamic Island/ノッチ等)の分だけ下げておく。
         // ホーム画面追加→ウェブアプリとして起動した場合、ブラウザのアドレスバー等の余白が無くなり画面いっぱいに表示されるため、
         // 通常のSafari表示では気にならなくても、ウェブアプリ表示だとこの余白を入れないとDynamic Islandと重なってしまう。
-        toast.style.cssText = 'position:fixed; left:50%; top:env(safe-area-inset-top, 0px); transform:translateX(-50%) translateY(-120%);'
+        // env(safe-area-inset-top)の値だけでは実機で不足するケースがあるため、CSS側の共通変数--safe-top
+        // (standalone起動時は59pxを下限として保証する、css/style.css参照)を使う。
+        toast.style.cssText = 'position:fixed; left:50%; top:var(--safe-top); transform:translateX(-50%) translateY(-120%);'
             + 'background:linear-gradient(135deg, #1a1a1a, #2a2a2a); color:#ffd23c;'
             + 'border:2px solid #ffd23c; border-top:none; border-radius:0 0 10px 10px;'
             + 'padding:12px 28px; font-size:14px; font-weight:900; letter-spacing:1px; text-align:center;'
@@ -3453,12 +3456,12 @@ function openCostumeSelect(fromBonus) {
     rows.innerHTML = '';
     const defaultRow = document.createElement('div');
     defaultRow.className = 'option-row';
-    defaultRow.innerHTML = `<span class="option-label">デフォルト</span><button onclick="selectCostume(null)">${selectedSkin === null ? '選択中' : '選ぶ'}</button>`;
+    defaultRow.innerHTML = `<span class="option-label">Val</span><button onclick="selectCostume(null)">${selectedSkin === null ? '選択中' : '選ぶ'}</button>`;
     rows.appendChild(defaultRow);
     unlockedSkins.slice().sort((a, b) => parseInt(a.replace('enemy_', ''), 10) - parseInt(b.replace('enemy_', ''), 10)).forEach(skinName => {
         const idx = parseInt(skinName.replace('enemy_', ''), 10);
         const enemyName = ENEMY_PRESETS['ENEMY_0' + idx] ? ENEMY_PRESETS['ENEMY_0' + idx].name : `敵${idx}`;
-        const label = `${enemyName}の見た目`;
+        const label = enemyName;
         const row = document.createElement('div');
         row.className = 'option-row';
         row.innerHTML = `<span class="option-label">${label}</span><button onclick="selectCostume('${skinName}')">${selectedSkin === skinName ? '選択中' : '選ぶ'}</button>`;
@@ -3471,6 +3474,7 @@ function openCostumeSelect(fromBonus) {
 function selectCostume(skinName) {
     selectedSkin = skinName;
     writeSaveData({ selectedSkin });
+    if (skinName) loadEnemySet(skinName); // まだ対戦していない敵のコスチュームを選んだ場合でも、その場でグラフィックセットを読み込む
     openCostumeSelect(); // 選択状態を反映して再描画
 }
 function closeCostume() { document.getElementById('costumeOverlay').classList.remove('show'); }
