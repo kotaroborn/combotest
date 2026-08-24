@@ -26,7 +26,8 @@
  * 24. 対面踏み込みの原則: 技を出す前に必ず双方が残像(afterimage)付きの dash.PNG で画面中央へ踏み込み、衝突地点で技を出し合う。
  * 25. 厳格不可逆の原則: いかなる理由があろうとも、憲法の簡略化、および条文の意図的な省略・解釈の矮小化を禁止する。すべてを等しく実装すること。
  * 26. アーケード配置原則: UIは上部に時計回避余白を、下部にメニュー回避余白を確保し、左に攻撃、右に機能ボタンを配置する。
- * 27. COMBOカウンター: バトル中の連続成功(通常のPUNCH/UPPER/GUARD勝利、空中コンボの各撃、メテオ、PUNCH+GUARD+PUNCH追撃の3連打それぞれ、必殺技も含む、成功する技すべて)をCOMBOとしてカウントする。ターンによって区切らず、バトル全体を通して連続する(相討ち・敗北のいずれかを経験するまで伸び続ける)。敵・味方それぞれ独立してカウントする。表示は2COMBO以上でのみ行い、バトル背景内の左上(味方、枠外で言う名前の下に相当する位置)・右上(敵)に、その場でポップするように(軽く跳ねて戻る)出現し、連続成功が途切れると直前の値を保持したまま短時間でフッとフェードアウトする。「COMBO」の文字と数字はどちらも斜体で、数字はCOMBOよりもひとまわり大きいフォントサイズにする。COMBOが5・10・15に到達した瞬間は、通常より一段大きく膨らみながら金色に光るきらびやかな強調演出を追加で重ねる。STORY MODEで、バトル開始から敵を倒すまでの間、味方が一度もCOMBOを途切れさせなかった(相討ち・敗北を一度も経験しなかった)場合、決着画面のYOU WINの文字の上に「COMBO PERFECT!!」を表示する(以前あった被ダメージ0による「PERFECT !」表示は廃止し、この条件に置き換えた)。このCOMBOカウンター・COMBO PERFECT表示は純粋な演出用の記録であり、ダメージ計算・チャージ・しびれ等の既存のゲームロジックには一切影響しない。
+ * 27. COMBOカウンター: バトル中の連続成功(通常のPUNCH/UPPER/GUARD勝利、空中コンボの各撃、メテオ、PUNCH+GUARD+PUNCH追撃の3連打それぞれ、必殺技も含む、成功する技すべて)をCOMBOとしてカウントする。ターンによって区切らず、バトル全体を通して連続する(相討ち・敗北のいずれかを経験するまで伸び続ける)。敵・味方それぞれ独立してカウントする。表示は2COMBO以上でのみ行い、バトル背景内の左上(味方、枠外で言う名前の下に相当する位置)・右上(敵)に、その場でポップするように(軽く跳ねて戻る)出現し、連続成功が途切れると直前の値を保持したまま短時間でフッとフェードアウトする。「COMBO」の文字と数字はどちらも斜体で、数字はCOMBOよりもひとまわり大きいフォントサイズにする。COMBOが5に到達した瞬間は、通常より一段大きく膨らみながら金色に光る一時的なきらびやかな強調演出を追加で重ねる。COMBOが10以上になると、以降は一時的な演出ではなく常時(表示され続けている間ずっと)金色にゆっくり明滅しながら光る状態になる。さらにCOMBOが15・20・25…(5の倍数、15以上)に到達した瞬間は、通常のマイルストーンよりもさらに大きく膨らみながら赤色に光る一段特別な強調演出を、その瞬間だけ追加で重ねる(収まると常時金色の表示に戻る)。TRAINING MODEはコンボが際限なく伸び続けてしまうため、COMBOが100に到達すると、次に成功した瞬間からCOMBO1で自然に数え直す(100到達時点の表示自体はそのまま見せ、内部カウントのみリセットする。STORY MODEはこの上限リセットを行わない)。STORY MODEで、バトル開始から敵を倒すまでの間、味方が一度もCOMBOを途切れさせなかった(相討ち・敗北を一度も経験しなかった)場合、決着画面のYOU WINの文字の上に「COMBO PERFECT!!」を表示する(以前あった被ダメージ0による「PERFECT !」表示は廃止し、この条件に置き換えた)。このCOMBOカウンター・COMBO PERFECT表示は純粋な演出用の記録であり、ダメージ計算・チャージ・しびれ等の既存のゲームロジックには一切影響しない。
+ * 28. SPEED(バトル2倍速): STORY MODEを一度クリアした(gameClearedOnce)後に解放される実績の1つで、BONUS CONTENTS解放の対象にも含まれる。解放されると、バトル操作列(OPTIONとCANCELの間)にSPEED切り替えボタンが出現する(未解放時はボタンの領域自体は確保されたまま、見た目のみ空白になる。この分、他のボタンはサイズを変えずGO!ボタンだけが少し小さくなる)。通常速度時はOPTION等と同じ配色(暗い背景・白文字)で「▶︎」を表示し、タップすると2倍速に切り替わり、ボタンは白背景・黒文字の「▶︎▶︎」になる。2倍速時にタップすると通常速度の「▶︎」に戻る。タイトル画面のBONUS CONTENTSにも同じ解放条件で「SPEED」の項目が並び、「▶︎」「▶︎▶︎」の2つのボタンから直接選択できる(現在有効な方が白背景でハイライトされる)。BONUS CONTENTS側のSPEED項目には「※バトル中にも変更可能です。」と注記する。速度設定はセーブデータに永続化され、次回起動時も維持される。2倍速の効果は、GO!を押してからターン解決が終わるまで(state.resolving中)のバトル演出のみに適用され、ロゴ・プロローグ・ストーリー・タイトル演出等、バトル以外のシーンの速度には一切影響しない。
  */
 
 // ============================================================
@@ -99,7 +100,8 @@ let state = {
     pHitComboDisplayValue: 0, eHitComboDisplayValue: 0, // 表示に使う値。フェードアウト中は直前の値を保持し続ける
     pHitComboFadeStartAt: 0, eHitComboFadeStartAt: 0, // フェードアウト開始時刻(0=フェードアウト中でない)。連続が途切れた際「フッと消す」演出用
     pHitComboPopAt: 0, eHitComboPopAt: 0, // 直近で連続成功回数が増えた時刻。ポップ(飛び上がる)アニメーション用
-    pHitComboMilestoneAt: 0, eHitComboMilestoneAt: 0, // 直近で5/10/15に到達した時刻。きらびやか強調演出用
+    pHitComboMilestoneAt: 0, eHitComboMilestoneAt: 0, // 直近で5に到達した時刻。一時的なきらびやか強調演出用
+    pHitComboBigMilestoneAt: 0, eHitComboBigMilestoneAt: 0, // 直近で15/20/25…(5の倍数、15以上)に到達した時刻。大型の赤い強調演出用
     lastExchangeResult: null, // 直近の攻防結果 { P: 'win'|'lose'|'draw', E: 'win'|'lose'|'draw' }。resolveExchange/runFinisherが設定し、resolveTurnがコンボ判定に使う
     finisherAlreadyDown: false, // 必殺技でK.O.した場合、画面端でdown.PNGのまま倒れる(通常のホーム帰還演出をスキップする合図)
     pGuardHoldPose: false, eGuardHoldPose: false, // 相手がしびれている間、ガード成功側の構えを維持するフラグ
@@ -127,6 +129,7 @@ let unlockedItems = []; // 隠しアイテム(今後実装予定)。取得済み
 let unlockedSubStories = []; // 解除済みサブストーリーのenemyIndex(0〜4)の配列
 let unlockedSkins = []; // 解除済みコスチュームのセット名('enemy_1'〜'enemy_5')の配列
 let soundTestUnlocked = false; // SOUND TESTが解除済みか(旧条件。新条件はgameClearedOnce、後方互換のため残す)
+let battleSpeedX2 = false; // バトル中2倍速が有効か。SPEED機能自体の解放条件はgameClearedOnce(クリア後)。セーブデータに永続化する
 // SOUND TEST画面の状態: カテゴリ選択→BGM/SE一覧(6件ずつページ送り)の2階層
 let soundTestCategory = null; // null=カテゴリ選択画面、'bgm'または'se'=一覧画面
 let soundTestPage = 0; // 一覧画面でのページ番号(0始まり)
@@ -284,6 +287,7 @@ let battleAssetsReadyFlag = false;
 document.querySelectorAll('.controls button').forEach(b => b.disabled = true);
 document.getElementById('howToBtn').disabled = false; // HOW TOはゲーム状態に関係なく常に押せるようにする
 document.getElementById('optionBattleBtn').disabled = false; // OPTIONも同様に常に押せる
+document.getElementById('speedToggleBtn').disabled = false; // SPEEDも同様、解放済みならいつでも押せる(未解放時はvisibility:hiddenで見えない)
 
 
 DB.ASSETS.forEach(n => {
@@ -625,6 +629,7 @@ function applySaveDataOnBoot() {
     if (Array.isArray(save.unlockedSubStories)) unlockedSubStories = save.unlockedSubStories;
     if (Array.isArray(save.unlockedSkins)) unlockedSkins = save.unlockedSkins;
     if (typeof save.soundTestUnlocked === 'boolean') soundTestUnlocked = save.soundTestUnlocked;
+    if (typeof save.battleSpeedX2 === 'boolean') battleSpeedX2 = save.battleSpeedX2;
     if (save.specialsUsed) {
         specialsUsed = {
             superUpper: !!save.specialsUsed.superUpper,
@@ -956,6 +961,7 @@ function boot() {
     document.getElementById('trainingBtn').disabled = false;
     document.getElementById('optionBtn').disabled = false;
     updateTitleContinueVisibility();
+    updateSpeedUI(); // セーブデータから復元したbattleSpeedX2をボタン表示に反映する
     // オープニング〜タイトルの表示に必要な準備がここまでで整ったので、NOW LOADING表示を隠す
     const nowLoading = document.getElementById('nowLoadingScreen');
     if (nowLoading) {
@@ -1500,6 +1506,7 @@ function drawComboCounter(side, anchorX, align) {
     const fadeStart = state[p ? 'pHitComboFadeStartAt' : 'eHitComboFadeStartAt'];
     const popAt = state[p ? 'pHitComboPopAt' : 'eHitComboPopAt'];
     const milestoneAt = state[p ? 'pHitComboMilestoneAt' : 'eHitComboMilestoneAt'];
+    const bigMilestoneAt = state[p ? 'pHitComboBigMilestoneAt' : 'eHitComboBigMilestoneAt'];
     const now = performance.now();
 
     let opacity, showValue;
@@ -1526,29 +1533,54 @@ function drawComboCounter(side, anchorX, align) {
         popScale = 1 + Math.sin(pt * Math.PI) * 0.25;
     }
 
-    // マイルストーン(5/10/15)強調演出(一瞬だけ大きく膨らみながら金色に光る)
+    // 5到達時のみ、一時的なきらびやか(金色)強調演出
     const MILESTONE_MS = 700;
     const milestoneElapsed = now - milestoneAt;
-    const isMilestoneActive = milestoneElapsed >= 0 && milestoneElapsed < MILESTONE_MS;
+    const isSmallMilestoneActive = milestoneElapsed >= 0 && milestoneElapsed < MILESTONE_MS;
     let milestoneScale = 1, milestoneGlow = 0;
-    if (isMilestoneActive) {
+    if (isSmallMilestoneActive) {
         const mt = milestoneElapsed / MILESTONE_MS;
         milestoneScale = 1 + Math.sin(mt * Math.PI) * 0.6;
         milestoneGlow = Math.sin(mt * Math.PI);
     }
 
+    // 10以上は常時きらびやか(金色、ゆっくり明滅する光)
+    const isAlwaysSparkly = showValue >= 10;
+    const sparklyPulse = isAlwaysSparkly ? (0.6 + Math.sin(now / 220) * 0.4) : 0; // 0.2〜1.0でゆっくり明滅
+
+    // 15,20,25…(5の倍数、15以上)到達時、さらに大きく赤い特別演出を一時的に重ねる
+    const BIG_MILESTONE_MS = 850;
+    const bigMilestoneElapsed = now - bigMilestoneAt;
+    const isBigMilestoneActive = bigMilestoneElapsed >= 0 && bigMilestoneElapsed < BIG_MILESTONE_MS;
+    let bigMilestoneScale = 1, bigMilestoneGlow = 0;
+    if (isBigMilestoneActive) {
+        const bt = bigMilestoneElapsed / BIG_MILESTONE_MS;
+        bigMilestoneScale = 1 + Math.sin(bt * Math.PI) * 1.1; // 通常のマイルストーンよりさらに大きく膨らむ
+        bigMilestoneGlow = Math.sin(bt * Math.PI);
+    }
+
     const comboFontSize = 18, numberFontSize = 26;
-    const color = isMilestoneActive ? '#ffd23c' : '#fff';
+    let color = '#fff';
+    if (isBigMilestoneActive) color = '#ff3b3b';
+    else if (isSmallMilestoneActive || isAlwaysSparkly) color = '#ffd23c';
+
+    const totalScale = popScale * (isBigMilestoneActive ? bigMilestoneScale : milestoneScale);
 
     ctx.save();
     ctx.globalAlpha = opacity;
     ctx.translate(anchorX, 46 + popOffsetY);
-    ctx.scale(popScale * milestoneScale, popScale * milestoneScale);
+    ctx.scale(totalScale, totalScale);
     ctx.textBaseline = 'alphabetic';
     ctx.fillStyle = color;
-    if (isMilestoneActive) {
+    if (isBigMilestoneActive) {
+        ctx.shadowColor = 'rgba(255,59,59,0.95)';
+        ctx.shadowBlur = 20 * bigMilestoneGlow;
+    } else if (isSmallMilestoneActive) {
         ctx.shadowColor = 'rgba(255,210,60,0.9)';
         ctx.shadowBlur = 16 * milestoneGlow;
+    } else if (isAlwaysSparkly) {
+        ctx.shadowColor = 'rgba(255,210,60,0.9)';
+        ctx.shadowBlur = 6 + 10 * sparklyPulse;
     } else {
         ctx.shadowColor = 'rgba(0,0,0,0.7)';
         ctx.shadowBlur = 4;
@@ -1999,6 +2031,8 @@ function resetBattleState() {
     state.pHitComboFadeStartAt = 0; state.eHitComboFadeStartAt = 0;
     state.pHitComboPopAt = 0; state.eHitComboPopAt = 0;
     state.pHitComboMilestoneAt = 0; state.eHitComboMilestoneAt = 0;
+    state.pHitComboBigMilestoneAt = 0; state.eHitComboBigMilestoneAt = 0;
+    updateSpeedUI(); // バトル操作列のSPEEDボタンの表示(解放状態・▶︎/▶︎▶︎)をここで同期する
     state.lastExchangeResult = null;
     state.finisherAlreadyDown = false;
     state.pGuardHoldPose = false;
@@ -2035,6 +2069,7 @@ function resetBattleState() {
     document.querySelectorAll('.controls button').forEach(b => b.disabled = true); // 演出完了までは操作不可
     document.getElementById('howToBtn').disabled = false; // HOW TOは常に押せる
     document.getElementById('optionBattleBtn').disabled = false; // OPTIONも同様
+    document.getElementById('speedToggleBtn').disabled = false; // SPEEDも同様
     const bst = document.getElementById('battleStartText');
     bst.classList.remove('enter', 'exit');
     hideResult();
@@ -2248,7 +2283,12 @@ function healBothToFull() {
     document.getElementById('hpE_y').style.width = '100%';
 }
 
-function wait(ms) { return new Promise(r => setTimeout(r, ms)); }
+// バトル中(GO!を押してからターン解決が終わるまで、state.resolvingがtrueの間)のみ、2倍速設定を反映する。
+// プロローグ/ストーリー/タイトル演出等、バトル以外のシーンはこの関数を使っていても速度が変わらない。
+function wait(ms) {
+    const scaledMs = (battleSpeedX2 && state.resolving) ? ms / 2 : ms;
+    return new Promise(r => setTimeout(r, scaledMs));
+}
 
 // 第24条: 双方が残像付きのdash.PNGでX座標を目標地点まで移動する汎用関数。
 // ただしピヨり中(state.piyoSide)の側は、次のコマンドが始まるまでその場に留まり、dashで動かない(位置・残像とも据え置き)。
@@ -2352,12 +2392,21 @@ function hitComboSuccess(side) {
     const fadeKey = side === 'P' ? 'pHitComboFadeStartAt' : 'eHitComboFadeStartAt';
     const popKey = side === 'P' ? 'pHitComboPopAt' : 'eHitComboPopAt';
     const milestoneKey = side === 'P' ? 'pHitComboMilestoneAt' : 'eHitComboMilestoneAt';
+    const bigMilestoneKey = side === 'P' ? 'pHitComboBigMilestoneAt' : 'eHitComboBigMilestoneAt';
+    // TRAINING MODEはコンボが延々と続いてしまうため、前回既に100へ到達していた場合はここで0に戻してから数える
+    // (100到達時点の表示はそのまま見せ、次に成功した瞬間からコンボ1で自然に再スタートする)
+    if (state.gameMode === 'training' && state[comboKey] >= 100) {
+        state[comboKey] = 0;
+    }
     state[comboKey]++;
     state[dispKey] = state[comboKey];
     state[fadeKey] = 0; // フェードアウト中だった場合は打ち切り、表示を継続する
     state[popKey] = performance.now();
-    if (state[comboKey] === 5 || state[comboKey] === 10 || state[comboKey] === 15) {
-        state[milestoneKey] = performance.now(); // 5/10/15到達時のみ、きらびやか強調演出を追加で出す
+    if (state[comboKey] === 5) {
+        state[milestoneKey] = performance.now(); // 5到達時のみ、一時的なきらびやか強調演出を出す(10以降は常時きらびやかになるため不要)
+    }
+    if (state[comboKey] >= 15 && state[comboKey] % 5 === 0) {
+        state[bigMilestoneKey] = performance.now(); // 15,20,25…(5の倍数)到達時、さらに大きく赤い特別演出を追加で出す
     }
 }
 // COMBOカウンター: 連続成功が途切れた(負けた、または相討ちだった)ことを記録する。
@@ -2817,6 +2866,7 @@ async function resolveTurn() {
     document.querySelectorAll('.controls button').forEach(b => b.disabled = true);
     document.getElementById('howToBtn').disabled = false; // HOW TOは解決中でも常に押せる
     document.getElementById('optionBattleBtn').disabled = false; // OPTIONも同様
+    document.getElementById('speedToggleBtn').disabled = false; // SPEEDも同様、解決中でも切り替えられる
 
     state.turn++;
     document.getElementById('turnDisplay').innerHTML = `TURN<br>${state.turn}<br><span id="turnStageLabel">${currentStageLabel()}</span>`;
@@ -3002,7 +3052,8 @@ function openOption() {
 function updateBonusContentsUI() {
     const soundTestAvailable = gameClearedOnce || soundTestUnlocked; // 新条件(エンディングを迎えてタイトルへ戻る)。旧セーブデータのsoundTestUnlockedも引き続き有効
     const costumeAvailable = unlockedSkins.length > 0 && gameClearedOnce; // OPTION画面のCOSTUME行と同じ解放条件
-    const anyUnlocked = unlockedSubStories.length > 0 || soundTestAvailable || costumeAvailable;
+    const speedAvailable = gameClearedOnce; // SPEED機能自体の解放条件(クリア後に出現)
+    const anyUnlocked = unlockedSubStories.length > 0 || soundTestAvailable || costumeAvailable || speedAvailable;
     const btn = document.getElementById('bonusContentsBtn');
     if (btn) btn.style.display = anyUnlocked ? '' : 'none';
     const subRow = document.getElementById('bonusSubStoryRow');
@@ -3011,7 +3062,37 @@ function updateBonusContentsUI() {
     if (subRow) subRow.style.display = unlockedSubStories.length > 0 ? 'flex' : 'none';
     if (soundRow) soundRow.style.display = soundTestAvailable ? 'flex' : 'none';
     if (costumeRow) costumeRow.style.display = costumeAvailable ? 'flex' : 'none';
+    updateSpeedUI(); // SPEED行・バトル操作列のSPEEDボタンをまとめて同期する
 }
+
+// SPEED(バトル2倍速)機能: クリア後(gameClearedOnce)に解放される。バトル操作列のボタンとBONUS CONTENTSのSPEED行、
+// どちらからでも切り替えでき、常に両方の表示を同期させる。実際の速度反映はwait()側で行う(第26条の対象外、演出専用)。
+function setBattleSpeed(isX2) {
+    battleSpeedX2 = isX2;
+    writeSaveData({ battleSpeedX2 });
+    updateSpeedUI();
+}
+function toggleBattleSpeed() {
+    setBattleSpeed(!battleSpeedX2);
+}
+function updateSpeedUI() {
+    const unlocked = gameClearedOnce;
+    const battleBtn = document.getElementById('speedToggleBtn');
+    if (battleBtn) {
+        battleBtn.style.visibility = unlocked ? 'visible' : 'hidden';
+        battleBtn.innerText = battleSpeedX2 ? '▶︎▶︎' : '▶︎';
+        battleBtn.classList.toggle('speed-active', battleSpeedX2);
+    }
+    const row = document.getElementById('bonusSpeedRow');
+    const note = document.getElementById('bonusSpeedNote');
+    if (row) row.style.display = unlocked ? 'flex' : 'none';
+    if (note) note.style.display = unlocked ? 'block' : 'none';
+    const btn1x = document.getElementById('bonusSpeedBtn1x');
+    const btn2x = document.getElementById('bonusSpeedBtn2x');
+    if (btn1x) btn1x.classList.toggle('selected', !battleSpeedX2);
+    if (btn2x) btn2x.classList.toggle('selected', battleSpeedX2);
+}
+
 function openBonusContents() {
     updateBonusContentsUI();
     document.getElementById('bonusContentsOverlay').classList.add('show');
