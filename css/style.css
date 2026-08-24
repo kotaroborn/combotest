@@ -2,14 +2,24 @@
         html, body { margin: 0; height: 100%; }
         body {
             background: #000; color: #fff; font-family: sans-serif;
-            width: 100vw; height: 100vh;
+            width: 100vw; height: 100vh; /* dvh未対応の古いブラウザ向けフォールバック */
+            width: 100dvw; height: 100dvh; /* モバイルSafari等でアドレスバーの表示/非表示により実際に見える高さが変わる問題に対応(vhはアドレスバーが隠れた状態の最大値を指すため、表示中は実際の可視範囲とズレることがある) */
             display: flex; align-items: center; justify-content: center;
             overflow: hidden;
         }
         :root {
-            --hdr-h: 74px; /* gameHeaderの高さ(HPバー下の名前表示ぶんを含む) */
+            --safe-top: env(safe-area-inset-top, 0px); /* 通常のSafari表示ではこのまま(ブラウザのアドレスバー等が別途余白になるため) */
+            --hdr-h: calc(74px + var(--safe-top)); /* gameHeaderの高さ(HPバー下の名前表示ぶん+セーフエリア分を含む) */
             --ui-h: 250px; /* ui(slots+handWrap+controls+padding)のおおよその高さ */
-            --app-w: min(100vw, 520px, calc((100vh - var(--hdr-h) - var(--ui-h)) * 960 / 560));
+            --app-w: min(100vw, 520px, calc((100vh - var(--hdr-h) - var(--ui-h)) * 960 / 560)); /* dvh未対応の古いブラウザ向けフォールバック */
+            --app-w: min(100dvw, 520px, calc((100dvh - var(--hdr-h) - var(--ui-h)) * 960 / 560)); /* モバイルSafari等の対応(bodyと同じ理由) */
+        }
+        /* ホーム画面追加→ウェブアプリとして起動した場合(display-mode: standalone)、ブラウザのアドレスバー等が無くなり
+           画面いっぱいに表示される。この時、実機ではenv(safe-area-inset-top)の値だけではDynamic Island/ノッチとの
+           余白が不足するケースがあるため、最低保証の余白(59px、Dynamic Island搭載機種のステータスバー相当)を追加する。
+           通常のSafari表示(display-mode: browser)では、このメディアクエリ自体が適用されず、envの値のみが使われる。 */
+        @media (display-mode: standalone) {
+            :root { --safe-top: max(env(safe-area-inset-top, 0px), 59px); }
         }
         #appRoot {
             /* 幅を基準にcanvas比率(960:560)から高さを算出し、全シーンで同じサイズになるよう固定する */
@@ -48,8 +58,8 @@
         }
         #nowLoadingPercent { color: #888; font-size: 11px; letter-spacing: 1px; }
         #gameHeader {
-            height: 74px;
-            padding-top: env(safe-area-inset-top, 0px); /* 第26条: 時計回避余白 */
+            height: var(--hdr-h);
+            padding-top: var(--safe-top); /* 第26条: 時計回避余白。--hdr-hが同じ分を含むため、ここではヘッダー自体が伸びる(中身が圧縮されない) */
             background: #111; display: flex; justify-content: space-between; align-items: center;
             padding-left: 10px; padding-right: 10px; border-bottom: 2px solid #555;
         }
@@ -463,4 +473,3 @@
         #sceneFin { background: #000; justify-content: center; align-items: center; }
         #finText { color: #fff; font-size: 48px; font-weight: 900; letter-spacing: 6px; }
     
-
