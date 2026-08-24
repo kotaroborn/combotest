@@ -26,7 +26,7 @@
         #nowLoadingScreen {
             position: absolute; inset: 0; z-index: 999;
             background: #000;
-            display: flex; align-items: center; justify-content: center;
+            display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
             transition: opacity 0.3s ease-out;
         }
         #nowLoadingText {
@@ -37,6 +37,16 @@
             0%, 100% { opacity: 0.35; }
             50% { opacity: 1; }
         }
+        #nowLoadingBarTrack {
+            width: 160px; height: 6px; border-radius: 999px;
+            background: #222; overflow: hidden;
+        }
+        #nowLoadingBar {
+            width: 0%; height: 100%; border-radius: 999px;
+            background: #ccc;
+            transition: width 0.15s ease-out;
+        }
+        #nowLoadingPercent { color: #888; font-size: 11px; letter-spacing: 1px; }
         #gameHeader {
             height: 74px;
             padding-top: env(safe-area-inset-top, 0px); /* 第26条: 時計回避余白 */
