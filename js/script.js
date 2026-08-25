@@ -123,15 +123,18 @@ let bonusContentsAnnounced = false; // タイトル画面でBONUS CONTENTS解放
 // 3枚すべてではなく、対応する1枚の時だけ#storyHiddenTapを有効にする。仮の割り当てで、正確な位置・対象画面は画像が揃い次第調整する。
 const STORY_HIDDEN_TAP_SCREEN_BY_ENEMY = {
     ENEMY_01: 1, // 2枚目
-    ENEMY_02: 0, // 1枚目
-    ENEMY_03: 2, // 3枚目
-    ENEMY_04: 1, // 2枚目
+    ENEMY_02: 2, // 3枚目(2-3)
+    ENEMY_03: 2, // 3枚目(3-3)
+    ENEMY_04: 2, // 3枚目(4-3)
     ENEMY_05: 0, // 1枚目
 };
 // 隠しタップの対象位置(画像内での中心座標、%指定)。指定が無い敵は仮の位置(左上寄り)のままにする。
 // ENEMY_01は「ノアの大事な形見」が写っている位置(画像内 x:61%, y:56%あたり)に合わせてある。
 const STORY_HIDDEN_TAP_POS_BY_ENEMY = {
     ENEMY_01: { x: 61, y: 56 },
+    ENEMY_02: { x: 88, y: 46 }, // リタのぬいぐるみ
+    ENEMY_03: { x: 53, y: 27 }, // ガルドが護ったイノチ
+    ENEMY_04: { x: 52, y: 35 }, // ジャックの義眼
 };
 const STORY_HIDDEN_TAP_DEFAULT_POS = { x: 10, y: 10 }; // 位置未指定の敵はこれまで通り左上寄り(仮)のまま
 
@@ -147,7 +150,7 @@ const SUBSTORY_BY_ENEMY = {
         ],
     },
     ENEMY_02: {
-        title: '敵02(仮)の裏話',
+        title: 'リタのぬいぐるみ',
         screens: [
             { img: 'substory_2_1.PNG', text: '（仮テキスト・敵02 裏話 1/3）誰にも言えない、敵02(仮)だけの秘密の物語がここに……' },
             { img: 'substory_2_2.PNG', text: '（仮テキスト・敵02 裏話 2/3）その過去には、まだ語られていない出来事があった。' },
@@ -155,7 +158,7 @@ const SUBSTORY_BY_ENEMY = {
         ],
     },
     ENEMY_03: {
-        title: '敵03(仮)の裏話',
+        title: 'ガルドが護ったイノチ',
         screens: [
             { img: 'substory_3_1.PNG', text: '（仮テキスト・敵03 裏話 1/3）誰にも言えない、敵03(仮)だけの秘密の物語がここに……' },
             { img: 'substory_3_2.PNG', text: '（仮テキスト・敵03 裏話 2/3）その過去には、まだ語られていない出来事があった。' },
@@ -163,7 +166,7 @@ const SUBSTORY_BY_ENEMY = {
         ],
     },
     ENEMY_04: {
-        title: '敵04(仮)の裏話',
+        title: 'ジャックの義眼',
         screens: [
             { img: 'substory_4_1.PNG', text: '（仮テキスト・敵04 裏話 1/3）誰にも言えない、敵04(仮)だけの秘密の物語がここに……' },
             { img: 'substory_4_2.PNG', text: '（仮テキスト・敵04 裏話 2/3）その過去には、まだ語られていない出来事があった。' },
@@ -1076,20 +1079,25 @@ async function playPrologue() {
         if (i === 0) {
             // 一番はじめの画面だけフェードインで始める
             await wait(30); // 直前のopacity:0が確実に描画されてから遷移を開始させる
-            content.style.transition = 'opacity 1s ease-in';
+            content.style.transition = 'opacity 2s ease-in'; // 0.5倍速: 1s→2s
             content.style.opacity = '1';
-            await wait(1000);
+            await wait(2000); // 0.5倍速: 1000ms→2000ms
         }
 
-        textEl.innerText = '';
-        for (let c = 0; c < screen.text.length; c++) {
+        // textは通常は1画面1ページの文字列だが、同じ画像のまま複数ページ分のテキストを送りたい場合は配列にできる
+        const pages = Array.isArray(screen.text) ? screen.text : [screen.text];
+        for (let p = 0; p < pages.length; p++) {
             if (prologueToken !== myToken) return;
-            textEl.innerText += screen.text[c];
-            await wait(45); // 1文字ずつ表示するスピード
-        }
+            textEl.innerText = '';
+            for (let c = 0; c < pages[p].length; c++) {
+                if (prologueToken !== myToken) return;
+                textEl.innerText += pages[p][c];
+                await wait(90); // 1文字ずつ表示するスピード(0.5倍速: 45ms→90ms)
+            }
 
-        if (prologueToken !== myToken) return;
-        await wait(2000); // 1ページ読み終えてから次の画面まで、もう少し長めに読ませる
+            if (prologueToken !== myToken) return;
+            await wait(4000); // 1ページ読み終えてから次へ、もう少し長めに読ませる(0.5倍速: 2000ms→4000ms)
+        }
     }
 
     if (prologueToken !== myToken) return;
@@ -1290,18 +1298,22 @@ async function playEndingSequence() {
         if (i === 0) {
             // 一番はじめの画面だけフェードインで始める(プロローグ/ストーリーと同じ仕様)
             await wait(30);
-            content.style.transition = 'opacity 1s ease-in';
+            content.style.transition = 'opacity 2s ease-in'; // 0.5倍速: 1s→2s
             content.style.opacity = '1';
-            await wait(1000);
+            await wait(2000); // 0.5倍速: 1000ms→2000ms
         }
 
-        textEl.innerText = '';
-        for (let c = 0; c < screen.text.length; c++) {
-            textEl.innerText += screen.text[c];
-            await wait(45);
-        }
+        // textは通常は1画面1ページの文字列だが、同じ画像のまま複数ページ分のテキストを送りたい場合は配列にできる
+        const pages = Array.isArray(screen.text) ? screen.text : [screen.text];
+        for (let p = 0; p < pages.length; p++) {
+            textEl.innerText = '';
+            for (let c = 0; c < pages[p].length; c++) {
+                textEl.innerText += pages[p][c];
+                await wait(90); // 0.5倍速: 45ms→90ms
+            }
 
-        await wait(2000);
+            await wait(4000); // 0.5倍速: 2000ms→4000ms
+        }
     }
 
     // 5画面すべて表示し終えたら、フェードアウトして暗転する
@@ -3286,16 +3298,21 @@ async function readSubStory(idx) {
             fallback.innerText = screen.img + ' (未配置)';
         }
 
-        textEl.innerText = '';
-        for (let c = 0; c < screen.text.length; c++) {
+        // textは通常は1画面1ページの文字列だが、同じ画像のまま複数ページ分のテキストを送りたい場合は配列にできる
+        const pages = Array.isArray(screen.text) ? screen.text : [screen.text];
+        for (let p = 0; p < pages.length; p++) {
             if (subStoryToken !== myToken) return;
-            textEl.innerText += screen.text[c];
-            await wait(45);
-        }
+            textEl.innerText = '';
+            for (let c = 0; c < pages[p].length; c++) {
+                if (subStoryToken !== myToken) return;
+                textEl.innerText += pages[p][c];
+                await wait(45);
+            }
 
-        if (subStoryToken !== myToken) return;
-        await waitForSubStoryTap(); // 本編と同じくタップで次へ(自動送りしない)
-        if (subStoryToken !== myToken) return;
+            if (subStoryToken !== myToken) return;
+            await waitForSubStoryTap(); // 本編と同じくタップで次へ(自動送りしない)
+            if (subStoryToken !== myToken) return;
+        }
     }
 
     // 実績: サブストーリーを3画面すべて読み終えた(体験した)タイミングで、対応する敵のコスチュームを解除する。
