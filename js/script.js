@@ -411,9 +411,12 @@ const STORY_SCREENS_BY_ENEMY = {
         { img: 'story_1_3.PNG', text: 'ノア\n「よかろう……！\n　ワシの会得した拳法　“乱打拳”　で\n　今度こそ、返り討ちにしてくれるわ！！！' }
     ],
     ENEMY_02: [
-        { img: 'story_2_1.PNG', text: '（仮テキスト・敵02 1/3）二人目の相手が、静かに姿を現す。' },
-        { img: 'story_2_2.PNG', text: '（仮テキスト・敵02 2/3）先の戦いとは違う気配を感じる。' },
-        { img: 'story_2_3.PNG', text: '（仮テキスト・敵02 3/3）気を引き締め、再びデッキを整える。' }
+        { img: 'story_2_1.PNG', text: 'ノアに勝って話を聞くと、\n教会で妙な渦を見たという。\nヴァルは村の教会を訪ねた。' },
+        { img: 'story_2_2.PNG', text: [
+            '教会は古びていて、すでに廃墟になっていた。\nそこにいたのは、修道女のリタだった。',
+            'リタ\n「ちょっとーー！ なによ、勝手に入ってきて……\nアンタみたいなの、\n神聖な教会には入れないんだから！'
+        ] },
+        { img: 'story_2_3.PNG', text: 'リタ\n「……まだ出てかない気？\nじゃ、“ウイングアッパー”で\nK.O.して追い出すからっ！' }
     ],
     ENEMY_03: [
         { img: 'story_3_1.PNG', text: '（仮テキスト・敵03 1/3）三人目の相手が、行く手に立ちはだかる。' },
@@ -1232,18 +1235,24 @@ async function playStorySequence() {
             await wait(1000);
         }
 
-        textEl.innerText = '';
-        for (let c = 0; c < screen.text.length; c++) {
+        // textは通常は1画面1ページの文字列だが、同じ画像のまま複数ページ分のセリフを送りたい場合は配列にできる
+        // (例: 教会の場面のように、1枚の絵の中で会話が続く場合)。配列でなければ1ページ扱いにする。
+        const pages = Array.isArray(screen.text) ? screen.text : [screen.text];
+        for (let p = 0; p < pages.length; p++) {
             if (storyToken !== myToken) return;
-            textEl.innerText += screen.text[c];
-            await wait(45); // 1文字ずつ表示するスピード
-        }
+            textEl.innerText = '';
+            for (let c = 0; c < pages[p].length; c++) {
+                if (storyToken !== myToken) return;
+                textEl.innerText += pages[p][c];
+                await wait(45); // 1文字ずつ表示するスピード
+            }
 
-        if (storyToken !== myToken) return;
-        // オープニング(プロローグ)とは異なり、ストーリーシーンは自動送りにしない。
-        // 戦いのヒントになる会話のため、プレイヤーが自分のペースで読めるよう画面タップで次へ進める(SKIPは従来通り別途利用可能)。
-        await waitForStoryTap();
-        if (storyToken !== myToken) return; // タップ待ち中にSKIPされていた場合はここで中断する
+            if (storyToken !== myToken) return;
+            // オープニング(プロローグ)とは異なり、ストーリーシーンは自動送りにしない。
+            // 戦いのヒントになる会話のため、プレイヤーが自分のペースで読めるよう画面タップで次へ進める(SKIPは従来通り別途利用可能)。
+            await waitForStoryTap();
+            if (storyToken !== myToken) return; // タップ待ち中にSKIPされていた場合はここで中断する
+        }
     }
 
     if (storyToken !== myToken) return;
