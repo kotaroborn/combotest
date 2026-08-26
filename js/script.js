@@ -110,8 +110,10 @@ let battleSpeedX2 = false; // バトル中2倍速が有効か。SPEED機能自�
 let soundTestCategory = null; // null=カテゴリ選択画面、'bgm'または'se'=一覧画面
 let soundTestPage = 0; // 一覧画面でのページ番号(0始まり)
 const SOUND_TEST_PAGE_SIZE = 6;
-let soundTestSource = null; // SOUND TEST専用のプレビュー再生ノード(本編のBGM/SE再生とは独立)
-let soundTestPlayingName = null; // 現在プレビュー再生中のトラック名(null=何も再生していない)
+let soundTestBgmSource = null; // SOUND TEST専用のBGMプレビュー再生ノード(本編のBGM/SE再生とは独立)。画面のナビゲーション(戻る等)をまたいでも鳴り続ける
+let soundTestBgmPlayingName = null; // 現在プレビュー再生中のBGMトラック名(null=何も再生していない)
+let soundTestSeSource = null; // SOUND TEST専用のSEプレビュー再生ノード。BGMプレビューとは独立に、単発で重ねて鳴らせる
+let soundTestSePlayingName = null; // 現在プレビュー再生中のSEトラック名(null=何も再生していない)
 let specialsUsed = { superUpper: false, charge: false, followUp: false, finisher: false, upperGuardUpper: false }; // 各種必殺技を、これまでの対戦を通じて1回でも使ったか(バトルをまたいで積み上げ)。SOUND TESTの解放条件は当初の4種のまま(upperGuardUpperは将来の実績拡張用に記録のみ)
 let selectedSkin = null; // 現在選択中のコスチューム('enemy_1'等、nullはデフォルトのプレイヤー見た目)
 let gameClearedOnce = false; // STORY MODEを一度でも最後(5人目)までクリアしたか。COSTUMEの解放条件の一部
@@ -200,6 +202,8 @@ const SOUND_TEST_TRACKS = [
     { name: 'se_guard', label: 'SE: ガード' },
     { name: 'se_meteor', label: 'SE: メテオ' },
     { name: 'se_finisher', label: 'SE: 必殺技' },
+    { name: 'se_piyo', label: 'SE: ピヨり' },
+    { name: 'se_kabe', label: 'SE: 壁激突' },
     { name: 'se_clash_punch', label: 'SE: あいこ(PUNCH)' },
     { name: 'se_clash_upper', label: 'SE: あいこ(UPPER)' },
     { name: 'se_clash_guard', label: 'SE: あいこ(GUARD)' },
@@ -2423,7 +2427,7 @@ async function waitBothLanded() {
 // 画面端で既にdown.PNGになっているため、通常のホーム帰還バウンド演出は行わずそのまま結果表示へ進む。
 async function runFinishSequence(loserSide) {
     if (state.finisherAlreadyDown) {
-        await wait(700);
+        await wait(1700); // 倒れてからYOU WIN/K.O.が出るまでの間をもう1秒長くする(700ms→1700ms)
         showResult(loserSide === 'P' ? 'KO' : 'WIN');
         return;
     }
@@ -2446,7 +2450,7 @@ async function runFinishSequence(loserSide) {
     setX(loserSide, homeX);
     setY(loserSide, DB.POS.GROUND_Y);
     setAct(loserSide, 'down.PNG');
-    await wait(700);
+    await wait(1700); // 倒れてからYOU WIN/K.O.が出るまでの間をもう1秒長くする(700ms→1700ms)
 
     showResult(loserSide === 'P' ? 'KO' : 'WIN');
 }
@@ -2734,6 +2738,7 @@ async function runGuardSuccess(winner, loser, loserPoseOverride) {
     await wait(400);
     setAct(loser, 'damage.PNG'); // ブロック反応から、しびれてダウン気味の姿勢へ
     startPiyo(loser); // ここから次の攻防が解決されるまでピヨり続ける(チャージとは独立して、通常通りターン終了時に解消される)
+    playSE('se_piyo');
     await wait(100);
 }
 
@@ -2828,6 +2833,7 @@ async function runFinisher(attacker, defender, cursor) {
     // 端にぶつかって点滅
     triggerBlink(defender, 500);
     triggerShake(defender, 300);
+    playSE('se_kabe');
     await wait(500);
 
     const isLethal = (defender === 'P' ? state.hpP : state.hpE) <= 0;
@@ -3187,6 +3193,7 @@ function closeAllBonus() {
     document.getElementById('subStoryOverlay').classList.remove('show');
     document.getElementById('soundTestOverlay').classList.remove('show');
     document.getElementById('costumeOverlay').classList.remove('show'); // BONUS経由でCOSTUMEが開いたまま残っている場合の安全策
+    playBGM('bgm_title'); // SOUND TESTでタイトルBGMを止めていた場合でも、×で一括で閉じた時に確実に再開させる(既に流れていれば何もしない)
 }
 
 function closeOption() {
@@ -3365,11 +3372,16 @@ function openSoundTest() {
     soundTestPage = 0;
     renderSoundTestScreen();
     document.getElementById('soundTestOverlay').classList.add('show');
+    // サウンドテスト中はタイトルBGMを止める(プレビューと二重に鳴ってしまうため)。
+    // currentBgmNameも空にしておくことで、closeSoundTest側のplayBGM('bgm_title')が
+    // 「同じ名前だから何もしない」判定で素通りされず、確実に再生し直される
+    currentBgmName = null;
+    stopBGM();
 }
 
-// 現在の状態(カテゴリ選択 or 一覧)に応じてsoundTestBodyを描画する。呼ぶたびに再生中のプレビューは必ず止める。
+// 現在の状態(カテゴリ選択 or 一覧)に応じてsoundTestBodyを描画する。
+// BGMプレビューはナビゲーションをまたいで鳴り続けさせたいため、ここでは止めない(ボタン表示だけ最新の状態に合わせる)。
 function renderSoundTestScreen() {
-    stopSoundTestPlayback();
     const body = document.getElementById('soundTestBody');
     // 戻るボタンは常に表示する(カテゴリ選択画面でもBONUS本体へ戻れるように)
 
@@ -3404,6 +3416,7 @@ function renderSoundTestScreen() {
             <button onclick="soundTestChangePage(1)" ${soundTestPage >= totalPages - 1 ? 'disabled' : ''}>▶</button>
         </div>
     `;
+    updateSoundTestPlayButtons(); // 新しく描画した行に、現在再生中のBGM/SEの状態を反映する
 }
 
 function selectSoundTestCategory(cat) {
@@ -3428,35 +3441,53 @@ function soundTestBack() {
     renderSoundTestScreen();
 }
 
-// 再生ボタンの表示(▶/⏸)を、現在再生中のトラックに合わせて更新する
+// 再生ボタンの表示(▶/⬛︎)を、現在再生中のBGM・SEに合わせて更新する(BGM/SEどちらのプレビューでも押されていれば⬛︎にする)
 function updateSoundTestPlayButtons() {
     document.querySelectorAll('.sound-test-play-btn').forEach(btn => {
-        btn.innerText = (btn.dataset.trackName === soundTestPlayingName) ? '⬛︎' : '▶';
+        const n = btn.dataset.trackName;
+        btn.innerText = (n === soundTestBgmPlayingName || n === soundTestSePlayingName) ? '⬛︎' : '▶';
     });
 }
 
-// 再生中のプレビューがあれば止める(画面切り替え・ポップアップを閉じる時に必ず呼ぶ)
-function stopSoundTestPlayback() {
-    if (soundTestSource) {
-        try { soundTestSource.stop(); } catch (e) { /* 既に停止済み等は無視 */ }
-        try { soundTestSource.disconnect(); } catch (e) { /* 何もしない */ }
-        soundTestSource = null;
+function stopSoundTestBgmPreview() {
+    if (soundTestBgmSource) {
+        try { soundTestBgmSource.stop(); } catch (e) { /* 既に停止済み等は無視 */ }
+        try { soundTestBgmSource.disconnect(); } catch (e) { /* 何もしない */ }
+        soundTestBgmSource = null;
     }
-    soundTestPlayingName = null;
+    soundTestBgmPlayingName = null;
     updateSoundTestPlayButtons();
 }
+function stopSoundTestSePreview() {
+    if (soundTestSeSource) {
+        try { soundTestSeSource.stop(); } catch (e) { /* 既に停止済み等は無視 */ }
+        try { soundTestSeSource.disconnect(); } catch (e) { /* 何もしない */ }
+        soundTestSeSource = null;
+    }
+    soundTestSePlayingName = null;
+    updateSoundTestPlayButtons();
+}
+// SOUND TESTのプレビュー(BGM・SEとも)を両方止める。サウンドテスト自体を閉じる時に呼ぶ
+function stopSoundTestPlayback() {
+    stopSoundTestBgmPreview();
+    stopSoundTestSePreview();
+}
 
-// タップされたトラックが再生中なら止め、そうでなければ(他のトラックが鳴っていれば止めてから)再生する。
+// タップされたトラックが再生中なら止め、そうでなければ再生する。
+// BGMプレビューとSEプレビューは互いに独立しており、一方を再生してももう一方は止まらない
+// (例: BGMを流したまま画面を「戻る」で移動し、SEカテゴリで試聴する、ということができる)。
+// 同じ種別(BGM同士、SE同士)の別トラックへ切り替える場合のみ、その種別の再生中のものを止める。
 // 本編のBGM/SE再生とは独立したノードを使うため、本編のBGMを止めてしまうことはない。
 // また、未配置ファイルをse_punch等で代用せず、そのまま無音にする(どのファイルが未配置かを正確に確認できるようにするため)。
 async function toggleSoundTestTrack(name) {
-    if (soundTestPlayingName === name) {
-        stopSoundTestPlayback();
+    const isBgm = name.startsWith('bgm_');
+    const currentPlayingName = isBgm ? soundTestBgmPlayingName : soundTestSePlayingName;
+    if (currentPlayingName === name) {
+        if (isBgm) stopSoundTestBgmPreview(); else stopSoundTestSePreview();
         return;
     }
-    stopSoundTestPlayback();
+    if (isBgm) stopSoundTestBgmPreview(); else stopSoundTestSePreview();
 
-    const isBgm = name.startsWith('bgm_');
     const cache = isBgm ? bgmBufferCache : seBufferCache;
     let buffer = cache[name];
     if (buffer === undefined) {
@@ -3464,7 +3495,7 @@ async function toggleSoundTestTrack(name) {
         cache[name] = buffer;
     }
     if (!buffer) return; // 未配置ならそのまま無音(代用しない)
-    // 読み込み待ちの間に別のトラックへ切り替えられていたら中断
+    // 読み込み待ちの間にサウンドテスト自体が閉じられていたら中断
     if (!document.getElementById('soundTestOverlay').classList.contains('show')) return;
 
     const ctx = getAudioCtx();
@@ -3473,21 +3504,22 @@ async function toggleSoundTestTrack(name) {
     source.loop = isBgm; // BGMはループ、SEは1回のみ
     source.connect(isBgm ? getBgmGainNode() : getSeGainNode());
     source.onended = () => {
-        if (soundTestSource === source) {
-            soundTestSource = null;
-            soundTestPlayingName = null;
-            updateSoundTestPlayButtons();
+        if (isBgm) {
+            if (soundTestBgmSource === source) { soundTestBgmSource = null; soundTestBgmPlayingName = null; updateSoundTestPlayButtons(); }
+        } else {
+            if (soundTestSeSource === source) { soundTestSeSource = null; soundTestSePlayingName = null; updateSoundTestPlayButtons(); }
         }
     };
     source.start(0);
-    soundTestSource = source;
-    soundTestPlayingName = name;
+    if (isBgm) { soundTestBgmSource = source; soundTestBgmPlayingName = name; }
+    else { soundTestSeSource = source; soundTestSePlayingName = name; }
     updateSoundTestPlayButtons();
 }
 
 function closeSoundTest() {
-    stopSoundTestPlayback();
+    stopSoundTestPlayback(); // サウンドテストのプレビュー(BGM・SEとも)を止める
     document.getElementById('soundTestOverlay').classList.remove('show');
+    playBGM('bgm_title'); // タイトルBGMを再開する(サウンドテストはタイトルからしか開けないため、常にタイトルBGMへ戻せばよい)
 }
 function closeSoundTestBackdrop(e) { if (e.target.id === 'soundTestOverlay') closeSoundTest(); }
 
