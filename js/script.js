@@ -189,6 +189,8 @@ const SOUND_TEST_TRACKS = [
     { name: 'bgm_title', label: 'title' },
     { name: 'bgm_prologue', label: 'opening' },
     { name: 'bgm_story', label: 'story' },
+    { name: 'bgm_story_5', label: 'story: Alv' },
+    { name: 'bgm_deck', label: 'deck build' },
     { name: 'bgm_battle', label: 'Mifune' },
     { name: 'bgm_battle_1', label: 'Noah' },
     { name: 'bgm_battle_2', label: 'Rita' },
@@ -197,6 +199,13 @@ const SOUND_TEST_TRACKS = [
     { name: 'bgm_battle_5', label: 'Alv' },
     { name: 'bgm_victory', label: 'winner' },
     { name: 'bgm_ending', label: 'ending' },
+    { name: 'se_select', label: 'SE: メニュー決定' },
+    { name: 'se_deck_plus', label: 'SE: デッキ+ / カードを出す' },
+    { name: 'se_deck_minus', label: 'SE: デッキ-' },
+    { name: 'se_menu_open', label: 'SE: OPTION/HOW TOを開く' },
+    { name: 'se_go', label: 'SE: GO!' },
+    { name: 'se_cancel', label: 'SE: CANCEL' },
+    { name: 'se_refresh', label: 'SE: カードリフレッシュ(ループ)' },
     { name: 'se_punch', label: 'SE: パンチ' },
     { name: 'se_upper', label: 'SE: アッパー' },
     { name: 'se_guard', label: 'SE: ガード' },
@@ -715,6 +724,7 @@ async function runDeckRefresh() {
     const deckEl = document.getElementById('deckInfo');
     const label = document.getElementById('deckRefreshLabel');
     label.classList.add('show');
+    startLoopingSE('se_refresh'); // リフレッシュ演出が終わるまでループ再生する
 
     for (let i = 0; i < 3; i++) {
         deckEl.style.opacity = '0.15';
@@ -737,6 +747,7 @@ async function runDeckRefresh() {
     }
     deckEl.innerText = `DECK ${target}/${DB.DECK_TOTAL}`;
     label.classList.remove('show');
+    stopLoopingSE();
 }
 
 function adjustDeck(type, delta) {
@@ -745,6 +756,7 @@ function adjustDeck(type, delta) {
     const total = deckCounts.PUNCH + deckCounts.UPPER + deckCounts.GUARD - deckCounts[type] + next;
     if (total > DB.DECK_TOTAL) return; // 21枚を超えない
     deckCounts[type] = next;
+    playSE(delta > 0 ? 'se_deck_plus' : 'se_deck_minus'); // 実際に増減できた時だけ鳴らす(上限/下限で弾かれた場合は鳴らさない)
     updateDeckBuildUI();
 }
 
@@ -924,6 +936,34 @@ async function playSE(name) {
     source.buffer = buffer;
     source.connect(getSeGainNode());
     source.start(0);
+}
+
+let loopingSeSource = null; // ループ再生中のSEノード(デッキリフレッシュ中の演出音等、開始→明示的に停止するまで鳴り続けるSE用)
+// ループ再生を開始する。既に何か鳴っていれば先に止める。名前を明示的に指定して呼んだstopLoopingSE()でのみ止まる。
+// 未配置でもエラーにはしない(代用もしない。ループ音は無くても支障が無いよう作る想定のため)。
+async function startLoopingSE(name) {
+    stopLoopingSE();
+    if (!state.soundOn) return;
+    let buffer = seBufferCache[name];
+    if (buffer === undefined) {
+        buffer = await loadAudioBuffer('se', name);
+        seBufferCache[name] = buffer;
+    }
+    if (!buffer || !state.soundOn) return;
+    const ctx = getAudioCtx();
+    const source = ctx.createBufferSource();
+    source.buffer = buffer;
+    source.loop = true;
+    source.connect(getSeGainNode());
+    source.start(0);
+    loopingSeSource = source;
+}
+function stopLoopingSE() {
+    if (loopingSeSource) {
+        try { loopingSeSource.stop(); } catch (e) { /* 既に停止済み等は無視 */ }
+        try { loopingSeSource.disconnect(); } catch (e) { /* 何もしない */ }
+        loopingSeSource = null;
+    }
 }
 
 // SEは軽量なため起動時にまとめて先読みしておく(初回再生時の遅延をなくす。起動処理自体はブロックしない)
@@ -1213,7 +1253,11 @@ async function playStorySequence() {
     loadEnemySet('enemy_' + storyStageNum);
     loadStageBackground(storyStageNum === 1 ? 'bg.PNG' : `bg_${storyStageNum}.PNG`);
 
-    playBGM('bgm_story'); // ストーリーシーンは敵によらず共通のBGMを流す
+    if (storyStageNum === 5) {
+        playBGM('bgm_story_5', 'bgm_story'); // 5人目(Alv)のストーリーシーンのみ専用BGM(未配置なら共通のbgm_storyへフォールバック)
+    } else {
+        playBGM('bgm_story'); // 1〜4人目のストーリーシーンは敵によらず共通のBGMを流す
+    }
     const myToken = ++storyToken;
     const content = document.getElementById('storyContent');
     const imgArea = document.getElementById('storyImgArea');
@@ -1493,6 +1537,7 @@ function goDeckBuild(mode) {
     // 最初からやり直したい場合はタイトルのOPTION画面から明示的にリセットする。
     updateDeckBuildUI();
     showScene('deck');
+    playBGM('bgm_deck');
 }
 
 // TRAINING MODE専用: デッキ編成を経由せず、タイトルから直接バトルへ入る(手札は固定のPUNCH/UPPER/GUARD、選び放題)。
@@ -1508,6 +1553,7 @@ function goTrainingBattle() {
 }
 
 function tapFlickerThen(el, callback) {
+    playSE('se_select'); // タイトルの各ボタン(NEW GAME/TRAINING MODE/CONTINUE)・デッキ編成のFIGHTボタン、共通のメニュー決定音
     el.classList.remove('tap-flicker');
     void el.offsetWidth; // 連打時もアニメーションを確実に再生させるための強制リフロー
     el.classList.add('tap-flicker');
@@ -1848,6 +1894,7 @@ function playCard(handIdx) {
     const slotIdx = state.hands.indexOf(null);
     if (slotIdx === -1) return; // 場(5枠)がすでに埋まっている
     state.hands[slotIdx] = card;
+    playSE('se_deck_plus'); // デッキ編成の+ボタンと同じ音を、カードを場に出す音としても使う
     if (state.gameMode !== 'training') state.playerHand[handIdx] = null; // TRAINING MODEは選び放題のため手札から取り除かない
     updateHandUI();
     updateUI();
@@ -1855,6 +1902,7 @@ function playCard(handIdx) {
 
 function resetHands() {
     if (state.resolving || !state.battleReady) return;
+    playSE('se_cancel');
     // 場に出したカードを手札の空きへ戻す
     state.hands.forEach(card => {
         if (!card) return;
@@ -2942,6 +2990,7 @@ async function resolveExchange(pAct, eAct, cursor) {
 
 async function resolveTurn() {
     if (state.resolving || !state.battleReady || filledCount() === 0) return;
+    playSE('se_go');
     state.resolving = true;
     document.querySelectorAll('.controls button').forEach(b => b.disabled = true);
     document.getElementById('howToBtn').disabled = false; // HOW TOは解決中でも常に押せる
@@ -3294,6 +3343,10 @@ async function readSubStory(idx) {
     const textEl = document.getElementById('subStoryText');
     const block = document.getElementById('subStoryBlock');
 
+    // サブストーリーごとに個別のBGM(sub.bgm、例: 'bgm_battle_2'のような既存BGMの流用)を指定できる。
+    // 指定が無ければ本編ストーリーシーンと同じ共通BGM(bgm_story)を流す。
+    playBGM(sub.bgm || 'bgm_story', 'bgm_story');
+
     // 戦う前のストーリーシーンと同じフルスクリーン表示に切り替える(ポップアップは一旦閉じる)
     document.getElementById('bonusContentsOverlay').classList.remove('show');
     document.getElementById('subStoryOverlay').classList.remove('show');
@@ -3356,6 +3409,7 @@ function backToSubStoryList() {
     subStoryToken++; // 再生中なら中断する
     if (subStoryTapResolve) { subStoryTapResolve(); subStoryTapResolve = null; }
     showScene('title'); // BONUS CONTENTSはタイトル画面専用のため、戻る先は常にタイトル
+    playBGM('bgm_title'); // サブストーリー専用BGMが流れていた場合、タイトルへ戻ったのでタイトルBGMに戻す
     document.getElementById('bonusContentsOverlay').classList.add('show');
     openSubStoryList(); // SUB STORYの一覧(ポップアップ)を再度開く
 }
