@@ -1118,9 +1118,24 @@ function onStoryHiddenTap() {
     const alreadyUnlocked = unlockedSubStories.includes(idx);
     unlockSubStory(idx);
     if (!alreadyUnlocked) {
+        playHiddenTapSparkle(); // 発見の瞬間、タップ位置に小さなキラキラエフェクトを出す
         const sub = SUBSTORY_BY_ENEMY[ENEMY_ORDER[idx]];
         showUnlockToast({ small: `SUB STORY ${idx + 1}`, large: sub.title });
     }
+}
+
+// 隠しタップを発見した瞬間、その位置(敵ごとの中心座標、STORY_HIDDEN_TAP_POS_BY_ENEMYと同じ)に
+// 小さなキラキラエフェクト(sparkle.PNG)を1回だけ再生する(フェードイン→少し上へ浮かぶ→フェードアウト)。
+// 任意アセットのため、画像が未配置(onerrorでdata-missing='1'になる)の場合は何もしない。
+function playHiddenTapSparkle() {
+    const el = document.getElementById('storyHiddenTapSparkle');
+    if (!el || el.dataset.missing === '1') return;
+    const pos = STORY_HIDDEN_TAP_POS_BY_ENEMY[ENEMY_ORDER[state.storyEnemyIndex]] || STORY_HIDDEN_TAP_DEFAULT_POS;
+    el.style.left = pos.x + '%';
+    el.style.top = pos.y + '%';
+    el.classList.remove('playing');
+    void el.offsetWidth; // 強制リフローで、アニメーションを確実に最初から再生させる
+    el.classList.add('playing');
 }
 
 // 実績解除時の簡易トースト表示(数秒でフェードアウトする)
