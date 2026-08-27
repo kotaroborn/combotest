@@ -846,6 +846,15 @@ function getSeGainNode() {
     }
     return seGainNode;
 }
+let piyoGainNode = null; // se_piyo専用の減衰ノード。常にSE音量の半分程度で再生するために使う
+function getPiyoGainNode() {
+    if (!piyoGainNode) {
+        piyoGainNode = getAudioCtx().createGain();
+        piyoGainNode.gain.value = 0.5; // 固定で半分に減衰させる
+        piyoGainNode.connect(getSeGainNode()); // 共通のSE音量ノードの後段に繋ぐことで、音量スライダーの変更にも自動的に追従する
+    }
+    return piyoGainNode;
+}
 function setBgmVolume(v) {
     state.bgmVolume = v;
     writeSaveData({ bgmVolume: v });
@@ -943,7 +952,7 @@ async function playSE(name) {
     const ctx = getAudioCtx();
     const source = ctx.createBufferSource();
     source.buffer = buffer;
-    source.connect(getSeGainNode());
+    source.connect(name === 'se_piyo' ? getPiyoGainNode() : getSeGainNode()); // se_piyoは常に半分程度の音量に抑える
     source.start(0);
 }
 
@@ -1245,6 +1254,7 @@ async function processUnlockToastQueue() {
     if (unlockToastBusy || unlockToastQueue.length === 0) return;
     unlockToastBusy = true;
     const message = unlockToastQueue.shift();
+    playSE('se_select'); // 実績解除トースト表示時の共通音(隠しタップ経由・それ以外のBONUS/COSTUME解放通知いずれも含む)
 
     let toast = document.getElementById('unlockToast');
     if (!toast) {
