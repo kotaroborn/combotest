@@ -1189,6 +1189,10 @@ function playHiddenTapSparkle() {
     el.classList.remove('playing');
     void el.offsetWidth; // 強制リフローで、アニメーションを確実に最初から再生させる
     el.classList.add('playing');
+    // アニメーション終了後は必ずplayingクラスを外す。付けたままだと、後でシーンがdisplay:none→表示に
+    // 切り替わった際(RETRY等でストーリーシーンを開き直した時)にCSSアニメーションが自動的に再始動し、
+    // タップしていないのに演出だけ再生されてしまう不具合があったため。
+    el.addEventListener('animationend', () => { el.classList.remove('playing'); }, { once: true });
 }
 
 // 実績解除時の簡易トースト表示(数秒でフェードアウトする)
