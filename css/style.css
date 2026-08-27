@@ -150,6 +150,29 @@
             background: repeating-linear-gradient(45deg, #111, #111 8px, #161616 8px, #161616 16px);
         }
         .cine-img.placeholder .cine-img-fallback { display: flex; }
+        /* 白フラッシュ演出(プロローグ2画面目等、画面を切り替える瞬間に一瞬光らせてから見せる用) */
+        .cine-flash { position: absolute; inset: 0; background: #fff; opacity: 0; pointer-events: none; }
+        .cine-flash.flashing { animation: cineFlash 0.5s ease-out; }
+        @keyframes cineFlash {
+            0% { opacity: 0; }
+            20% { opacity: 1; }
+            60% { opacity: 1; } /* 白一色の状態を少し保持する(この間に裏で画像を差し替えると自然に見える) */
+            100% { opacity: 0; }
+        }
+        /* 暗転演出(プロローグ最終画面等、だんだんぼやけながら黒くフェードアウトする用。真のモザイク/ドット化ではなくぼかし+減光で近い質感を出す)。
+           transitionはJS側でcontent.style.transitionに直接指定する(既存コードが画面ごとにこのプロパティを頻繁に上書きするため、
+           静的なCSSルールで指定すると競合して効かないことがあるため) */
+        /* 揺れ演出(特定の画面が現れた瞬間に画像を震わせる用) */
+        .cine-img.shaking { animation: cineShake 0.5s ease-out; }
+        @keyframes cineShake {
+            0%, 100% { transform: translateX(0); }
+            15% { transform: translateX(-8px); }
+            30% { transform: translateX(7px); }
+            45% { transform: translateX(-6px); }
+            60% { transform: translateX(4px); }
+            75% { transform: translateX(-2px); }
+            90% { transform: translateX(1px); }
+        }
         /* 隠しタップ発見時のキラキラエフェクト。#storyHiddenTapと同じ中心座標(%指定)に配置し、
            発見の瞬間だけフェードイン→少し上へ浮かぶ→フェードアウトを1回再生する */
         #storyHiddenTapSparkle {
