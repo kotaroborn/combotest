@@ -872,6 +872,10 @@ async function loadAudioBuffer(kind, name) {
 
 let currentBgmSource = null; // 現在再生中のBGMのAudioBufferSourceNode
 let currentBgmName = null; // 現在再生中(またはリクエスト中)のBGM名。同一BGMの多重再生防止に使う
+let bgmToken = 0; // BGM要求の世代カウンタ。stopBGM()や新たなplayBGM()呼び出しのたびに進める。
+// 読み込み待ち中の古いplayBGM呼び出しが後から解決しても、この値が変わっていれば「自分より後の要求で上書き済み」と判断して再生を中断する。
+// 同名のBGMを止めてすぐ同じ名前で鳴らし直すような操作(SOUND TESTを閉じてすぐ開き直す等)でも、
+// name比較だけでは区別できない世代のズレをここで確実に検出できる。
 const bgmBufferCache = {}; // 一度読み込んだBGMのAudioBufferをキャッシュ(再入場のたびの再読み込みを省く)
 
 // 指定したBGMをシームレスループで再生する。既に同じBGMがリクエスト/再生中なら何もしない。
@@ -881,6 +885,7 @@ const bgmBufferCache = {}; // 一度読み込んだBGMのAudioBufferをキャッ
 async function playBGM(name, fallbackName) {
     if (currentBgmName === name) return;
     currentBgmName = name;
+    const myToken = ++bgmToken; // 自分の世代を記録してから停止処理に入る(stopBGM内でトークンを進めても、この行の後なので自分は無効化されない)
     stopBGM();
 
     let buffer = bgmBufferCache[name];
@@ -895,7 +900,8 @@ async function playBGM(name, fallbackName) {
         }
         bgmBufferCache[name] = buffer; // フォールバック後のbufferであっても、nameキーにそのまま紐付けてキャッシュする
     }
-    if (currentBgmName !== name) return; // 読み込み中に別のBGM要求へ切り替わっていたら中断
+    // 読み込み中に、別のBGM要求(同名の再要求も含む)やstopBGM()の呼び出しで世代が進んでいたら、この呼び出しは中断する
+    if (bgmToken !== myToken) return;
     if (!buffer || !state.soundOn) return;
 
     const ctx = getAudioCtx();
@@ -908,6 +914,7 @@ async function playBGM(name, fallbackName) {
 }
 
 function stopBGM() {
+    bgmToken++; // 保留中のplayBGM呼び出しがあれば、この時点で確実に無効化する
     if (currentBgmSource) {
         try { currentBgmSource.stop(); } catch (e) { /* 既に停止済み等は無視 */ }
         currentBgmSource.disconnect();
@@ -3252,6 +3259,22 @@ function closeAllBonus() {
     document.getElementById('soundTestOverlay').classList.remove('show');
     document.getElementById('costumeOverlay').classList.remove('show'); // BONUS経由でCOSTUMEが開いたまま残っている場合の安全策
     playBGM('bgm_title'); // SOUND TESTでタイトルBGMを止めていた場合でも、×で一括で閉じた時に確実に再開させる(既に流れていれば何もしない)
+}
+
+// BONUS ALLリセット: 実績で解除した内容(SUB STORY/SOUND TEST/COSTUME/SPEED)をすべて取得前の状態に戻す。
+// 本番環境でも残す機能(進行状況=storyEnemyIndexのリセットとは別軸で、BONUS関連の解除状況のみを対象とする)。
+function openBonusResetConfirm() { document.getElementById('bonusResetConfirmPanel').classList.add('show'); }
+function closeBonusResetConfirm() { document.getElementById('bonusResetConfirmPanel').classList.remove('show'); }
+function doResetAllBonus() {
+    gameClearedOnce = false;
+    soundTestUnlocked = false; // 旧セーブデータ互換の解除フラグも一緒に戻す
+    unlockedSubStories = [];
+    unlockedSkins = [];
+    selectedSkin = null;
+    battleSpeedX2 = false; // SPEED設定も初期状態(通常速度)に戻す
+    writeSaveData({ gameClearedOnce, soundTestUnlocked, unlockedSubStories, unlockedSkins, selectedSkin, battleSpeedX2 });
+    closeBonusResetConfirm();
+    closeAllBonus(); // リセット後は表示する内容が無くなるため、BONUS関連のポップアップを一括で閉じる
 }
 
 function closeOption() {
