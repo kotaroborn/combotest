@@ -376,7 +376,12 @@
         .speed-select-group { display: flex; gap: 6px; }
         .speed-select-group button { background: #333; color: #fff; min-width: 44px; font-size: 14px; padding: 8px 0; }
         .speed-select-group button.selected { background: #fff; color: #000; }
-        .bonus-note { color: #888; font-size: 11px; line-height: 1.6; margin-top: 16px; }
+        .bonus-note { color: #888; font-size: 11px; line-height: 1.6; margin-top: 4px; }
+        .bonus-reset-row { margin-top: auto; padding-top: 16px; border-top: 1px solid #333; }
+        .bonus-reset-row button {
+            width: 100%; padding: 10px 0; border: 1px solid #663; border-radius: 6px;
+            background: #221a00; color: #cc9; font-size: 12px; font-weight: bold; cursor: pointer;
+        }
         #goBtn { background: #a00; } /* 押せる時は赤のまま */
         #goBtn:disabled, #clrBtn:disabled { background: #333; }
 
@@ -430,7 +435,7 @@
             border: 1px solid #666; cursor: pointer; font-size: 13px; padding: 0;
         }
         .sound-test-pager button:disabled { opacity: 0.3; cursor: default; }
-        .costume-from-bonus-note { color: #888; font-size: 11px; line-height: 1.6; margin-top: 16px; }
+        .costume-from-bonus-note { color: #888; font-size: 11px; line-height: 1.6; margin-top: 4px; }
         .howto-footer button {
             flex: 1; border: none; border-radius: 6px; padding: 11px 0;
             font-size: 12px; font-weight: bold; letter-spacing: 0.5px; cursor: pointer;
