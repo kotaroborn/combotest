@@ -209,6 +209,8 @@ const SOUND_TEST_TRACKS = [
     { name: 'se_punch', label: 'SE: パンチ' },
     { name: 'se_upper', label: 'SE: アッパー' },
     { name: 'se_guard', label: 'SE: ガード' },
+    { name: 'se_guard_2', label: 'SE: ガード(2連続/2倍)' },
+    { name: 'se_guard_3', label: 'SE: ガード(3連続以降/4倍)' },
     { name: 'se_meteor', label: 'SE: メテオ' },
     { name: 'se_finisher', label: 'SE: 必殺技' },
     { name: 'se_piyo', label: 'SE: ピヨり' },
@@ -2748,7 +2750,6 @@ async function runGuardSuccess(winner, loser, loserPoseOverride) {
     setAct(winner, 'guard.PNG');
     setAct(loser, loserPoseOverride || 'punch.PNG'); // ブロックされた瞬間の姿勢(通常はパンチのまま)
     applyDamage(winner, DB.DMG.TINY); // 自己反動の微ダメージのため、チャージ倍率は適用しない
-    playSE('se_guard');
     triggerShake(winner, 250);
     triggerShake(loser, 400); // しびれによる振動(ダメージなし)
     if (loser === 'P') state.pNumbed = true; else state.eNumbed = true; // 次のコマンドの成功率が1/2になる
@@ -2773,6 +2774,14 @@ async function runGuardSuccess(winner, loser, loserPoseOverride) {
     const loserGuardStreakKey = loser === 'P' ? 'pGuardStreak' : 'eGuardStreak';
     state[winnerGuardStreakKey]++;
     state[loserGuardStreakKey] = 0;
+    // ガード成功が何回連続したかによって音を変える(1回目=se_guard、2回目=se_guard_2、3回目以降=se_guard_3)
+    if (state[winnerGuardStreakKey] >= 3) {
+        playSE('se_guard_3');
+    } else if (state[winnerGuardStreakKey] === 2) {
+        playSE('se_guard_2');
+    } else {
+        playSE('se_guard');
+    }
     if (state[winnerGuardStreakKey] >= 3) {
         if (winner === 'P') state.pChargeValue = 4; else state.eChargeValue = 4; // 3連続以降は4倍が上限
         markSpecialUsed('charge'); // 実績: ガード+ガードの使用を記録
