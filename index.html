@@ -81,7 +81,7 @@
                 <div class="title-logo-fallback-sub">CROSS DIMENSION</div>
             </div>
         </div>
-        <div class="title-version">ver. 0.9.026</div>
+        <div class="title-version">ver. 0.9.028</div>
     </div>
     <button id="titleContinueBtn" class="text-btn" onclick="tapFlickerThen(this, () => goContinueGame())" style="display:none;">CONTINUE</button>
     <button id="startBtn" class="text-btn" onclick="tapFlickerThen(this, () => goNewGame())" disabled>NEW GAME</button>
@@ -97,18 +97,21 @@
     <div class="scene-inner" style="justify-content:flex-start; padding-top:14%; gap:20px;">
         <p class="prologue-text">デッキ編成（合計21枚）</p>
         <div class="deck-row">
+            <img class="deck-card-icon" src="assets/images/cards/card_P.PNG" alt="" onerror="this.style.visibility='hidden';">
             <span class="deck-label">PUNCH</span>
             <button class="deck-btn" onclick="adjustDeck('PUNCH',-1)">−</button>
             <span class="deck-count" id="deckCountPUNCH">7</span>
             <button class="deck-btn" onclick="adjustDeck('PUNCH',1)">＋</button>
         </div>
         <div class="deck-row">
+            <img class="deck-card-icon" src="assets/images/cards/card_U.PNG" alt="" onerror="this.style.visibility='hidden';">
             <span class="deck-label">UPPER</span>
             <button class="deck-btn" onclick="adjustDeck('UPPER',-1)">−</button>
             <span class="deck-count" id="deckCountUPPER">7</span>
             <button class="deck-btn" onclick="adjustDeck('UPPER',1)">＋</button>
         </div>
         <div class="deck-row">
+            <img class="deck-card-icon" src="assets/images/cards/card_G.PNG" alt="" onerror="this.style.visibility='hidden';">
             <span class="deck-label">GUARD</span>
             <button class="deck-btn" onclick="adjustDeck('GUARD',-1)">−</button>
             <span class="deck-count" id="deckCountGUARD">7</span>
