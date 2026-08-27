@@ -1109,6 +1109,7 @@ async function playPrologue() {
     // 再生開始時は必ず真っ黒(透明)にリセットしてからフェードインする
     content.style.transition = 'none';
     content.style.opacity = '0';
+    content.style.filter = 'none'; // 前回再生時の暗転(ぼかし)が残らないようにリセットする
     textEl.innerText = '';
     imgArea.classList.remove('placeholder');
     imgArea.style.backgroundImage = 'none';
@@ -1119,6 +1120,16 @@ async function playPrologue() {
     for (let i = 0; i < OPENING_SCREENS.length; i++) {
         const screen = OPENING_SCREENS[i];
         if (prologueToken !== myToken) return; // SKIPされていたら中断
+
+        if (i === 1) {
+            // 2枚目は、白フラッシュ+se_meteorの後に画像を見せる演出。
+            // フラッシュが白一色になっている間(cineFlashのkeyframe参照)に裏で画像を差し替えることで、
+            // フラッシュが引いた瞬間に新しい画像が既に見えている、という自然な見え方になる。
+            playSE('se_meteor');
+            triggerCineFlash('prologueFlash');
+            await wait(250);
+            if (prologueToken !== myToken) return;
+        }
 
         if (imgs[screen.img]) {
             imgArea.style.backgroundImage = `url('assets/images/cutscenes/opening/${screen.img}')`;
@@ -1151,6 +1162,15 @@ async function playPrologue() {
             if (prologueToken !== myToken) return;
             await wait(4000); // 1ページ読み終えてから次へ、もう少し長めに読ませる(0.5倍速: 2000ms→4000ms)
         }
+
+        if (i === OPENING_SCREENS.length - 1) {
+            // 最後の画面(4枚目)は、読み終えたら画像・テキストごとだんだんぼやけながら暗転する演出を追加する
+            // (真のモザイク/ドット化ではなく、ぼかし+減光の組み合わせで近い質感を出している)
+            if (prologueToken !== myToken) return;
+            content.style.transition = 'filter 2s ease-in';
+            content.style.filter = 'blur(18px) brightness(0)';
+            await wait(2000);
+        }
     }
 
     if (prologueToken !== myToken) return;
@@ -1180,6 +1200,23 @@ function onStoryHiddenTap() {
 // 隠しタップを発見した瞬間、その位置(敵ごとの中心座標、STORY_HIDDEN_TAP_POS_BY_ENEMYと同じ)に
 // 小さなキラキラエフェクト(sparkle.PNG)を1回だけ再生する(フェードイン→少し上へ浮かぶ→フェードアウト)。
 // 任意アセットのため、画像が未配置(onerrorでdata-missing='1'になる)の場合は何もしない。
+// カットシーン(プロローグ/ストーリー)の画像エリアに白フラッシュを1回再生する(cineFlashクラス、CSS側で定義)
+function triggerCineFlash(elId) {
+    const el = document.getElementById(elId);
+    if (!el) return;
+    el.classList.remove('flashing');
+    void el.offsetWidth; // 強制リフローで、連続発火時も確実に最初から再生させる
+    el.classList.add('flashing');
+}
+// カットシーンの画像エリアを1回揺らす(cineShakeクラス、CSS側で定義)
+function triggerCineShake(elId) {
+    const el = document.getElementById(elId);
+    if (!el) return;
+    el.classList.remove('shaking');
+    void el.offsetWidth;
+    el.classList.add('shaking');
+}
+
 function playHiddenTapSparkle() {
     const el = document.getElementById('storyHiddenTapSparkle');
     if (!el || el.dataset.missing === '1') return;
@@ -1300,6 +1337,10 @@ async function playStorySequence() {
             imgArea.classList.add('placeholder');
             fallback.innerText = screen.img + ' (未配置)';
         }
+        if (state.storyEnemyIndex === 3 && i === 2) {
+            // 4人目(Jack)の3枚目の画像が出てくる瞬間、画像を揺らす
+            triggerCineShake('storyImgArea');
+        }
         // 隠しタップは3画面のうち対象の1枚だけで有効にする(敵ごとに違う画面。それ以外の画面では押せないようにする)
         const hiddenTapScreenIdx = STORY_HIDDEN_TAP_SCREEN_BY_ENEMY[ENEMY_ORDER[state.storyEnemyIndex]] ?? 1;
         const hiddenTapEl = document.getElementById('storyHiddenTap');
@@ -1410,13 +1451,17 @@ async function playCredits() {
     await wait(CREDITS_SCROLL_MS);
 }
 
-// FIN画面(真っ黒な背景の中央に白文字)を10秒間表示し、その後ゆっくりフェードアウトする
+// FIN画面(真っ黒な背景の中央に白文字)をフェードインで表示し、10秒間表示した後、ゆっくりフェードアウトする
 async function playFinScreen() {
     const finScene = document.getElementById('sceneFin');
     finScene.style.transition = 'none';
-    finScene.style.opacity = '1';
+    finScene.style.opacity = '0'; // フェードインさせるため、最初は透明にしておく
     showScene('fin');
-    await wait(10000);
+    await wait(30); // 直前のopacity:0が確実に描画されてからフェードインを開始させる
+    finScene.style.transition = 'opacity 1.5s ease-in';
+    finScene.style.opacity = '1';
+    await wait(1500);
+    await wait(10000); // フェードイン完了後、そのまま10秒間表示する
     finScene.style.transition = 'opacity 2s ease-out';
     finScene.style.opacity = '0';
     await wait(2000);
@@ -1550,7 +1595,14 @@ function goDeckBuild(mode) {
     // 最初からやり直したい場合はタイトルのOPTION画面から明示的にリセットする。
     updateDeckBuildUI();
     showScene('deck');
-    playBGM('bgm_deck');
+    if (state.storyEnemyIndex === 4) {
+        // 5人目(Alv)のデッキ編成は、専用ストーリーBGM(bgm_story_5)を引き続き流す。
+        // 既にストーリーシーンから再生中であればplayBGM内の早期returnによりそのまま継続され、
+        // CONTINUE等でストーリーシーンを経由していない場合はここで新たに再生を始める(未配置ならbgm_storyへフォールバック)。
+        playBGM('bgm_story_5', 'bgm_story');
+    } else {
+        playBGM('bgm_deck');
+    }
 }
 
 // TRAINING MODE専用: デッキ編成を経由せず、タイトルから直接バトルへ入る(手札は固定のPUNCH/UPPER/GUARD、選び放題)。
