@@ -81,7 +81,7 @@
                 <div class="title-logo-fallback-sub">CROSS DIMENSION</div>
             </div>
         </div>
-        <div class="title-version">ver. 0.9.024</div>
+        <div class="title-version">ver. 0.9.026</div>
     </div>
     <button id="titleContinueBtn" class="text-btn" onclick="tapFlickerThen(this, () => goContinueGame())" style="display:none;">CONTINUE</button>
     <button id="startBtn" class="text-btn" onclick="tapFlickerThen(this, () => goNewGame())" disabled>NEW GAME</button>
@@ -337,6 +337,16 @@
                 </div>
             </div>
             <p id="bonusSpeedNote" class="bonus-note" style="display:none;">※バトル中にも変更可能です。</p>
+            <div class="bonus-reset-row">
+                <button id="bonusResetAllBtn" onclick="openBonusResetConfirm()">BONUS ALL リセット</button>
+            </div>
+        </div>
+        <div id="bonusResetConfirmPanel" class="confirm-panel">
+            <p class="confirm-text">全てのBONUSを取得前の状態に戻します。<br>よろしいですか？</p>
+            <div class="confirm-btns">
+                <button onclick="closeBonusResetConfirm()">キャンセル</button>
+                <button onclick="doResetAllBonus()" class="confirm-ok">OK</button>
+            </div>
         </div>
     </div>
 </div>
