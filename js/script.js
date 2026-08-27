@@ -885,8 +885,8 @@ const bgmBufferCache = {}; // 一度読み込んだBGMのAudioBufferをキャッ
 async function playBGM(name, fallbackName) {
     if (currentBgmName === name) return;
     currentBgmName = name;
-    const myToken = ++bgmToken; // 自分の世代を記録してから停止処理に入る(stopBGM内でトークンを進めても、この行の後なので自分は無効化されない)
-    stopBGM();
+    stopBGM(); // この中でbgmTokenが進む
+    const myToken = bgmToken; // 自分の世代は、stopBGM()の後で確定した値を記録する(先に記録すると、直後のstopBGM内の加算で即座に自分自身が無効化されてしまうため)
 
     let buffer = bgmBufferCache[name];
     if (buffer === undefined) {
