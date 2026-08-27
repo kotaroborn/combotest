@@ -238,17 +238,22 @@
 
         /* ------- デッキ編成シーン ------- */
         .deck-row { display: flex; align-items: center; gap: 14px; }
+        .deck-card-icon { width: 26px; height: 37px; object-fit: contain; image-rendering: pixelated; flex: none; }
         .deck-label { width: 70px; text-align: left; font-weight: bold; letter-spacing: 1px; }
         .deck-btn {
             width: 34px; height: 34px; border-radius: 50%; background: #444; color: #fff;
             border: none; font-size: 18px; font-weight: bold; cursor: pointer;
+            display: flex; align-items: center; justify-content: center; padding: 0; line-height: 1;
         }
         .deck-count { width: 28px; text-align: center; font-size: 18px; font-weight: bold; }
         #deckTotalText { color: #ccc; font-size: 13px; }
         #deckConfirmBtn {
             position: absolute; left: 50%; bottom: 20%; transform: translateX(-50%);
-            font-size: 13px; letter-spacing: 4px;
+            font-size: 15px; letter-spacing: 4px;
+            background: #a00; color: #fff; padding: 14px 52px; /* GO!ボタンと同じ赤系のボタンらしい見た目にする */
         }
+        #deckConfirmBtn:disabled { background: #333; }
+        #deckConfirmBtn:active:not(:disabled) { transform: translateX(-50%) scale(0.93); } /* 中央寄せ用のtranslateXを、共通の押下時scaleと両立させる */
 
         /* ------- 手札(カード)UI: 重ならない横並び。中心ほど高く、左右ほど下がる ------- */
         #handWrap { position: relative; height: 90px; }
