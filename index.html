@@ -45,7 +45,7 @@
 <!-- プロローグシーン: シネマサイズの画像+1文字ずつのテキスト演出を4画面。終わったら自動でタイトルへ -->
 <div id="scenePrologue" class="scene">
     <div id="prologueContent" class="cine-block">
-        <div id="prologueImgArea" class="cine-img"><div id="prologueImgFallback" class="cine-img-fallback"></div></div>
+        <div id="prologueImgArea" class="cine-img"><div id="prologueImgFallback" class="cine-img-fallback"></div><div id="prologueFlash" class="cine-flash"></div></div>
         <div id="prologueTextBox" class="cine-textbox">
             <p id="prologueText" class="cine-text"></p>
         </div>
@@ -81,7 +81,7 @@
                 <div class="title-logo-fallback-sub">CROSS DIMENSION</div>
             </div>
         </div>
-        <div class="title-version">ver. 0.9.028</div>
+        <div class="title-version">ver. 0.9.029</div>
     </div>
     <button id="titleContinueBtn" class="text-btn" onclick="tapFlickerThen(this, () => goContinueGame())" style="display:none;">CONTINUE</button>
     <button id="startBtn" class="text-btn" onclick="tapFlickerThen(this, () => goNewGame())" disabled>NEW GAME</button>
