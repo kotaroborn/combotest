@@ -504,11 +504,56 @@ updateUI(); // 第1条: 起動直後から5つの空枠を表示する
 
 // ------- STORY MODE: 敵プリセット(枚数配分・よく出す組み合わせは今後ここに設定していく) -------
 // deck: PUNCH/UPPER/GUARDの「出やすさ」の重み(枚数感覚でそのまま指定できる)
-// favoritePatterns: よく出す組み合わせ(例: ['GUARD','PUNCH'])。今後ここに配列を追加していく想定。まだ未設定。
+// favoritePatterns: よく出す組み合わせ(手の並び、例: ['PUNCH','GUARD','PUNCH'])の配列。
+//   直近に出した手が、いずれかのパターンの先頭部分と一致していると、そのパターンの続きの手が出やすくなる
+//   (複数のパターンが同時に一致する場合は、それぞれの「次の手」の重みが積み上がる)。
+//   ただし絶対に完成させるわけではなく、あくまで重みを底上げするだけ(generateEnemyTurnHand参照)。
+// firstMoveBias: そのターンの1枚目にだけ追加でかかる重み(通常のdeck比率に加算される)。「一手目に出しがち」を表現する。
 const ENEMY_PRESETS = {
-    ENEMY_01: { name: 'Noah', deck: { PUNCH: 7, UPPER: 7, GUARD: 7 }, favoritePatterns: [] },
-    ENEMY_02: { name: 'Rita', deck: { PUNCH: 7, UPPER: 7, GUARD: 7 }, favoritePatterns: [] },
-    ENEMY_03: { name: 'Gald', deck: { PUNCH: 7, UPPER: 7, GUARD: 7 }, favoritePatterns: [] },
+    ENEMY_01: {
+        name: 'Noah', deck: { PUNCH: 13, UPPER: 4, GUARD: 4 },
+        favoritePatterns: [
+            ['PUNCH', 'GUARD', 'PUNCH'], // P+G+P(追撃)
+            ['PUNCH', 'PUNCH'],          // P+P
+            ['PUNCH', 'PUNCH', 'PUNCH'], // P+P+P
+            ['PUNCH', 'PUNCH', 'UPPER'], // P+P+U(強化UPPER)
+        ],
+        firstMoveBias: { PUNCH: 10 }, // 一手目はPUNCHが出やすい
+    },
+    ENEMY_02: {
+        name: 'Rita', deck: { PUNCH: 8, UPPER: 10, GUARD: 3 },
+        favoritePatterns: [
+            ['UPPER', 'PUNCH'],           // UPPER始動の空中コンボへ入りたがる
+            ['UPPER', 'PUNCH', 'PUNCH'],  // U+P+P(2発止め)を特に好む
+            ['UPPER', 'GUARD', 'UPPER'],  // U+G+U(強化UPPER)を狙いたがる
+        ],
+        avoidPatterns: [
+            ['UPPER', 'PUNCH', 'PUNCH', 'PUNCH'], // U+P+Pの後、3発目(メテオ)まではあまり踏み込みたがらない
+        ],
+        firstMoveBias: { UPPER: 8 }, // 一手目はUPPERが出やすい
+        atkMult: 0.85, // 攻撃力は全体的に少し低め(防御力=被弾時のダメージ量は変えないため、ここでは触れない)
+        atkMultByMove: { UPPER: 1.1 }, // ただし得意技のUPPERだけは、通常より少し高い(atkMultより優先される)
+    },
+    ENEMY_03: {
+        name: 'Gald', deck: { PUNCH: 6, UPPER: 3, GUARD: 12 },
+        favoritePatterns: [
+            ['GUARD', 'GUARD'],                   // G+G(2倍チャージ)へ入りたがる
+            ['GUARD', 'GUARD', 'PUNCH'],          // 2倍後の重いパンチ
+            ['GUARD', 'GUARD', 'UPPER'],          // 2倍後の重いアッパー
+            ['GUARD', 'GUARD', 'GUARD'],          // さらに我慢してG+G+G(4倍)へ踏み込む
+            ['GUARD', 'GUARD', 'GUARD', 'PUNCH'], // 4倍後の重いパンチ
+            ['GUARD', 'GUARD', 'GUARD', 'UPPER'], // 4倍後の重いアッパー
+        ],
+        avoidPatterns: [
+            ['UPPER', 'PUNCH', 'PUNCH'], // 空中コンボを連続させたがらない(機敏さが無い)
+            ['PUNCH', 'PUNCH'],          // 素早い連打も苦手
+        ],
+        firstMoveBias: { GUARD: 10 }, // 一手目はGUARDが出やすい(様子見でまず固める)
+        atkMult: 1.15, // 攻撃力は全体的にやや高め(鎧の重さ・巨体)
+        defMult: 0.8, // 防御力は全体的に高め(被弾ダメージ20%減、鎧で弾く)
+        defMultByMove: { UPPER: 1.3 }, // ただしUPPER(すくい上げ系)には弱い(鎧の隙間を突かれ、通常より多く受ける)
+        numbFailMult: 1.25, // 自分のガードで相手をしびれさせた時、無条件敗北の確率が通常の1.25倍(50%→62.5%)
+    },
     ENEMY_04: { name: 'Jack', deck: { PUNCH: 7, UPPER: 7, GUARD: 7 }, favoritePatterns: [] },
     ENEMY_05: { name: 'Alv', deck: { PUNCH: 7, UPPER: 7, GUARD: 7 }, favoritePatterns: [] },
 };
@@ -2155,11 +2200,58 @@ function trainingCounterMove(playerMove) {
     return TRAINING_LOSES_TO[playerMove];
 }
 
+// 直近に出した手(history、配列)が、favoritePatternsのいずれかの先頭部分と一致していれば、
+// その続きの手の重みを底上げして返す。複数のパターンが同時に一致する場合は重みが積み上がる。
+// 一致するパターンが無ければbaseWeightsをそのまま返す(絶対に完成させるわけではなく、あくまで出やすくなるだけ)。
+function getPatternBoostedWeights(history, patterns, avoidPatterns, baseWeights) {
+    let w = null;
+    if (patterns && patterns.length > 0 && history.length > 0) {
+        for (const pattern of patterns) {
+            const matchLen = Math.min(history.length, pattern.length - 1);
+            if (matchLen === 0) continue;
+            const historyTail = history.slice(-matchLen).join(',');
+            const patternPrefix = pattern.slice(0, matchLen).join(',');
+            if (historyTail === patternPrefix) {
+                const nextMove = pattern[matchLen];
+                if (!w) w = Object.assign({}, baseWeights);
+                w[nextMove] = (w[nextMove] || 0) + 25; // 一致したパターンの数だけ重みが積み上がる
+            }
+        }
+    }
+    if (avoidPatterns && avoidPatterns.length > 0 && history.length > 0) {
+        for (const pattern of avoidPatterns) {
+            const matchLen = Math.min(history.length, pattern.length - 1);
+            if (matchLen === 0) continue;
+            const historyTail = history.slice(-matchLen).join(',');
+            const patternPrefix = pattern.slice(0, matchLen).join(',');
+            if (historyTail === patternPrefix) {
+                const nextMove = pattern[matchLen];
+                if (!w) w = Object.assign({}, baseWeights);
+                w[nextMove] = Math.max(1, (w[nextMove] || 0) - 6); // 大きく減らすが、完全に0にはしない(絶対に避けるわけではない)
+            }
+        }
+    }
+    return w || baseWeights;
+}
+
 function generateEnemyTurnHand(count) {
-    // STORY MODE: 現在の敵プリセットの配分に基づいて生成する(favoritePatternsは今後ここに組み込む)
-    const weights = currentEnemyPreset().deck;
+    // STORY MODE: 現在の敵プリセットの配分に基づいて生成する。
+    // favoritePatterns(よく出す手の並び)・avoidPatterns(避けたがる手の並び)・firstMoveBias(一手目の出やすさ)があれば、その分だけ重みを増減する。
+    const preset = currentEnemyPreset();
+    const weights = preset.deck;
+    const patterns = preset.favoritePatterns || [];
+    const avoidPatterns = preset.avoidPatterns || [];
     const arr = [];
-    for (let i = 0; i < count; i++) arr.push(weightedRandomMove(weights));
+    for (let i = 0; i < count; i++) {
+        let w = getPatternBoostedWeights(arr, patterns, avoidPatterns, weights);
+        if (i === 0 && preset.firstMoveBias) {
+            w = Object.assign({}, w);
+            for (const key in preset.firstMoveBias) {
+                w[key] = (w[key] || 0) + preset.firstMoveBias[key];
+            }
+        }
+        arr.push(weightedRandomMove(w));
+    }
     return arr;
 }
 
@@ -2452,6 +2544,31 @@ function chargeMultOf(side) {
     return v || 1; // チャージが無ければ等倍
 }
 
+// 敵ごとの攻撃力の癖(ENEMY_PRESETSのatkMult)。敵が攻撃する時のみ適用し、プレイヤー側の与ダメには一切影響しない。
+// 「少し低め」のような表現は0.85(15%減)のように具体的な倍率に変換して設定する。指定が無ければ1(等倍)。
+// moveを指定すると、ENEMY_PRESETSのatkMultByMove(技ごとの個別倍率、例: { UPPER: 1.1 })があればそちらを優先して使う
+// (例: 全体は少し低めでも、得意技のUPPERだけは通常より少し高くする、といった調整ができる)。指定が無ければ通常のatkMultにフォールバックする。
+function atkMultOf(side, move) {
+    if (side !== 'E') return 1;
+    const preset = currentEnemyPreset();
+    if (move && preset.atkMultByMove && preset.atkMultByMove[move] !== undefined) {
+        return preset.atkMultByMove[move];
+    }
+    return preset.atkMult || 1;
+}
+
+// 敵ごとの防御力の癖(ENEMY_PRESETSのdefMult)。atkMultOfと対になるヘルパーで、敵が被弾する側の時のみ適用する
+// (defenderに敵側を渡した時だけ意味を持つ。プレイヤーが被弾する時は常に1で、一切影響しない)。
+// moveを指定すると、ENEMY_PRESETSのdefMultByMove(技ごとの個別倍率、例: { UPPER: 1.3 }=UPPERに弱い)があればそちらを優先する。
+function defMultOf(side, move) {
+    if (side !== 'E') return 1;
+    const preset = currentEnemyPreset();
+    if (move && preset.defMultByMove && preset.defMultByMove[move] !== undefined) {
+        return preset.defMultByMove[move];
+    }
+    return preset.defMult || 1;
+}
+
 // チャージを消費する(ガード成功以外の攻防終了時に呼ぶ)。勝敗に関わらず、次に出したカードで必ず消費される。
 function consumeCharge(side) {
     if (side === 'P') state.pChargeValue = 0; else state.eChargeValue = 0;
@@ -2631,7 +2748,7 @@ async function runNormalHit(winner, loser, move) {
     const winnerStreakKey = winner === 'P' ? 'pPunchStreak' : 'ePunchStreak';
     const loserStreakKey = loser === 'P' ? 'pPunchStreak' : 'ePunchStreak';
     const cyclePos = state[winnerStreakKey] % 3; // 0=1発目, 1=2発目, 2=3発目(この後4発目で0に戻る)
-    const dmg = (DB.DMG.P + cyclePos * DB.DMG.P_COMBO_STEP) * chargeMultOf(winner); // 3発周期で増加、チャージ中は2倍/4倍
+    const dmg = (DB.DMG.P + cyclePos * DB.DMG.P_COMBO_STEP) * chargeMultOf(winner) * atkMultOf(winner) * defMultOf(loser); // 3発周期で増加、チャージ中は2倍/4倍
     state[winnerStreakKey]++; // 命中したので連続記録を伸ばす
     state[loserStreakKey] = 0; // 負けた側の連続記録は途切れる
     state.pGuardStreak = 0; state.eGuardStreak = 0; // ガード以外で勝敗が決したのでガード連続記録は途切れる
@@ -2656,7 +2773,7 @@ async function runNormalHit(winner, loser, move) {
 async function runMeteor(attacker, defender) {
     hitComboSuccess(attacker);
     hitComboBreak(defender);
-    applyDamage(defender, DB.DMG.M * chargeMultOf(attacker));
+    applyDamage(defender, DB.DMG.M * chargeMultOf(attacker) * atkMultOf(attacker) * defMultOf(defender));
     playSE('se_meteor'); // 未配置ならse_punchで代用される
     setAct(attacker, 'knock.PNG');
     setAct(defender, 'damage.PNG');
@@ -2711,7 +2828,7 @@ async function runUpperCombo(attacker, defender, cursor) {
 
     setAct(attacker, 'upper.PNG');
     setAct(defender, 'damage.PNG');
-    applyDamage(defender, DB.DMG.U * chargeMultOf(attacker) * (isSuperUpper ? 2 : 1));
+    applyDamage(defender, DB.DMG.U * chargeMultOf(attacker) * (isSuperUpper ? 2 : 1) * atkMultOf(attacker, 'UPPER') * defMultOf(defender, 'UPPER'));
     playSE('se_upper'); // 未配置ならse_punchで代用される
     triggerShake(defender, 300);
     // チャージ(ガード+ガード、UPPER+GUARD+UPPER)は「次に出すカードの初撃」のみに適用される一度限りの効果のため、
@@ -2767,7 +2884,7 @@ async function runUpperCombo(attacker, defender, cursor) {
             hitComboSuccess(attacker); // 空中コンボの各撃もCOMBOとして数える(第26条: 空中打ち上げ時の無防備状態への攻撃を含む)
             setAct(attacker, nextPunchSprite(attacker)); // 第21条
             markCardOutcome(defender, cursor.i, 'card-shatter'); // 3すくみ無視のコンボ継続: ヒビ割れる
-            const comboDmg = (DB.DMG.P + (airPunches - 1) * DB.DMG.P_COMBO_STEP) * chargeMultOf(attacker); // 1発目=P, 2発目=P+STEP...
+            const comboDmg = (DB.DMG.P + (airPunches - 1) * DB.DMG.P_COMBO_STEP) * chargeMultOf(attacker) * atkMultOf(attacker) * defMultOf(defender); // 1発目=P, 2発目=P+STEP...
             applyDamage(defender, comboDmg);
             playSE('se_punch');
             triggerShake(defender, 200);
@@ -2926,7 +3043,7 @@ async function runFollowUpFlurry(attacker, defender) {
         hitComboSuccess(attacker); // 追撃は3連打それぞれをCOMBOとして数える
         setAct(attacker, nextPunchSprite(attacker)); // 第21条
         setAct(defender, 'damage.PNG');
-        applyDamage(defender, DB.DMG.P);
+        applyDamage(defender, DB.DMG.P * atkMultOf(attacker) * defMultOf(defender));
         playSE('se_punch');
         triggerShake(defender, 150);
         await wait(120); // 素早い連打
@@ -2945,7 +3062,7 @@ async function runFinisher(attacker, defender, cursor) {
     setAct(attacker, nextPunchSprite(attacker)); // 第21条
     setAct(defender, 'damage.PNG');
     markCardOutcome(defender, cursor.i, 'card-shatter'); // 3すくみ無視のヒットなのでヒビ割れ表現にする
-    applyDamage(defender, DB.DMG.FINISHER);
+    applyDamage(defender, DB.DMG.FINISHER * atkMultOf(attacker) * defMultOf(defender));
     playSE('se_finisher'); // 未配置ならse_punchで代用される
     triggerShake(defender, 300);
     await wait(150);
@@ -3007,14 +3124,20 @@ async function resolveExchange(pAct, eAct, cursor) {
         }
     }
 
-    // しびれ判定: 直前の攻防でガードに阻まれた側は、1/2の確率でこの攻防に無条件で敗北する(3すくみ判定は行わない)
+    // しびれ判定: 直前の攻防でガードに阻まれた側は、通常1/2の確率でこの攻防に無条件で敗北する(3すくみ判定は行わない)。
+    // ガードでこのしびれを引き起こした側が敵(guardSide==='E')で、かつその敵がnumbFailMultを持っていれば、
+    // 0.5に乗算してこの確率を調整する(例: Galdは1.25倍→0.625、ガードで転ばせる力が強い、という個性)。
     if (state.pNumbed || state.eNumbed) {
         const numbedSide = state.pNumbed ? 'P' : 'E';
         const guardSide = numbedSide === 'P' ? 'E' : 'P';
         if (numbedSide === 'P') state.pNumbed = false; else state.eNumbed = false;
         if (guardSide === 'P') state.pGuardHoldPose = false; else state.eGuardHoldPose = false; // 判定が出たので構え保持を解除
         stopPiyo(); // この攻防で結果が決まるので、ここまで継続していたピヨりを終了する
-        if (Math.random() < 0.5) {
+        let numbFailChance = 0.5;
+        if (guardSide === 'E' && currentEnemyPreset().numbFailMult) {
+            numbFailChance = Math.min(1, 0.5 * currentEnemyPreset().numbFailMult);
+        }
+        if (Math.random() < numbFailChance) {
             markCardOutcome(numbedSide, cursor.i, 'card-shatter'); // 3すくみ無視の敗北: ヒビ割れる
             consumeCharge(numbedSide); // しびれで無条件敗北する側のチャージも、次のカードとして消費される
             consumeUpperCharge(numbedSide); // UPPER+GUARD+UPPER用のチャージも同様に消費する
