@@ -554,8 +554,39 @@ const ENEMY_PRESETS = {
         defMultByMove: { UPPER: 1.3 }, // ただしUPPER(すくい上げ系)には弱い(鎧の隙間を突かれ、通常より多く受ける)
         numbFailMult: 1.25, // 自分のガードで相手をしびれさせた時、無条件敗北の確率が通常の1.25倍(50%→62.5%)
     },
-    ENEMY_04: { name: 'Jack', deck: { PUNCH: 7, UPPER: 7, GUARD: 7 }, favoritePatterns: [] },
-    ENEMY_05: { name: 'Alv', deck: { PUNCH: 7, UPPER: 7, GUARD: 7 }, favoritePatterns: [] },
+    ENEMY_04: {
+        name: 'Jack', deck: { PUNCH: 7, UPPER: 7, GUARD: 7 }, // トリッキーな道化師: 特定の技への偏りは持たせず、バランス配分のまま
+        favoritePatterns: [
+            // 揃えば手当たり次第、この作品にある「技」をひと通り多用する(1つの得意技に絞らないのが個性)
+            ['PUNCH', 'GUARD', 'PUNCH'],                   // P+G+P(追撃)
+            ['PUNCH', 'PUNCH', 'UPPER'],                   // P+P+U(強化UPPER)
+            ['PUNCH', 'PUNCH', 'PUNCH'],                   // P+P+P
+            ['UPPER', 'PUNCH', 'PUNCH'],                   // U+P+P(空中コンボ)
+            ['UPPER', 'GUARD', 'UPPER'],                   // U+G+U(強化UPPER)
+            ['GUARD', 'PUNCH', 'GUARD', 'PUNCH', 'PUNCH'], // 必殺技
+        ],
+        // firstMoveBiasは意図的に設定しない(一手目も含めて何を出すか読めない、トリッキーさの表現)
+        atkMult: 1.2, // 攻撃力は高め
+        defMult: 1.2, // 防御力は低め(被弾ダメージが通常より2割増える)
+        numbVulnerableMult: 1.25, // ガード成功後のしびりで無条件敗北しやすい(トリッキーだが打たれ弱い)
+    },
+    ENEMY_05: {
+        name: 'Alv', deck: { PUNCH: 7, UPPER: 7, GUARD: 7 }, // ラスボス、ヴァルの裏のような存在: 特定の技に絞らず全ワザを網羅する
+        favoritePatterns: [
+            // Gald系(ガードでチャージを溜めて一気に叩き込む)
+            ['GUARD', 'GUARD'], ['GUARD', 'GUARD', 'PUNCH'], ['GUARD', 'GUARD', 'UPPER'],
+            ['GUARD', 'GUARD', 'GUARD'], ['GUARD', 'GUARD', 'GUARD', 'PUNCH'], ['GUARD', 'GUARD', 'GUARD', 'UPPER'],
+            // Noah/Rita/Jack系(その他の主要な技)
+            ['PUNCH', 'GUARD', 'PUNCH'], ['PUNCH', 'PUNCH', 'UPPER'], ['PUNCH', 'PUNCH', 'PUNCH'],
+            ['UPPER', 'PUNCH', 'PUNCH'], ['UPPER', 'GUARD', 'UPPER'],
+            ['GUARD', 'PUNCH', 'GUARD', 'PUNCH', 'PUNCH'], // 必殺技
+        ],
+        smallHandThreshold: 2, // 2枚以下の少ない手数の時
+        smallHandBias: { PUNCH: 12 }, // ガードを溜める余裕が無いので、PUNCH連打でダメージを稼ごうとする
+        atkMult: 1.2, // 攻撃力は高い
+        defMult: 0.75, // 防御力も高い(被弾ダメージ25%減、5人の中で最も硬い)
+        numbVulnerableMult: 0.6, // しびれ(無条件敗北)に強い(通常0.5→0.3、他の誰よりも打たれ強い)
+    },
 };
 const ENEMY_ORDER = ['ENEMY_01', 'ENEMY_02', 'ENEMY_03', 'ENEMY_04', 'ENEMY_05']; // 連戦の順番
 const STAGE_ORDINALS = ['1ST', '2ND', '3RD', '4TH', '5TH']; // ENEMY_ORDERのインデックスに対応する序数表記
@@ -2237,10 +2268,13 @@ function getPatternBoostedWeights(history, patterns, avoidPatterns, baseWeights)
 function generateEnemyTurnHand(count) {
     // STORY MODE: 現在の敵プリセットの配分に基づいて生成する。
     // favoritePatterns(よく出す手の並び)・avoidPatterns(避けたがる手の並び)・firstMoveBias(一手目の出やすさ)があれば、その分だけ重みを増減する。
+    // smallHandThreshold/smallHandBiasがあり、そのターンの手数がしきい値以下であれば、全カードに追加の重みをかける
+    // (例: 少ない手数の時はPUNCH連打でダメージを稼ごうとする、といった手数依存の性格を表現できる)。
     const preset = currentEnemyPreset();
     const weights = preset.deck;
     const patterns = preset.favoritePatterns || [];
     const avoidPatterns = preset.avoidPatterns || [];
+    const isSmallHand = preset.smallHandThreshold && count <= preset.smallHandThreshold;
     const arr = [];
     for (let i = 0; i < count; i++) {
         let w = getPatternBoostedWeights(arr, patterns, avoidPatterns, weights);
@@ -2248,6 +2282,12 @@ function generateEnemyTurnHand(count) {
             w = Object.assign({}, w);
             for (const key in preset.firstMoveBias) {
                 w[key] = (w[key] || 0) + preset.firstMoveBias[key];
+            }
+        }
+        if (isSmallHand && preset.smallHandBias) {
+            w = Object.assign({}, w);
+            for (const key in preset.smallHandBias) {
+                w[key] = (w[key] || 0) + preset.smallHandBias[key];
             }
         }
         arr.push(weightedRandomMove(w));
@@ -3127,6 +3167,8 @@ async function resolveExchange(pAct, eAct, cursor) {
     // しびれ判定: 直前の攻防でガードに阻まれた側は、通常1/2の確率でこの攻防に無条件で敗北する(3すくみ判定は行わない)。
     // ガードでこのしびれを引き起こした側が敵(guardSide==='E')で、かつその敵がnumbFailMultを持っていれば、
     // 0.5に乗算してこの確率を調整する(例: Galdは1.25倍→0.625、ガードで転ばせる力が強い、という個性)。
+    // 逆に、しびれさせられた側が敵(numbedSide==='E')で、その敵がnumbVulnerableMultを持っていれば、そちらを優先する
+    // (1より大きければしびれに弱い=Jack、1より小さければしびれに強い=Alv、という個性を表現できる)。
     if (state.pNumbed || state.eNumbed) {
         const numbedSide = state.pNumbed ? 'P' : 'E';
         const guardSide = numbedSide === 'P' ? 'E' : 'P';
@@ -3134,7 +3176,9 @@ async function resolveExchange(pAct, eAct, cursor) {
         if (guardSide === 'P') state.pGuardHoldPose = false; else state.eGuardHoldPose = false; // 判定が出たので構え保持を解除
         stopPiyo(); // この攻防で結果が決まるので、ここまで継続していたピヨりを終了する
         let numbFailChance = 0.5;
-        if (guardSide === 'E' && currentEnemyPreset().numbFailMult) {
+        if (numbedSide === 'E' && currentEnemyPreset().numbVulnerableMult) {
+            numbFailChance = Math.min(1, 0.5 * currentEnemyPreset().numbVulnerableMult);
+        } else if (guardSide === 'E' && currentEnemyPreset().numbFailMult) {
             numbFailChance = Math.min(1, 0.5 * currentEnemyPreset().numbFailMult);
         }
         if (Math.random() < numbFailChance) {
