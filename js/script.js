@@ -197,7 +197,6 @@ const SOUND_TEST_TRACKS = [
     { name: 'bgm_battle_3', label: 'Gald' },
     { name: 'bgm_battle_4', label: 'Jack' },
     { name: 'bgm_battle_5', label: 'Alv' },
-    { name: 'bgm_victory', label: 'winner' },
     { name: 'bgm_ending', label: 'ending' },
     { name: 'se_select', label: 'SE: メニュー決定' },
     { name: 'se_deck_plus', label: 'SE: デッキ+ / カードを出す' },
@@ -214,10 +213,7 @@ const SOUND_TEST_TRACKS = [
     { name: 'se_meteor', label: 'SE: メテオ' },
     { name: 'se_finisher', label: 'SE: 必殺技' },
     { name: 'se_piyo', label: 'SE: ピヨり' },
-    { name: 'se_kabe', label: 'SE: 壁激突' },
-    { name: 'se_clash_punch', label: 'SE: あいこ(PUNCH)' },
-    { name: 'se_clash_upper', label: 'SE: あいこ(UPPER)' },
-    { name: 'se_clash_guard', label: 'SE: あいこ(GUARD)' },
+    { name: 'se_kabe', label: 'SE: down' },
     { name: 'se_ko', label: 'SE: K.O.' },
     { name: 'se_win', label: 'SE: YOU WIN' },
 ];
@@ -2730,6 +2726,7 @@ async function runFinishSequence(loserSide) {
     setX(loserSide, homeX);
     setY(loserSide, DB.POS.GROUND_Y);
     setAct(loserSide, 'down.PNG');
+    playSE('se_kabe'); // 最後に倒れ込む音(壁激突と同じ音を流用)
     await wait(1700); // 倒れてからYOU WIN/K.O.が出るまでの間をもう1秒長くする(700ms→1700ms)
 
     showResult(loserSide === 'P' ? 'KO' : 'WIN');
@@ -2827,6 +2824,7 @@ async function runMeteor(attacker, defender) {
         await wait(30);
     }
     setY(defender, DB.POS.GROUND_Y);
+    playSE('se_kabe'); // 地面に叩きつけられる音(壁激突と同じ音を流用)
     triggerShake(defender, 500);
     triggerBlink(defender, 900); // 振動＋点滅
 
@@ -2838,7 +2836,7 @@ async function runMeteor(attacker, defender) {
         await wait(35);
     }
     setY(attacker, DB.POS.GROUND_Y);
-    setAct(attacker, 'knock2.PNG');
+    setAct(attacker, 'knock2.PNG'); // 打つ方の着地には音を鳴らさない(叩きつけられるのは被弾側のみのイメージのため)
     triggerShake(attacker, 350);
     await wait(500);
     toIdle();
