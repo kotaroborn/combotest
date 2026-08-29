@@ -2812,6 +2812,7 @@ async function runNormalHit(winner, loser, move) {
         applyDamage(loser, secondDmg);
         triggerShake(loser, 250);
         playSE('se_punch');
+        hitComboSuccess(winner); // 実際に2発当たっているので、COMBOカウンターも2発分(1発目の分と合わせて)加算する
     }
 
     // 威力が増していく演出: 2発目は少し後退、3発目はホーム位置まで大きく後退する(1発目・4発目相当は後退なし)
