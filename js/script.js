@@ -97,6 +97,21 @@ let state = {
     resolving: false
 };
 let trails = []; // 第24条: dash.PNGの残像
+let hitEffects = []; // ヒットエフェクト(命中の瞬間に一瞬表示し、割れるように消える)。技種別ごとに拡張していく想定
+// 技種別ごとのヒットエフェクト画像・表示サイズ(ソースpx単位、実際の描画時にDB.SCALEを掛ける)。
+// 現時点ではPUNCHのみ(縦32×横5px、32×32pxのソース画像のうち左側5px幅だけを使う)。
+// 今後メテオ・アッパー・ガードにも同様の形式で追加していく想定。
+const HIT_EFFECT_DEFS = {
+    PUNCH: { img: 'hit_punch.PNG', srcW: 5, srcH: 32 },
+};
+const HIT_EFFECT_LIFE = 260; // 表示開始から消えるまでの時間(ms)。最初の25%は静止、残りでフェード+拡大+ブレながら消える
+// 攻撃側(side)が技(moveType)を命中させた瞬間に呼ぶ。攻撃側キャラの「相手に向いている側の端から3px(ソース基準)」を
+// 基準点として、そこにエフェクトの中心を置く(プレイヤーは右端から3px、敵は反転描画のため左端から3pxが同じ意味になる)。
+function spawnHitEffect(side, moveType) {
+    const def = HIT_EFFECT_DEFS[moveType];
+    if (!def) return;
+    hitEffects.push({ side, moveType, x: getX(side), y: getY(side), born: performance.now() });
+}
 let cardOutcomes = { P: new Array(5).fill(null), E: new Array(5).fill(null) }; // ターン中の各カードの勝敗表現(card-lose/card-shatter)。ターン終了(両者が定位置へ戻り、場のカードが消えた後)にリセットする
 let deckCounts = { PUNCH: 7, UPPER: 7, GUARD: 7 }; // デッキ編成(合計21枚、内訳は自由)
 let unlockedItems = []; // 隠しアイテム(今後実装予定)。取得済みアイテムIDを貯めていく想定
@@ -293,6 +308,13 @@ DB.ASSETS.forEach(n => {
     i.onerror = () => { loadFailed.push(n); checkAllSettled(); };
     i.src = 'assets/images/characters/' + n;
 });
+
+// ヒットエフェクト画像(パンチ命中時等)。任意アセットのため、未配置でもエラーにしない(その場合はエフェクトが出ないだけ)。
+// ソースは32×32pxで統一するが、実際に使うのは左側5px幅の部分のみ(縦32×横5pxの縦長エフェクト)。
+const hitEffectImg = new Image();
+hitEffectImg.onload = () => { imgs['hit_punch.PNG'] = hitEffectImg; };
+hitEffectImg.onerror = () => { /* 任意アセットのため、未配置でもエラーにしない */ };
+hitEffectImg.src = 'assets/images/effects/hit_punch.PNG';
 
 // バトルで使うキャラ画像・背景の読み込み完了を待たず、ここで即座に起動する(NOW LOADING表示もここで隠れる)。
 // オープニング(ロゴ/プロローグ)〜タイトルはこれらの画像を使わないため、最短で表示を始められる。
@@ -1925,6 +1947,9 @@ function draw(tRaw) {
         ctx.restore();
     });
 
+    // ヒットエフェクトは、プレイヤー・敵のスプライトより後(手前)に描画する必要があるため、この位置では描画しない
+    // (下の「プレイヤー(振動・点滅対応)」「敵(振動・点滅・反転対応)」両方の描画が終わった後にまとめて描画する)。
+
     // プレイヤー(振動・点滅対応)
     const pJit = t < state.pShakeUntil ? (Math.random() * 6 - 3) : 0;
     const pBlinkA = t < state.pBlinkUntil ? ((Math.floor((state.pBlinkUntil - t) / 80) % 2 === 0) ? 1 : 0.25) : 1;
@@ -1993,6 +2018,44 @@ function draw(tRaw) {
         ctx.restore();
     } else { ctx.fillStyle = '#f00'; ctx.fillRect(state.eX, state.eY, DB.IMG_SIZE, DB.IMG_SIZE); }
     ctx.restore();
+
+    // ヒットエフェクト(命中の瞬間に一瞬表示し、割れるように消える)。
+    // プレイヤー・敵両方のスプライトを描き終えた後に描画することで、キャラに隠れず手前に表示されるようにする。
+    // 最初のHIT_EFFECT_LIFE×25%は静止した全表示、残りの75%でフェードアウトしながら少し拡大し、
+    // 終盤にかけて小さくブレることで「割れて散る」ような質感を出す。
+    hitEffects = hitEffects.filter(fx => (t - fx.born) < HIT_EFFECT_LIFE);
+    hitEffects.forEach(fx => {
+        const def = HIT_EFFECT_DEFS[fx.moveType];
+        const img = def && imgs[def.img];
+        if (!img) return;
+        const age = t - fx.born;
+        const holdTime = HIT_EFFECT_LIFE * 0.25;
+        let alpha, scale, jitter;
+        if (age < holdTime) {
+            alpha = 1; scale = 1; jitter = 0;
+        } else {
+            const p = (age - holdTime) / (HIT_EFFECT_LIFE - holdTime); // 0〜1
+            alpha = 1 - p;
+            scale = 1 + p * 0.5; // 割れて広がるように少し拡大する
+            jitter = p * 4; // 終盤にかけて小さくブレる(割れる質感)
+        }
+        if (alpha <= 0) return;
+        const dispW = def.srcW * DB.SCALE * scale;
+        const dispH = def.srcH * DB.SCALE * scale;
+        // 基準点: キャラの相手側の端から3px(ソース基準)。プレイヤーは右端、敵は反転描画のため左端が同じ意味になる。
+        const anchorX = fx.side === 'P' ? fx.x + DB.IMG_SIZE - 3 * DB.SCALE : fx.x + 3 * DB.SCALE;
+        const anchorY = fx.y + DB.IMG_SIZE / 2; // キャラの縦方向中央を基準にする
+        const jitterOffset = (Math.random() - 0.5) * jitter;
+        ctx.save();
+        ctx.globalAlpha = Math.max(0, alpha);
+        if (fx.side === 'E') {
+            ctx.scale(-1, 1);
+            ctx.drawImage(img, 0, 0, def.srcW, def.srcH, -anchorX - dispW / 2 + jitterOffset, anchorY - dispH / 2, dispW, dispH);
+        } else {
+            ctx.drawImage(img, 0, 0, def.srcW, def.srcH, anchorX - dispW / 2 + jitterOffset, anchorY - dispH / 2, dispW, dispH);
+        }
+        ctx.restore();
+    });
 
     // ピヨり演出: しびれている側の頭上にpiyo.PNGを表示(反転を交互に切り替える)。
     // state.piyoSideがtruthyな間はずっと表示し続ける(開始/終了は startPiyo/stopPiyo が担う)。反転は経過時間から計算する。
@@ -2802,7 +2865,7 @@ async function runNormalHit(winner, loser, move) {
     state.pLastWinWasUpper = false; state.eLastWinWasUpper = false; // このPUNCH勝利はUPPER勝利ではないため、連続検知用フラグをリセットする
     applyDamage(loser, dmg);
     triggerShake(loser, 350); // 第8条: 負けた側のみ振動
-    if (move === 'PUNCH') playSE('se_punch');
+    if (move === 'PUNCH') { playSE('se_punch'); spawnHitEffect(winner, 'PUNCH'); }
 
     // Jackの特性: パンチが命中すると、控えめな威力の2発目が追加でヒットする(トリッキーな二段攻撃)
     if (winner === 'E' && move === 'PUNCH' && currentEnemyPreset().doubleHitMult) {
@@ -2812,6 +2875,7 @@ async function runNormalHit(winner, loser, move) {
         applyDamage(loser, secondDmg);
         triggerShake(loser, 250);
         playSE('se_punch');
+        spawnHitEffect(winner, 'PUNCH');
         hitComboSuccess(winner); // 実際に2発当たっているので、COMBOカウンターも2発分(1発目の分と合わせて)加算する
     }
 
