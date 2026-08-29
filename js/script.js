@@ -63,7 +63,8 @@ let state = {
     piyoSide: null, // ピヨり演出: どちら側の頭上に出すか(truthyな間、継続して表示される)
     pPunchStreak: 0, ePunchStreak: 0, // 地上パンチの連続ヒット数(コンボではなく、単発同士の連続成功を記録)
     pGuardStreak: 0, eGuardStreak: 0, // ガード成功の連続回数(同一ターン内のみ。2回で2倍・3回以降は4倍が上限。ターン終了時にリセット)
-    pChargeValue: 0, eChargeValue: 0, // チャージの倍率(0=無し、2、4)。ガード成功以外の次のカードで勝敗に関わらず消費される。ターンをまたいで持ち越す
+    pChargeValue: 0, eChargeValue: 0, // チャージの倍率(0=無し、2以上の数値)。ガード成功以外の次のカードで勝敗に関わらず消費される。ターンをまたいで持ち越す
+    pChargeIsMax: false, eChargeIsMax: false, // 3連続以降(上位段階)かどうかを表すフラグ。演出の二重オーラ判定に使う(敵ごとにchargeValueの実数値が異なりうるため、実数値ではなくこのフラグで判定する)
     pUpperChargeReady: false, eUpperChargeReady: false, // UPPER→GUARDの連続成功で発動するチャージ(次に出すカードがUPPERの時だけ2倍高く速く強いアッパーになる)。水色の発光で示す。ターンをまたいで持ち越す
     pLastWinWasUpper: false, eLastWinWasUpper: false, // 直前の攻防でこの側がUPPERで勝ったか(UPPER→GUARDの連続検知に使う、毎攻防resolveExchangeの冒頭でリセットする一時フラグ)
     skipNextReposition: false, // UPPER→GUARDの専用着地演出の直後にtrueになり、次の攻防の後退→接近ダッシュ往復を1回だけスキップする
@@ -549,6 +550,8 @@ const ENEMY_PRESETS = {
         defMult: 0.8, // 防御力は全体的に高め(被弾ダメージ20%減、鎧で弾く)
         defMultByMove: { UPPER: 1.15 }, // ただしUPPER(すくい上げ系)には弱い(鎧の隙間を突かれ、通常より多く受ける。以前は1.3で振れ幅が大きすぎたため緩和)
         numbFailMult: 1.25, // 自分のガードで相手をしびれさせた時、無条件敗北の確率が通常の1.25倍(50%→62.5%)
+        chargeValueTwo: 4, // 通常なら2倍のところ、Galdは4倍になる(演出上の「2連続時」の閾値は変えず、実際の倍率だけ引き上げる)
+        chargeValueFour: 5, // 通常なら4倍のところ、Galdは5倍になる
     },
     ENEMY_04: {
         name: 'Jack', deck: { PUNCH: 7, UPPER: 7, GUARD: 7 }, // トリッキーな道化師: 特定の技への偏りは持たせず、バランス配分のまま
@@ -565,6 +568,7 @@ const ENEMY_PRESETS = {
         atkMult: 1.2, // 攻撃力は高め
         defMult: 1.05, // 防御力は少し低め(被弾ダメージが通常より5%増える。以前は1.2で、手数を絞る戦法との組み合わせが強すぎたため緩和)
         numbVulnerableMult: 1.25, // ガード成功後のしびりで無条件敗北しやすい(トリッキーだが打たれ弱い)
+        doubleHitMult: 0.5, // パンチが命中すると、1発目の半分の威力で2発目が追加でヒットする(合計で通常の1.5倍相当)
     },
     ENEMY_05: {
         name: 'Alv', deck: { PUNCH: 7, UPPER: 7, GUARD: 7 }, // ラスボス、ヴァルの裏のような存在: 特定の技に絞らず全ワザを網羅する
@@ -1937,8 +1941,8 @@ function draw(tRaw) {
         ctx.restore();
     }
     if (state.pChargeValue > 0) { // ガード2連続成功以降のチャージ中は金色に発光する(次のコマンドまで持続)
-        if (state.pChargeValue >= 4 && pImg) {
-            // 3連続以降(4倍)は、外側に白いオーラをもう一段重ねて2倍と明確に区別する
+        if (state.pChargeIsMax && pImg) {
+            // 3連続以降(上位段階)は、外側に白いオーラをもう一段重ねて2倍と明確に区別する(実数値ではなくpChargeIsMaxフラグで判定する)
             ctx.save();
             ctx.shadowColor = 'rgba(255, 255, 255, 0.95)';
             ctx.shadowBlur = 36 + pGlowPulse * 20;
@@ -1970,8 +1974,8 @@ function draw(tRaw) {
         ctx.restore();
     }
     if (state.eChargeValue > 0) { // ガード2連続成功以降のチャージ中は金色に発光する(次のコマンドまで持続)
-        if (state.eChargeValue >= 4 && eImg) {
-            // 3連続以降(4倍)は、外側に白いオーラをもう一段重ねて2倍と明確に区別する
+        if (state.eChargeIsMax && eImg) {
+            // 3連続以降(上位段階)は、外側に白いオーラをもう一段重ねて2倍と明確に区別する(実数値ではなくeChargeIsMaxフラグで判定する)
             ctx.save();
             ctx.scale(-1, 1);
             ctx.shadowColor = 'rgba(255, 255, 255, 0.95)';
@@ -2346,6 +2350,8 @@ function resetBattleState() {
     state.eGuardStreak = 0;
     state.pChargeValue = 0;
     state.eChargeValue = 0;
+    state.pChargeIsMax = false;
+    state.eChargeIsMax = false;
     state.pUpperChargeReady = false;
     state.eUpperChargeReady = false;
     state.pLastWinWasUpper = false;
@@ -2607,7 +2613,8 @@ function defMultOf(side, move) {
 
 // チャージを消費する(ガード成功以外の攻防終了時に呼ぶ)。勝敗に関わらず、次に出したカードで必ず消費される。
 function consumeCharge(side) {
-    if (side === 'P') state.pChargeValue = 0; else state.eChargeValue = 0;
+    if (side === 'P') { state.pChargeValue = 0; state.pChargeIsMax = false; }
+    else { state.eChargeValue = 0; state.eChargeIsMax = false; }
 }
 
 // UPPER→GUARDの連続で発動するチャージ(次に出すカードがUPPERの時だけ有効)を消費する。
@@ -2795,6 +2802,16 @@ async function runNormalHit(winner, loser, move) {
     applyDamage(loser, dmg);
     triggerShake(loser, 350); // 第8条: 負けた側のみ振動
     if (move === 'PUNCH') playSE('se_punch');
+
+    // Jackの特性: パンチが命中すると、控えめな威力の2発目が追加でヒットする(トリッキーな二段攻撃)
+    if (winner === 'E' && move === 'PUNCH' && currentEnemyPreset().doubleHitMult) {
+        await wait(150);
+        const secondDmg = dmg * currentEnemyPreset().doubleHitMult;
+        setAct(winner, nextPunchSprite(winner)); // 2発目のスプライトに切り替える
+        applyDamage(loser, secondDmg);
+        triggerShake(loser, 250);
+        playSE('se_punch');
+    }
 
     // 威力が増していく演出: 2発目は少し後退、3発目はホーム位置まで大きく後退する(1発目・4発目相当は後退なし)
     if (cyclePos === 1) {
@@ -3011,10 +3028,16 @@ async function runGuardSuccess(winner, loser, loserPoseOverride) {
         playSE('se_guard');
     }
     if (state[winnerGuardStreakKey] >= 3) {
-        if (winner === 'P') state.pChargeValue = 4; else state.eChargeValue = 4; // 3連続以降は4倍が上限
+        // 3連続以降のチャージ倍率(既定4)。敵側は ENEMY_PRESETS の chargeValueFour があればそちらを優先する
+        const chargeVal4 = (winner === 'E' && currentEnemyPreset().chargeValueFour) ? currentEnemyPreset().chargeValueFour : 4;
+        if (winner === 'P') { state.pChargeValue = 4; state.pChargeIsMax = true; }
+        else { state.eChargeValue = chargeVal4; state.eChargeIsMax = true; }
         markSpecialUsed('charge'); // 実績: ガード+ガードの使用を記録
     } else if (state[winnerGuardStreakKey] >= 2) {
-        if (winner === 'P') state.pChargeValue = 2; else state.eChargeValue = 2; // 2連続で2倍発動
+        // 2連続のチャージ倍率(既定2)。敵側は ENEMY_PRESETS の chargeValueTwo があればそちらを優先する
+        const chargeVal2 = (winner === 'E' && currentEnemyPreset().chargeValueTwo) ? currentEnemyPreset().chargeValueTwo : 2;
+        if (winner === 'P') { state.pChargeValue = 2; state.pChargeIsMax = false; }
+        else { state.eChargeValue = chargeVal2; state.eChargeIsMax = false; }
         markSpecialUsed('charge'); // 実績: ガード+ガードの使用を記録
     }
 
