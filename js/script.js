@@ -102,15 +102,18 @@ let hitEffects = []; // ヒットエフェクト(命中の瞬間に一瞬表示�
 // 現時点ではPUNCHのみ(縦32×横5px、32×32pxのソース画像のうち左側5px幅だけを使う)。
 // 今後メテオ・アッパー・ガードにも同様の形式で追加していく想定。
 const HIT_EFFECT_DEFS = {
-    PUNCH: { img: 'hit_punch.PNG', srcW: 5, srcH: 32 },
+    // imgs: コンボ段階(1発目/2発目/3発目)ごとの画像。段階に対応する画像が無ければ1番目(imgs[0])にフォールバックする
+    PUNCH: { imgs: ['hit_punch.PNG', 'hit_punch_2.PNG', 'hit_punch_3.PNG'], srcW: 5, srcH: 32 },
 };
 const HIT_EFFECT_LIFE = 260; // 表示開始から消えるまでの時間(ms)。最初の25%は静止、残りでフェード+拡大+ブレながら消える
 // 攻撃側(side)が技(moveType)を命中させた瞬間に呼ぶ。攻撃側キャラの「相手に向いている側の端から3px(ソース基準)」を
 // 基準点として、そこにエフェクトの中心を置く(プレイヤーは右端から3px、敵は反転描画のため左端から3pxが同じ意味になる)。
-function spawnHitEffect(side, moveType) {
+// tier(1〜3、省略時1)は、そのパンチが連続何発目に相当するかを表し、対応する段階の画像を選ぶために使う
+// (地上PUNCHの3発周期、空中コンボの1・2発目、追撃・必殺技の各撃、いずれもこのtierで指定する)。
+function spawnHitEffect(side, moveType, tier) {
     const def = HIT_EFFECT_DEFS[moveType];
     if (!def) return;
-    hitEffects.push({ side, moveType, x: getX(side), y: getY(side), born: performance.now() });
+    hitEffects.push({ side, moveType, tier: tier || 1, x: getX(side), y: getY(side), born: performance.now() });
 }
 let cardOutcomes = { P: new Array(5).fill(null), E: new Array(5).fill(null) }; // ターン中の各カードの勝敗表現(card-lose/card-shatter)。ターン終了(両者が定位置へ戻り、場のカードが消えた後)にリセットする
 let deckCounts = { PUNCH: 7, UPPER: 7, GUARD: 7 }; // デッキ編成(合計21枚、内訳は自由)
@@ -311,10 +314,12 @@ DB.ASSETS.forEach(n => {
 
 // ヒットエフェクト画像(パンチ命中時等)。任意アセットのため、未配置でもエラーにしない(その場合はエフェクトが出ないだけ)。
 // ソースは32×32pxで統一するが、実際に使うのは左側5px幅の部分のみ(縦32×横5pxの縦長エフェクト)。
-const hitEffectImg = new Image();
-hitEffectImg.onload = () => { imgs['hit_punch.PNG'] = hitEffectImg; };
-hitEffectImg.onerror = () => { /* 任意アセットのため、未配置でもエラーにしない */ };
-hitEffectImg.src = 'assets/images/effects/hit_punch.PNG';
+['hit_punch.PNG', 'hit_punch_2.PNG', 'hit_punch_3.PNG'].forEach(name => {
+    const i = new Image();
+    i.onload = () => { imgs[name] = i; };
+    i.onerror = () => { /* 任意アセットのため、未配置でもエラーにしない(描画時にimgs[0]へフォールバックする) */ };
+    i.src = 'assets/images/effects/' + name;
+});
 
 // バトルで使うキャラ画像・背景の読み込み完了を待たず、ここで即座に起動する(NOW LOADING表示もここで隠れる)。
 // オープニング(ロゴ/プロローグ)〜タイトルはこれらの画像を使わないため、最短で表示を始められる。
@@ -2026,7 +2031,9 @@ function draw(tRaw) {
     hitEffects = hitEffects.filter(fx => (t - fx.born) < HIT_EFFECT_LIFE);
     hitEffects.forEach(fx => {
         const def = HIT_EFFECT_DEFS[fx.moveType];
-        const img = def && imgs[def.img];
+        if (!def) return;
+        const tierIdx = Math.min(Math.max(fx.tier || 1, 1), def.imgs.length) - 1;
+        const img = imgs[def.imgs[tierIdx]] || imgs[def.imgs[0]]; // 該当段階の画像が無ければ1番目にフォールバック
         if (!img) return;
         const age = t - fx.born;
         const holdTime = HIT_EFFECT_LIFE * 0.25;
@@ -2865,7 +2872,7 @@ async function runNormalHit(winner, loser, move) {
     state.pLastWinWasUpper = false; state.eLastWinWasUpper = false; // このPUNCH勝利はUPPER勝利ではないため、連続検知用フラグをリセットする
     applyDamage(loser, dmg);
     triggerShake(loser, 350); // 第8条: 負けた側のみ振動
-    if (move === 'PUNCH') { playSE('se_punch'); spawnHitEffect(winner, 'PUNCH'); }
+    if (move === 'PUNCH') { playSE('se_punch'); spawnHitEffect(winner, 'PUNCH', cyclePos + 1); }
 
     // Jackの特性: パンチが命中すると、控えめな威力の2発目が追加でヒットする(トリッキーな二段攻撃)
     if (winner === 'E' && move === 'PUNCH' && currentEnemyPreset().doubleHitMult) {
@@ -2875,7 +2882,7 @@ async function runNormalHit(winner, loser, move) {
         applyDamage(loser, secondDmg);
         triggerShake(loser, 250);
         playSE('se_punch');
-        spawnHitEffect(winner, 'PUNCH');
+        spawnHitEffect(winner, 'PUNCH', cyclePos + 1); // 1発目と同じ段階の見た目を使う(3発周期そのものはこの2発目では進めていないため)
         hitComboSuccess(winner); // 実際に2発当たっているので、COMBOカウンターも2発分(1発目の分と合わせて)加算する
     }
 
@@ -3011,6 +3018,7 @@ async function runUpperCombo(attacker, defender, cursor) {
             const comboDmg = (DB.DMG.P + (airPunches - 1) * DB.DMG.P_COMBO_STEP) * chargeMultOf(attacker) * atkMultOf(attacker) * defMultOf(defender); // 1発目=P, 2発目=P+STEP...
             applyDamage(defender, comboDmg);
             playSE('se_punch');
+            spawnHitEffect(attacker, 'PUNCH', airPunches); // 空中コンボの1・2発目に対応する段階の見た目を使う
             triggerShake(defender, 200);
             await wait(500);
         } else {
@@ -3175,6 +3183,7 @@ async function runFollowUpFlurry(attacker, defender) {
         setAct(defender, 'damage.PNG');
         applyDamage(defender, DB.DMG.P * atkMultOf(attacker) * defMultOf(defender));
         playSE('se_punch');
+        spawnHitEffect(attacker, 'PUNCH', i + 1); // 追撃3連打それぞれに対応する段階の見た目を使う
         triggerShake(defender, 150);
         await wait(120); // 素早い連打
     }
@@ -3194,6 +3203,7 @@ async function runFinisher(attacker, defender, cursor) {
     markCardOutcome(defender, cursor.i, 'card-shatter'); // 3すくみ無視のヒットなのでヒビ割れ表現にする
     applyDamage(defender, DB.DMG.FINISHER * atkMultOf(attacker) * defMultOf(defender));
     playSE('se_finisher'); // 未配置ならse_punchで代用される
+    spawnHitEffect(attacker, 'PUNCH', 3); // 必殺技の一撃として、最も迫力のある段階(3)の見た目を使う
     triggerShake(defender, 300);
     await wait(150);
 
