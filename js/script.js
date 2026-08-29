@@ -530,6 +530,7 @@ const ENEMY_PRESETS = {
         firstMoveBias: { UPPER: 8 }, // 一手目はUPPERが出やすい
         atkMult: 0.85, // 攻撃力は全体的に少し低め(防御力=被弾時のダメージ量は変えないため、ここでは触れない)
         atkMultByMove: { UPPER: 1.1 }, // ただし得意技のUPPERだけは、通常より少し高い(atkMultより優先される)
+        alwaysSuperUpperVisual: true, // 通常のUPPERでも、U+P+P/U+G+Uと同じ高さ・速度・残像で放つ(ダメージは変えず見た目の迫力だけ常時アップ。UPPERが得意という個性を演出面でも表現する)
     },
     ENEMY_03: {
         name: 'Gald', deck: { PUNCH: 6, UPPER: 3, GUARD: 12 },
@@ -2869,7 +2870,10 @@ async function runUpperCombo(attacker, defender, cursor) {
     const upperChargeKey = attacker === 'P' ? 'pUpperChargeReady' : 'eUpperChargeReady';
     const viaPunchPunch = state[winnerStreakKey] >= 2;
     const viaUpperGuard = state[upperChargeKey];
-    const isSuperUpper = viaPunchPunch || viaUpperGuard;
+    const isSuperUpper = viaPunchPunch || viaUpperGuard; // ダメージ2倍の判定(コンボ成立時のみ)
+    // 演出(高さ・速度・残像)は、ダメージ2倍の条件に加えて、敵ごとのalwaysSuperUpperVisual(ENEMY_PRESETS)でも有効にできる。
+    // ダメージは変えず見た目の迫力だけを常時アップさせたい場合に使う(例: Ritaは通常のUPPERでもこの高さ・速度で放つ)。
+    const isSuperUpperVisual = isSuperUpper || (attacker === 'E' && currentEnemyPreset().alwaysSuperUpperVisual);
     if (viaPunchPunch) markSpecialUsed('superUpper'); // 実績: PUNCH+PUNCH+UPPERの使用を記録
 
     // このUPPERの勝敗が決まったので、UPPER→GUARDの連続検知用フラグを更新する(次のGUARDが直前の勝敗を正しく参照できるように)
@@ -2895,15 +2899,15 @@ async function runUpperCombo(attacker, defender, cursor) {
     // 上昇アニメーション: 地面(または現在の高さ)から浮遊高さまで、固定ステップ数・固定所要時間で上昇させる。
     // PUNCH+PUNCH+UPPERの場合は目標の高さが2倍になるため、同じ時間でより長い距離を移動する=体感速度も2倍になる。
     // PUNCH+PUNCH+UPPERの上昇中は、通常のアッパーより強く見えるよう残像を残す(第24条の残像表現を流用)。
-    const floatTargetY = isSuperUpper ? DB.POS.SUPER_FLOAT_Y : DB.POS.FLOAT_Y;
-    const hopTargetY = isSuperUpper ? DB.POS.SUPER_HOP_Y : DB.POS.HOP_Y;
+    const floatTargetY = isSuperUpperVisual ? DB.POS.SUPER_FLOAT_Y : DB.POS.FLOAT_Y;
+    const hopTargetY = isSuperUpperVisual ? DB.POS.SUPER_HOP_Y : DB.POS.HOP_Y;
     const riseSteps = 6, riseStepMs = 45;
     const defenderFromY = getY(defender), attackerFromY = getY(attacker);
     for (let s = 1; s <= riseSteps; s++) {
         const t = s / riseSteps;
         setY(defender, defenderFromY + (floatTargetY - defenderFromY) * t);
         setY(attacker, attackerFromY + (hopTargetY - attackerFromY) * t);
-        if (isSuperUpper) {
+        if (isSuperUpperVisual) {
             trails.push({ side: attacker, x: getX(attacker), y: getY(attacker), born: performance.now(), sprite: 'upper.PNG', life: 260, maxAlpha: 0.5 });
             trails.push({ side: defender, x: getX(defender), y: getY(defender), born: performance.now(), sprite: 'damage.PNG', life: 260, maxAlpha: 0.5 });
         }
