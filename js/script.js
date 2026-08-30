@@ -103,7 +103,7 @@ let hitEffects = []; // ヒットエフェクト(命中の瞬間に一瞬表示�
 // 今後メテオ・アッパー・ガードにも同様の形式で追加していく想定。
 const HIT_EFFECT_DEFS = {
     // imgs: コンボ段階(1発目/2発目/3発目)ごとの画像。段階に対応する画像が無ければ1番目(imgs[0])にフォールバックする
-    PUNCH: { imgs: ['hit_punch.PNG', 'hit_punch_2.PNG', 'hit_punch_3.PNG'], srcW: 5, srcH: 32 },
+    PUNCH: { imgs: ['hit_punch.PNG', 'hit_punch_2.PNG', 'hit_punch_3.PNG'], srcW: 10, srcH: 32 },
 };
 const HIT_EFFECT_LIFE = 260; // 表示開始から消えるまでの時間(ms)。最初の25%は静止、残りでフェード+拡大+ブレながら消える
 // 攻撃側(side)が技(moveType)を命中させた瞬間に呼ぶ。攻撃側キャラの「相手に向いている側の端から3px(ソース基準)」を
