@@ -81,7 +81,7 @@
                 <div class="title-logo-fallback-sub">CROSS DIMENSION</div>
             </div>
         </div>
-        <div class="title-version">ver. 0.9.029</div>
+        <div class="title-version">ver. 0.9.052</div>
     </div>
     <button id="titleContinueBtn" class="text-btn" onclick="tapFlickerThen(this, () => goContinueGame())" style="display:none;">CONTINUE</button>
     <button id="startBtn" class="text-btn" onclick="tapFlickerThen(this, () => goNewGame())" disabled>NEW GAME</button>
@@ -412,6 +412,7 @@
     var SCRIPT_URL = 'js/script.js';
     var bar = document.getElementById('nowLoadingBar');
     var percentEl = document.getElementById('nowLoadingPercent');
+    var settled = false; // フォールバック(タイムアウト)と正常読み込みの、どちらか一方だけが実行されるようにするためのフラグ
 
     function loadViaPlainTag() {
         var s = document.createElement('script');
@@ -431,7 +432,18 @@
 
     var indeterminateTimer = null;
 
-    fetch(SCRIPT_URL).then(function(response) {
+    // fetch+ReadableStreamによる読み込みが何らかの理由で完了しない(ハングする)場合の安全策。
+    // 15秒経っても決着(成功/失敗いずれも)しなければ、確実に動作する通常のscriptタグ読み込みへ切り替える。
+    // これにより、NOW LOADINGが永久に進まなくなる事態を避ける。
+    var fallbackTimer = setTimeout(function() {
+        if (settled) return;
+        settled = true;
+        if (indeterminateTimer) clearInterval(indeterminateTimer);
+        loadViaPlainTag();
+    }, 15000);
+
+    // cache: 'no-store' で、ブラウザ/中間キャッシュに残った古いバージョンのscript.jsを誤って使ってしまわないようにする
+    fetch(SCRIPT_URL, { cache: 'no-store' }).then(function(response) {
         if (!response.ok || !response.body) throw new Error('fetch failed: ' + response.status);
         var totalStr = response.headers.get('Content-Length');
         var total = totalStr ? parseInt(totalStr, 10) : 0;
@@ -465,10 +477,16 @@
         }
         return pump();
     }).then(function(code) {
+        if (settled) return; // タイムアウトで既にフォールバック済みなら、二重に実行しない
+        settled = true;
+        clearTimeout(fallbackTimer);
         var s = document.createElement('script');
         s.text = code; // 取得済みのコードをそのまま実行する(通常のscriptタグ読み込みと等価)
         document.body.appendChild(s);
     }).catch(function() {
+        if (settled) return; // タイムアウトで既にフォールバック済みなら、二重に実行しない
+        settled = true;
+        clearTimeout(fallbackTimer);
         if (indeterminateTimer) clearInterval(indeterminateTimer);
         loadViaPlainTag();
     });
