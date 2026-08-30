@@ -102,10 +102,13 @@ let hitEffects = []; // ヒットエフェクト(命中の瞬間に一瞬表示�
 // 現時点ではPUNCHのみ(縦32×横5px、32×32pxのソース画像のうち左側5px幅だけを使う)。
 // 今後メテオ・アッパー・ガードにも同様の形式で追加していく想定。
 const HIT_EFFECT_DEFS = {
-    // imgs: コンボ段階(1発目/2発目/3発目)ごとの画像。段階に対応する画像が無ければ1番目(imgs[0])にフォールバックする
-    PUNCH: { imgs: ['hit_punch.PNG', 'hit_punch_2.PNG', 'hit_punch_3.PNG'], srcW: 10, srcH: 32 },
+    // imgs: コンボ段階/チャージ段階ごとの画像。段階に対応する画像が無ければ1番目(imgs[0])にフォールバックする
+    // anim: 消え方の演出タイプ('retreat'=放った側へ少し戻りながら消える, 'rise'=上へ残像しながら消える, 'wobble'=その場で揺れながら消える)
+    PUNCH: { imgs: ['hit_punch.PNG', 'hit_punch_2.PNG', 'hit_punch_3.PNG'], srcW: 10, srcH: 32, anim: 'retreat' },
+    UPPER: { imgs: ['hit_upper.PNG', 'hit_upper_2.PNG'], srcW: 10, srcH: 32, anim: 'rise' }, // 1=通常, 2=2倍(コンボ成立時)
+    GUARD: { imgs: ['hit_guard.PNG', 'hit_guard_2.PNG', 'hit_guard_3.PNG'], srcW: 10, srcH: 32, anim: 'wobble' }, // 1=通常, 2=2倍, 3=4倍
 };
-const HIT_EFFECT_LIFE = 260; // 表示開始から消えるまでの時間(ms)。最初の25%は静止、残りでフェード+拡大+ブレながら消える
+const HIT_EFFECT_LIFE = 260; // 表示開始から消えるまでの時間(ms)。最初の25%は静止、残りでanimに応じたフェードをしながら消える
 // 攻撃側(side)が技(moveType)を命中させた瞬間に呼ぶ。攻撃側キャラの「相手に向いている側の端から3px(ソース基準)」を
 // 基準点として、そこにエフェクトの中心を置く(プレイヤーは右端から3px、敵は反転描画のため左端から3pxが同じ意味になる)。
 // tier(1〜3、省略時1)は、そのパンチが連続何発目に相当するかを表し、対応する段階の画像を選ぶために使う
@@ -314,7 +317,11 @@ DB.ASSETS.forEach(n => {
 
 // ヒットエフェクト画像(パンチ命中時等)。任意アセットのため、未配置でもエラーにしない(その場合はエフェクトが出ないだけ)。
 // ソースは32×32pxで統一するが、実際に使うのは左側5px幅の部分のみ(縦32×横5pxの縦長エフェクト)。
-['hit_punch.PNG', 'hit_punch_2.PNG', 'hit_punch_3.PNG'].forEach(name => {
+[
+    'hit_punch.PNG', 'hit_punch_2.PNG', 'hit_punch_3.PNG',
+    'hit_upper.PNG', 'hit_upper_2.PNG',
+    'hit_guard.PNG', 'hit_guard_2.PNG', 'hit_guard_3.PNG',
+].forEach(name => {
     const i = new Image();
     i.onload = () => { imgs[name] = i; };
     i.onerror = () => { /* 任意アセットのため、未配置でもエラーにしない(描画時にimgs[0]へフォールバックする) */ };
@@ -2024,10 +2031,9 @@ function draw(tRaw) {
     } else { ctx.fillStyle = '#f00'; ctx.fillRect(state.eX, state.eY, DB.IMG_SIZE, DB.IMG_SIZE); }
     ctx.restore();
 
-    // ヒットエフェクト(命中の瞬間に一瞬表示し、割れるように消える)。
+    // ヒットエフェクト(命中の瞬間に一瞬表示し、技種別ごとの演出で消えていく)。
     // プレイヤー・敵両方のスプライトを描き終えた後に描画することで、キャラに隠れず手前に表示されるようにする。
-    // 最初のHIT_EFFECT_LIFE×25%は静止した全表示、残りの75%でフェードアウトしながら少し拡大し、
-    // 終盤にかけて小さくブレることで「割れて散る」ような質感を出す。
+    // 最初のHIT_EFFECT_LIFE×25%は静止した全表示、残りの75%でアニメーション(anim)に応じてフェードアウトしながら消える。
     hitEffects = hitEffects.filter(fx => (t - fx.born) < HIT_EFFECT_LIFE);
     hitEffects.forEach(fx => {
         const def = HIT_EFFECT_DEFS[fx.moveType];
@@ -2037,31 +2043,54 @@ function draw(tRaw) {
         if (!img) return;
         const age = t - fx.born;
         const holdTime = HIT_EFFECT_LIFE * 0.25;
-        let alpha, scale, jitter;
+        let alpha, p;
         if (age < holdTime) {
-            alpha = 1; scale = 1; jitter = 0;
+            alpha = 1; p = 0;
         } else {
-            const p = (age - holdTime) / (HIT_EFFECT_LIFE - holdTime); // 0〜1
+            p = (age - holdTime) / (HIT_EFFECT_LIFE - holdTime); // 0〜1
             alpha = 1 - p;
-            scale = 1 + p * 0.5; // 割れて広がるように少し拡大する
-            jitter = p * 4; // 終盤にかけて小さくブレる(割れる質感)
         }
         if (alpha <= 0) return;
-        const dispW = def.srcW * DB.SCALE * scale;
-        const dispH = def.srcH * DB.SCALE * scale;
-        // 基準点: キャラの相手側の端から3px(ソース基準)。プレイヤーは右端、敵は反転描画のため左端が同じ意味になる。
-        const anchorX = fx.side === 'P' ? fx.x + DB.IMG_SIZE - 3 * DB.SCALE : fx.x + 3 * DB.SCALE;
-        const anchorY = fx.y + DB.IMG_SIZE / 2; // キャラの縦方向中央を基準にする
-        const jitterOffset = (Math.random() - 0.5) * jitter;
-        ctx.save();
-        ctx.globalAlpha = Math.max(0, alpha);
-        if (fx.side === 'E') {
-            ctx.scale(-1, 1);
-            ctx.drawImage(img, 0, 0, def.srcW, def.srcH, -anchorX - dispW / 2 + jitterOffset, anchorY - dispH / 2, dispW, dispH);
-        } else {
-            ctx.drawImage(img, 0, 0, def.srcW, def.srcH, anchorX - dispW / 2 + jitterOffset, anchorY - dispH / 2, dispW, dispH);
+
+        const dispW = def.srcW * DB.SCALE;
+        const dispH = def.srcH * DB.SCALE;
+        // X基準点: キャラの相手側の端から3px(ソース基準)。プレイヤーは右端、敵は反転描画のため左端が同じ意味になる。
+        const baseAnchorX = fx.side === 'P' ? fx.x + DB.IMG_SIZE - 3 * DB.SCALE : fx.x + 3 * DB.SCALE;
+        // Y基準点: PUNCHはキャラ縦中央、UPPER/GUARDはキャラ上端(「右上から」の基準)を、それぞれエフェクト自体の描画開始Y座標に変換する
+        const baseAnchorY = fx.moveType === 'PUNCH' ? fx.y + DB.IMG_SIZE / 2 - dispH / 2 : fx.y;
+
+        let offsetX = 0, offsetY = 0;
+        if (def.anim === 'retreat') {
+            // 放った側(自分自身)へ少しずつ戻りながら消える。プレイヤーは左へ、敵は右へ(画面座標基準、反転描画を踏まえた向き)。
+            const retreat = p * 3 * DB.SCALE;
+            offsetX = fx.side === 'P' ? -retreat : retreat;
+        } else if (def.anim === 'rise') {
+            // 上へ残像しながら消えていく
+            offsetY = -p * 20 * DB.SCALE;
+        } else if (def.anim === 'wobble') {
+            // その場で細かく左右に揺れながら消える
+            offsetX = Math.sin(age / 30) * p * 3 * DB.SCALE;
         }
-        ctx.restore();
+
+        const drawOne = (a, extraOffsetY) => {
+            ctx.save();
+            ctx.globalAlpha = Math.max(0, a);
+            const destY = baseAnchorY + offsetY + (extraOffsetY || 0);
+            if (fx.side === 'E') {
+                ctx.scale(-1, 1);
+                ctx.drawImage(img, 0, 0, def.srcW, def.srcH, -(baseAnchorX + offsetX) - dispW / 2, destY, dispW, dispH);
+            } else {
+                ctx.drawImage(img, 0, 0, def.srcW, def.srcH, (baseAnchorX + offsetX) - dispW / 2, destY, dispW, dispH);
+            }
+            ctx.restore();
+        };
+
+        if (def.anim === 'rise') {
+            // 残像: 本体のまだ上昇していない位置(少し下)に、より薄い分身を2つ重ねて描き、上昇の軌跡が見えるようにする
+            drawOne(alpha * 0.25, dispH * 0.5);
+            drawOne(alpha * 0.45, dispH * 0.25);
+        }
+        drawOne(alpha, 0);
     });
 
     // ピヨり演出: しびれている側の頭上にpiyo.PNGを表示(反転を交互に切り替える)。
@@ -2961,6 +2990,7 @@ async function runUpperCombo(attacker, defender, cursor) {
     setAct(defender, 'damage.PNG');
     applyDamage(defender, DB.DMG.U * chargeMultOf(attacker) * (isSuperUpper ? 2 : 1) * atkMultOf(attacker, 'UPPER') * defMultOf(defender, 'UPPER'));
     playSE('se_upper'); // 未配置ならse_punchで代用される
+    spawnHitEffect(attacker, 'UPPER', isSuperUpper ? 2 : 1); // ダメージが2倍になる時はhit_upper_2を使う
     triggerShake(defender, 300);
     // チャージ(ガード+ガード、UPPER+GUARD+UPPER)は「次に出すカードの初撃」のみに適用される一度限りの効果のため、
     // ここで即座に消費する。以降の空中コンボ継続・メテオには適用しない(通常倍率で計算する)。
@@ -3096,13 +3126,16 @@ async function runGuardSuccess(winner, loser, loserPoseOverride) {
     const loserGuardStreakKey = loser === 'P' ? 'pGuardStreak' : 'eGuardStreak';
     state[winnerGuardStreakKey]++;
     state[loserGuardStreakKey] = 0;
-    // ガード成功が何回連続したかによって音を変える(1回目=se_guard、2回目=se_guard_2、3回目以降=se_guard_3)
+    // ガード成功が何回連続したかによって音とヒットエフェクトを変える(1回目=se_guard/hit_guard、2回目=se_guard_2/hit_guard_2、3回目以降=se_guard_3/hit_guard_3)
     if (state[winnerGuardStreakKey] >= 3) {
         playSE('se_guard_3');
+        spawnHitEffect(winner, 'GUARD', 3);
     } else if (state[winnerGuardStreakKey] === 2) {
         playSE('se_guard_2');
+        spawnHitEffect(winner, 'GUARD', 2);
     } else {
         playSE('se_guard');
+        spawnHitEffect(winner, 'GUARD', 1);
     }
     if (state[winnerGuardStreakKey] >= 3) {
         // 3連続以降のチャージ倍率(既定4)。敵側は ENEMY_PRESETS の chargeValueFour があればそちらを優先する
