@@ -2102,7 +2102,7 @@ function draw(tRaw) {
         if (def.anim === 'wallburst') {
             // 壁(fx.xに保存済みの画面端座標)に接した状態から始まり、10px(ソース基準)内側へ飛び出したら、
             // すぐにその場から落下しながら消える。
-            const burstDur = life * 0.12; // 素早く飛び出す
+            const burstDur = life * 0.35; // 飛び出す動きがはっきり見える速さにする(以前は0.12=54msと速すぎて視認しづらかった)
             const burstDist = 10 * DB.SCALE;
             let mag = 0, oy = 0, alpha = 1; // mag: 壁からの移動距離(絶対値、0〜burstDist)
             if (age < burstDur) {
