@@ -2100,22 +2100,26 @@ function draw(tRaw) {
         }
 
         if (def.anim === 'wallburst') {
-            // 壁(fx.xに保存済みの画面端座標)から内側へ飛び出し、飛び出し終わったら落下しながら消える。
-            const burstDur = life * 0.3;
-            const inward = fx.side === 'P' ? 1 : -1; // 左端(プレイヤー側が被弾)なら右へ、右端(敵側が被弾)なら左へ飛び出す
-            let ox = 0, oy = 0, alpha = 1;
+            // 壁(fx.xに保存済みの画面端座標)に接した状態から始まり、10px(ソース基準)内側へ飛び出したら、
+            // すぐにその場から落下しながら消える。
+            const burstDur = life * 0.12; // 素早く飛び出す
+            const burstDist = 10 * DB.SCALE;
+            let mag = 0, oy = 0, alpha = 1; // mag: 壁からの移動距離(絶対値、0〜burstDist)
             if (age < burstDur) {
-                ox = inward * (age / burstDur) * 15 * DB.SCALE;
+                mag = (age / burstDur) * burstDist;
             } else {
-                ox = inward * 15 * DB.SCALE;
+                mag = burstDist;
                 const fp = (age - burstDur) / (life - burstDur); // 0〜1
                 oy = fp * 30 * DB.SCALE;
                 alpha = 1 - fp;
             }
             if (alpha <= 0) return;
+            // 壁に接する側の端をfx.xに固定し、そこから内側へmagだけ移動した位置に描画する(中央基準ではなく、壁面基準の配置)。
+            // プレイヤー側(左壁)は左端をfx.xに固定して右へ、敵側(右壁)は右端をfx.xに固定して左へ。
+            const drawX = fx.side === 'P' ? fx.x + mag : fx.x - dispW - mag;
             ctx.save();
             ctx.globalAlpha = Math.max(0, alpha);
-            ctx.drawImage(img, 0, 0, def.srcW, def.srcH, fx.x + ox - dispW / 2, fx.y + oy - dispH / 2, dispW, dispH);
+            ctx.drawImage(img, 0, 0, def.srcW, def.srcH, drawX, fx.y + oy - dispH / 2, dispW, dispH);
             ctx.restore();
             return;
         }
