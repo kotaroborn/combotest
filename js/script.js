@@ -90,6 +90,8 @@ let state = {
     introCharAlpha: 1, // バトル開始演出: 味方のフェードイン係数(0〜1)
     introEnemyAlpha: 1, // バトル開始演出: 敵のフェードイン係数(0〜1)。ステージ固有の登場演出のため味方とは別に管理する
     screenFlashAlpha: 0, // 画面全体を白く明滅させる演出(5THステージの敵登場等で使用)
+    screenShakeUntil: 0, // 画面全体を揺らす演出の終了時刻(performance.now()基準、メテオ着地等で使用)
+    screenShakeMagnitude: 0, // 画面全体の揺れ幅(px)
     bgRevealRadius: 0, // バトル開始演出: 背景を中心から広げる円形クリップの半径(0で真っ暗)
     playerDeck: [], playerDiscard: [], playerHand: new Array(5).fill(null), // 山札/捨札/手札
     enemyRevealedUpTo: 0, // 敵の手のうち、何枚目まで公開済みか
@@ -103,20 +105,29 @@ let hitEffects = []; // ヒットエフェクト(命中の瞬間に一瞬表示�
 // 今後メテオ・アッパー・ガードにも同様の形式で追加していく想定。
 const HIT_EFFECT_DEFS = {
     // imgs: コンボ段階/チャージ段階ごとの画像。段階に対応する画像が無ければ1番目(imgs[0])にフォールバックする
-    // anim: 消え方の演出タイプ('retreat'=放った側へ少し戻りながら消える, 'rise'=上へ残像しながら消える, 'wobble'=その場で揺れながら消える)
+    // anim: 消え方の演出タイプ('retreat'=放った側へ少し戻りながら消える, 'rise'=上へ残像しながら消える, 'wobble'=その場で揺れながら消える,
+    //       'meteor'=キャラと同じ場所に下から上へ表示されていく, 'wallburst'=壁から飛び出してから落下する)
+    // life: このエフェクト専用の表示時間(ms)。省略時はHIT_EFFECT_LIFE(260ms)を使う
     PUNCH: { imgs: ['hit_punch.PNG', 'hit_punch_2.PNG', 'hit_punch_3.PNG'], srcW: 10, srcH: 32, anim: 'retreat' },
     UPPER: { imgs: ['hit_upper.PNG', 'hit_upper_2.PNG'], srcW: 10, srcH: 32, anim: 'rise' }, // 1=通常, 2=2倍(コンボ成立時)
     GUARD: { imgs: ['hit_guard.PNG', 'hit_guard_2.PNG', 'hit_guard_3.PNG'], srcW: 10, srcH: 32, anim: 'wobble' }, // 1=通常, 2=2倍, 3=4倍
+    METEOR: { imgs: ['hit_meteor.PNG'], srcW: 32, srcH: 32, anim: 'meteor', life: 500 }, // 被弾側キャラと全く同じ場所・同じ大きさで表示する
+    WALL: { imgs: ['hit_wall.PNG'], srcW: 10, srcH: 32, anim: 'wallburst', life: 450 }, // 必殺技で壁に当たった瞬間
 };
 const HIT_EFFECT_LIFE = 260; // 表示開始から消えるまでの時間(ms)。最初の25%は静止、残りでanimに応じたフェードをしながら消える
 // 攻撃側(side)が技(moveType)を命中させた瞬間に呼ぶ。攻撃側キャラの「相手に向いている側の端から3px(ソース基準)」を
 // 基準点として、そこにエフェクトの中心を置く(プレイヤーは右端から3px、敵は反転描画のため左端から3pxが同じ意味になる)。
 // tier(1〜3、省略時1)は、そのパンチが連続何発目に相当するかを表し、対応する段階の画像を選ぶために使う
 // (地上PUNCHの3発周期、空中コンボの1・2発目、追撃・必殺技の各撃、いずれもこのtierで指定する)。
-function spawnHitEffect(side, moveType, tier) {
+function spawnHitEffect(side, moveType, tier, xOverride, yOverride) {
     const def = HIT_EFFECT_DEFS[moveType];
     if (!def) return;
-    hitEffects.push({ side, moveType, tier: tier || 1, x: getX(side), y: getY(side), born: performance.now() });
+    hitEffects.push({
+        side, moveType, tier: tier || 1,
+        x: xOverride !== undefined ? xOverride : getX(side),
+        y: yOverride !== undefined ? yOverride : getY(side),
+        born: performance.now(),
+    });
 }
 let cardOutcomes = { P: new Array(5).fill(null), E: new Array(5).fill(null) }; // ターン中の各カードの勝敗表現(card-lose/card-shatter)。ターン終了(両者が定位置へ戻り、場のカードが消えた後)にリセットする
 let deckCounts = { PUNCH: 7, UPPER: 7, GUARD: 7 }; // デッキ編成(合計21枚、内訳は自由)
@@ -321,6 +332,7 @@ DB.ASSETS.forEach(n => {
     'hit_punch.PNG', 'hit_punch_2.PNG', 'hit_punch_3.PNG',
     'hit_upper.PNG', 'hit_upper_2.PNG',
     'hit_guard.PNG', 'hit_guard_2.PNG', 'hit_guard_3.PNG',
+    'hit_meteor.PNG', 'hit_wall.PNG',
 ].forEach(name => {
     const i = new Image();
     i.onload = () => { imgs[name] = i; };
@@ -1768,6 +1780,11 @@ function setX(side, v) { if (side === 'P') state.pX = v; else state.eX = v; }
 function setY(side, v) { if (side === 'P') state.pY = v; else state.eY = v; }
 
 function triggerShake(side, ms) { const until = performance.now() + ms; if (side === 'P') state.pShakeUntil = until; else state.eShakeUntil = until; }
+// 個別キャラではなく画面全体を揺らす(メテオの着地等で使用)
+function triggerScreenShake(ms, magnitude) {
+    state.screenShakeUntil = performance.now() + ms;
+    state.screenShakeMagnitude = magnitude;
+}
 
 function triggerBlink(side, ms) { const until = performance.now() + ms; if (side === 'P') state.pBlinkUntil = until; else state.eBlinkUntil = until; }
 
@@ -1914,6 +1931,14 @@ function draw(tRaw) {
     const t = tRaw || performance.now();
     ctx.clearRect(0, 0, cvs.width, cvs.height);
 
+    // 画面全体を揺らす演出(メテオの着地等で使用)。以降の描画すべてに反映させ、関数末尾でrestoreする。
+    ctx.save();
+    if (t < state.screenShakeUntil) {
+        const shakeX = (Math.random() - 0.5) * state.screenShakeMagnitude;
+        const shakeY = (Math.random() - 0.5) * state.screenShakeMagnitude;
+        ctx.translate(shakeX, shakeY);
+    }
+
     // 背景: キャラと同じ nearest-neighbor 拡大で描画。中心から広がる円形クリップで演出する。
     // TRAINING MODE、またはSTORY MODEの現在の敵に応じた背景(currentBgName)を使う。未読み込みなら1stステージのbg.PNGへフォールバックする。
     if (state.bgRevealRadius > 0) {
@@ -2033,27 +2058,79 @@ function draw(tRaw) {
 
     // ヒットエフェクト(命中の瞬間に一瞬表示し、技種別ごとの演出で消えていく)。
     // プレイヤー・敵両方のスプライトを描き終えた後に描画することで、キャラに隠れず手前に表示されるようにする。
-    // 最初のHIT_EFFECT_LIFE×25%は静止した全表示、残りの75%でアニメーション(anim)に応じてフェードアウトしながら消える。
-    hitEffects = hitEffects.filter(fx => (t - fx.born) < HIT_EFFECT_LIFE);
+    hitEffects = hitEffects.filter(fx => {
+        const def = HIT_EFFECT_DEFS[fx.moveType];
+        const life = (def && def.life) || HIT_EFFECT_LIFE;
+        return (t - fx.born) < life;
+    });
     hitEffects.forEach(fx => {
         const def = HIT_EFFECT_DEFS[fx.moveType];
         if (!def) return;
+        const life = def.life || HIT_EFFECT_LIFE;
         const tierIdx = Math.min(Math.max(fx.tier || 1, 1), def.imgs.length) - 1;
         const img = imgs[def.imgs[tierIdx]] || imgs[def.imgs[0]]; // 該当段階の画像が無ければ1番目にフォールバック
         if (!img) return;
         const age = t - fx.born;
-        const holdTime = HIT_EFFECT_LIFE * 0.25;
+        const dispW = def.srcW * DB.SCALE;
+        const dispH = def.srcH * DB.SCALE;
+
+        if (def.anim === 'meteor') {
+            // 被弾側キャラと全く同じ場所・同じ大きさ(fx.x, fx.yをそのまま使う)で表示する。
+            // 最初の40%で下から上へワイプで現れ、続く25%は保持、残りでフェードアウトする。
+            const revealDur = life * 0.4, holdDur = life * 0.25;
+            let revealP, alpha;
+            if (age < revealDur) {
+                revealP = age / revealDur; alpha = 1;
+            } else if (age < revealDur + holdDur) {
+                revealP = 1; alpha = 1;
+            } else {
+                revealP = 1;
+                alpha = 1 - (age - revealDur - holdDur) / (life - revealDur - holdDur);
+            }
+            if (alpha <= 0) return;
+            const revealHeight = dispH * revealP;
+            ctx.save();
+            ctx.globalAlpha = Math.max(0, alpha);
+            ctx.beginPath();
+            ctx.rect(fx.x, fx.y + dispH - revealHeight, dispW, revealHeight); // 下端から上へ伸びる矩形でクリップする
+            ctx.clip();
+            ctx.drawImage(img, 0, 0, def.srcW, def.srcH, fx.x, fx.y, dispW, dispH);
+            ctx.restore();
+            return;
+        }
+
+        if (def.anim === 'wallburst') {
+            // 壁(fx.xに保存済みの画面端座標)から内側へ飛び出し、飛び出し終わったら落下しながら消える。
+            const burstDur = life * 0.3;
+            const inward = fx.side === 'P' ? 1 : -1; // 左端(プレイヤー側が被弾)なら右へ、右端(敵側が被弾)なら左へ飛び出す
+            let ox = 0, oy = 0, alpha = 1;
+            if (age < burstDur) {
+                ox = inward * (age / burstDur) * 15 * DB.SCALE;
+            } else {
+                ox = inward * 15 * DB.SCALE;
+                const fp = (age - burstDur) / (life - burstDur); // 0〜1
+                oy = fp * 30 * DB.SCALE;
+                alpha = 1 - fp;
+            }
+            if (alpha <= 0) return;
+            ctx.save();
+            ctx.globalAlpha = Math.max(0, alpha);
+            ctx.drawImage(img, 0, 0, def.srcW, def.srcH, fx.x + ox - dispW / 2, fx.y + oy - dispH / 2, dispW, dispH);
+            ctx.restore();
+            return;
+        }
+
+        // PUNCH/UPPER/GUARD共通(retreat/rise/wobble)。最初の25%は静止した全表示、残りでanimに応じてフェードアウトしながら消える。
+        const holdTime = life * 0.25;
         let alpha, p;
         if (age < holdTime) {
             alpha = 1; p = 0;
         } else {
-            p = (age - holdTime) / (HIT_EFFECT_LIFE - holdTime); // 0〜1
+            p = (age - holdTime) / (life - holdTime); // 0〜1
             alpha = 1 - p;
         }
         if (alpha <= 0) return;
 
-        const dispW = def.srcW * DB.SCALE;
-        const dispH = def.srcH * DB.SCALE;
         // X基準点: キャラの相手側の端から3px(ソース基準)。プレイヤーは右端、敵は反転描画のため左端が同じ意味になる。
         const baseAnchorX = fx.side === 'P' ? fx.x + DB.IMG_SIZE - 3 * DB.SCALE : fx.x + 3 * DB.SCALE;
         // Y基準点: PUNCHはキャラ縦中央、UPPER/GUARDはキャラ上端(「右上から」の基準)を、それぞれエフェクト自体の描画開始Y座標に変換する
@@ -2133,6 +2210,7 @@ function draw(tRaw) {
     }
 
     requestAnimationFrame(draw);
+    ctx.restore(); // 画面揺れの変換を解除(次フレームのclearRectに影響しないようにする)
 }
 
 // ============================================================
@@ -2943,6 +3021,8 @@ async function runMeteor(attacker, defender) {
         await wait(30);
     }
     setY(defender, DB.POS.GROUND_Y);
+    spawnHitEffect(defender, 'METEOR'); // 被弾側キャラと全く同じ場所に、下から上へ表示されていくエフェクト
+    triggerScreenShake(300, 12); // 画面全体を少し揺らす
     playSE('se_kabe'); // 地面に叩きつけられる音(壁激突と同じ音を流用)
     triggerShake(defender, 500);
     triggerBlink(defender, 900); // 振動＋点滅
@@ -3249,6 +3329,7 @@ async function runFinisher(attacker, defender, cursor) {
         await wait(flyStepMs);
     }
     setX(defender, edgeX);
+    spawnHitEffect(defender, 'WALL', 1, edgeX, getY(defender) + DB.IMG_SIZE / 2); // 壁(画面端)から飛び出してから落下するエフェクト
 
     // 端にぶつかって点滅
     triggerBlink(defender, 500);
