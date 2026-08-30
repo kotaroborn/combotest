@@ -3333,7 +3333,10 @@ async function runFinisher(attacker, defender, cursor) {
         await wait(flyStepMs);
     }
     setX(defender, edgeX);
-    spawnHitEffect(defender, 'WALL', 1, edgeX, getY(defender) + DB.IMG_SIZE / 2); // 壁(画面端)から飛び出してから落下するエフェクト
+    // edgeXはキャラのスプライト基準点(左端)の座標。左壁(プレイヤー側)はこれがそのまま画面端に接するが、
+    // 右壁(敵側)は逆にスプライトの右端(edgeX + IMG_SIZE)こそが実際に画面端(壁)に接する位置になるため、側で分けて求める。
+    const wallX = defender === 'P' ? edgeX : edgeX + DB.IMG_SIZE;
+    spawnHitEffect(defender, 'WALL', 1, wallX, getY(defender) + DB.IMG_SIZE / 2); // 壁(画面端)から飛び出してから落下するエフェクト
 
     // 端にぶつかって点滅
     triggerBlink(defender, 500);
