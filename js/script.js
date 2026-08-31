@@ -3044,6 +3044,7 @@ async function runMeteor(attacker, defender) {
         await wait(30);
     }
     setY(defender, DB.POS.GROUND_Y);
+    setAct(defender, 'knock2.PNG'); // 着地の瞬間、damage.PNGのままにせずknock2.PNGにする
     spawnHitEffect(defender, 'METEOR'); // 被弾側キャラと全く同じ場所に、下から上へ表示されていくエフェクト
     triggerScreenShake(300, 12); // 画面全体を少し揺らす
     playSE('se_kabe'); // 地面に叩きつけられる音(壁激突と同じ音を流用)
