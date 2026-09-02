@@ -61,6 +61,7 @@ let state = {
     pLastAtk: null, eLastAtk: null,
     pNumbed: false, eNumbed: false, // しびれフラグ: 次のコマンドの成功率が1/2になる(ガード成功で相手に付与)
     piyoSide: null, // ピヨり演出: どちら側の頭上に出すか(truthyな間、継続して表示される)
+    piyoBreakUntil: 0, // ピヨりが割れて解ける演出の終了時刻(performance.now()基準)。しびれた側がダメージを受けずに済んだ時に使う
     pPunchStreak: 0, ePunchStreak: 0, // 地上パンチの連続ヒット数(コンボではなく、単発同士の連続成功を記録)
     pGuardStreak: 0, eGuardStreak: 0, // ガード成功の連続回数(同一ターン内のみ。2回で2倍・3回以降は4倍が上限。ターン終了時にリセット)
     pChargeValue: 0, eChargeValue: 0, // チャージの倍率(0=無し、2以上の数値)。ガード成功以外の次のカードで勝敗に関わらず消費される。ターンをまたいで持ち越す
@@ -2217,18 +2218,24 @@ function draw(tRaw) {
 
     // ピヨり演出: しびれている側の頭上にpiyo.PNGを表示(反転を交互に切り替える)。
     // state.piyoSideがtruthyな間はずっと表示し続ける(開始/終了は startPiyo/stopPiyo が担う)。反転は経過時間から計算する。
-    // piyo.PNGは実ファイルが32x32pxで、実際に使う絵柄は左上を基準にした横21px×縦9pxの範囲のみ
+    // piyo.PNGは実ファイルが32x32pxで、実際に使う絵柄は左上を基準にした横21px×縦9pxの範囲のみ。
+    // state.piyoBreakUntilが未来の時刻の間は、通常のバウンドではなく「割れて消える」演出(縮小しながらフェードアウト)にする。
     if (state.piyoSide) {
         const piyoImg = imgs['piyo.PNG'];
         if (piyoImg) {
             const SRC_X = 6, SRC_Y = 0, SRC_W = 20, SRC_H = 9; // 元画像内での切り出し範囲(上・横中央寄せ)
             const baseX = state.piyoSide === 'P' ? state.pX : state.eX;
             const baseY = state.piyoSide === 'P' ? state.pY : state.eY;
-            const pw = SRC_W * DB.SCALE, ph = SRC_H * DB.SCALE;
+            const isBreaking = t < state.piyoBreakUntil;
+            const breakP = isBreaking ? 1 - Math.max(0, (state.piyoBreakUntil - t) / 300) : 0; // 0〜1
+            const breakScale = isBreaking ? Math.max(0.05, 1 - breakP) : 1; // だんだん縮む
+            const breakAlpha = isBreaking ? Math.max(0, 1 - breakP) : 1; // だんだん透明に
+            const pw = SRC_W * DB.SCALE * breakScale, ph = SRC_H * DB.SCALE * breakScale;
             const px = baseX + (DB.IMG_SIZE - pw) / 2;
             const py = baseY - ph - 10;
-            const piyoFlipNow = Math.floor(t / 180) % 2 === 1; // 180msごとに反転
             ctx.save();
+            ctx.globalAlpha = breakAlpha;
+            const piyoFlipNow = Math.floor(t / 180) % 2 === 1; // 180msごとに反転(割れる演出中も継続)
             if (piyoFlipNow) {
                 ctx.translate(px + pw, py);
                 ctx.scale(-1, 1);
@@ -3306,6 +3313,19 @@ async function runNumbFail(numbedSide, cursor, pAct, eAct) {
     }
 }
 
+// しびれていた側が、無条件敗北のコイントス(numbFailChance)を外してダメージを受けずに済んだ場合の演出。
+// 頭上のpiyoが割れて消え(draw()側のstate.piyoBreakUntilで表現)、damage.PNGのまま少し横揺れしてから、
+// 通常ポーズ(player.PNG)に戻る。この後、呼び出し元で通常の3すくみ判定(judge)へ進む。
+async function runNumbEscape(numbedSide) {
+    state.piyoBreakUntil = performance.now() + 300; // 300msかけて割れて消える
+    await wait(300);
+    stopPiyo();
+    triggerShake(numbedSide, 300); // damage.PNGのまま横揺れ
+    await wait(300);
+    setAct(numbedSide, 'player.PNG'); // 通常ポーズへ戻る
+    await wait(150);
+}
+
 function markCardOutcome(side, idx, outcomeClass) {
     const arr = side === 'P' ? cardOutcomes.P : cardOutcomes.E;
     arr[idx] = outcomeClass || null; // ターンが終わるまで保持する
@@ -3432,12 +3452,13 @@ async function resolveExchange(pAct, eAct, cursor) {
     // 0.5に乗算してこの確率を調整する(例: Galdは1.25倍→0.625、ガードで転ばせる力が強い、という個性)。
     // 逆に、しびれさせられた側が敵(numbedSide==='E')で、その敵がnumbVulnerableMultを持っていれば、そちらを優先する
     // (1より大きければしびれに弱い=Jack、1より小さければしびれに強い=Alv、という個性を表現できる)。
+    // ダメージを受ける(無条件敗北)場合はピヨったまま(stopPiyoを呼ばない)、runNumbFailの一連の演出後に解除する。
+    // ダメージを受けずに済んだ場合は、runNumbEscapeでピヨりが割れて解ける演出を挟んでから、通常の3すくみ判定へ進む。
     if (state.pNumbed || state.eNumbed) {
         const numbedSide = state.pNumbed ? 'P' : 'E';
         const guardSide = numbedSide === 'P' ? 'E' : 'P';
         if (numbedSide === 'P') state.pNumbed = false; else state.eNumbed = false;
         if (guardSide === 'P') state.pGuardHoldPose = false; else state.eGuardHoldPose = false; // 判定が出たので構え保持を解除
-        stopPiyo(); // この攻防で結果が決まるので、ここまで継続していたピヨりを終了する
         let numbFailChance = 0.5;
         if (numbedSide === 'E' && currentEnemyPreset().numbVulnerableMult) {
             numbFailChance = Math.min(1, 0.5 * currentEnemyPreset().numbVulnerableMult);
@@ -3451,8 +3472,10 @@ async function resolveExchange(pAct, eAct, cursor) {
             if (numbedSide === 'P') state.pLastWinWasUpper = false; else state.eLastWinWasUpper = false; // 無条件敗北なのでUPPER勝利ではない
             state.lastExchangeResult = numbedSide === 'P' ? { P: 'lose', E: 'win' } : { P: 'win', E: 'lose' };
             await runNumbFail(numbedSide, cursor, pAct, eAct);
+            stopPiyo(); // ダメージを受ける一連の演出が終わった後にピヨりを解除する
             return;
         }
+        await runNumbEscape(numbedSide); // ダメージを受けずに済んだので、割れて解ける演出を挟んでから通常判定へ
     }
 
     const result = judge(pAct, eAct);
