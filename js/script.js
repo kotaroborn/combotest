@@ -1946,6 +1946,20 @@ function drawComboCounter(side, anchorX, align) {
     ctx.restore();
 }
 
+// キャラごとの表示サイズ倍率(見た目のみの変更。座標・当たり判定・エフェクト位置・攻撃力等には一切影響しない)。
+// キーは敵グラフィックセット名(currentEnemySetName()やselectedSkinと同じ 'enemy_1'〜'enemy_5' 形式)。
+// Gald(3人目)は敵本体として登場する時も、プレイヤーがコスチュームとして選択した時も、どちらも1.2倍で表示する。
+const CHARACTER_SCALE_BY_SET = { enemy_3: 1.2 };
+// 指定した座標(スプライトの左上基準点)を、指定倍率で描画するための矩形に変換する。
+// 横方向は中央基準で左右均等に広がり、縦方向は下端(足元)を基準に上方向にだけ広がる(地面に立つキャラが浮いたり
+// めり込んだりしないようにするため)。倍率1(既定)の場合は元の座標・DB.IMG_SIZEをそのまま返す。
+function growRectKeepBottomCenter(x, y, scale) {
+    if (!scale || scale === 1) return { x, y, size: DB.IMG_SIZE };
+    const size = DB.IMG_SIZE * scale;
+    const grow = size - DB.IMG_SIZE;
+    return { x: x - grow / 2, y: y - grow, size };
+}
+
 function draw(tRaw) {
     const t = tRaw || performance.now();
     ctx.clearRect(0, 0, cvs.width, cvs.height);
@@ -2014,12 +2028,14 @@ function draw(tRaw) {
     ctx.save();
     ctx.globalAlpha = pAlpha;
     const pGlowPulse = (Math.sin(t / 180) + 1) / 2; // 0〜1でゆっくり明滅
+    const pScale = CHARACTER_SCALE_BY_SET[selectedSkin] || 1; // コスチュームとしてGaldを選んでいる場合のみ1.2倍になる
+    const pRect = growRectKeepBottomCenter(state.pX + pJit, state.pY + pJit, pScale);
     if (state.pUpperChargeReady && pImg) {
         // UPPER+GUARD+UPPER用のチャージ: 水色の発光(ガード+ガードの金色とは別の色で見分けられるようにする)
         ctx.save();
         ctx.shadowColor = 'rgba(80, 220, 255, 0.95)';
         ctx.shadowBlur = 14 + pGlowPulse * 16;
-        ctx.drawImage(pImg, state.pX + pJit, state.pY + pJit, DB.IMG_SIZE, DB.IMG_SIZE);
+        ctx.drawImage(pImg, pRect.x, pRect.y, pRect.size, pRect.size);
         ctx.restore();
     }
     if (state.pChargeValue > 0) { // ガード2連続成功以降のチャージ中は金色に発光する(次のコマンドまで持続)
@@ -2028,14 +2044,14 @@ function draw(tRaw) {
             ctx.save();
             ctx.shadowColor = 'rgba(255, 255, 255, 0.95)';
             ctx.shadowBlur = 36 + pGlowPulse * 20;
-            ctx.drawImage(pImg, state.pX + pJit, state.pY + pJit, DB.IMG_SIZE, DB.IMG_SIZE);
+            ctx.drawImage(pImg, pRect.x, pRect.y, pRect.size, pRect.size);
             ctx.restore();
         }
         ctx.shadowColor = 'rgba(255, 215, 60, 0.95)';
         ctx.shadowBlur = 14 + pGlowPulse * 16;
     }
-    if (pImg) ctx.drawImage(pImg, state.pX + pJit, state.pY + pJit, DB.IMG_SIZE, DB.IMG_SIZE);
-    else { ctx.fillStyle = '#0f0'; ctx.fillRect(state.pX, state.pY, DB.IMG_SIZE, DB.IMG_SIZE); }
+    if (pImg) ctx.drawImage(pImg, pRect.x, pRect.y, pRect.size, pRect.size);
+    else { ctx.fillStyle = '#0f0'; ctx.fillRect(pRect.x, pRect.y, pRect.size, pRect.size); }
     ctx.restore();
 
     // 敵(振動・点滅・反転対応)
@@ -2046,13 +2062,15 @@ function draw(tRaw) {
     ctx.save();
     ctx.globalAlpha = eAlpha;
     const eGlowPulse = (Math.sin(t / 180) + 1) / 2;
+    const eScale = CHARACTER_SCALE_BY_SET[currentEnemySetName()] || 1; // Galdとして登場している場合のみ1.2倍になる
+    const eRect = growRectKeepBottomCenter(-(state.eX + eJit) - DB.IMG_SIZE, state.eY + eJit, eScale);
     if (state.eUpperChargeReady && eImg) {
         // UPPER+GUARD+UPPER用のチャージ: 水色の発光
         ctx.save();
         ctx.scale(-1, 1);
         ctx.shadowColor = 'rgba(80, 220, 255, 0.95)';
         ctx.shadowBlur = 14 + eGlowPulse * 16;
-        ctx.drawImage(eImg, -(state.eX + eJit) - DB.IMG_SIZE, state.eY + eJit, DB.IMG_SIZE, DB.IMG_SIZE);
+        ctx.drawImage(eImg, eRect.x, eRect.y, eRect.size, eRect.size);
         ctx.restore();
     }
     if (state.eChargeValue > 0) { // ガード2連続成功以降のチャージ中は金色に発光する(次のコマンドまで持続)
@@ -2062,7 +2080,7 @@ function draw(tRaw) {
             ctx.scale(-1, 1);
             ctx.shadowColor = 'rgba(255, 255, 255, 0.95)';
             ctx.shadowBlur = 36 + eGlowPulse * 20;
-            ctx.drawImage(eImg, -(state.eX + eJit) - DB.IMG_SIZE, state.eY + eJit, DB.IMG_SIZE, DB.IMG_SIZE);
+            ctx.drawImage(eImg, eRect.x, eRect.y, eRect.size, eRect.size);
             ctx.restore();
         }
         ctx.shadowColor = 'rgba(255, 215, 60, 0.95)';
@@ -2070,9 +2088,12 @@ function draw(tRaw) {
     }
     if (eImg) {
         ctx.save(); ctx.scale(-1, 1); // 第19条: 敵は常に反転
-        ctx.drawImage(eImg, -(state.eX + eJit) - DB.IMG_SIZE, state.eY + eJit, DB.IMG_SIZE, DB.IMG_SIZE);
+        ctx.drawImage(eImg, eRect.x, eRect.y, eRect.size, eRect.size);
         ctx.restore();
-    } else { ctx.fillStyle = '#f00'; ctx.fillRect(state.eX, state.eY, DB.IMG_SIZE, DB.IMG_SIZE); }
+    } else {
+        const eFallbackRect = growRectKeepBottomCenter(state.eX, state.eY, eScale); // フォールバックは反転前の座標系のまま
+        ctx.fillStyle = '#f00'; ctx.fillRect(eFallbackRect.x, eFallbackRect.y, eFallbackRect.size, eFallbackRect.size);
+    }
     ctx.restore();
 
     // ヒットエフェクト(命中の瞬間に一瞬表示し、技種別ごとの演出で消えていく)。
