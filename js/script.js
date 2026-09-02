@@ -1949,7 +1949,8 @@ function drawComboCounter(side, anchorX, align) {
 // キャラごとの表示サイズ倍率(見た目のみの変更。座標・当たり判定・エフェクト位置・攻撃力等には一切影響しない)。
 // キーは敵グラフィックセット名(currentEnemySetName()やselectedSkinと同じ 'enemy_1'〜'enemy_5' 形式)。
 // Gald(3人目)は敵本体として登場する時も、プレイヤーがコスチュームとして選択した時も、どちらも1.2倍で表示する。
-const CHARACTER_SCALE_BY_SET = { enemy_3: 1.2 };
+// Alv(5人目、ラスボス)も同様に、敵本体・コスチュームどちらでも1.1倍で表示する。
+const CHARACTER_SCALE_BY_SET = { enemy_3: 1.2, enemy_5: 1.1 };
 // 指定した座標(スプライトの左上基準点)を、指定倍率で描画するための矩形に変換する。
 // 横方向は中央基準で左右均等に広がり、縦方向は下端(足元)を基準に上方向にだけ広がる(地面に立つキャラが浮いたり
 // めり込んだりしないようにするため)。倍率1(既定)の場合は元の座標・DB.IMG_SIZEをそのまま返す。
@@ -2028,7 +2029,7 @@ function draw(tRaw) {
     ctx.save();
     ctx.globalAlpha = pAlpha;
     const pGlowPulse = (Math.sin(t / 180) + 1) / 2; // 0〜1でゆっくり明滅
-    const pScale = CHARACTER_SCALE_BY_SET[selectedSkin] || 1; // コスチュームとしてGaldを選んでいる場合のみ1.2倍になる
+    const pScale = CHARACTER_SCALE_BY_SET[selectedSkin] || 1; // コスチュームとしてGald/Alvを選んでいる場合のみ1.2倍/1.1倍になる
     const pRect = growRectKeepBottomCenter(state.pX + pJit, state.pY + pJit, pScale);
     if (state.pUpperChargeReady && pImg) {
         // UPPER+GUARD+UPPER用のチャージ: 水色の発光(ガード+ガードの金色とは別の色で見分けられるようにする)
@@ -2062,7 +2063,7 @@ function draw(tRaw) {
     ctx.save();
     ctx.globalAlpha = eAlpha;
     const eGlowPulse = (Math.sin(t / 180) + 1) / 2;
-    const eScale = CHARACTER_SCALE_BY_SET[currentEnemySetName()] || 1; // Galdとして登場している場合のみ1.2倍になる
+    const eScale = CHARACTER_SCALE_BY_SET[currentEnemySetName()] || 1; // Gald/Alvとして登場している場合のみ1.2倍/1.1倍になる
     const eRect = growRectKeepBottomCenter(-(state.eX + eJit) - DB.IMG_SIZE, state.eY + eJit, eScale);
     if (state.eUpperChargeReady && eImg) {
         // UPPER+GUARD+UPPER用のチャージ: 水色の発光
