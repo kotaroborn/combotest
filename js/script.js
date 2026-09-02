@@ -1814,6 +1814,13 @@ function nextPunchSprite(side) {
     return state[key];
 }
 
+// パンチが2発以上連続する技(2発目以降)で、punch.PNG⇔punch2.PNGへの切り替わり直前に一瞬dash.PNGを挟む。
+// 素早い踏み込み/踏み替えのような質感を出すための、ごく短い経由ポーズ(1発目には使わない)。
+async function flashDashBetweenPunches(side) {
+    setAct(side, 'dash.PNG');
+    await wait(60);
+}
+
 function moveSprite(move) {
     if (move === 'GUARD') return 'guard.PNG';
     if (move === 'UPPER') return 'upper.PNG';
@@ -2658,6 +2665,7 @@ async function playEnemySignaturePose() {
     if (idx === 0) {
         // Noah: パンチを素早く3連打
         for (let i = 0; i < 3; i++) {
+            if (i >= 1) await flashDashBetweenPunches('E'); // 2発目以降のみ、パンチ同士の切り替えなのでdashを挟む
             setAct('E', i % 2 === 0 ? 'punch.PNG' : 'punch2.PNG');
             playSE('se_deck_plus');
             await wait(150);
@@ -3101,6 +3109,7 @@ async function runNormalHit(winner, loser, move) {
     if (winner === 'E' && move === 'PUNCH' && currentEnemyPreset().doubleHitMult) {
         await wait(150);
         const secondDmg = dmg * currentEnemyPreset().doubleHitMult;
+        await flashDashBetweenPunches(winner);
         setAct(winner, nextPunchSprite(winner)); // 2発目のスプライトに切り替える
         applyDamage(loser, secondDmg);
         triggerShake(loser, 250);
@@ -3240,6 +3249,7 @@ async function runUpperCombo(attacker, defender, cursor) {
             }
             // 2発目以降は、1発目で既に同じ高さに揃っているため、両者とも高さの変更は不要
             hitComboSuccess(attacker); // 空中コンボの各撃もCOMBOとして数える(第26条: 空中打ち上げ時の無防備状態への攻撃を含む)
+            if (airPunches >= 2) await flashDashBetweenPunches(attacker); // 2発目以降のみ、パンチ同士の切り替えなのでdashを挟む
             setAct(attacker, nextPunchSprite(attacker)); // 第21条
             markCardOutcome(defender, cursor.i, 'card-shatter'); // 3すくみ無視のコンボ継続: ヒビ割れる
             const comboDmg = (DB.DMG.P + (airPunches - 1) * DB.DMG.P_COMBO_STEP) * chargeMultOf(attacker) * atkMultOf(attacker) * defMultOf(defender); // 1発目=P, 2発目=P+STEP...
@@ -3422,6 +3432,7 @@ async function runFollowUpFlurry(attacker, defender) {
     hitComboBreak(defender);
     for (let i = 0; i < 3; i++) {
         hitComboSuccess(attacker); // 追撃は3連打それぞれをCOMBOとして数える
+        if (i >= 1) await flashDashBetweenPunches(attacker); // 2発目以降のみ、パンチ同士の切り替えなのでdashを挟む
         setAct(attacker, nextPunchSprite(attacker)); // 第21条
         setAct(defender, 'damage.PNG');
         applyDamage(defender, DB.DMG.P * atkMultOf(attacker) * defMultOf(defender));
