@@ -2649,6 +2649,67 @@ function resetBattleState() {
     drawEnemySlots();
 }
 
+// STORY MODEの敵登場演出の最後に、その敵の得意技を一瞬デモさせる。ストーリーのセリフで語られる得意技(第◯条参照)を、
+// 演出としても直接見せることで、SKIPされても・セリフの意味を読み取れなくても伝わるようにするための補助。
+// PUNCH/UPPERのポーズにはse_deck_plusを、GUARDのポーズにはガード成功と同じ効果音(se_guard)を鳴らす。
+async function playEnemySignaturePose() {
+    if (state.gameMode !== 'story') return; // STORY MODEの敵のみ(TRAINING MODEは対象外)
+    const idx = state.storyEnemyIndex;
+    if (idx === 0) {
+        // Noah: パンチを素早く3連打
+        for (let i = 0; i < 3; i++) {
+            setAct('E', i % 2 === 0 ? 'punch.PNG' : 'punch2.PNG');
+            playSE('se_deck_plus');
+            await wait(150);
+        }
+        setAct('E', 'IDLE');
+        await wait(200);
+    } else if (idx === 1) {
+        // Rita: アッパーを1回、通常の半分の高さで
+        setAct('E', 'upper.PNG');
+        playSE('se_deck_plus');
+        const halfHopY = DB.POS.GROUND_Y - (DB.POS.GROUND_Y - DB.POS.HOP_Y) / 2;
+        const fromY = state.eY;
+        const steps = 6, stepMs = 40;
+        for (let s = 1; s <= steps; s++) {
+            setY('E', fromY + (halfHopY - fromY) * (s / steps));
+            await wait(stepMs);
+        }
+        await wait(150);
+        for (let s = 1; s <= steps; s++) {
+            setY('E', halfHopY + (fromY - halfHopY) * (s / steps));
+            await wait(stepMs);
+        }
+        setY('E', fromY);
+        setAct('E', 'IDLE');
+        await wait(200);
+    } else if (idx === 2) {
+        // Gald: ガードを1回構え、2段階チャージの発光演出を見せてから、通常ポーズに戻す(チャージは実際には持ち越さない)
+        setAct('E', 'guard.PNG');
+        playSE('se_guard');
+        await wait(200);
+        state.eChargeValue = 2; state.eChargeIsMax = false; // 2段階(金色の発光)の演出だけを見せる
+        await wait(500);
+        state.eChargeValue = 0; state.eChargeIsMax = false; // デモ用のチャージなので解除し、実際の対戦には影響させない
+        setAct('E', 'IDLE');
+        await wait(200);
+    } else if (idx === 3) {
+        // Jack: パンチ・ガード・アッパー、全部見せる(1つに絞らないのが個性のため)
+        setAct('E', 'punch.PNG');
+        playSE('se_deck_plus');
+        await wait(350);
+        setAct('E', 'guard.PNG');
+        playSE('se_guard');
+        await wait(350);
+        setAct('E', 'upper.PNG');
+        playSE('se_deck_plus');
+        await wait(350);
+        setAct('E', 'IDLE');
+        await wait(200);
+    }
+    // idx === 4 (Alv): 何もしない(あえて手の内を見せない、というラスボスらしさの演出)
+}
+
 async function playBattleIntro() {
     await wait(300); // 真っ暗な状態を一瞬見せる
 
@@ -2736,6 +2797,9 @@ async function playBattleIntro() {
         state.introEnemyAlpha = 1;
         await wait(200);
     }
+
+    // ステージ固有の登場演出が終わった直後、得意技のデモポーズを一瞬見せる(STORY MODEのみ)
+    await playEnemySignaturePose();
 
     // BATTLE START: 左からディゾルブして中央で停止(STORY MODEのみ、上の行にステージ表記を添える)
     document.getElementById('battleStageLabel').innerText = currentStageLabel();
