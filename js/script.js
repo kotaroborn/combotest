@@ -210,7 +210,7 @@ const SUBSTORY_BY_ENEMY = {
         ],
     },
     ENEMY_05: {
-        title: '敵05(仮)の裏話',
+        title: 'アルヴとヴァル',
         screens: [
             { img: 'substory_5_1.PNG', text: '（仮テキスト・敵05 裏話 1/3）誰にも言えない、敵05(仮)だけの秘密の物語がここに……' },
             { img: 'substory_5_2.PNG', text: '（仮テキスト・敵05 裏話 2/3）その過去には、まだ語られていない出来事があった。' },
@@ -1417,12 +1417,17 @@ async function processUnlockToastQueue() {
         // env(safe-area-inset-top)の値だけでは実機で不足するケースがあるため、CSS側の共通変数--safe-top
         // (standalone起動時は59pxを下限として保証する、css/style.css参照)を使う。
         toast.style.cssText = 'position:fixed; left:50%; top:var(--safe-top); transform:translateX(-50%) translateY(-120%);'
-            + 'background:linear-gradient(135deg, #1a1a1a, #2a2a2a); color:#ffd23c;'
-            + 'border:2px solid #ffd23c; border-top:none; border-radius:0 0 10px 10px;'
+            + 'background:linear-gradient(135deg, #1a1a1a, #2a2a2a);'
+            + 'border:2px solid; border-top:none; border-radius:0 0 10px 10px;'
             + 'padding:12px 28px; font-size:14px; font-weight:900; letter-spacing:1px; text-align:center;'
             + 'z-index:9999; pointer-events:none; box-shadow:0 4px 20px rgba(0,0,0,0.6); white-space:nowrap;';
         document.body.appendChild(toast);
     }
+    // SUB STORY解放(隠しタップ経由、messageがオブジェクト)は従来通り金色。
+    // BONUS CONTENTS/COSTUME解放(messageが文字列、大元そのものが解放されたことを示す通知)は白にする。
+    const accentColor = typeof message === 'string' ? '#ffffff' : '#ffd23c';
+    toast.style.color = accentColor;
+    toast.style.borderColor = accentColor;
     toast.innerHTML = '<span style="font-size:10px; letter-spacing:3px; color:#888; display:block;">UNLOCKED</span>'
         + (typeof message === 'string'
             ? message // 従来通りの単一行表示(BONUS CONTENTS解放！等)
