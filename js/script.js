@@ -4288,6 +4288,9 @@ async function playSubstoryBattleEpilogue(playerPresetKey) {
     // END画面が消えた直後、真っ黒な画面のまま、コスチュームがまだ未解除だった場合のみ実績解除トーストを出す。
     // このバトル自体がまさにこのコスチュームを解除するためのものなので、gameClearedOnce等の他条件は問わず、
     // 「未解除だったかどうか」だけで判定する。
+    // 通知は2段階: (1) COSTUMEというモード自体が増えたことの案内(「COSTUME 解放！」、costumeUnlockAnnouncedで
+    // 一度だけ)、(2) このキャラ個別の解放案内(「COSTUME」+「〈キャラ名〉 解放！」の2段組み、SUB STORYの通知と
+    // 同じ形式)。(1)は初回のみ、(2)は解放されるたびに毎回出す。
     const idx = ENEMY_ORDER.indexOf(playerPresetKey);
     if (idx !== -1) {
         const skinName = 'enemy_' + (idx + 1);
@@ -4295,13 +4298,17 @@ async function playSubstoryBattleEpilogue(playerPresetKey) {
         unlockSkin(skinName);
         if (gameClearedOnce) updateOptionUI(); // 既にクリア済みなら、背後で開いたままのOPTION画面のCOSTUME行を即座に表示させる
         if (!alreadyUnlocked) {
+            let toastCount = 0;
             if (!costumeUnlockAnnounced) {
                 // 以後、他の経路(タイトル復帰時のcheckUnlockAnnouncements等)で重複して案内されないようにする
                 costumeUnlockAnnounced = true;
                 writeSaveData({ costumeUnlockAnnounced: true });
+                showUnlockToast('COSTUME 解放！'); // モード自体が増えたことの案内(初回のみ)
+                toastCount++;
             }
-            showUnlockToast('COSTUME 解放！');
-            await wait(3200); // トーストのスライドイン+表示+スライドアウトが一通り終わるまで待つ
+            showUnlockToast({ small: 'COSTUME', large: `${ENEMY_PRESETS[playerPresetKey].name} 解放！` }); // このキャラ個別の案内
+            toastCount++;
+            await wait(3200 * toastCount); // トースト1件あたり約3.2秒(スライドイン+表示+スライドアウト)。キューで順番に流れるため件数分待つ
         }
     }
     endSubstoryBattle();
