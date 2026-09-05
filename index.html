@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>CLASH5 - CROSS DIMENSION</title>
-    <link rel="stylesheet" href="css/style.css?v=074">
+    <link rel="stylesheet" href="css/style.css?v=075">
 
     <!-- ホーム画面追加時のアイコン・見た目設定。実際のアイコン画像(下記パス)は別途用意が必要(ASSETS.md参照)。
          画像が未配置でも404になるだけでエラーにはならず、通常のブラウザ表示には一切影響しない。 -->
@@ -81,7 +81,7 @@
                 <div class="title-logo-fallback-sub">CROSS DIMENSION</div>
             </div>
         </div>
-        <div class="title-version">ver. 0.9.074</div>
+        <div class="title-version">ver. 0.9.075</div>
     </div>
     <button id="titleContinueBtn" class="text-btn" onclick="tapFlickerThen(this, () => goContinueGame())" style="display:none;">CONTINUE</button>
     <button id="startBtn" class="text-btn" onclick="tapFlickerThen(this, () => goNewGame())" disabled>NEW GAME</button>
@@ -417,9 +417,10 @@
 <!-- COSTUME選択ポップアップ -->
 <div id="costumeOverlay" class="popup-overlay" onclick="closeCostumeBackdrop(event)">
     <div class="popup-panel">
-        <button class="popup-close" onclick="closeCostume()">×</button>
+        <button class="popup-close" onclick="closeCostumeX()">×</button>
         <div class="howto-content">
             <h2>COSTUME</h2>
+            <button id="costumeBackBtn" class="sound-test-back-btn" style="display:none;" onclick="closeCostume()">◀︎戻る</button>
             <div id="costumeRows"></div>
             <p class="bonus-note">※バトル中の見た目のみ変化します。性能は変化しません。</p>
             <p id="costumeFromBonusNote" class="costume-from-bonus-note" style="display:none;">※STORYやTRAININGのバトル中いつでもOPTIONから見た目を変更できます。</p>
