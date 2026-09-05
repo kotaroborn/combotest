@@ -4643,7 +4643,9 @@ function closeSoundTest() {
 function closeSoundTestBackdrop(e) { if (e.target.id === 'soundTestOverlay') closeSoundTest(); }
 
 // ------- COSTUME(コスチューム選択) -------
+let costumeOpenedFromBonus = false; // COSTUME画面をBONUS CONTENTS経由で開いたかどうか。選択操作等で再描画されても状態を保持する
 function openCostumeSelect(fromBonus) {
+    if (fromBonus !== undefined) costumeOpenedFromBonus = fromBonus; // 明示的に指定された時だけ更新し、再描画時(引数省略)は前回の状態を保つ
     const rows = document.getElementById('costumeRows');
     rows.innerHTML = '';
     const defaultRow = document.createElement('div');
@@ -4659,18 +4661,26 @@ function openCostumeSelect(fromBonus) {
         row.innerHTML = `<span class="option-label">${label}</span><button onclick="selectCostume('${skinName}')">${selectedSkin === skinName ? '選択中' : '選ぶ'}</button>`;
         rows.appendChild(row);
     });
-    // BONUS CONTENTS経由で開いた場合のみ、OPTIONからもいつでも変更できる旨の注記を表示する(OPTION自身から開いた時は不要なため)
-    document.getElementById('costumeFromBonusNote').style.display = fromBonus ? 'block' : 'none';
+    // BONUS CONTENTS経由で開いた場合のみ、OPTIONからもいつでも変更できる旨の注記と「戻る」ボタンを表示する(OPTION自身から開いた時は不要なため)
+    document.getElementById('costumeFromBonusNote').style.display = costumeOpenedFromBonus ? 'block' : 'none';
+    document.getElementById('costumeBackBtn').style.display = costumeOpenedFromBonus ? 'block' : 'none';
     document.getElementById('costumeOverlay').classList.add('show');
 }
 function selectCostume(skinName) {
     selectedSkin = skinName;
     writeSaveData({ selectedSkin });
     if (skinName) loadEnemySet(skinName); // まだ対戦していない敵のコスチュームを選んだ場合でも、その場でグラフィックセットを読み込む
-    openCostumeSelect(); // 選択状態を反映して再描画
+    openCostumeSelect(); // 選択状態を反映して再描画(fromBonus省略、costumeOpenedFromBonusの現在値がそのまま使われる)
 }
+// 「戻る」ボタン用: COSTUME単体を閉じ、BONUS本体(または呼び出し元のOPTION)は開いたまま残す
 function closeCostume() { document.getElementById('costumeOverlay').classList.remove('show'); }
-function closeCostumeBackdrop(e) { if (e.target.id === 'costumeOverlay') closeCostume(); }
+// 右上の×・背景クリック用: BONUS CONTENTS経由で開いた場合はBONUS全体を一括で閉じる(closeAllBonus、SUB STORY/SOUND TESTと同じ一貫した挙動)。
+// OPTION経由の場合は、closeAllBonusのBGM切り替え等の副作用(バトル中に呼ばれる可能性があるため)を避け、従来通りCOSTUME単体だけを閉じる。
+function closeCostumeX() {
+    if (costumeOpenedFromBonus) closeAllBonus();
+    else closeCostume();
+}
+function closeCostumeBackdrop(e) { if (e.target.id === 'costumeOverlay') closeCostumeX(); }
 
 // OPTION内のRETRY: このバトル直前のデッキ編成へ戻る(現在のモードを維持)。確認ポップアップを挟む。
 function openRetryConfirm() { document.getElementById('retryConfirmPanel').classList.add('show'); }
