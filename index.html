@@ -81,7 +81,7 @@
                 <div class="title-logo-fallback-sub">CROSS DIMENSION</div>
             </div>
         </div>
-        <div class="title-version">ver. 0.9.069</div>
+        <div class="title-version">ver. 0.9.071</div>
     </div>
     <button id="titleContinueBtn" class="text-btn" onclick="tapFlickerThen(this, () => goContinueGame())" style="display:none;">CONTINUE</button>
     <button id="startBtn" class="text-btn" onclick="tapFlickerThen(this, () => goNewGame())" disabled>NEW GAME</button>
@@ -214,6 +214,11 @@
 <!-- FIN画面: エンドロール終了後、真っ黒な画面の中央にFIN.を表示し、10秒後にフェードアウトしてタイトルへ戻る -->
 <div id="sceneFin" class="scene">
     <div id="finText">FIN.</div>
+</div>
+
+<!-- サブストーリーバトル(EXTRA BATTLE)勝利後のエピローグ末尾に出す、FIN.と同じ演出の簡易版終了画面 -->
+<div id="sceneSubStoryEnd" class="scene">
+    <div id="subStoryEndText">SUB STORY<br><span id="subStoryEndCharName"></span><br>END</div>
 </div>
 
 <!-- HOW TOポップアップ: appRoot直下に置き、どのシーンからでも表示できるようにする -->
