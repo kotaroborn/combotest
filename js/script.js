@@ -189,9 +189,22 @@ const SUBSTORY_BY_ENEMY = {
     ENEMY_01: {
         title: 'ノアの大事な形見',
         screens: [
-            { img: 'substory_1_1.PNG', text: '（仮テキスト・敵01 裏話 1/3）誰にも言えない、敵01(仮)だけの秘密の物語がここに……' },
-            { img: 'substory_1_2.PNG', text: '（仮テキスト・敵01 裏話 2/3）その過去には、まだ語られていない出来事があった。' },
-            { img: 'substory_1_3.PNG', text: '（仮テキスト・敵01 裏話 3/3）そして今、その真実がようやく明かされる。' },
+            { img: 'substory_1_1.PNG', entranceEffect: 'blurIn', text: [
+                '3年前。村の教会。\nこの日は孫娘の結婚式だった。\n祝いの声と笑顔の中で、\nノアも静かに笑っていた。',
+                'ノア「幸せにな。\n孫娘「ありがとう、おじいちゃん。\nその指には銀の婚約指輪が輝いていた。'
+            ] },
+            { img: 'substory_1_2.PNG', pageSE: { 4: 'se_deck_minus' }, text: [
+                'すると突然、教会の扉が開き、\n人形のような兵を連れた道化師が\n笑って立っていた。',
+                '道化師「おめでとう〜。ボクにも祝わせてよ。',
+                '突然の襲来にノアや孫娘も傷を負い、\n神聖な教会も、理由もなく破壊されていった。',
+                '道化師「これで大体終わり……ん？\nまだキミ、生きてるの？',
+                'うずくまるノアをめがけて\n鋭利なナイフが飛んできた。'
+            ] },
+            { img: 'substory_1_3.PNG', entranceEffect: 'blackRedFlash', text: [
+                '孫娘「おじいちゃん！！！！',
+                'ノア「なぜかばったのじゃ……。\n孫娘「無事で、よかった……。',
+                '孫娘はノアをかばい、静かに目を閉じた。\nノアは傷ついた体で道化師に立ち向かう。\nノア「……許さんぞぉ……貴様……！！'
+            ] },
         ],
     },
     ENEMY_02: {
@@ -4208,7 +4221,11 @@ function waitForSubStoryTap() {
 // サブストーリーバトル(検討中の新機能)勝利後のエピローグ。1枚の画像+複数ページのテキストで構成する
 // (通常のサブストーリー=3画面とは異なり1画面のみ)。表示にはreadSubStoryと同じDOM要素を流用する。
 const SUBSTORY_BATTLE_EPILOGUE = {
-    ENEMY_01: { img: 'substory_battle_1.PNG', text: ['（仮テキスト）Noahとして戦い抜いた後の後日談。'] },
+    ENEMY_01: { img: 'substory_battle_1.PNG', text: [
+        '戦いの末、ノアは道化師を逃がしてしまった。\nそれを3年の間ずっと悔やんでいた。',
+        'そして今、そのとき無くなったはずの\n婚約指輪が偶然見つかる。\nノアは形見を強く握り、誓った。',
+        'ノア「……今度こそ守ってみせる。'
+    ] },
     ENEMY_02: { img: 'substory_battle_2.PNG', text: ['（仮テキスト）Ritaとして戦い抜いた後の後日談。'] },
     ENEMY_03: { img: 'substory_battle_3.PNG', text: ['（仮テキスト）Galdとして戦い抜いた後の後日談。'] },
     ENEMY_04: { img: 'substory_battle_4.PNG', text: ['（仮テキスト）Jackとして戦い抜いた後の後日談。'] },
@@ -4326,6 +4343,7 @@ async function readSubStory(idx) {
     const fallback = document.getElementById('subStoryImgFallback');
     const textEl = document.getElementById('subStoryText');
     const block = document.getElementById('subStoryBlock');
+    const flashEl = document.getElementById('subStoryFlash');
 
     // サブストーリーごとに個別のBGM(sub.bgm、例: 'bgm_battle_2'のような既存BGMの流用)を指定できる。
     // 指定が無ければ本編ストーリーシーンと同じ共通BGM(bgm_story)を流す。
@@ -4348,19 +4366,64 @@ async function readSubStory(idx) {
         const screen = sub.screens[i];
         if (subStoryToken !== myToken) return; // 戻る/閉じるで中断されていたら止める
 
-        if (imgs[screen.img]) {
-            imgArea.style.backgroundImage = `url('assets/images/cutscenes/substory/${screen.img}')`;
-            imgArea.classList.remove('placeholder');
+        // 画面切り替え時の特殊演出(screen.entranceEffect)。無指定なら従来通り即座に切り替える。
+        if (screen.entranceEffect === 'blackRedFlash') {
+            // 黒画面を保持→赤く一瞬フラッシュ→裏で画像を差し替えてから消す、という2段階の演出
+            imgArea.style.backgroundImage = 'none'; // 赤フラッシュが消えるまで、実際の画像はまだ見せない
+            flashEl.style.transition = 'none';
+            flashEl.style.background = '#000';
+            flashEl.style.opacity = '1';
+            await wait(400); // 黒画面を少し保持する
+            if (subStoryToken !== myToken) return;
+            flashEl.style.transition = 'background 0.12s ease-out';
+            flashEl.style.background = '#c00'; // 赤フラッシュ
+            await wait(180);
+            if (subStoryToken !== myToken) return;
+            if (imgs[screen.img]) {
+                imgArea.style.backgroundImage = `url('assets/images/cutscenes/substory/${screen.img}')`;
+                imgArea.classList.remove('placeholder');
+            } else {
+                imgArea.style.backgroundImage = 'none';
+                imgArea.classList.add('placeholder');
+                fallback.innerText = screen.img + ' (未配置)';
+            }
+            flashEl.style.transition = 'opacity 0.3s ease-out';
+            flashEl.style.opacity = '0';
+            await wait(300);
         } else {
-            imgArea.style.backgroundImage = 'none';
-            imgArea.classList.add('placeholder');
-            fallback.innerText = screen.img + ' (未配置)';
+            if (imgs[screen.img]) {
+                imgArea.style.backgroundImage = `url('assets/images/cutscenes/substory/${screen.img}')`;
+                imgArea.classList.remove('placeholder');
+            } else {
+                imgArea.style.backgroundImage = 'none';
+                imgArea.classList.add('placeholder');
+                fallback.innerText = screen.img + ' (未配置)';
+            }
         }
+
+        // ぼけた画像がだんだんはっきりしてくる演出(screen.entranceEffect === 'blurIn')。無指定ならぼかし無し。
+        if (screen.entranceEffect === 'blurIn') {
+            imgArea.style.transition = 'none';
+            imgArea.style.filter = 'blur(18px)';
+            await wait(30);
+            if (subStoryToken !== myToken) return;
+            imgArea.style.transition = 'filter 2s ease-out';
+            imgArea.style.filter = 'blur(0px)';
+            await wait(2000);
+        } else {
+            imgArea.style.transition = 'none';
+            imgArea.style.filter = 'none'; // 前の画面でぼかしが残っていないよう、毎回明示的にリセットする
+        }
+        if (subStoryToken !== myToken) return;
 
         // textは通常は1画面1ページの文字列だが、同じ画像のまま複数ページ分のテキストを送りたい場合は配列にできる
         const pages = Array.isArray(screen.text) ? screen.text : [screen.text];
         for (let p = 0; p < pages.length; p++) {
             if (subStoryToken !== myToken) return;
+
+            // ページ単位で効果音を鳴らしたい場合(screen.pageSE、キーはページ番号=0始まり)
+            if (screen.pageSE && screen.pageSE[p]) playSE(screen.pageSE[p]);
+
             textEl.innerText = '';
             for (let c = 0; c < pages[p].length; c++) {
                 if (subStoryToken !== myToken) return;
