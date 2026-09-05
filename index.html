@@ -81,7 +81,7 @@
                 <div class="title-logo-fallback-sub">CROSS DIMENSION</div>
             </div>
         </div>
-        <div class="title-version">ver. 0.9.071</div>
+        <div class="title-version">ver. 0.9.073</div>
     </div>
     <button id="titleContinueBtn" class="text-btn" onclick="tapFlickerThen(this, () => goContinueGame())" style="display:none;">CONTINUE</button>
     <button id="startBtn" class="text-btn" onclick="tapFlickerThen(this, () => goNewGame())" disabled>NEW GAME</button>
@@ -393,7 +393,10 @@
 <!-- サブストーリー閲覧: 戦う前のストーリーシーンと同じフルスクリーン表示。読み終えるとSUB STORYの一覧(ポップアップ)へ戻る -->
 <div id="sceneSubStoryRead" class="scene">
     <div id="subStoryBlock" class="cine-block" onclick="onSubStoryTap()">
-        <div id="subStoryImgArea" class="cine-img"><div id="subStoryImgFallback" class="cine-img-fallback"></div></div>
+        <div id="subStoryImgArea" class="cine-img">
+            <div id="subStoryImgFallback" class="cine-img-fallback"></div>
+            <div id="subStoryFlash"></div>
+        </div>
         <div class="cine-textbox"><p id="subStoryText" class="cine-text"></p></div>
     </div>
     <button id="backSubStoryBtn" class="text-btn" onclick="backToSubStoryList()">◀︎戻る</button>
