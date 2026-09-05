@@ -150,6 +150,9 @@
             background: repeating-linear-gradient(45deg, #111, #111 8px, #161616 8px, #161616 16px);
         }
         .cine-img.placeholder .cine-img-fallback { display: flex; }
+        /* サブストーリーの特殊演出用オーバーレイ(黒→赤フラッシュ等、JS側でopacity/backgroundを細かく制御する。
+           既存の.cine-flash(白一色の単純なフラッシュ)とは別に、2段階の演出を行うため専用の要素にしている) */
+        #subStoryFlash { position: absolute; inset: 0; opacity: 0; pointer-events: none; background: #000; }
         /* 白フラッシュ演出(プロローグ2画面目等、画面を切り替える瞬間に一瞬光らせてから見せる用) */
         .cine-flash { position: absolute; inset: 0; background: #fff; opacity: 0; pointer-events: none; }
         .cine-flash.flashing { animation: cineFlash 0.5s ease-out; }
@@ -528,4 +531,7 @@
         /* ------- FIN画面(5人目撃破後、エンドロールの後に表示) ------- */
         #sceneFin { background: #000; justify-content: center; align-items: center; }
         #finText { color: #fff; font-size: 48px; font-weight: 900; letter-spacing: 6px; }
+        #sceneSubStoryEnd { background: #000; justify-content: center; align-items: center; }
+        #subStoryEndText { color: #fff; font-size: 26px; font-weight: 900; letter-spacing: 4px; text-align: center; line-height: 1.8; }
+        #subStoryEndCharName { color: #ffd23c; } /* キャラ名だけ金色にして目立たせる */
     
