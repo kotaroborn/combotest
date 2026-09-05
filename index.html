@@ -81,7 +81,7 @@
                 <div class="title-logo-fallback-sub">CROSS DIMENSION</div>
             </div>
         </div>
-        <div class="title-version">ver. 0.9.066</div>
+        <div class="title-version">ver. 0.9.067</div>
     </div>
     <button id="titleContinueBtn" class="text-btn" onclick="tapFlickerThen(this, () => goContinueGame())" style="display:none;">CONTINUE</button>
     <button id="startBtn" class="text-btn" onclick="tapFlickerThen(this, () => goNewGame())" disabled>NEW GAME</button>
@@ -357,6 +357,13 @@
             <div class="confirm-btns">
                 <button onclick="closeBonusResetConfirm()">キャンセル</button>
                 <button onclick="doResetAllBonus()" class="confirm-ok">OK</button>
+            </div>
+        </div>
+        <div id="substoryBattleConfirmPanel" class="confirm-panel">
+            <p class="confirm-text">このキャラでバトルをしますか？</p>
+            <div class="confirm-btns">
+                <button onclick="declineSubstoryBattle()">いいえ</button>
+                <button onclick="acceptSubstoryBattle()" class="confirm-ok">はい</button>
             </div>
         </div>
     </div>
