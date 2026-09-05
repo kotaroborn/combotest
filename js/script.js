@@ -2538,7 +2538,9 @@ function updateUI(activeIndex) {
     const label = document.getElementById('requiredHandSizeLabel');
     if (state.requiredHandSize) {
         label.style.display = '';
-        label.innerText = `このターンは${state.requiredHandSize}枚出す！`;
+        // 英語表記(アーケード風のUIトーンに合わせる)。1枚の時だけ単数形(CARD)、2枚以上は複数形(CARDS)にする。
+        const n = state.requiredHandSize;
+        label.innerText = `PLAY ${n} CARD${n === 1 ? '' : 'S'} THIS TURN`;
     } else {
         label.style.display = 'none';
     }
@@ -2557,12 +2559,15 @@ function updateUI(activeIndex) {
 }
 
 function updateActionButtons() {
-    // 通常は1枚でも出せばGO!可能。requiredHandSizeが設定されている場合(サブストーリーバトル)は、
+    // GO!は、通常なら1枚でも出せば押せる。requiredHandSizeが設定されている場合(EXTRA BATTLE)は、
     // ちょうどその枚数出した時だけ有効になる(少なく出して確定する、は不可)。
-    const handOk = state.requiredHandSize ? filledCount() === state.requiredHandSize : filledCount() > 0;
-    const enabled = state.battleReady && !state.resolving && handOk;
-    document.getElementById('goBtn').disabled = !enabled;
-    document.getElementById('clrBtn').disabled = !enabled;
+    // CANCELはGO!と異なり、requiredHandSizeの有無に関わらず1枚でも場に出ていれば常に押せる
+    // (揃っていない途中でも取り消せるようにするため。以前はGO!と同じ条件を共有しており、
+    // EXTRA BATTLEでちょうどの枚数を揃えるまでCANCELすら押せない不具合があった)。
+    const goOk = state.requiredHandSize ? filledCount() === state.requiredHandSize : filledCount() > 0;
+    const clrOk = filledCount() > 0;
+    document.getElementById('goBtn').disabled = !(state.battleReady && !state.resolving && goOk);
+    document.getElementById('clrBtn').disabled = !(state.battleReady && !state.resolving && clrOk);
 }
 
 async function fadeOutQueueCards() {
