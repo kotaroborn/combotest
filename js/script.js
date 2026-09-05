@@ -1718,6 +1718,25 @@ async function playFinScreen() {
     await wait(2000);
 }
 
+// サブストーリーバトル(EXTRA BATTLE)勝利後のエピローグ末尾に出す終了画面。FIN.と全く同じ演出(フェードイン→
+// 表示→フェードアウト)だが、表示文言が「SUB STORY / 〈キャラ名〉 / END」になり、表示時間もFINの10秒より短い
+// 3秒にしている(こちらは本編クリアほどの重みは無いため)。
+async function playSubStoryEndScreen(characterName) {
+    const scene = document.getElementById('sceneSubStoryEnd');
+    document.getElementById('subStoryEndCharName').innerText = characterName;
+    scene.style.transition = 'none';
+    scene.style.opacity = '0';
+    showScene('subStoryEnd');
+    await wait(30);
+    scene.style.transition = 'opacity 1.5s ease-in';
+    scene.style.opacity = '1';
+    await wait(1500);
+    await wait(3000); // フェードイン完了後、3秒間表示する(FINの10秒よりは短め)
+    scene.style.transition = 'opacity 2s ease-out';
+    scene.style.opacity = '0';
+    await wait(2000);
+}
+
 // 5人目(最終)撃破時の専用シーケンス: YOU WINの余韻を5秒→エンディング5画面→エンドロール→FIN.→タイトルへ自動的に戻る
 // この間、storyEnemyIndexは進めない(advanceToNextEnemyを呼ばない)ため、タイトルのCONTINUEは5人目と戦う前の状態のまま残る
 async function runFinalVictorySequence() {
@@ -4253,23 +4272,43 @@ async function playSubstoryBattleEpilogue(playerPresetKey) {
         }
     }
 
-    // コスチューム解放(通常のサブストーリー閲覧を読み終えた時と同じ条件・同じ通知パターン)
+    // 最後のページまで読み終えたら、コンテンツをゆっくりフェードアウトさせる(真っ黒になる。#appRoot/bodyの背景が
+    // もともと黒のため、blockを透明にするだけで暗転が完成する)
+    if (subStoryToken === myToken) {
+        block.style.transition = 'opacity 1.5s ease-out';
+        block.style.opacity = '0';
+        await wait(1500);
+    }
+
+    // 真っ黒になったところで、「SUB STORY / キャラ名 / END」をFIN.と同じ演出(フェードイン→表示→フェードアウト)で見せる
+    if (subStoryToken === myToken) {
+        await playSubStoryEndScreen(ENEMY_PRESETS[playerPresetKey].name);
+    }
+
+    // END画面が消えた直後、真っ黒な画面のまま、コスチュームがまだ未解除だった場合のみ実績解除トーストを出す。
+    // このバトル自体がまさにこのコスチュームを解除するためのものなので、gameClearedOnce等の他条件は問わず、
+    // 「未解除だったかどうか」だけで判定する。
     const idx = ENEMY_ORDER.indexOf(playerPresetKey);
     if (idx !== -1) {
-        unlockSkin('enemy_' + (idx + 1));
-        if (gameClearedOnce) {
-            updateOptionUI();
+        const skinName = 'enemy_' + (idx + 1);
+        const alreadyUnlocked = unlockedSkins.includes(skinName);
+        unlockSkin(skinName);
+        if (gameClearedOnce) updateOptionUI(); // 既にクリア済みなら、背後で開いたままのOPTION画面のCOSTUME行を即座に表示させる
+        if (!alreadyUnlocked) {
             if (!costumeUnlockAnnounced) {
+                // 以後、他の経路(タイトル復帰時のcheckUnlockAnnouncements等)で重複して案内されないようにする
                 costumeUnlockAnnounced = true;
                 writeSaveData({ costumeUnlockAnnounced: true });
-                showUnlockToast('COSTUME 解放！');
             }
+            showUnlockToast('COSTUME 解放！');
+            await wait(3200); // トーストのスライドイン+表示+スライドアウトが一通り終わるまで待つ
         }
     }
     endSubstoryBattle();
     showScene('title');
     playBGM('bgm_title');
-    openBonusContents(); // BONUS CONTENTSのメイン一覧へ戻る
+    document.getElementById('bonusContentsOverlay').classList.add('show'); // backToSubStoryListと同じパターンで背後にBONUS CONTENTSを表示しておく
+    openSubStoryList(); // サブストーリー選択画面へ戻す
 }
 
 async function readSubStory(idx) {
