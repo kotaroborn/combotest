@@ -4323,20 +4323,38 @@ async function readSubStory(idx) {
         }
     }
 
-    // 実績: サブストーリーを3画面すべて読み終えた(体験した)タイミングで、対応する敵のコスチュームを解除する。
+    // サブストーリーを3画面すべて読み終えた(体験した)タイミングで、対応する敵の「サブストーリーバトル」へつなげる。
+    // まだコスチュームを解除していない(=このサブストーリーバトルにまだ勝利していない)場合は、選択の余地なく直接バトルへ進む。
+    // 既に解除済み(2回目以降の読み返し)の場合は、バトルを強制せず「バトルをしますか？」の確認ポップアップを出し、
+    // 「いいえ」を選べばバトルせずに勝利後のエピローグへ直接進める(気軽に後日談だけ読み返せるようにするため)。
     const skinName = 'enemy_' + (idx + 1);
-    unlockSkin(skinName);
-    if (gameClearedOnce) {
-        updateOptionUI(); // 既にクリア済みなら、背後で開いたままのOPTION画面のCOSTUME行を即座に表示させる
-        // 既にエンディングを見た後にサブストーリーを見た場合は、次にタイトルへ戻るのを待たず、読み終えた直後にCOSTUME解放を通知する
-        if (!costumeUnlockAnnounced) {
-            costumeUnlockAnnounced = true;
-            writeSaveData({ costumeUnlockAnnounced: true });
-            showUnlockToast('COSTUME 解放！');
-        }
+    if (!unlockedSkins.includes(skinName)) {
+        goSubstoryBattle(ENEMY_ORDER[idx]);
+        return;
     }
-    // (エンディングをまだ見ていない場合は、後から見てタイトルへ戻った時点でcheckUnlockAnnouncementsが通知する)
-    backToSubStoryList();
+    openSubstoryBattleConfirm(idx);
+}
+
+// 「このキャラでバトルをしますか？」確認パネルの制御。解放済みのサブストーリーを読み終えた直後にのみ表示する。
+let pendingSubstoryBattleIdx = null; // 確認パネル表示中、対象のサブストーリー番号(0〜4)を覚えておく
+function openSubstoryBattleConfirm(idx) {
+    pendingSubstoryBattleIdx = idx;
+    document.getElementById('substoryBattleConfirmPanel').classList.add('show');
+}
+function closeSubstoryBattleConfirmPanel() {
+    document.getElementById('substoryBattleConfirmPanel').classList.remove('show');
+}
+function acceptSubstoryBattle() {
+    const idx = pendingSubstoryBattleIdx;
+    pendingSubstoryBattleIdx = null;
+    closeSubstoryBattleConfirmPanel();
+    goSubstoryBattle(ENEMY_ORDER[idx]);
+}
+function declineSubstoryBattle() {
+    const idx = pendingSubstoryBattleIdx;
+    pendingSubstoryBattleIdx = null;
+    closeSubstoryBattleConfirmPanel();
+    playSubstoryBattleEpilogue(ENEMY_ORDER[idx]); // バトルせず、勝利後のエピローグへ直接進む(コスチュームは既に解除済みのため再解除は何もしない)
 }
 function backToSubStoryList() {
     subStoryToken++; // 再生中なら中断する
