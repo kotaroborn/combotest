@@ -81,7 +81,7 @@
                 <div class="title-logo-fallback-sub">CROSS DIMENSION</div>
             </div>
         </div>
-        <div class="title-version">ver. 0.9.068</div>
+        <div class="title-version">ver. 0.9.069</div>
     </div>
     <button id="titleContinueBtn" class="text-btn" onclick="tapFlickerThen(this, () => goContinueGame())" style="display:none;">CONTINUE</button>
     <button id="startBtn" class="text-btn" onclick="tapFlickerThen(this, () => goNewGame())" disabled>NEW GAME</button>
@@ -359,13 +359,15 @@
                 <button onclick="doResetAllBonus()" class="confirm-ok">OK</button>
             </div>
         </div>
-        <div id="substoryBattleConfirmPanel" class="confirm-panel">
-            <p class="confirm-text">バトルしますか？</p>
-            <div class="confirm-btns">
-                <button onclick="declineSubstoryBattle()">スキップする</button>
-                <button onclick="acceptSubstoryBattle()" class="confirm-ok">はい</button>
-            </div>
-        </div>
+    </div>
+</div>
+<!-- サブストーリーバトルの「バトルしますか？」確認ポップアップ。BONUS CONTENTS等、他のオーバーレイの表示状態に
+     依存せず常に表示できるよう、あえて独立した最上位要素にしている(#confirm-panel-standaloneでposition:fixedにする)。 -->
+<div id="substoryBattleConfirmPanel" class="confirm-panel confirm-panel-standalone">
+    <p class="confirm-text">バトルしますか？</p>
+    <div class="confirm-btns">
+        <button onclick="declineSubstoryBattle()">スキップする</button>
+        <button onclick="acceptSubstoryBattle()" class="confirm-ok">はい</button>
     </div>
 </div>
 
