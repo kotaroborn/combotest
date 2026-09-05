@@ -3278,7 +3278,7 @@ async function runUpperCombo(attacker, defender, cursor) {
             }
             // 2発目以降は、1発目で既に同じ高さに揃っているため、両者とも高さの変更は不要
             hitComboSuccess(attacker); // 空中コンボの各撃もCOMBOとして数える(第26条: 空中打ち上げ時の無防備状態への攻撃を含む)
-            if (airPunches >= 2) await flashDashBetweenPunches(attacker); // 2発目以降のみ、パンチ同士の切り替えなのでdashを挟む
+            await flashDashBetweenPunches(attacker); // 1発目(upper.PNGから)・2発目以降(パンチ同士)いずれもdashを挟み、勢いを出す
             setAct(attacker, nextPunchSprite(attacker)); // 第21条
             markCardOutcome(defender, cursor.i, 'card-shatter'); // 3すくみ無視のコンボ継続: ヒビ割れる
             const comboDmg = (DB.DMG.P + (airPunches - 1) * DB.DMG.P_COMBO_STEP) * chargeMultOf(attacker) * atkMultOf(attacker) * defMultOf(defender); // 1発目=P, 2発目=P+STEP...
