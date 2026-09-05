@@ -338,7 +338,9 @@
             background: transparent; border: 1px solid rgba(255,255,255,0.55); color: #eee;
             padding: 9px 24px; font-size: 12px; letter-spacing: 1px; border-radius: 6px; cursor: pointer;
         }
+        #requiredHandSizeLabel { text-align: center; color: #ffd23c; font-size: 13px; font-weight: 900; letter-spacing: 1px; margin-bottom: 4px; }
         #slots { display: flex; justify-content: center; gap: 5px; height: 60px; }
+        #slots .slot.slot-locked { opacity: 0.25; } /* このターン出せない枠(requiredHandSizeを超える分)を薄く見せる */
         .slot { width: 42px; height: 60px; border: 2px solid #fff; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-weight: bold; background:#222; background-size: cover; background-position: center; image-rendering: pixelated; }
         .slot.empty { border-style: dashed; border-color: #888; opacity: 0.5; }
         .slot.filled { border-style: solid; border-color: #fff; background-color: #345; }
@@ -506,6 +508,9 @@
         .confirm-btns { display: flex; gap: 12px; }
         .confirm-btns button { padding: 10px 22px; border: none; border-radius: 6px; font-size: 12px; font-weight: bold; cursor: pointer; background: #444; color: #eee; }
         .confirm-btns .confirm-ok { background: #a00; color: #fff; } /* 隠しアイテムを1つでも取得したら表示する */
+        /* サブストーリーバトルの確認ポップアップは、他のオーバーレイ(BONUS CONTENTS等)の表示状態に関わらず
+           常に最前面に表示できるよう、position:fixedの独立要素にする(.confirm-panelのposition:absoluteを上書き) */
+        .confirm-panel-standalone { position: fixed; z-index: 10000; }
 
         /* ------- エンドロール(5人目撃破後のみ) ------- */
         #sceneCredits { background: #000; overflow: hidden; }
