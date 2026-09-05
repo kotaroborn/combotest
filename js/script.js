@@ -83,8 +83,14 @@ let state = {
     lastExchangeResult: null, // 直近の攻防結果 { P: 'win'|'lose'|'draw', E: 'win'|'lose'|'draw' }。resolveExchange/runFinisherが設定し、resolveTurnがコンボ判定に使う
     finisherAlreadyDown: false, // 必殺技でK.O.した場合、画面端でdown.PNGのまま倒れる(通常のホーム帰還演出をスキップする合図)
     pGuardHoldPose: false, eGuardHoldPose: false, // 相手がしびれている間、ガード成功側の構えを維持するフラグ
-    gameMode: 'story', pendingMode: 'story', // 'story' | 'training'
+    gameMode: 'story', pendingMode: 'story', // 'story' | 'training' | 'substoryBattle'
     storyEnemyIndex: 0, // STORY MODE: ENEMY_ORDER内の現在の敵の位置(連戦で進んでいく想定。セーブデータから復元される)
+    // サブストーリーバトル(検討中の新機能): プレイヤーがENEMY_PRESETSのいずれかのキャラとして戦う時に使う。
+    // いずれもnull/未設定なら通常のSTORY MODE/TRAINING MODEと完全に同じ挙動になる(既存動作に影響しない)。
+    pPresetKey: null, // プレイヤー側が借りるENEMY_PRESETSのキー(例: 'ENEMY_01'=Noahとして戦う)
+    ePresetKey: null, // 敵側のENEMY_PRESETSキーを直接指定する(通常はstoryEnemyIndexから自動算出するが、これがあれば優先)
+    substoryStageNum: null, // 使用する背景のステージ番号(1〜5)を直接指定する(通常はstoryEnemyIndexから自動算出するが、これがあれば優先)
+    requiredHandSize: null, // このターン、場に出さなければならない枚数(1〜5)。設定時は必ずこの枚数ちょうどでなければGO!できない
     soundOn: true, // OPTION画面のサウンドON/OFF。BGM/SEの再生有無に連動する
     bgmVolume: 0.5, // BGM音量(0〜1)。SEを聴き取りやすくするため既定を控えめにしている
     seVolume: 1.0, // SE音量(0〜1)
@@ -137,6 +143,9 @@ let unlockedItems = []; // 隠しアイテム(今後実装予定)。取得済み
 // ------- 実績システム(汎用・今後も追加していく前提) -------
 // 解除状況はすべてlocalStorageに永続保存し、ブラウザを閉じても解除済みのまま残る。
 let unlockedSubStories = []; // 解除済みサブストーリーのenemyIndex(0〜4)の配列
+let defeatedEnemyIndices = []; // STORY MODEで一度でも撃破したことのある敵のenemyIndex(0〜4)の配列。
+// BONUSの解除状況(SUB STORY/SOUND TEST/COSTUME/SPEED)とは別軸の、恒久的な進行記録として扱う
+// (storyEnemyIndexと同様、BONUS ALLリセットの対象には含めない)。
 let unlockedSkins = []; // 解除済みコスチュームのセット名('enemy_1'〜'enemy_5')の配列
 let soundTestUnlocked = false; // SOUND TESTが解除済みか(旧条件。新条件はgameClearedOnce、後方互換のため残す)
 let battleSpeedX2 = false; // バトル中2倍速が有効か。SPEED機能自体の解放条件はgameClearedOnce(クリア後)。セーブデータに永続化する
@@ -377,6 +386,9 @@ function currentBgName() {
     let name;
     if (state.gameMode === 'training') {
         name = 'bg_training.PNG';
+    } else if (state.substoryStageNum) {
+        // サブストーリーバトルでステージ番号を直接指定する場合(対戦相手の敵番号とは独立して背景を選べる)
+        name = state.substoryStageNum === 1 ? 'bg.PNG' : `bg_${state.substoryStageNum}.PNG`;
     } else {
         const stageNum = (state.storyEnemyIndex % ENEMY_ORDER.length) + 1; // 1〜5
         name = stageNum === 1 ? 'bg.PNG' : `bg_${stageNum}.PNG`;
@@ -409,6 +421,13 @@ function loadEnemySet(setName) {
 }
 // 現在の状況(TRAINING MODE、またはSTORY MODEの現在の敵)に応じた敵グラフィックセット名を返す('enemy_1'〜'enemy_5'または'training')
 function currentEnemySetName() {
+    if (state.ePresetKey) {
+        // サブストーリーバトルで対戦相手を直接指定する場合。'ENEMY_03'→'enemy_3'のように変換する。
+        // 対応するグラフィックセットが無いキー(例: 'VAL')は、存在しないフォルダ名を返すことで、
+        // 既存のフォールバック(未配置なら自動的にplayer.PNG等を使う仕組み)が自然に働くようにする。
+        const m = state.ePresetKey.match(/^ENEMY_(\d+)$/);
+        return m ? 'enemy_' + parseInt(m[1], 10) : 'val';
+    }
     if (state.gameMode === 'training') return 'training';
     const idx = (state.storyEnemyIndex % ENEMY_ORDER.length) + 1; // 1〜5
     return 'enemy_' + idx;
@@ -678,12 +697,55 @@ const ENEMY_PRESETS = {
         defMult: 0.75, // 防御力も高い(被弾ダメージ25%減、5人の中で最も硬い)
         numbVulnerableMult: 0.6, // しびれ(無条件敗北)に強い(通常0.5→0.3、他の誰よりも打たれ強い)
     },
+    // VAL: サブストーリーバトル(検討中の新機能)専用の6人目のエントリ。ENEMY_05(Alv)と中身は完全に同一
+    // (デッキ配分・行動パターン・攻撃力/防御力/しびれ耐性すべて)で、名前と扱いのみ異なる。
+    // ENEMY_ORDERには含めない(通常のSTORY MODE連戦には登場しない、サブストーリーバトル限定の対戦相手)。
+    // 専用グラフィックセットは用意せず、既存のフォールバックにより自然にplayer.PNG等の絵柄になる
+    // (VAL=主人公なので、プレイヤーと同じ見た目になること自体が正しい)。
+    VAL: {
+        name: 'Val', deck: { PUNCH: 7, UPPER: 7, GUARD: 7 },
+        favoritePatterns: [
+            ['GUARD', 'GUARD'], ['GUARD', 'GUARD', 'PUNCH'], ['GUARD', 'GUARD', 'UPPER'],
+            ['GUARD', 'GUARD', 'GUARD'], ['GUARD', 'GUARD', 'GUARD', 'PUNCH'], ['GUARD', 'GUARD', 'GUARD', 'UPPER'],
+            ['PUNCH', 'GUARD', 'PUNCH'], ['PUNCH', 'PUNCH', 'UPPER'], ['PUNCH', 'PUNCH', 'PUNCH'],
+            ['UPPER', 'PUNCH', 'PUNCH'], ['UPPER', 'GUARD', 'UPPER'],
+            ['GUARD', 'PUNCH', 'GUARD', 'PUNCH', 'PUNCH'],
+        ],
+        smallHandThreshold: 2,
+        smallHandBias: { PUNCH: 12 },
+        atkMult: 1.2,
+        defMult: 0.75,
+        numbVulnerableMult: 0.6,
+    },
 };
 const ENEMY_ORDER = ['ENEMY_01', 'ENEMY_02', 'ENEMY_03', 'ENEMY_04', 'ENEMY_05']; // 連戦の順番
+
+// サブストーリーバトル(検討中の新機能)の対戦カード設定。
+// キー: プレイヤーが操作する(=デッキ・特性を借りる)キャラのENEMY_PRESETSキー。
+// opponent: 対戦相手のENEMY_PRESETSキー。stage: 使用する背景のステージ番号(1〜5、対戦相手の番号とは独立)。
+const SUBSTORY_BATTLE_CONFIG = {
+    ENEMY_01: { opponent: 'ENEMY_04', stage: 2 }, // Noah vs Jack, 2ndステージ
+    ENEMY_02: { opponent: 'ENEMY_03', stage: 1 }, // Rita vs Gald, 1stステージ
+    ENEMY_03: { opponent: 'ENEMY_04', stage: 4 }, // Gald vs Jack, 4thステージ
+    ENEMY_04: { opponent: 'ENEMY_01', stage: 3 }, // Jack vs Noah, 3rdステージ
+    ENEMY_05: { opponent: 'VAL', stage: 5 },      // Alv vs Val, 5thステージ
+};
+// サブストーリーバトルの対戦相手の表示名を返す。プレイヤーがSTORY MODEでまだ遭遇したことのない敵は
+// 「？？？」にしてネタバレを防ぐ。VAL(主人公として認識されている)は例外で、いつ戦っても実名を表示する。
+function substoryBattleOpponentName(opponentKey) {
+    if (opponentKey === 'VAL') return ENEMY_PRESETS.VAL.name;
+    const idx = ENEMY_ORDER.indexOf(opponentKey);
+    if (idx !== -1 && !isEnemyDefeated(idx)) return '？？？';
+    return ENEMY_PRESETS[opponentKey].name;
+}
 const STAGE_ORDINALS = ['1ST', '2ND', '3RD', '4TH', '5TH']; // ENEMY_ORDERのインデックスに対応する序数表記
 
 // 現在のステージ表記(例: '1ST STAGE')を返す。STORY MODEのみ表示し、TRAINING MODEでは空文字を返す(表示箇所ごとに非表示扱いにする)
 function currentStageLabel() {
+    if (state.gameMode === 'substoryBattle' && state.substoryStageNum) {
+        const ordinal = STAGE_ORDINALS[state.substoryStageNum - 1] || state.substoryStageNum + 'TH';
+        return ordinal + ' STAGE';
+    }
     if (state.gameMode !== 'story') return '';
     const ordinal = STAGE_ORDINALS[state.storyEnemyIndex] || (state.storyEnemyIndex + 1) + 'TH';
     return ordinal + ' STAGE';
@@ -811,6 +873,7 @@ function applySaveDataOnBoot() {
     if (typeof save.seVolume === 'number') state.seVolume = save.seVolume;
     if (Array.isArray(save.unlockedItems)) unlockedItems = save.unlockedItems;
     if (Array.isArray(save.unlockedSubStories)) unlockedSubStories = save.unlockedSubStories;
+    if (Array.isArray(save.defeatedEnemyIndices)) defeatedEnemyIndices = save.defeatedEnemyIndices;
     if (Array.isArray(save.unlockedSkins)) unlockedSkins = save.unlockedSkins;
     if (typeof save.soundTestUnlocked === 'boolean') soundTestUnlocked = save.soundTestUnlocked;
     if (typeof save.battleSpeedX2 === 'boolean') battleSpeedX2 = save.battleSpeedX2;
@@ -956,13 +1019,19 @@ function enemySpriteName(baseName) {
     return imgs[enemyName] ? enemyName : baseName;
 }
 
-// プレイヤー側の描画名を解決する。実績で解除したコスチューム(selectedSkin)が選択されていれば、
-// 敵専用グラフィックとして読み込み済みの同じ画像セット(例: enemy_3_player.PNG)を流用してプレイヤーの見た目に適用する。
-// 未選択、または該当画像が読み込まれていない場合は通常のプレイヤー画像を返す。
+// プレイヤー側の描画名を解決する。サブストーリーバトル中(state.pPresetKey)は、選択中のコスチュームより優先して
+// 借りているキャラのグラフィックセット(例: Noahなら'enemy_1_player.PNG')を使う。それ以外は、実績で解除した
+// コスチューム(selectedSkin)が選択されていれば、敵専用グラフィックとして読み込み済みの同じ画像セットを流用する。
+// いずれにも該当しない、または該当画像が読み込まれていない場合は通常のプレイヤー画像を返す。
 function playerSpriteName(baseName) {
-    if (!selectedSkin) return baseName;
+    let skin = selectedSkin;
+    if (state.gameMode === 'substoryBattle' && state.pPresetKey) {
+        const m = state.pPresetKey.match(/^ENEMY_(\d+)$/);
+        skin = m ? 'enemy_' + parseInt(m[1], 10) : null;
+    }
+    if (!skin) return baseName;
     const key = baseName.replace('.PNG', '');
-    const skinName = selectedSkin + '_' + key + '.PNG';
+    const skinName = skin + '_' + key + '.PNG';
     return imgs[skinName] ? skinName : baseName;
 }
 
@@ -1799,6 +1868,39 @@ function goTrainingBattle() {
     playBGM('bgm_battle');
 }
 
+// サブストーリーバトル(検討中の新機能)を開始する。playerPresetKeyはプレイヤーが借りるキャラのENEMY_PRESETSキー
+// (例: 'ENEMY_01'=Noahとして戦う)。SUBSTORY_BATTLE_CONFIGから対戦相手・ステージを自動的に決定する。
+// デッキ編成は経由せず(借りているキャラのデッキ配分に固定)、直接バトルへ入る。
+function goSubstoryBattle(playerPresetKey) {
+    const config = SUBSTORY_BATTLE_CONFIG[playerPresetKey];
+    if (!config) return;
+    state.pendingMode = 'substoryBattle';
+    state.pPresetKey = playerPresetKey;
+    state.ePresetKey = config.opponent;
+    state.substoryStageNum = config.stage;
+    loadEnemySet(currentEnemySetName()); // 対戦相手側(ePresetKeyから導出。VALの場合は存在しない'val'でplayer.PNGに自然にフォールバック)
+    const playerIdx = ENEMY_ORDER.indexOf(playerPresetKey);
+    if (playerIdx !== -1) loadEnemySet('enemy_' + (playerIdx + 1)); // プレイヤー側(借りているキャラの見た目)も先読みする
+    loadStageBackground(config.stage === 1 ? 'bg.PNG' : `bg_${config.stage}.PNG`);
+    resetBattleState();
+    showScene('battle');
+    playBattleIntro();
+    playBGM('bgm_battle');
+}
+// サブストーリーバトルで敗北(K.O.)した後、同じ対戦カード(pPresetKey/ePresetKey/substoryStageNumは維持したまま)で再戦する。
+// デッキ編成を経由しない点はgoSubstoryBattleと同じだが、こちらは既に設定済みの状態をそのまま使い回す。
+function retrySubstoryBattle() {
+    state.pendingMode = 'substoryBattle'; // resetBattleStateはこの値からgameModeを決定するため、必ず設定する
+    loadEnemySet(currentEnemySetName());
+    const playerIdx = ENEMY_ORDER.indexOf(state.pPresetKey);
+    if (playerIdx !== -1) loadEnemySet('enemy_' + (playerIdx + 1));
+    loadStageBackground(state.substoryStageNum === 1 ? 'bg.PNG' : `bg_${state.substoryStageNum}.PNG`);
+    resetBattleState();
+    showScene('battle');
+    playBattleIntro();
+    playBGM('bgm_battle');
+}
+
 function tapFlickerThen(el, callback) {
     playSE('se_select'); // タイトルの各ボタン(NEW GAME/TRAINING MODE/CONTINUE)・デッキ編成のFIGHTボタン、共通のメニュー決定音
     el.classList.remove('tap-flicker');
@@ -2308,6 +2410,7 @@ function playCard(handIdx) {
     if (state.resolving || !state.battleReady) return;
     const card = state.playerHand[handIdx];
     if (!card) return;
+    if (state.requiredHandSize && filledCount() >= state.requiredHandSize) return; // このターン出せる枚数(ちょうど)に既に達している
     const slotIdx = state.hands.indexOf(null);
     if (slotIdx === -1) return; // 場(5枠)がすでに埋まっている
     state.hands[slotIdx] = card;
@@ -2432,11 +2535,19 @@ function filledCount() {
 }
 
 function updateUI(activeIndex) {
+    const label = document.getElementById('requiredHandSizeLabel');
+    if (state.requiredHandSize) {
+        label.style.display = '';
+        label.innerText = `このターンは${state.requiredHandSize}枚出す！`;
+    } else {
+        label.style.display = 'none';
+    }
     const s = document.getElementById('slots'); s.innerHTML = '';
     state.hands.forEach((h, idx) => {
         const d = document.createElement('div');
         let cls = 'slot ' + (h ? 'filled' : 'empty');
         if (idx === activeIndex) cls += ' active-card';
+        if (state.requiredHandSize && idx >= state.requiredHandSize) cls += ' slot-locked'; // 出せない枠を薄く見せる
         if (cardOutcomes.P[idx]) cls += ' ' + cardOutcomes.P[idx]; // ターン中の勝敗表現を保持
         d.className = cls;
         applyCardVisual(d, h);
@@ -2446,7 +2557,10 @@ function updateUI(activeIndex) {
 }
 
 function updateActionButtons() {
-    const enabled = state.battleReady && !state.resolving && filledCount() > 0;
+    // 通常は1枚でも出せばGO!可能。requiredHandSizeが設定されている場合(サブストーリーバトル)は、
+    // ちょうどその枚数出した時だけ有効になる(少なく出して確定する、は不可)。
+    const handOk = state.requiredHandSize ? filledCount() === state.requiredHandSize : filledCount() > 0;
+    const enabled = state.battleReady && !state.resolving && handOk;
     document.getElementById('goBtn').disabled = !enabled;
     document.getElementById('clrBtn').disabled = !enabled;
 }
@@ -2462,17 +2576,38 @@ async function fadeOutQueueCards() {
     await wait(450);
 }
 
+// サブストーリーバトル(state.pPresetKeyが設定されている間)は、ターンごとに「出さなければならない枚数」を
+// 1〜5の完全ランダムで再抽選する(少なく出して確定する、は不可。毎回ちょうどその枚数を揃える必要がある)。
+// 通常のSTORY MODE/TRAINING MODEでは常にnullのままで、5枚まで自由に出せる従来の挙動を保つ。
+function rollRequiredHandSize() {
+    state.requiredHandSize = state.pPresetKey ? (1 + Math.floor(Math.random() * 5)) : null;
+}
+
 function currentEnemyPreset() {
+    if (state.ePresetKey) return ENEMY_PRESETS[state.ePresetKey]; // サブストーリーバトルで対戦相手を直接指定する場合はこちらを優先
     const id = ENEMY_ORDER[state.storyEnemyIndex % ENEMY_ORDER.length];
     return ENEMY_PRESETS[id];
+}
+// このside(P/E)が現在どのENEMY_PRESETSエントリの特性(攻撃力/防御力/しびれ耐性/デッキ配分等)を持つかを返す
+// (該当が無ければnull)。通常はE側(currentEnemyPreset())のみが該当するが、サブストーリーバトルで
+// プレイヤーがいずれかの敵キャラとして戦う場合は、P側もstate.pPresetKeyのプリセットを持つようになる。
+// atkMultOf/defMultOf等、これまで「side==='E'」で決め打ちしていた箇所を、この関数経由に置き換えることで、
+// 通常時は完全に同じ挙動を保ったまま、サブストーリーバトルにも同じロジックを流用できるようにする。
+function presetForSide(side) {
+    if (side === 'E') return currentEnemyPreset();
+    if (side === 'P' && state.pPresetKey) return ENEMY_PRESETS[state.pPresetKey];
+    return null;
 }
 
 // HPバー下の名前表示を更新する。味方は固定でVAL、敵はSTORY MODEなら現在の敵プリセット名、
 // TRAINING MODEなら固定でENEMY(STORY MODEは今後の連戦で敵が変わるたびに自動で切り替わる)
 function updateCharNames() {
-    document.getElementById('playerName').innerText = 'VAL';
+    document.getElementById('playerName').innerText =
+        state.pPresetKey ? ENEMY_PRESETS[state.pPresetKey].name.toUpperCase() : 'VAL'; // サブストーリーバトルは借りているキャラの名前を表示
     document.getElementById('enemyName').innerText =
-        state.gameMode === 'training' ? 'ENEMY' : currentEnemyPreset().name;
+        state.gameMode === 'training' ? 'ENEMY' :
+        state.ePresetKey ? substoryBattleOpponentName(state.ePresetKey).toUpperCase() : // サブストーリーバトルは？？？マスキングを経由する
+        currentEnemyPreset().name;
 }
 
 // 連戦で次の敵へ進む(YOU WIN時、決着画面のNEXT BATTLEからgoNextEnemy経由で呼ばれる)
@@ -2650,17 +2785,21 @@ function resetBattleState() {
     cardOutcomes = { P: new Array(5).fill(null), E: new Array(5).fill(null) };
 
     // デッキ編成画面で決めた配分から山札を構築し、初期手札5枚を引く。
+    // ただしpPresetKeyが設定されている場合(サブストーリーバトル)は、通常の編成可能なdeckCountsではなく、
+    // 借りているキャラ(ENEMY_PRESETS)のデッキ配分をそのまま使う(編成不可、そのキャラの比率固定)。
     // TRAINING MODEのみ、山札を使わず固定でPUNCH/UPPER/GUARDの3枚を手札にする(タップしても減らない=選び放題)。
     if (state.gameMode === 'training') {
         state.playerDeck = [];
         state.playerDiscard = [];
         state.playerHand = ['PUNCH', 'UPPER', 'GUARD'];
     } else {
-        state.playerDeck = buildDeckArray(deckCounts);
+        const deckSource = state.pPresetKey ? ENEMY_PRESETS[state.pPresetKey].deck : deckCounts;
+        state.playerDeck = buildDeckArray(deckSource);
         state.playerDiscard = [];
         state.playerHand = new Array(5).fill(null);
         for (let i = 0; i < 5; i++) state.playerHand[i] = drawCard();
     }
+    rollRequiredHandSize(); // サブストーリーバトルなら1枚目のターン分の枚数をここで決める(通常時はnullのまま)
 
     document.getElementById('hpP').style.width = '100%';
     document.getElementById('hpP_y').style.width = '100%';
@@ -2856,9 +2995,27 @@ async function playBattleIntro() {
     updateActionButtons();
 }
 
+// STORY MODEでenemyIndexの敵を撃破したことを記録する(既に記録済みなら何もしない)。
+// サブストーリーバトル(検討中の新機能)で、まだ本編で見たことのない敵の名前を「？？？」にして
+// ネタバレを防ぐための判定に使う想定。
+function markEnemyDefeated(idx) {
+    if (defeatedEnemyIndices.includes(idx)) return;
+    defeatedEnemyIndices.push(idx);
+    writeSaveData({ defeatedEnemyIndices });
+}
+// enemyIndexの敵をSTORY MODEで一度でも撃破したことがあるかどうか
+function isEnemyDefeated(idx) {
+    return defeatedEnemyIndices.includes(idx);
+}
+
 function showResult(type) {
+    // STORY MODEでの勝利(K.O.以外)は、その時点で戦っていた敵を撃破履歴に記録する(最終戦に限らず毎回)
+    if (type !== 'KO' && state.gameMode === 'story') {
+        markEnemyDefeated(state.storyEnemyIndex);
+    }
+
     // 5人目(最終)の敵をYOU WINで倒した場合のみ、通常の決着画面ではなく専用のエンディング演出に分岐する
-    const isFinalVictory = (type !== 'KO') && (state.storyEnemyIndex === ENEMY_ORDER.length - 1);
+    const isFinalVictory = (type !== 'KO') && state.gameMode === 'story' && (state.storyEnemyIndex === ENEMY_ORDER.length - 1);
     if (isFinalVictory && !gameClearedOnce) {
         gameClearedOnce = true; // COSTUME解放条件の一部。実際のポップアップ通知はエンディング終了後のタイトル画面で行う
         writeSaveData({ gameClearedOnce: true });
@@ -2891,12 +3048,37 @@ function showResult(type) {
         return;
     }
 
+    // サブストーリーバトル(検討中の新機能)は、通常のCONTINUE/NEXT BATTILEとは異なる専用の分岐にする。
+    if (state.gameMode === 'substoryBattle') {
+        if (type === 'KO') {
+            // 敗北: 同じ対戦カード(相手・ステージ・借りているキャラ)のまま再戦できる
+            continueBtn.style.display = 'inline-block';
+            backTitleBtn.style.display = 'inline-block';
+            continueBtn.innerText = 'CONTINUE';
+            continueBtn.onclick = () => retrySubstoryBattle();
+            backTitleBtn.onclick = () => { endSubstoryBattle(); goLogo(); }; // 諦めてタイトルへ戻る場合も、必ず状態をクリーンアップする
+            document.getElementById('resultOverlay').classList.add('show');
+        } else {
+            // 勝利: 通常のボタンは出さず、YOU WINの余韻の後、直接エピローグ→コスチューム解放へ進む
+            continueBtn.style.display = 'none';
+            backTitleBtn.style.display = 'none';
+            document.getElementById('resultOverlay').classList.add('show');
+            (async () => {
+                await wait(1500);
+                hideResult();
+                await playSubstoryBattleEpilogue(state.pPresetKey);
+            })();
+        }
+        return;
+    }
+
     // K.O.(敗北)・YOU WIN(勝利、最終戦以外)いずれもボタン(id: continueBtn)を表示するが、ラベルと遷移先が異なる。
     // K.O.時は「CONTINUE」表記で直前のデッキ編成へ(同じ敵と再戦)、YOU WIN時は「NEXT BATTLE」表記で次の敵へ進めてからストーリーシーンを経てデッキ編成へ遷移する。
     continueBtn.style.display = 'inline-block';
     backTitleBtn.style.display = 'inline-block';
     continueBtn.innerText = (type === 'KO') ? 'CONTINUE' : 'NEXT BATTLE';
     continueBtn.onclick = (type === 'KO') ? (() => goDeckBuild()) : goNextEnemy;
+    backTitleBtn.onclick = () => goLogo(); // サブストーリーバトルの分岐で上書きされている場合があるため、通常時のハンドラを都度明示的に戻す
     document.getElementById('resultOverlay').classList.add('show');
 }
 
@@ -2917,25 +3099,26 @@ function chargeMultOf(side) {
     return v || 1; // チャージが無ければ等倍
 }
 
-// 敵ごとの攻撃力の癖(ENEMY_PRESETSのatkMult)。敵が攻撃する時のみ適用し、プレイヤー側の与ダメには一切影響しない。
+// 敵ごとの攻撃力の癖(ENEMY_PRESETSのatkMult)。通常は敵側のみ適用されプレイヤーの与ダメには影響しないが、
+// サブストーリーバトルでプレイヤーがそのキャラとして戦う場合は、presetForSide経由でプレイヤー側にも適用される。
 // 「少し低め」のような表現は0.85(15%減)のように具体的な倍率に変換して設定する。指定が無ければ1(等倍)。
 // moveを指定すると、ENEMY_PRESETSのatkMultByMove(技ごとの個別倍率、例: { UPPER: 1.1 })があればそちらを優先して使う
 // (例: 全体は少し低めでも、得意技のUPPERだけは通常より少し高くする、といった調整ができる)。指定が無ければ通常のatkMultにフォールバックする。
 function atkMultOf(side, move) {
-    if (side !== 'E') return 1;
-    const preset = currentEnemyPreset();
+    const preset = presetForSide(side);
+    if (!preset) return 1;
     if (move && preset.atkMultByMove && preset.atkMultByMove[move] !== undefined) {
         return preset.atkMultByMove[move];
     }
     return preset.atkMult || 1;
 }
 
-// 敵ごとの防御力の癖(ENEMY_PRESETSのdefMult)。atkMultOfと対になるヘルパーで、敵が被弾する側の時のみ適用する
-// (defenderに敵側を渡した時だけ意味を持つ。プレイヤーが被弾する時は常に1で、一切影響しない)。
+// 敵ごとの防御力の癖(ENEMY_PRESETSのdefMult)。atkMultOfと対になるヘルパーで、該当プリセットを持つ側が
+// 被弾する時のみ適用する(defenderに該当側を渡した時だけ意味を持つ)。
 // moveを指定すると、ENEMY_PRESETSのdefMultByMove(技ごとの個別倍率、例: { UPPER: 1.3 }=UPPERに弱い)があればそちらを優先する。
 function defMultOf(side, move) {
-    if (side !== 'E') return 1;
-    const preset = currentEnemyPreset();
+    const preset = presetForSide(side);
+    if (!preset) return 1;
     if (move && preset.defMultByMove && preset.defMultByMove[move] !== undefined) {
         return preset.defMultByMove[move];
     }
@@ -3134,10 +3317,11 @@ async function runNormalHit(winner, loser, move) {
     triggerShake(loser, 350); // 第8条: 負けた側のみ振動
     if (move === 'PUNCH') { playSE('se_punch'); spawnHitEffect(winner, 'PUNCH', cyclePos + 1); }
 
-    // Jackの特性: パンチが命中すると、控えめな威力の2発目が追加でヒットする(トリッキーな二段攻撃)
-    if (winner === 'E' && move === 'PUNCH' && currentEnemyPreset().doubleHitMult) {
+    // Jackの特性(またはJackとして戦うプレイヤー): パンチが命中すると、控えめな威力の2発目が追加でヒットする(トリッキーな二段攻撃)
+    const winnerPresetForDoubleHit = presetForSide(winner);
+    if (move === 'PUNCH' && winnerPresetForDoubleHit && winnerPresetForDoubleHit.doubleHitMult) {
         await wait(150);
-        const secondDmg = dmg * currentEnemyPreset().doubleHitMult;
+        const secondDmg = dmg * winnerPresetForDoubleHit.doubleHitMult;
         await flashDashBetweenPunches(winner);
         setAct(winner, nextPunchSprite(winner)); // 2発目のスプライトに切り替える
         applyDamage(loser, secondDmg);
@@ -3209,7 +3393,7 @@ async function runUpperCombo(attacker, defender, cursor) {
     const isSuperUpper = viaPunchPunch || viaUpperGuard; // ダメージ2倍の判定(コンボ成立時のみ)
     // 演出(高さ・速度・残像)は、ダメージ2倍の条件に加えて、敵ごとのalwaysSuperUpperVisual(ENEMY_PRESETS)でも有効にできる。
     // ダメージは変えず見た目の迫力だけを常時アップさせたい場合に使う(例: Ritaは通常のUPPERでもこの高さ・速度で放つ)。
-    const isSuperUpperVisual = isSuperUpper || (attacker === 'E' && currentEnemyPreset().alwaysSuperUpperVisual);
+    const isSuperUpperVisual = isSuperUpper || !!(presetForSide(attacker) && presetForSide(attacker).alwaysSuperUpperVisual);
     if (viaPunchPunch) markSpecialUsed('superUpper'); // 実績: PUNCH+PUNCH+UPPERの使用を記録
 
     // このUPPERの勝敗が決まったので、UPPER→GUARDの連続検知用フラグを更新する(次のGUARDが直前の勝敗を正しく参照できるように)
@@ -3374,15 +3558,18 @@ async function runGuardSuccess(winner, loser, loserPoseOverride) {
         spawnHitEffect(winner, 'GUARD', 1);
     }
     if (state[winnerGuardStreakKey] >= 3) {
-        // 3連続以降のチャージ倍率(既定4)。敵側は ENEMY_PRESETS の chargeValueFour があればそちらを優先する
-        const chargeVal4 = (winner === 'E' && currentEnemyPreset().chargeValueFour) ? currentEnemyPreset().chargeValueFour : 4;
-        if (winner === 'P') { state.pChargeValue = 4; state.pChargeIsMax = true; }
+        // 3連続以降のチャージ倍率(既定4)。該当プリセットを持つ側(敵、またはそのキャラとして戦うプレイヤー)は
+        // ENEMY_PRESETSのchargeValueFourがあればそちらを優先する
+        const winnerPresetForCharge4 = presetForSide(winner);
+        const chargeVal4 = (winnerPresetForCharge4 && winnerPresetForCharge4.chargeValueFour) ? winnerPresetForCharge4.chargeValueFour : 4;
+        if (winner === 'P') { state.pChargeValue = chargeVal4; state.pChargeIsMax = true; }
         else { state.eChargeValue = chargeVal4; state.eChargeIsMax = true; }
         markSpecialUsed('charge'); // 実績: ガード+ガードの使用を記録
     } else if (state[winnerGuardStreakKey] >= 2) {
-        // 2連続のチャージ倍率(既定2)。敵側は ENEMY_PRESETS の chargeValueTwo があればそちらを優先する
-        const chargeVal2 = (winner === 'E' && currentEnemyPreset().chargeValueTwo) ? currentEnemyPreset().chargeValueTwo : 2;
-        if (winner === 'P') { state.pChargeValue = 2; state.pChargeIsMax = false; }
+        // 2連続のチャージ倍率(既定2)。該当プリセットを持つ側は ENEMY_PRESETS の chargeValueTwo があればそちらを優先する
+        const winnerPresetForCharge2 = presetForSide(winner);
+        const chargeVal2 = (winnerPresetForCharge2 && winnerPresetForCharge2.chargeValueTwo) ? winnerPresetForCharge2.chargeValueTwo : 2;
+        if (winner === 'P') { state.pChargeValue = chargeVal2; state.pChargeIsMax = false; }
         else { state.eChargeValue = chargeVal2; state.eChargeIsMax = false; }
         markSpecialUsed('charge'); // 実績: ガード+ガードの使用を記録
     }
@@ -3564,10 +3751,12 @@ async function resolveExchange(pAct, eAct, cursor) {
         if (numbedSide === 'P') state.pNumbed = false; else state.eNumbed = false;
         if (guardSide === 'P') state.pGuardHoldPose = false; else state.eGuardHoldPose = false; // 判定が出たので構え保持を解除
         let numbFailChance = 0.5;
-        if (numbedSide === 'E' && currentEnemyPreset().numbVulnerableMult) {
-            numbFailChance = Math.min(1, 0.5 * currentEnemyPreset().numbVulnerableMult);
-        } else if (guardSide === 'E' && currentEnemyPreset().numbFailMult) {
-            numbFailChance = Math.min(1, 0.5 * currentEnemyPreset().numbFailMult);
+        const numbedSidePreset = presetForSide(numbedSide);
+        const guardSidePreset = presetForSide(guardSide);
+        if (numbedSidePreset && numbedSidePreset.numbVulnerableMult) {
+            numbFailChance = Math.min(1, 0.5 * numbedSidePreset.numbVulnerableMult);
+        } else if (guardSidePreset && guardSidePreset.numbFailMult) {
+            numbFailChance = Math.min(1, 0.5 * guardSidePreset.numbFailMult);
         }
         if (Math.random() < numbFailChance) {
             markCardOutcome(numbedSide, cursor.i, 'card-shatter'); // 3すくみ無視の敗北: ヒビ割れる
@@ -3629,6 +3818,7 @@ async function resolveExchange(pAct, eAct, cursor) {
 
 async function resolveTurn() {
     if (state.resolving || !state.battleReady || filledCount() === 0) return;
+    if (state.requiredHandSize && filledCount() !== state.requiredHandSize) return; // このターン出す枚数がちょうど揃っていない場合は開始しない(ボタンの無効化と二重の安全策)
     playSE('se_go');
     state.resolving = true;
     document.querySelectorAll('.controls button').forEach(b => b.disabled = true);
@@ -3787,6 +3977,7 @@ async function resolveTurn() {
                 healBothToFull(); // TRAINING MODE: ターン終了ごとに双方のHPを全回復する
             }
             state.hands = new Array(5).fill(null); // 第1条: 5つの空枠に戻す
+            rollRequiredHandSize(); // サブストーリーバトルなら次のターン分の枚数をここで新たに抽選し直す(通常時はnullのまま)
             updateUI();
             state.enemyHands = [];
             state.enemyRevealedUpTo = 0;
@@ -3914,7 +4105,8 @@ function updateOptionUI() {
     document.getElementById('seVolumeSlider').value = Math.round(state.seVolume * 100);
     document.getElementById('optionItemsRow').style.display = unlockedItems.length > 0 ? 'flex' : 'none';
     // COSTUMEは「サブストーリーを1つ以上見た」に加え「STORY MODEを一度最後までクリアした」場合のみ表示する
-    document.getElementById('optionCostumeRow').style.display = (unlockedSkins.length > 0 && gameClearedOnce) ? 'flex' : 'none';
+    document.getElementById('optionCostumeRow').style.display =
+        (unlockedSkins.length > 0 && gameClearedOnce && state.gameMode !== 'substoryBattle') ? 'flex' : 'none'; // サブストーリーバトル中は借りているキャラの見た目を変更できないようにする
     // タイトルから開いた場合は「今のバトル」が存在しないため、RETRY/RETURN TO TITLEを隠す
     const isTitle = document.getElementById('sceneTitle').classList.contains('active');
     document.getElementById('optionFooter').style.display = isTitle ? 'none' : 'flex';
@@ -3989,6 +4181,92 @@ function waitForSubStoryTap() {
 
 // サブストーリーを再生する。本編のストーリーシーンと同じく3画面(画像+1文字ずつのテキスト)を、タップで送りながら表示する。
 // 3画面すべて読み終えたタイミングで、対応する敵のコスチュームを解除する。
+// サブストーリーバトル(検討中の新機能)勝利後のエピローグ。1枚の画像+複数ページのテキストで構成する
+// (通常のサブストーリー=3画面とは異なり1画面のみ)。表示にはreadSubStoryと同じDOM要素を流用する。
+const SUBSTORY_BATTLE_EPILOGUE = {
+    ENEMY_01: { img: 'substory_battle_1.PNG', text: ['（仮テキスト）Noahとして戦い抜いた後の後日談。'] },
+    ENEMY_02: { img: 'substory_battle_2.PNG', text: ['（仮テキスト）Ritaとして戦い抜いた後の後日談。'] },
+    ENEMY_03: { img: 'substory_battle_3.PNG', text: ['（仮テキスト）Galdとして戦い抜いた後の後日談。'] },
+    ENEMY_04: { img: 'substory_battle_4.PNG', text: ['（仮テキスト）Jackとして戦い抜いた後の後日談。'] },
+    ENEMY_05: { img: 'substory_battle_5.PNG', text: ['（仮テキスト）Alvとして戦い抜いた後の後日談。'] },
+};
+
+// サブストーリーバトルの状態(pPresetKey等)をクリーンアップし、通常のSTORY MODEへ戻す
+function endSubstoryBattle() {
+    state.pPresetKey = null;
+    state.ePresetKey = null;
+    state.substoryStageNum = null;
+    state.requiredHandSize = null;
+    state.gameMode = 'story';
+    state.pendingMode = 'story';
+}
+
+// サブストーリーバトルに勝利した後、1画面のエピローグを再生し、コスチューム解放→BONUS CONTENTSへ戻る。
+// readSubStoryとほぼ同じ構造(タップで送る、text配列で複数ページ)だが、画面数が1枚固定の点のみ異なる。
+async function playSubstoryBattleEpilogue(playerPresetKey) {
+    const epilogue = SUBSTORY_BATTLE_EPILOGUE[playerPresetKey];
+    const myToken = ++subStoryToken;
+    const imgArea = document.getElementById('subStoryImgArea');
+    const fallback = document.getElementById('subStoryImgFallback');
+    const textEl = document.getElementById('subStoryText');
+    const block = document.getElementById('subStoryBlock');
+
+    playBGM('bgm_story', 'bgm_story');
+    document.getElementById('bonusContentsOverlay').classList.remove('show');
+    document.getElementById('subStoryOverlay').classList.remove('show');
+    showScene('subStoryRead');
+    block.style.transition = 'none';
+    block.style.opacity = '0';
+    await wait(30);
+    block.style.transition = 'opacity 0.6s ease-in';
+    block.style.opacity = '1';
+
+    if (epilogue) {
+        await loadCutsceneScreens([epilogue], 'substory');
+        if (subStoryToken === myToken) {
+            if (imgs[epilogue.img]) {
+                imgArea.style.backgroundImage = `url('assets/images/cutscenes/substory/${epilogue.img}')`;
+                imgArea.classList.remove('placeholder');
+            } else {
+                imgArea.style.backgroundImage = 'none';
+                imgArea.classList.add('placeholder');
+                fallback.innerText = epilogue.img + ' (未配置)';
+            }
+
+            const pages = Array.isArray(epilogue.text) ? epilogue.text : [epilogue.text];
+            for (let p = 0; p < pages.length; p++) {
+                if (subStoryToken !== myToken) break;
+                textEl.innerText = '';
+                for (let c = 0; c < pages[p].length; c++) {
+                    if (subStoryToken !== myToken) break;
+                    textEl.innerText += pages[p][c];
+                    await wait(45);
+                }
+                if (subStoryToken !== myToken) break;
+                await waitForSubStoryTap();
+            }
+        }
+    }
+
+    // コスチューム解放(通常のサブストーリー閲覧を読み終えた時と同じ条件・同じ通知パターン)
+    const idx = ENEMY_ORDER.indexOf(playerPresetKey);
+    if (idx !== -1) {
+        unlockSkin('enemy_' + (idx + 1));
+        if (gameClearedOnce) {
+            updateOptionUI();
+            if (!costumeUnlockAnnounced) {
+                costumeUnlockAnnounced = true;
+                writeSaveData({ costumeUnlockAnnounced: true });
+                showUnlockToast('COSTUME 解放！');
+            }
+        }
+    }
+    endSubstoryBattle();
+    showScene('title');
+    playBGM('bgm_title');
+    openBonusContents(); // BONUS CONTENTSのメイン一覧へ戻る
+}
+
 async function readSubStory(idx) {
     const sub = SUBSTORY_BY_ENEMY[ENEMY_ORDER[idx]];
     if (!sub) return;
