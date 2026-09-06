@@ -3109,14 +3109,28 @@ function showResult(type) {
         return;
     }
 
-    // K.O.(敗北)・YOU WIN(勝利、最終戦以外)いずれもボタン(id: continueBtn)を表示するが、ラベルと遷移先が異なる。
-    // K.O.時は「CONTINUE」表記で直前のデッキ編成へ(同じ敵と再戦)、YOU WIN時は「NEXT BATTLE」表記で次の敵へ進めてからストーリーシーンを経てデッキ編成へ遷移する。
-    continueBtn.style.display = 'inline-block';
-    backTitleBtn.style.display = 'inline-block';
-    continueBtn.innerText = (type === 'KO') ? 'CONTINUE' : 'NEXT BATTLE';
-    continueBtn.onclick = (type === 'KO') ? (() => goDeckBuild()) : goNextEnemy;
-    backTitleBtn.onclick = () => goLogo(); // サブストーリーバトルの分岐で上書きされている場合があるため、通常時のハンドラを都度明示的に戻す
-    document.getElementById('resultOverlay').classList.add('show');
+    // K.O.(敗北)は従来通りCONTINUE/タイトルへ戻るの選択肢を出す。
+    // YOU WIN(勝利、最終戦以外)は、STORY MODEに限り選択肢を出さず、余韻の後に自動で次の敵へ進む
+    // (EXTRA BATTLE勝利時の演出と揃える)。TRAINING MODE等、他のモードでこの分岐に達した場合
+    // (例: 1ターン中にダメージでHPが0になった場合)は、意図せずgoNextEnemy(STORY MODEの進行)を
+    // 呼んでしまわないよう、安全のため従来通りボタンを表示する形のままにする。
+    if (type === 'KO' || state.gameMode !== 'story') {
+        continueBtn.style.display = 'inline-block';
+        backTitleBtn.style.display = 'inline-block';
+        continueBtn.innerText = (type === 'KO') ? 'CONTINUE' : 'NEXT BATTLE';
+        continueBtn.onclick = (type === 'KO') ? (() => goDeckBuild()) : goNextEnemy;
+        backTitleBtn.onclick = () => goLogo(); // サブストーリーバトルの分岐で上書きされている場合があるため、通常時のハンドラを都度明示的に戻す
+        document.getElementById('resultOverlay').classList.add('show');
+    } else {
+        continueBtn.style.display = 'none';
+        backTitleBtn.style.display = 'none';
+        document.getElementById('resultOverlay').classList.add('show');
+        (async () => {
+            await wait(1500); // YOU WINの余韻を少し見せてから
+            hideResult();
+            goNextEnemy();
+        })();
+    }
 }
 
 function hideResult() {
