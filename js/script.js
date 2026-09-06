@@ -3101,7 +3101,7 @@ function showResult(type) {
             backTitleBtn.style.display = 'none';
             document.getElementById('resultOverlay').classList.add('show');
             (async () => {
-                await wait(1500);
+                await wait(4000); // YOU WINの余韻を見せてから(STORY MODEの自動進行と揃える)
                 hideResult();
                 await playSubstoryBattleEpilogue(state.pPresetKey);
             })();
@@ -3126,7 +3126,7 @@ function showResult(type) {
         backTitleBtn.style.display = 'none';
         document.getElementById('resultOverlay').classList.add('show');
         (async () => {
-            await wait(1500); // YOU WINの余韻を少し見せてから
+            await wait(4000); // YOU WINの余韻を見せてから
             hideResult();
             goNextEnemy();
         })();
