@@ -119,6 +119,7 @@ const HIT_EFFECT_DEFS = {
     UPPER: { imgs: ['hit_upper.PNG', 'hit_upper_2.PNG'], srcW: 10, srcH: 32, anim: 'rise' }, // 1=通常, 2=2倍(コンボ成立時)
     GUARD: { imgs: ['hit_guard.PNG', 'hit_guard_2.PNG', 'hit_guard_3.PNG'], srcW: 10, srcH: 32, anim: 'wobble' }, // 1=通常, 2=2倍, 3=4倍
     METEOR: { imgs: ['hit_meteor.PNG'], srcW: 32, srcH: 32, anim: 'meteor', life: 500 }, // 被弾側キャラと全く同じ場所・同じ大きさで表示する
+    METEOR_LAUNCH: { imgs: ['meteor.PNG'], srcW: 32, srcH: 32, anim: 'meteorLaunch', life: 950 }, // メテオを放つ瞬間、攻撃側に重ねて表示する光のエフェクト(攻撃側が地面に落下し終えるまで持続させる)
     WALL: { imgs: ['hit_wall.PNG'], srcW: 10, srcH: 32, anim: 'wallburst', life: 450 }, // 必殺技で壁に当たった瞬間
 };
 const HIT_EFFECT_LIFE = 260; // 表示開始から消えるまでの時間(ms)。最初の25%は静止、残りでanimに応じたフェードをしながら消える
@@ -355,7 +356,7 @@ DB.ASSETS.forEach(n => {
     'hit_punch.PNG', 'hit_punch_2.PNG', 'hit_punch_3.PNG',
     'hit_upper.PNG', 'hit_upper_2.PNG',
     'hit_guard.PNG', 'hit_guard_2.PNG', 'hit_guard_3.PNG',
-    'hit_meteor.PNG', 'hit_wall.PNG',
+    'hit_meteor.PNG', 'hit_wall.PNG', 'meteor.PNG',
 ].forEach(name => {
     const i = new Image();
     i.onload = () => { imgs[name] = i; };
@@ -2286,6 +2287,27 @@ function draw(tRaw) {
         const dispW = def.srcW * DB.SCALE;
         const dispH = def.srcH * DB.SCALE;
 
+        if (def.anim === 'meteorLaunch') {
+            // メテオを放つ瞬間、攻撃側に重ねて表示する光のエフェクト。攻撃側の実際の位置(この後、地面へ落下していく
+            // アニメーション中も)を毎フレーム追従することで、キャラと同様に下へ落ちていくように見せる。
+            // それに加えて、時間とともに収束していく縦方向の揺れを重ね、ガードの上位チャージ(3連続以降)と同じ
+            // 白い光彩(shadowColor)をまとわせながら、時間経過でフェードアウトして消える。
+            const decay = Math.max(0, 1 - age / life); // 1→0
+            if (decay <= 0) return;
+            const liveX = getX(fx.side);
+            const liveY = getY(fx.side);
+            const wobble = Math.sin(age / 55) * 6 * DB.SCALE * decay; // 縦揺れ(収束していく)
+            const drawX = liveX + (DB.IMG_SIZE - dispW) / 2; // キャラの横中央に重ねる
+            const drawY = liveY + (DB.IMG_SIZE - dispH) / 2 + wobble; // キャラの縦中央付近+縦揺れ
+            ctx.save();
+            ctx.globalAlpha = decay;
+            ctx.shadowColor = 'rgba(255, 255, 255, 0.95)'; // ガード上位チャージと同じ白い光彩
+            ctx.shadowBlur = 26;
+            ctx.drawImage(img, 0, 0, def.srcW, def.srcH, drawX, drawY, dispW, dispH);
+            ctx.restore();
+            return;
+        }
+
         if (def.anim === 'meteor') {
             // 被弾側キャラと全く同じ場所・同じ大きさ(fx.x, fx.yをそのまま使う)で表示する。
             // 最初の40%で下から上へワイプで現れ、続く25%は保持、残りでフェードアウトする。
@@ -3399,6 +3421,7 @@ async function runMeteor(attacker, defender) {
     applyDamage(defender, DB.DMG.M * chargeMultOf(attacker) * atkMultOf(attacker) * defMultOf(defender));
     playSE('se_meteor'); // 未配置ならse_punchで代用される
     setAct(attacker, 'knock.PNG');
+    spawnHitEffect(attacker, 'METEOR_LAUNCH'); // 放つ瞬間、攻撃側に重ねて光のエフェクトを表示する
     setAct(defender, 'damage.PNG');
     await wait(400); // 一時停止
 
