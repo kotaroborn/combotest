@@ -2296,7 +2296,7 @@ function draw(tRaw) {
             if (decay <= 0) return;
             const liveX = getX(fx.side);
             const liveY = getY(fx.side);
-            const wobble = Math.sin(age / 55) * 6 * DB.SCALE * decay; // 縦揺れ(収束していく)
+            const wobble = Math.sin(age / 22) * 3 * DB.SCALE; // 縦揺れ(振幅・周期とも一定の小刻みな揺れ。フェードに連動して収束させない)
             const drawX = liveX + (DB.IMG_SIZE - dispW) / 2; // キャラの横中央に重ねる
             const drawY = liveY + (DB.IMG_SIZE - dispH) / 2 + wobble; // キャラの縦中央付近+縦揺れ
             ctx.save();
