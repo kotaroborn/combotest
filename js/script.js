@@ -1071,8 +1071,19 @@ const AUDIO_EXTENSIONS = ['mp3', 'wav'];
 let audioCtx = null; // 初回再生時に生成する(ブラウザの自動再生制限のため、無音のcontextを先に作らない)
 function getAudioCtx() {
     if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    if (audioCtx.state === 'suspended') audioCtx.resume(); // iOS Safari等、ユーザー操作後でないと再開しないブラウザ対策
     return audioCtx;
+}
+// 実際に音を鳴らす直前(バッファソースの作成・開始前)は、こちらを必ず経由する。AudioContextがsuspended状態の場合、
+// resume()の完了を確実に待ってから返す。resume()はPromiseを返す非同期処理のため、awaitせずに次の処理(バッファ
+// ソースの作成・開始)へ進んでしまうと、resume完了前に音を鳴らそうとすることになり、JSエラーは出ないのに実際には
+// 音が鳴らない(タブをバックグラウンドに回してAudioContextがsuspendedになった後、OPTIONで手動でサウンドをONに
+// 戻しても再生が再開しない)という不具合が実際に発生したため、この待機を徹底する専用のヘルパーに分離した。
+async function getReadyAudioCtx() {
+    const ctx = getAudioCtx();
+    if (ctx.state === 'suspended') {
+        try { await ctx.resume(); } catch (e) { /* 稀に失敗することがあるが、ここでは無視して呼び出し元の処理を続けさせる */ }
+    }
+    return ctx;
 }
 
 // BGM/SEそれぞれ専用のゲインノードを介して出力する(個別に音量調整できるようにするため)
@@ -1163,7 +1174,9 @@ async function playBGM(name, fallbackName) {
     if (bgmToken !== myToken) return;
     if (!buffer || !state.soundOn) return;
 
-    const ctx = getAudioCtx();
+    const ctx = await getReadyAudioCtx();
+    // resumeを待っている間に、別のBGM要求やstopBGM()で世代が進んでいた場合はここでも中断する
+    if (bgmToken !== myToken) return;
     const source = ctx.createBufferSource();
     source.buffer = buffer;
     source.loop = true; // AudioBufferSourceNodeのloopはサンプル単位でシームレス
@@ -1199,7 +1212,8 @@ async function playSE(name) {
         seBufferCache[name] = buffer; // フォールバック後のbufferであっても、nameキーにそのまま紐付けてキャッシュする
     }
     if (!buffer || !state.soundOn) return; // 読み込み待ちの間にOFFにされた場合も考慮
-    const ctx = getAudioCtx();
+    const ctx = await getReadyAudioCtx();
+    if (!state.soundOn) return; // resumeを待っている間にOFFにされた場合も考慮
     const source = ctx.createBufferSource();
     source.buffer = buffer;
     source.connect(name === 'se_piyo' ? getPiyoGainNode() : getSeGainNode()); // se_piyoは常に半分程度の音量に抑える
@@ -1218,7 +1232,8 @@ async function startLoopingSE(name) {
         seBufferCache[name] = buffer;
     }
     if (!buffer || !state.soundOn) return;
-    const ctx = getAudioCtx();
+    const ctx = await getReadyAudioCtx();
+    if (!state.soundOn) return; // resumeを待っている間にOFFにされた場合も考慮
     const source = ctx.createBufferSource();
     source.buffer = buffer;
     source.loop = true;
@@ -4654,7 +4669,9 @@ async function toggleSoundTestTrack(name) {
     // 読み込み待ちの間にサウンドテスト自体が閉じられていたら中断
     if (!document.getElementById('soundTestOverlay').classList.contains('show')) return;
 
-    const ctx = getAudioCtx();
+    const ctx = await getReadyAudioCtx();
+    // resumeを待っている間にサウンドテスト自体が閉じられていたら中断
+    if (!document.getElementById('soundTestOverlay').classList.contains('show')) return;
     const source = ctx.createBufferSource();
     source.buffer = buffer;
     source.loop = isBgm; // BGMはループ、SEは1回のみ
