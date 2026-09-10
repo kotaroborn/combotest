@@ -1357,6 +1357,11 @@ function skipLogo() {
 }
 
 function goLogo() {
+    // サブストーリーバトル(EXTRA BATTLE)の状態(pPresetKey等)が残ったままだと、この後NEW GAME等で
+    // 新しく始まるSTORY MODEのバトルにまで意図せず引き継がれてしまう(対戦相手・デッキ配分・背景等が
+    // サブストーリーバトルのものになってしまう不具合が実際に発生した)。タイトルへ戻る経路はここに集約されて
+    // いるため、endSubstoryBattle()は必ず呼ぶ(サブストーリーバトル中でない場合は何もしない安全な処理)。
+    endSubstoryBattle();
     hideResult();
     showScene('logo');
     playLogo();
@@ -4750,6 +4755,8 @@ function doOptionRetry() {
     closeOption();
     if (state.gameMode === 'training') {
         goTrainingBattle(); // TRAINING MODEはデッキ編成を経由しないため直接バトルへ
+    } else if (state.gameMode === 'substoryBattle') {
+        retrySubstoryBattle(); // EXTRA BATTLEも同じ対戦カードのまま、デッキ編成・ストーリーシーンを経由せず直接バトルへ
     } else {
         // STORY MODEは、デッキ編成へ直接ではなく現在の敵のストーリーシーンから再生する。
         // 戦う前の会話が相手の癖を読み取るヒントになるため、RETRY時も見返せるようにする。
