@@ -754,13 +754,16 @@ function substoryBattleOpponentName(opponentKey) {
 }
 const STAGE_ORDINALS = ['1ST', '2ND', '3RD', '4TH', '5TH']; // ENEMY_ORDERのインデックスに対応する序数表記
 
-// 現在のステージ表記(例: '1ST STAGE')を返す。STORY MODEのみ表示し、TRAINING MODEでは空文字を返す(表示箇所ごとに非表示扱いにする)
+// 現在のステージ表記(例: '1ST STAGE')を返す。STORY MODEの5人目(最終)のみ'FINAL STAGE'にする。
+// TRAINING MODEは'TRAINING'を返す(バトル開始演出やターン表示の上段に、ステージ表記の代わりとして使われる)。
 function currentStageLabel() {
+    if (state.gameMode === 'training') return 'TRAINING';
     if (state.gameMode === 'substoryBattle' && state.substoryStageNum) {
         const ordinal = STAGE_ORDINALS[state.substoryStageNum - 1] || state.substoryStageNum + 'TH';
         return ordinal + ' STAGE';
     }
     if (state.gameMode !== 'story') return '';
+    if (state.storyEnemyIndex === ENEMY_ORDER.length - 1) return 'FINAL STAGE'; // 5人目(最終)のみ特別表記
     const ordinal = STAGE_ORDINALS[state.storyEnemyIndex] || (state.storyEnemyIndex + 1) + 'TH';
     return ordinal + ' STAGE';
 }
@@ -2685,12 +2688,12 @@ function presetForSide(side) {
 }
 
 // HPバー下の名前表示を更新する。味方は固定でVAL、敵はSTORY MODEなら現在の敵プリセット名、
-// TRAINING MODEなら固定でENEMY(STORY MODEは今後の連戦で敵が変わるたびに自動で切り替わる)
+// TRAINING MODEなら固定でMIFUNE(STORY MODEは今後の連戦で敵が変わるたびに自動で切り替わる)
 function updateCharNames() {
     document.getElementById('playerName').innerText =
         state.pPresetKey ? ENEMY_PRESETS[state.pPresetKey].name.toUpperCase() : 'VAL'; // サブストーリーバトルは借りているキャラの名前を表示
     document.getElementById('enemyName').innerText =
-        state.gameMode === 'training' ? 'ENEMY' :
+        state.gameMode === 'training' ? 'MIFUNE' :
         state.ePresetKey ? substoryBattleOpponentName(state.ePresetKey).toUpperCase() : // サブストーリーバトルは？？？マスキングを経由する
         currentEnemyPreset().name;
 }
