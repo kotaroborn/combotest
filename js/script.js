@@ -2653,8 +2653,14 @@ async function fadeOutQueueCards() {
 // サブストーリーバトル(state.pPresetKeyが設定されている間)は、ターンごとに「出さなければならない枚数」を
 // 1〜5の完全ランダムで再抽選する(少なく出して確定する、は不可。毎回ちょうどその枚数を揃える必要がある)。
 // 通常のSTORY MODE/TRAINING MODEでは常にnullのままで、5枚まで自由に出せる従来の挙動を保つ。
+// デッキの残り枚数が少ない終盤は、手札そのものが5枚に満たないことがある(山札が尽きても補充できないため)。
+// この場合、実際に手札にある枚数を超える指示(例: 手札2枚しか無いのに4枚出せと言われる)を出さないよう、
+// 上限を実際の手札枚数に合わせて絞る(手札4枚以下なら5は出さない、3枚以下なら4以上は出さない、…という形)。
 function rollRequiredHandSize() {
-    state.requiredHandSize = state.pPresetKey ? (1 + Math.floor(Math.random() * 5)) : null;
+    if (!state.pPresetKey) { state.requiredHandSize = null; return; }
+    const availableCount = state.playerHand.filter(c => c !== null).length;
+    const maxAllowed = Math.max(1, Math.min(5, availableCount)); // 万一0枚でも最低1にしておく安全策
+    state.requiredHandSize = 1 + Math.floor(Math.random() * maxAllowed);
 }
 
 function currentEnemyPreset() {
