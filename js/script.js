@@ -755,13 +755,11 @@ function substoryBattleOpponentName(opponentKey) {
 const STAGE_ORDINALS = ['1ST', '2ND', '3RD', '4TH', '5TH']; // ENEMY_ORDERのインデックスに対応する序数表記
 
 // 現在のステージ表記(例: '1ST STAGE')を返す。STORY MODEの5人目(最終)のみ'FINAL STAGE'にする。
-// TRAINING MODEは'TRAINING'を返す(バトル開始演出やターン表示の上段に、ステージ表記の代わりとして使われる)。
+// TRAINING MODEは'TRAINING'、EXTRA BATTLE(サブストーリーバトル)は'EXTRA'を返す
+// (バトル開始演出やターン表示の上段に、ステージ表記の代わりとして使われる)。
 function currentStageLabel() {
     if (state.gameMode === 'training') return 'TRAINING';
-    if (state.gameMode === 'substoryBattle' && state.substoryStageNum) {
-        const ordinal = STAGE_ORDINALS[state.substoryStageNum - 1] || state.substoryStageNum + 'TH';
-        return ordinal + ' STAGE';
-    }
+    if (state.gameMode === 'substoryBattle') return 'EXTRA';
     if (state.gameMode !== 'story') return '';
     if (state.storyEnemyIndex === ENEMY_ORDER.length - 1) return 'FINAL STAGE'; // 5人目(最終)のみ特別表記
     const ordinal = STAGE_ORDINALS[state.storyEnemyIndex] || (state.storyEnemyIndex + 1) + 'TH';
