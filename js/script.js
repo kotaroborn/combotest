@@ -219,9 +219,18 @@ const SUBSTORY_BY_ENEMY = {
     ENEMY_03: {
         title: 'ガルドが護ったイノチ',
         screens: [
-            { img: 'substory_3_1.PNG', text: '（仮テキスト・敵03 裏話 1/3）誰にも言えない、敵03(仮)だけの秘密の物語がここに……' },
-            { img: 'substory_3_2.PNG', text: '（仮テキスト・敵03 裏話 2/3）その過去には、まだ語られていない出来事があった。' },
-            { img: 'substory_3_3.PNG', text: '（仮テキスト・敵03 裏話 3/3）そして今、その真実がようやく明かされる。' },
+            { img: 'substory_3_1.PNG', text: [
+                'かつて、魔王城の奥に\n封じられた巨大人形があった。\n若き少年は好奇心から、\nその操り糸へ手を伸ばした。',
+                'すると糸が身体に絡みつき、\n巨大人形が目を覚ました。\n少年「なに……これ……？'
+            ] },
+            { img: 'substory_3_2.PNG', text: [
+                '異変を聞き駆けつけた門番ガルドの前に、\n糸に操られた少年が立っていた。',
+                '少年は自らの意志に逆らい、ガルドへ襲いかかる。'
+            ] },
+            { img: 'substory_3_3.PNG', text: [
+                '少年「逃げて……！身体が動かない！\nガルド「そうはいかん。おまえを助ける。',
+                '人形の支配を弱めるには、\n操られた少年をたおすしかない。\nガルドは拳をかまえた。'
+            ] },
         ],
     },
     ENEMY_04: {
@@ -4314,7 +4323,11 @@ const SUBSTORY_BATTLE_EPILOGUE = {
         'ノア「……今度こそ守ってみせる。'
     ] },
     ENEMY_02: { img: 'substory_battle_2.PNG', text: ['（仮テキスト）Ritaとして戦い抜いた後の後日談。'] },
-    ENEMY_03: { img: 'substory_battle_3.PNG', text: ['（仮テキスト）Galdとして戦い抜いた後の後日談。'] },
+    ENEMY_03: { img: 'substory_battle_3.PNG', shake: true, darkenAtPage: 2, text: [
+        '少年が倒れると操り糸は切れるが、\n戦いの衝撃によって壁が崩れ、二人を襲う。',
+        'ガルドは少年を覆い被さって護るが、\n少年の息は止まっていた。',
+        '……ガルドは今も、そのときについた額のキズを\n自らの過ちとして刻みながら生き続ける。'
+    ] },
     ENEMY_04: { img: 'substory_battle_4.PNG', text: [
         '道化師はその場を去り、\n敗れたリタのそばに、\n古いぬいぐるみが転がる。',
         'リタ「…くっ…\n司祭様の子どもが大事にしてた\nぬいぐるみ……',
@@ -4368,10 +4381,19 @@ async function playSubstoryBattleEpilogue(playerPresetKey) {
                 imgArea.classList.add('placeholder');
                 fallback.innerText = epilogue.img + ' (未配置)';
             }
+            // epilogue.shake: 画像が表示されている間ずっと小刻みに揺れ続ける演出(1回きりのshakingとは別のループ用クラス)
+            imgArea.classList.toggle('shaking-loop', !!epilogue.shake);
+            // epilogue.darkenAtPage: 指定したページ(0始まり)に到達した時点で、画像を徐々に暗く沈めていく演出
+            imgArea.style.transition = 'none';
+            imgArea.style.filter = 'none';
 
             const pages = Array.isArray(epilogue.text) ? epilogue.text : [epilogue.text];
             for (let p = 0; p < pages.length; p++) {
                 if (subStoryToken !== myToken) break;
+                if (epilogue.darkenAtPage === p) {
+                    imgArea.style.transition = 'filter 1.8s ease-out';
+                    imgArea.style.filter = 'brightness(0.15)';
+                }
                 textEl.innerText = '';
                 for (let c = 0; c < pages[p].length; c++) {
                     if (subStoryToken !== myToken) break;
@@ -4381,6 +4403,7 @@ async function playSubstoryBattleEpilogue(playerPresetKey) {
                 if (subStoryToken !== myToken) break;
                 await waitForSubStoryTap();
             }
+            imgArea.classList.remove('shaking-loop'); // 次に別のサブストーリー等を開いた時に揺れが残らないよう、必ずリセットする
         }
     }
 
