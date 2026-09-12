@@ -176,6 +176,14 @@
             75% { transform: translateX(-2px); }
             90% { transform: translateX(1px); }
         }
+        /* 継続的にループする小刻みな揺れ(表示されている間ずっと揺れ続ける用。上のcineShakeは単発の衝撃演出のため別クラスにしている) */
+        .cine-img.shaking-loop { animation: cineShakeLoop 0.3s ease-in-out infinite; }
+        @keyframes cineShakeLoop {
+            0%, 100% { transform: translate(0, 0); }
+            25% { transform: translate(-2px, 1px); }
+            50% { transform: translate(2px, -1px); }
+            75% { transform: translate(-1px, -2px); }
+        }
         /* 隠しタップ発見時のキラキラエフェクト。#storyHiddenTapと同じ中心座標(%指定)に配置し、
            発見の瞬間だけフェードイン→少し上へ浮かぶ→フェードアウトを1回再生する */
         #storyHiddenTapSparkle {
