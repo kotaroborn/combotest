@@ -211,9 +211,19 @@ const SUBSTORY_BY_ENEMY = {
     ENEMY_02: {
         title: 'リタのぬいぐるみ',
         screens: [
-            { img: 'substory_2_1.PNG', text: '（仮テキスト・敵02 裏話 1/3）誰にも言えない、敵02(仮)だけの秘密の物語がここに……' },
-            { img: 'substory_2_2.PNG', text: '（仮テキスト・敵02 裏話 2/3）その過去には、まだ語られていない出来事があった。' },
-            { img: 'substory_2_3.PNG', text: '（仮テキスト・敵02 裏話 3/3）そして今、その真実がようやく明かされる。' },
+            { img: 'substory_2_1.PNG', text: [
+                '“ぬいぐるみを連れて、この地をたずねよ”',
+                'ともに暮らしていた\n亡き司祭の言葉を頼りに、\n少女リタは、はるか遠くの村を訪れた。'
+            ] },
+            { img: 'substory_2_2.PNG', text: [
+                'ノア「そのぬいぐるみ……\nやはり来たか。',
+                '“ぬいぐるみを持つ者が来たら、\n見定めてほしい”\nノアも亡き司祭から頼みを受けていた。'
+            ] },
+            { img: 'substory_2_3.PNG', text: [
+                'ノア「この村の教会を守るには、\n強さが必要じゃ。',
+                'リタはぬいぐるみを置き、\nノアの前に立った。',
+                'リタ「なら、証明してあげる……。'
+            ] },
         ],
     },
     ENEMY_03: {
@@ -771,7 +781,7 @@ const ENEMY_ORDER = ['ENEMY_01', 'ENEMY_02', 'ENEMY_03', 'ENEMY_04', 'ENEMY_05']
 // opponent: 対戦相手のENEMY_PRESETSキー。stage: 使用する背景のステージ番号(1〜5、対戦相手の番号とは独立)。
 const SUBSTORY_BATTLE_CONFIG = {
     ENEMY_01: { opponent: 'ENEMY_04', stage: 2 }, // Noah vs Jack, 2ndステージ
-    ENEMY_02: { opponent: 'ENEMY_03', stage: 1 }, // Rita vs Gald, 1stステージ
+    ENEMY_02: { opponent: 'ENEMY_01', stage: 1 }, // Rita vs Noah, 1stステージ(サブストーリー本文の内容に合わせて修正)
     ENEMY_03: { opponent: 'ENEMY_04', stage: 4 }, // Gald vs Jack, 4thステージ
     ENEMY_04: { opponent: 'ENEMY_01', stage: 3 }, // Jack vs Noah, 3rdステージ
     ENEMY_05: { opponent: 'VAL', stage: 5 },      // Alv vs Val, 5thステージ
@@ -4322,7 +4332,12 @@ const SUBSTORY_BATTLE_EPILOGUE = {
         'そして今、そのとき無くなったはずの\n婚約指輪が偶然見つかる。\nノアは形見を強く握り、誓った。',
         'ノア「……今度こそ守ってみせる。'
     ] },
-    ENEMY_02: { img: 'substory_battle_2.PNG', text: ['（仮テキスト）Ritaとして戦い抜いた後の後日談。'] },
+    ENEMY_02: { img: 'substory_battle_2.PNG', whiteFadeAtPage: 1, text: [
+        '戦いのさなか、\nぬいぐるみが宙へ投げ出された。',
+        'リタはノアに背を向け、\nとっさにぬいぐるみを抱き止めた。\nノアの拳が、\nその背中の寸前で止まる。',
+        'ノア「……託されたものを守り抜く。\nそれも大事なことじゃ。',
+        'ノアはリタに教会の鍵を託し、\n村の聖職者として教会で暮らすことになった。'
+    ] },
     ENEMY_03: { img: 'substory_battle_3.PNG', shake: true, darkenAtPage: 2, text: [
         '少年が倒れると操り糸は切れるが、\n戦いの衝撃によって壁が崩れ、二人を襲う。',
         'ガルドは少年を覆い被さって護るが、\n少年の息は止まっていた。',
@@ -4359,6 +4374,7 @@ async function playSubstoryBattleEpilogue(playerPresetKey) {
     const fallback = document.getElementById('subStoryImgFallback');
     const textEl = document.getElementById('subStoryText');
     const block = document.getElementById('subStoryBlock');
+    const flashEl = document.getElementById('subStoryFlash');
 
     playBGM('bgm_story', 'bgm_story');
     document.getElementById('bonusContentsOverlay').classList.remove('show');
@@ -4386,6 +4402,16 @@ async function playSubstoryBattleEpilogue(playerPresetKey) {
             // epilogue.darkenAtPage: 指定したページ(0始まり)に到達した時点で、画像を徐々に暗く沈めていく演出
             imgArea.style.transition = 'none';
             imgArea.style.filter = 'none';
+            // epilogue.whiteFadeAtPage: 最初は真っ白(画像を覆い隠す)な状態から始め、指定したページに到達した時点で
+            // 白いオーバーレイ(#subStoryFlash、黒→赤フラッシュと共用)を1.8秒かけてフェードアウトさせ、
+            // 裏の画像を徐々に露わにする演出(それより前のページでは白一色のまま画像を見せない)。
+            if (epilogue.whiteFadeAtPage !== undefined) {
+                flashEl.style.transition = 'none';
+                flashEl.style.background = '#fff';
+                flashEl.style.opacity = '1';
+            } else {
+                flashEl.style.opacity = '0';
+            }
 
             const pages = Array.isArray(epilogue.text) ? epilogue.text : [epilogue.text];
             for (let p = 0; p < pages.length; p++) {
@@ -4393,6 +4419,10 @@ async function playSubstoryBattleEpilogue(playerPresetKey) {
                 if (epilogue.darkenAtPage === p) {
                     imgArea.style.transition = 'filter 1.8s ease-out';
                     imgArea.style.filter = 'brightness(0.15)';
+                }
+                if (epilogue.whiteFadeAtPage === p) {
+                    flashEl.style.transition = 'opacity 1.8s ease-out';
+                    flashEl.style.opacity = '0';
                 }
                 textEl.innerText = '';
                 for (let c = 0; c < pages[p].length; c++) {
@@ -4476,6 +4506,8 @@ async function readSubStory(idx) {
     await wait(30); // 直前のopacity:0が確実に描画されてからフェードインを開始させる
     block.style.transition = 'opacity 0.6s ease-in';
     block.style.opacity = '1';
+    flashEl.style.transition = 'none';
+    flashEl.style.opacity = '0'; // 他の機能(エピローグのwhiteFadeAtPage等)がこの要素を使った直後でも、必ず非表示から始める
 
     await loadCutsceneScreens(sub.screens, 'substory'); // 表示を始める前に3画面分の読み込み完了を待つ(未配置ならnullで解決されすぐ進む)
     if (subStoryToken !== myToken) return; // 読み込み待ちの間に戻る/閉じるで中断されていたら止める
