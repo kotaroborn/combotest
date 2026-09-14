@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>CLASH5 - CROSS DIMENSION</title>
-    <link rel="stylesheet" href="css/style.css?v=075">
+    <link rel="stylesheet" href="css/style.css?v=089">
 
     <!-- ホーム画面追加時のアイコン・見た目設定。実際のアイコン画像(下記パス)は別途用意が必要(ASSETS.md参照)。
          画像が未配置でも404になるだけでエラーにはならず、通常のブラウザ表示には一切影響しない。 -->
@@ -81,7 +81,7 @@
                 <div class="title-logo-fallback-sub">CROSS DIMENSION</div>
             </div>
         </div>
-        <div class="title-version">ver. 0.9.075</div>
+        <div class="title-version">ver. 0.9.089</div>
     </div>
     <button id="titleContinueBtn" class="text-btn" onclick="tapFlickerThen(this, () => goContinueGame())" style="display:none;">CONTINUE</button>
     <button id="startBtn" class="text-btn" onclick="tapFlickerThen(this, () => goNewGame())" disabled>NEW GAME</button>
@@ -346,13 +346,13 @@
                 <button onclick="openCostumeSelect(true)">見る</button>
             </div>
             <div class="option-row" id="bonusSpeedRow" style="display:none;">
-                <span class="option-label">SPEED</span>
+                <span class="option-label">BATTLE SPEED</span>
                 <div class="speed-select-group">
                     <button id="bonusSpeedBtn1x" onclick="setBattleSpeed(false)">▶︎</button>
                     <button id="bonusSpeedBtn2x" onclick="setBattleSpeed(true)">▶︎▶︎</button>
                 </div>
             </div>
-            <p id="bonusSpeedNote" class="bonus-note" style="display:none;">※バトル中にも変更可能です。</p>
+            <p id="bonusSpeedNote" class="bonus-note" style="display:none;">※BATTLE SPEEDはバトル中にも変更可能です。</p>
             <div class="bonus-reset-row">
                 <button id="bonusResetAllBtn" onclick="openBonusResetConfirm()">BONUS ALL リセット</button>
             </div>
