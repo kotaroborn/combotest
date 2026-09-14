@@ -254,20 +254,20 @@
             font-size: 13px; letter-spacing: 3.5px;
         }
         #startBtn {
-            position: absolute; left: 50%; bottom: 33%; transform: translateX(-50%);
-            font-size: 13px; letter-spacing: 6.8px;
+            position: absolute; left: 50%; bottom: 32.25%; transform: translateX(-50%);
+            font-size: 13px; letter-spacing: 3.5px;
         }
         #trainingBtn {
-            position: absolute; left: 50%; bottom: 26%; transform: translateX(-50%);
+            position: absolute; left: 50%; bottom: 25.5%; transform: translateX(-50%);
             font-size: 13px; letter-spacing: 3.5px; color: #bbb;
         }
         #optionBtn {
-            position: absolute; left: 50%; bottom: 20%; transform: translateX(-50%);
-            font-size: 11px; letter-spacing: 3px; color: #888;
+            position: absolute; left: 50%; bottom: 18.75%; transform: translateX(-50%);
+            font-size: 13px; letter-spacing: 3.5px; color: #888;
         }
         #bonusContentsBtn {
             position: absolute; left: 50%; bottom: 12%; transform: translateX(-50%);
-            font-size: 11px; letter-spacing: 3px; color: #888; line-height: 1.4;
+            font-size: 13px; letter-spacing: 3.5px; color: #888; line-height: 1.4;
         }
 
         /* ------- デッキ編成シーン ------- */
@@ -417,7 +417,8 @@
         .speed-select-group { display: flex; gap: 6px; }
         .speed-select-group button { background: #333; color: #fff; min-width: 44px; font-size: 14px; padding: 8px 0; }
         .speed-select-group button.selected { background: #fff; color: #000; }
-        .bonus-note { color: #888; font-size: 9px; line-height: 1.3; margin-top: 3px; }
+        .bonus-note { color: #888; font-size: 9px; line-height: 1.3; margin: 3px 0 0 0; }
+        #bonusSpeedRow { margin-bottom: 2px; } /* 直後の※注記(bonusSpeedNote)に近づけるため、通常行間(14px)より詰める */
         .bonus-reset-row { margin-top: auto; padding-top: 16px; border-top: 1px solid #333; }
         .bonus-reset-row button {
             width: 100%; padding: 10px 0; border: 1px solid #663; border-radius: 6px;
@@ -476,7 +477,7 @@
             border: 1px solid #666; cursor: pointer; font-size: 13px; padding: 0;
         }
         .sound-test-pager button:disabled { opacity: 0.3; cursor: default; }
-        .costume-from-bonus-note { color: #888; font-size: 9px; line-height: 1.3; margin-top: 1px; }
+        .costume-from-bonus-note { color: #888; font-size: 9px; line-height: 1.3; margin: 0 0 0 0; }
         .howto-footer button {
             flex: 1; border: none; border-radius: 6px; padding: 11px 0;
             font-size: 12px; font-weight: bold; letter-spacing: 0.5px; cursor: pointer;
