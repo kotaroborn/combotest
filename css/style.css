@@ -109,7 +109,19 @@
             opacity: 0;
         }
         #ui {
-            background: #111; padding: 10px;
+            background: linear-gradient(to bottom,
+                #000000 0%, #000000 10%,
+                #030702 10%, #030702 20%,
+                #050e04 20%, #050e04 30%,
+                #081506 30%, #081506 40%,
+                #0a1c08 40%, #0a1c08 50%,
+                #0d230a 50%, #0d230a 60%,
+                #0f2a0c 60%, #0f2a0c 70%,
+                #12310e 70%, #12310e 80%,
+                #143810 80%, #143810 90%,
+                #163f12 90%, #163f12 100%
+            ); /* デッキ構築画面と同じ黒→深緑の10段階帯(%指定はこの要素自身の高さが基準なので、狭い領域でもそのまま10等分される) */
+            padding: 10px;
             padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px)); /* 第26条: メニュー回避余白 */
             display: flex; flex-direction: column; gap: 10px;
         }
