@@ -2053,20 +2053,20 @@ function triggerBlink(side, ms) { const until = performance.now() + ms; if (side
 // 背景暗転→一時停止(暗いまま)→攻撃側が白く発光→その発光と共に暗転が晴れる、という一連の流れをawaitで完結させる。
 // 呼び出し側は、この関数の完了を待ってから実際の打撃モーション(setAct等)・ダメージ処理へ進む。
 async function playFinisherBuildup(attacker) {
-    const darkenSteps = 8, darkenStepMs = 20; // 暗転(約160ms)
+    const darkenSteps = 8, darkenStepMs = 10; // 暗転(約80ms)
     for (let s = 1; s <= darkenSteps; s++) {
         finisherDarkenAlpha = (s / darkenSteps) * 0.5; // 50%程度の暗さに留める(キャラは別レイヤーで通常の明るさのまま描画される)
         await wait(darkenStepMs);
     }
-    await wait(300); // 一時停止(暗いまま、キャラは静止した状態)
+    await wait(150); // 一時停止(暗いまま、キャラは静止した状態)
 
     finisherFlashSide = attacker;
-    const flashSteps = 6, flashStepMs = 25; // 発光がパッと現れる(約150ms)
+    const flashSteps = 6, flashStepMs = 13; // 発光がパッと現れる(約78ms)
     for (let s = 1; s <= flashSteps; s++) {
         finisherFlashAlpha = s / flashSteps;
         await wait(flashStepMs);
     }
-    const clearSteps = 8, clearStepMs = 20; // 発光で暗転が晴れていく(約160ms)
+    const clearSteps = 8, clearStepMs = 10; // 発光で暗転が晴れていく(約80ms)
     for (let s = 1; s <= clearSteps; s++) {
         const t = s / clearSteps;
         finisherDarkenAlpha = 0.5 * (1 - t);
