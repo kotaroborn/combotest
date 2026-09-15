@@ -90,6 +90,7 @@ let state = {
     pPresetKey: null, // プレイヤー側が借りるENEMY_PRESETSのキー(例: 'ENEMY_01'=Noahとして戦う)
     ePresetKey: null, // 敵側のENEMY_PRESETSキーを直接指定する(通常はstoryEnemyIndexから自動算出するが、これがあれば優先)
     substoryStageNum: null, // 使用する背景のステージ番号(1〜5)を直接指定する(通常はstoryEnemyIndexから自動算出するが、これがあれば優先)
+    substoryMusicNum: null, // EXTRA BATTLE中に使うバトル曲の番号(1〜5、bgm_battle_Nに対応)。背景のステージ番号とは独立して指定できる
     requiredHandSize: null, // このターン、場に出さなければならない枚数(1〜5)。設定時は必ずこの枚数ちょうどでなければGO!できない
     soundOn: true, // OPTION画面のサウンドON/OFF。BGM/SEの再生有無に連動する
     bgmVolume: 0.5, // BGM音量(0〜1)。SEを聴き取りやすくするため既定を控えめにしている
@@ -794,11 +795,11 @@ const ENEMY_ORDER = ['ENEMY_01', 'ENEMY_02', 'ENEMY_03', 'ENEMY_04', 'ENEMY_05']
 // キー: プレイヤーが操作する(=デッキ・特性を借りる)キャラのENEMY_PRESETSキー。
 // opponent: 対戦相手のENEMY_PRESETSキー。stage: 使用する背景のステージ番号(1〜5、対戦相手の番号とは独立)。
 const SUBSTORY_BATTLE_CONFIG = {
-    ENEMY_01: { opponent: 'ENEMY_04', stage: 2 }, // Noah vs Jack, 2ndステージ
-    ENEMY_02: { opponent: 'ENEMY_01', stage: 1 }, // Rita vs Noah, 1stステージ(サブストーリー本文の内容に合わせて修正)
-    ENEMY_03: { opponent: 'ENEMY_04', stage: 4 }, // Gald vs Jack, 4thステージ
-    ENEMY_04: { opponent: 'ENEMY_02', stage: 3 }, // Jack vs Rita, 3rdステージ
-    ENEMY_05: { opponent: 'VAL', stage: 5 },      // Alv vs Val, 5thステージ
+    ENEMY_01: { opponent: 'ENEMY_04', stage: 2, music: 4 }, // Noah vs Jack, 2ndステージ背景、4thステージの曲
+    ENEMY_02: { opponent: 'ENEMY_01', stage: 1, music: 1 }, // Rita vs Noah, 1stステージ背景、1stステージの曲
+    ENEMY_03: { opponent: 'ENEMY_04', stage: 4, music: 3 }, // Gald vs Jack, 4thステージ背景、3rdステージの曲
+    ENEMY_04: { opponent: 'ENEMY_02', stage: 3, music: 2 }, // Jack vs Rita, 3rdステージ背景、2ndステージの曲
+    ENEMY_05: { opponent: 'VAL', stage: 5, music: 5 },      // Alv vs Val, 5thステージ背景、5thステージの曲
 };
 // サブストーリーバトルの対戦相手の表示名を返す。プレイヤーがSTORY MODEでまだ遭遇したことのない敵は
 // 「？？？」にしてネタバレを防ぐ。VAL(主人公として認識されている)は例外で、いつ戦っても実名を表示する。
@@ -1988,6 +1989,7 @@ function goSubstoryBattle(playerPresetKey) {
     state.pPresetKey = playerPresetKey;
     state.ePresetKey = config.opponent;
     state.substoryStageNum = config.stage;
+    state.substoryMusicNum = config.music; // バトル曲は背景のステージ番号とは独立して指定できる
     loadEnemySet(currentEnemySetName()); // 対戦相手側(ePresetKeyから導出。VALの場合は存在しない'val'でplayer.PNGに自然にフォールバック)
     const playerIdx = ENEMY_ORDER.indexOf(playerPresetKey);
     if (playerIdx !== -1) loadEnemySet('enemy_' + (playerIdx + 1)); // プレイヤー側(借りているキャラの見た目)も先読みする
@@ -1995,7 +1997,7 @@ function goSubstoryBattle(playerPresetKey) {
     resetBattleState();
     showScene('battle');
     playBattleIntro();
-    playBGM('bgm_battle');
+    playBGM('bgm_battle_' + state.substoryMusicNum, 'bgm_battle');
 }
 // サブストーリーバトルで敗北(K.O.)した後、同じ対戦カード(pPresetKey/ePresetKey/substoryStageNumは維持したまま)で再戦する。
 // デッキ編成を経由しない点はgoSubstoryBattleと同じだが、こちらは既に設定済みの状態をそのまま使い回す。
@@ -2008,7 +2010,7 @@ function retrySubstoryBattle() {
     resetBattleState();
     showScene('battle');
     playBattleIntro();
-    playBGM('bgm_battle');
+    playBGM('bgm_battle_' + state.substoryMusicNum, 'bgm_battle');
 }
 
 function tapFlickerThen(el, callback) {
@@ -4454,6 +4456,7 @@ function endSubstoryBattle() {
     state.pPresetKey = null;
     state.ePresetKey = null;
     state.substoryStageNum = null;
+    state.substoryMusicNum = null;
     state.requiredHandSize = null;
     state.gameMode = 'story';
     state.pendingMode = 'story';
