@@ -112,6 +112,15 @@ let hitEffects = []; // ヒットエフェクト(命中の瞬間に一瞬表示�
 let finisherDarkenAlpha = 0; // 0〜1、画面全体を覆う黒の不透明度
 let finisherFlashSide = null; // 'P'または'E'。発光中の攻撃側(該当無しはnull)
 let finisherFlashAlpha = 0; // 0〜1、発光の強さ
+let finisherFlashCanvasEl = null; // フィニッシュ発光専用のオフスクリーンcanvas(遅延生成、使い回す)
+function getFinisherFlashCanvas() {
+    if (!finisherFlashCanvasEl) {
+        finisherFlashCanvasEl = document.createElement('canvas');
+        finisherFlashCanvasEl.width = DB.IMG_SIZE;
+        finisherFlashCanvasEl.height = DB.IMG_SIZE;
+    }
+    return finisherFlashCanvasEl.getContext('2d');
+}
 // 技種別ごとのヒットエフェクト画像・表示サイズ(ソースpx単位、実際の描画時にDB.SCALEを掛ける)。
 // 現時点ではPUNCHのみ(縦32×横5px、32×32pxのソース画像のうち左側5px幅だけを使う)。
 // 今後メテオ・アッパー・ガードにも同様の形式で追加していく想定。
@@ -2046,7 +2055,7 @@ function triggerBlink(side, ms) { const until = performance.now() + ms; if (side
 async function playFinisherBuildup(attacker) {
     const darkenSteps = 8, darkenStepMs = 20; // 暗転(約160ms)
     for (let s = 1; s <= darkenSteps; s++) {
-        finisherDarkenAlpha = (s / darkenSteps) * 0.75; // 完全な黒ではなく75%程度の暗さに留める(キャラのシルエットが薄っすら見える程度)
+        finisherDarkenAlpha = (s / darkenSteps) * 0.5; // 50%程度の暗さに留める(キャラは別レイヤーで通常の明るさのまま描画される)
         await wait(darkenStepMs);
     }
     await wait(300); // 一時停止(暗いまま、キャラは静止した状態)
@@ -2060,7 +2069,7 @@ async function playFinisherBuildup(attacker) {
     const clearSteps = 8, clearStepMs = 20; // 発光で暗転が晴れていく(約160ms)
     for (let s = 1; s <= clearSteps; s++) {
         const t = s / clearSteps;
-        finisherDarkenAlpha = 0.75 * (1 - t);
+        finisherDarkenAlpha = 0.5 * (1 - t);
         finisherFlashAlpha = 1 - t;
         await wait(clearStepMs);
     }
@@ -2265,6 +2274,16 @@ function draw(tRaw) {
         ctx.restore();
     }
 
+    // スーパーアッパー/メテオ/必殺技の直前に挟む暗転演出。背景の直後・キャラより前に重ねることで、
+    // 暗くなるのは背景だけになり、この後に描画されるキャラは常に通常の明るさのまま(暗くならない)。
+    if (finisherDarkenAlpha > 0) {
+        ctx.save();
+        ctx.globalAlpha = finisherDarkenAlpha;
+        ctx.fillStyle = '#000';
+        ctx.fillRect(0, 0, cvs.width, cvs.height);
+        ctx.restore();
+    }
+
     // 残像(第24条、およびPUNCH+PUNCH+UPPERの強さ演出)を先に描画。
     // 各残像は個別に寿命(life)・スプライト(sprite)・最大不透明度(maxAlpha)を持てる。省略時は従来のdash残像と同じ既定値になる。
     trails = trails.filter(tr => (t - tr.born) < (tr.life || 220));
@@ -2323,6 +2342,25 @@ function draw(tRaw) {
     if (pImg) ctx.drawImage(pImg, pRect.x, pRect.y, pRect.size, pRect.size);
     else { ctx.fillStyle = '#0f0'; ctx.fillRect(pRect.x, pRect.y, pRect.size, pRect.size); }
     ctx.restore();
+    // フィニッシュ発光(スーパーアッパー/メテオ/必殺技)。プレイヤーが攻撃側の場合のみ、キャラ画像だけを描いた
+    // オフスクリーンcanvas上でsource-atop(その画像の非透明ピクセルにのみ新しい色が乗る合成モード)を使って
+    // 白く塗りつぶし、それを本canvasへ重ねる。本canvas上で直接source-atopを使うと、既に描画済みの背景(不透明)
+    // まで巻き込んで白くなってしまうため、オフスクリーンで完結させてから貼り付ける2段階にしている。
+    if (finisherFlashSide === 'P' && finisherFlashAlpha > 0 && pImg) {
+        const flashCtx = getFinisherFlashCanvas();
+        flashCtx.clearRect(0, 0, DB.IMG_SIZE, DB.IMG_SIZE);
+        flashCtx.globalCompositeOperation = 'source-over';
+        flashCtx.drawImage(pImg, 0, 0, DB.IMG_SIZE, DB.IMG_SIZE);
+        flashCtx.globalCompositeOperation = 'source-atop';
+        flashCtx.fillStyle = '#fff';
+        flashCtx.fillRect(0, 0, DB.IMG_SIZE, DB.IMG_SIZE);
+        ctx.save();
+        ctx.globalAlpha = finisherFlashAlpha;
+        ctx.shadowColor = 'rgba(255,255,255,0.95)';
+        ctx.shadowBlur = 30;
+        ctx.drawImage(flashCtx.canvas, pRect.x, pRect.y, pRect.size, pRect.size);
+        ctx.restore();
+    }
 
     // 敵(振動・点滅・反転対応)
     const eJit = t < state.eShakeUntil ? (Math.random() * 6 - 3) : 0;
@@ -2360,6 +2398,24 @@ function draw(tRaw) {
         ctx.save(); ctx.scale(-1, 1); // 第19条: 敵は常に反転
         ctx.drawImage(eImg, eRect.x, eRect.y, eRect.size, eRect.size);
         ctx.restore();
+        // フィニッシュ発光(スーパーアッパー/メテオ/必殺技)。敵が攻撃側の場合のみ、P側と同じくオフスクリーンcanvasで
+        // キャラの非透明ピクセルだけ白くしたものを、反転済みの座標系で重ねて貼り付ける。
+        if (finisherFlashSide === 'E' && finisherFlashAlpha > 0) {
+            const flashCtx = getFinisherFlashCanvas();
+            flashCtx.clearRect(0, 0, DB.IMG_SIZE, DB.IMG_SIZE);
+            flashCtx.globalCompositeOperation = 'source-over';
+            flashCtx.drawImage(eImg, 0, 0, DB.IMG_SIZE, DB.IMG_SIZE);
+            flashCtx.globalCompositeOperation = 'source-atop';
+            flashCtx.fillStyle = '#fff';
+            flashCtx.fillRect(0, 0, DB.IMG_SIZE, DB.IMG_SIZE);
+            ctx.save();
+            ctx.scale(-1, 1); // 元のdrawImageと同じ反転座標系に合わせる
+            ctx.globalAlpha = finisherFlashAlpha;
+            ctx.shadowColor = 'rgba(255,255,255,0.95)';
+            ctx.shadowBlur = 30;
+            ctx.drawImage(flashCtx.canvas, eRect.x, eRect.y, eRect.size, eRect.size);
+            ctx.restore();
+        }
     } else {
         const eFallbackRect = growRectKeepBottomCenter(state.eX, state.eY, eScale); // フォールバックは反転前の座標系のまま
         ctx.fillStyle = '#f00'; ctx.fillRect(eFallbackRect.x, eFallbackRect.y, eFallbackRect.size, eFallbackRect.size);
@@ -2547,25 +2603,6 @@ function draw(tRaw) {
         ctx.globalAlpha = state.screenFlashAlpha;
         ctx.fillStyle = '#fff';
         ctx.fillRect(0, 0, cvs.width, cvs.height);
-        ctx.restore();
-    }
-
-    // スーパーアッパー/メテオ/必殺技の直前に挟む「暗転→攻撃側が白く発光」演出。それまでの描画すべての最後に重ねる
-    // (暗転は画面全体、発光は攻撃側キャラの位置のみなので、暗闇の中でそのキャラだけが光って見える)。
-    if (finisherDarkenAlpha > 0) {
-        ctx.save();
-        ctx.globalAlpha = finisherDarkenAlpha;
-        ctx.fillStyle = '#000';
-        ctx.fillRect(0, 0, cvs.width, cvs.height);
-        ctx.restore();
-    }
-    if (finisherFlashSide && finisherFlashAlpha > 0) {
-        ctx.save();
-        ctx.globalAlpha = finisherFlashAlpha;
-        ctx.shadowColor = 'rgba(255,255,255,0.95)';
-        ctx.shadowBlur = 50;
-        ctx.fillStyle = '#fff';
-        ctx.fillRect(getX(finisherFlashSide), getY(finisherFlashSide), DB.IMG_SIZE, DB.IMG_SIZE);
         ctx.restore();
     }
 
@@ -3844,6 +3881,7 @@ function detectComboType(hand, total) {
 // 合計ダメージは通常パンチ1発の3倍(1発ごとにDB.DMG.P、チャージ等の影響は受けない)。
 async function runFollowUpFlurry(attacker, defender) {
     hitComboBreak(defender);
+    await playFinisherBuildup(attacker); // 暗転→一時停止→攻撃側が白く発光→晴れる、のフィニッシュ演出(3連打全体の前に1回だけ)
     for (let i = 0; i < 3; i++) {
         hitComboSuccess(attacker); // 追撃は3連打それぞれをCOMBOとして数える
         if (i >= 1) await flashDashBetweenPunches(attacker); // 2発目以降のみ、パンチ同士の切り替えなのでdashを挟む
