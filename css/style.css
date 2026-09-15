@@ -271,6 +271,23 @@
         }
 
         /* ------- デッキ編成シーン ------- */
+        /* 背景: 黒(上)〜深緑(下)を、なめらかなグラデーションではなく10%刻みの帯(色が段階的にパッと切り替わる)で表現する。
+           同じ色を隣り合う%位置に2回指定することで、その区間内は単色のまま、境目でハードに切り替わるようにしている。 */
+        #sceneDeck {
+            background: linear-gradient(to bottom,
+                #000000 0%, #000000 10%,
+                #030702 10%, #030702 20%,
+                #050e04 20%, #050e04 30%,
+                #081506 30%, #081506 40%,
+                #0a1c08 40%, #0a1c08 50%,
+                #0d230a 50%, #0d230a 60%,
+                #0f2a0c 60%, #0f2a0c 70%,
+                #12310e 70%, #12310e 80%,
+                #143810 80%, #143810 90%,
+                #163f12 90%, #163f12 100%
+            );
+        }
+        #sceneDeck .scene-inner { background: transparent; } /* .scene-inner共通の黒背景(#000)が、上のグラデーションを覆い隠してしまうため、この画面限定で透過にする */
         .deck-row { display: flex; align-items: center; gap: 14px; }
         .deck-card-icon { width: 26px; height: 37px; object-fit: contain; image-rendering: pixelated; flex: none; }
         .deck-label { width: 70px; text-align: left; font-weight: bold; letter-spacing: 1px; }
