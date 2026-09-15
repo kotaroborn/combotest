@@ -797,7 +797,7 @@ const SUBSTORY_BATTLE_CONFIG = {
     ENEMY_01: { opponent: 'ENEMY_04', stage: 2 }, // Noah vs Jack, 2ndステージ
     ENEMY_02: { opponent: 'ENEMY_01', stage: 1 }, // Rita vs Noah, 1stステージ(サブストーリー本文の内容に合わせて修正)
     ENEMY_03: { opponent: 'ENEMY_04', stage: 4 }, // Gald vs Jack, 4thステージ
-    ENEMY_04: { opponent: 'ENEMY_01', stage: 3 }, // Jack vs Noah, 3rdステージ
+    ENEMY_04: { opponent: 'ENEMY_02', stage: 3 }, // Jack vs Rita, 3rdステージ
     ENEMY_05: { opponent: 'VAL', stage: 5 },      // Alv vs Val, 5thステージ
 };
 // サブストーリーバトルの対戦相手の表示名を返す。プレイヤーがSTORY MODEでまだ遭遇したことのない敵は
