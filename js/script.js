@@ -107,6 +107,11 @@ let state = {
 };
 let trails = []; // 第24条: dash.PNGの残像
 let hitEffects = []; // ヒットエフェクト(命中の瞬間に一瞬表示し、割れるように消える)。技種別ごとに拡張していく想定
+// スーパーアッパー/メテオ/必殺技(異なるコマンドを組み合わせ、フィニッシュで攻撃力が上がる技)の直前に挟む、
+// 「背景暗転→一時停止→攻撃側が白く発光→発光で暗転が晴れる」演出用の状態。draw()が毎フレーム参照して描画する。
+let finisherDarkenAlpha = 0; // 0〜1、画面全体を覆う黒の不透明度
+let finisherFlashSide = null; // 'P'または'E'。発光中の攻撃側(該当無しはnull)
+let finisherFlashAlpha = 0; // 0〜1、発光の強さ
 // 技種別ごとのヒットエフェクト画像・表示サイズ(ソースpx単位、実際の描画時にDB.SCALEを掛ける)。
 // 現時点ではPUNCHのみ(縦32×横5px、32×32pxのソース画像のうち左側5px幅だけを使う)。
 // 今後メテオ・アッパー・ガードにも同様の形式で追加していく想定。
@@ -2035,6 +2040,35 @@ function triggerScreenShake(ms, magnitude) {
 
 function triggerBlink(side, ms) { const until = performance.now() + ms; if (side === 'P') state.pBlinkUntil = until; else state.eBlinkUntil = until; }
 
+// スーパーアッパー/メテオ/必殺技(異なるコマンドを組み合わせ、フィニッシュで攻撃力が上がる技)の直前に挟む演出。
+// 背景暗転→一時停止(暗いまま)→攻撃側が白く発光→その発光と共に暗転が晴れる、という一連の流れをawaitで完結させる。
+// 呼び出し側は、この関数の完了を待ってから実際の打撃モーション(setAct等)・ダメージ処理へ進む。
+async function playFinisherBuildup(attacker) {
+    const darkenSteps = 8, darkenStepMs = 20; // 暗転(約160ms)
+    for (let s = 1; s <= darkenSteps; s++) {
+        finisherDarkenAlpha = (s / darkenSteps) * 0.75; // 完全な黒ではなく75%程度の暗さに留める(キャラのシルエットが薄っすら見える程度)
+        await wait(darkenStepMs);
+    }
+    await wait(300); // 一時停止(暗いまま、キャラは静止した状態)
+
+    finisherFlashSide = attacker;
+    const flashSteps = 6, flashStepMs = 25; // 発光がパッと現れる(約150ms)
+    for (let s = 1; s <= flashSteps; s++) {
+        finisherFlashAlpha = s / flashSteps;
+        await wait(flashStepMs);
+    }
+    const clearSteps = 8, clearStepMs = 20; // 発光で暗転が晴れていく(約160ms)
+    for (let s = 1; s <= clearSteps; s++) {
+        const t = s / clearSteps;
+        finisherDarkenAlpha = 0.75 * (1 - t);
+        finisherFlashAlpha = 1 - t;
+        await wait(clearStepMs);
+    }
+    finisherDarkenAlpha = 0;
+    finisherFlashAlpha = 0;
+    finisherFlashSide = null;
+}
+
 function nextPunchSprite(side) {
     const key = side === 'P' ? 'pLastAtk' : 'eLastAtk';
     state[key] = state[key] === 'punch.PNG' ? 'punch2.PNG' : 'punch.PNG'; // 第21条
@@ -2513,6 +2547,25 @@ function draw(tRaw) {
         ctx.globalAlpha = state.screenFlashAlpha;
         ctx.fillStyle = '#fff';
         ctx.fillRect(0, 0, cvs.width, cvs.height);
+        ctx.restore();
+    }
+
+    // スーパーアッパー/メテオ/必殺技の直前に挟む「暗転→攻撃側が白く発光」演出。それまでの描画すべての最後に重ねる
+    // (暗転は画面全体、発光は攻撃側キャラの位置のみなので、暗闇の中でそのキャラだけが光って見える)。
+    if (finisherDarkenAlpha > 0) {
+        ctx.save();
+        ctx.globalAlpha = finisherDarkenAlpha;
+        ctx.fillStyle = '#000';
+        ctx.fillRect(0, 0, cvs.width, cvs.height);
+        ctx.restore();
+    }
+    if (finisherFlashSide && finisherFlashAlpha > 0) {
+        ctx.save();
+        ctx.globalAlpha = finisherFlashAlpha;
+        ctx.shadowColor = 'rgba(255,255,255,0.95)';
+        ctx.shadowBlur = 50;
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(getX(finisherFlashSide), getY(finisherFlashSide), DB.IMG_SIZE, DB.IMG_SIZE);
         ctx.restore();
     }
 
@@ -3487,6 +3540,7 @@ async function runNormalHit(winner, loser, move) {
 async function runMeteor(attacker, defender) {
     hitComboSuccess(attacker);
     hitComboBreak(defender);
+    await playFinisherBuildup(attacker); // 暗転→一時停止→攻撃側が白く発光→晴れる、のフィニッシュ演出
     applyDamage(defender, DB.DMG.M * chargeMultOf(attacker) * atkMultOf(attacker) * defMultOf(defender));
     playSE('se_meteor'); // 未配置ならse_punchで代用される
     setAct(attacker, 'knock.PNG');
@@ -3548,6 +3602,7 @@ async function runUpperCombo(attacker, defender, cursor) {
     state.ePunchStreak = 0;
     state.pGuardStreak = 0; state.eGuardStreak = 0; // ガード以外で勝敗が決したのでガード連続記録は途切れる
 
+    if (isSuperUpper) await playFinisherBuildup(attacker); // スーパーアッパー(ダメージ2倍)成立時のみ、暗転→一時停止→発光の演出を挟む
     setAct(attacker, 'upper.PNG');
     setAct(defender, 'damage.PNG');
     applyDamage(defender, DB.DMG.U * chargeMultOf(attacker) * (isSuperUpper ? 2 : 1) * atkMultOf(attacker, 'UPPER') * defMultOf(defender, 'UPPER'));
@@ -3811,6 +3866,7 @@ async function runFollowUpFlurry(attacker, defender) {
 async function runFinisher(attacker, defender, cursor) {
     hitComboSuccess(attacker);
     hitComboBreak(defender);
+    await playFinisherBuildup(attacker); // 暗転→一時停止→攻撃側が白く発光→晴れる、のフィニッシュ演出
     setAct(attacker, nextPunchSprite(attacker)); // 第21条
     setAct(defender, 'damage.PNG');
     markCardOutcome(defender, cursor.i, 'card-shatter'); // 3すくみ無視のヒットなのでヒビ割れ表現にする
