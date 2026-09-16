@@ -312,20 +312,17 @@ const SOUND_TEST_TRACKS = [
     { name: 'bgm_battle_4', label: 'Jack' },
     { name: 'bgm_battle_5', label: 'Alv' },
     { name: 'bgm_ending', label: 'ending' },
-    { name: 'se_select', label: 'SE: メニュー決定' },
+    { name: 'se_select', label: 'SE: メニュー決定 / GO!' },
     { name: 'se_deck_plus', label: 'SE: デッキ+ / カードを出す' },
-    { name: 'se_deck_minus', label: 'SE: デッキ-' },
+    { name: 'se_deck_minus', label: 'SE: デッキ- / キャンセル' },
     { name: 'se_menu_open', label: 'SE: OPTION/HOW TOを開く' },
-    { name: 'se_go', label: 'SE: GO!' },
-    { name: 'se_cancel', label: 'SE: CANCEL' },
-    { name: 'se_refresh', label: 'SE: カードリフレッシュ(ループ)' },
+    { name: 'se_refresh', label: 'SE: カードリフレッシュ' },
     { name: 'se_punch', label: 'SE: パンチ' },
     { name: 'se_upper', label: 'SE: アッパー' },
     { name: 'se_guard', label: 'SE: ガード' },
-    { name: 'se_guard_2', label: 'SE: ガード(2連続/2倍)' },
-    { name: 'se_guard_3', label: 'SE: ガード(3連続以降/4倍)' },
+    { name: 'se_guard_2', label: 'SE: ガード(2倍)' },
+    { name: 'se_guard_3', label: 'SE: ガード(4倍)' },
     { name: 'se_meteor', label: 'SE: メテオ' },
-    { name: 'se_finisher', label: 'SE: 必殺技' },
     { name: 'se_piyo', label: 'SE: ピヨり' },
     { name: 'se_kabe', label: 'SE: down' },
     { name: 'se_ko', label: 'SE: K.O.' },
@@ -1199,7 +1196,8 @@ async function loadAudioBuffer(kind, name) {
 }
 
 let currentBgmSource = null; // 現在再生中のBGMのAudioBufferSourceNode
-let currentBgmName = null; // 現在再生中(またはリクエスト中)のBGM名。同一BGMの多重再生防止に使う
+let currentBgmName = null; // 現在実際に再生中のBGM名。stopBGMで必ずnullに戻す(同一BGMの多重再生防止と、停止後に同じ曲名でも再度鳴らせるようにするため)
+let lastBgmName = null; // 直近にplayBGMで再生を試みたBGM名。stopBGMを呼んでも(soundOFFやK.O.等で一時的に止まっていても)保持され続け、setSound(true)での再開時に参照する
 let bgmToken = 0; // BGM要求の世代カウンタ。stopBGM()や新たなplayBGM()呼び出しのたびに進める。
 // 読み込み待ち中の古いplayBGM呼び出しが後から解決しても、この値が変わっていれば「自分より後の要求で上書き済み」と判断して再生を中断する。
 // 同名のBGMを止めてすぐ同じ名前で鳴らし直すような操作(SOUND TESTを閉じてすぐ開き直す等)でも、
@@ -1212,8 +1210,9 @@ const bgmBufferCache = {}; // 一度読み込んだBGMのAudioBufferをキャッ
 // fallbackNameを指定すると、nameが未配置の場合にそちらを試す(例: ステージ別BGMが無ければ汎用バトルBGMを流す)。
 async function playBGM(name, fallbackName) {
     if (currentBgmName === name) return;
-    currentBgmName = name;
-    stopBGM(); // この中でbgmTokenが進む
+    stopBGM(); // この中でcurrentBgmNameのクリア・bgmTokenの更新が行われる
+    currentBgmName = name; // stopBGM()の後に設定する(stopBGM内でnullにリセットされるため、この順序でないと上書きされてしまう)
+    lastBgmName = name; // setSound(true)での再開用に、こちらは停止後も保持され続ける
     const myToken = bgmToken; // 自分の世代は、stopBGM()の後で確定した値を記録する(先に記録すると、直後のstopBGM内の加算で即座に自分自身が無効化されてしまうため)
 
     let buffer = bgmBufferCache[name];
@@ -1250,6 +1249,9 @@ function stopBGM() {
         currentBgmSource.disconnect();
         currentBgmSource = null;
     }
+    currentBgmName = null; // 「今何の曲が鳴っているか」の記録も必ずクリアする。これをしないと、実際には停止しているのに
+    // playBGM側の「同じ名前なら何もしない」ガードが古い名前を見て誤って早期returnしてしまい、次に同じ曲名で
+    // playBGMを呼んでも無音のままになる不具合が実際に発生した(K.O.後、CONTINUEで同じ曲のバトルへ戻る場合など)。
 }
 
 const seBufferCache = {}; // SEは軽量なため、一度読み込んだAudioBufferを使い回す
@@ -4373,12 +4375,11 @@ function setSound(on) {
     state.soundOn = on;
     writeSaveData({ soundOn: on });
     if (!on) {
-        stopBGM(); // OFFにした瞬間、鳴っているBGMを止める
-    } else if (currentBgmName) {
-        // 直前まで鳴らそうとしていたBGMがあれば、ONに戻した時点で再生を試みる
-        const name = currentBgmName;
-        currentBgmName = null; // playBGMの「同じ名前なら何もしない」ガードを一旦外す
-        playBGM(name);
+        stopBGM(); // OFFにした瞬間、鳴っているBGMを止める(currentBgmNameはクリアされるが、lastBgmNameは保持され続ける)
+    } else if (lastBgmName) {
+        // 直前まで鳴らそうとしていたBGMがあれば、ONに戻した時点で再生を試みる。currentBgmNameは
+        // stopBGM()で既にnullになっているため、playBGM側の「同じ名前なら何もしない」ガードは気にせず直接呼べる
+        playBGM(lastBgmName);
     }
 }
 
