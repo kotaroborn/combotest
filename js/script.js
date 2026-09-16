@@ -2452,13 +2452,22 @@ function draw(tRaw) {
             const liveX = getX(fx.side);
             const liveY = getY(fx.side);
             const wobble = Math.sin(age / 22) * 3 * DB.SCALE; // 縦揺れ(振幅・周期とも一定の小刻みな揺れ。フェードに連動して収束させない)
-            const drawX = liveX + (DB.IMG_SIZE - dispW) / 2; // キャラの横中央に重ねる
             const drawY = liveY + (DB.IMG_SIZE - dispH) / 2 + wobble; // キャラの縦中央付近+縦揺れ
             ctx.save();
             ctx.globalAlpha = decay;
             ctx.shadowColor = 'rgba(255, 255, 255, 0.95)'; // ガード上位チャージと同じ白い光彩
             ctx.shadowBlur = 26;
-            ctx.drawImage(img, 0, 0, def.srcW, def.srcH, drawX, drawY, dispW, dispH);
+            if (fx.side === 'E') {
+                // 敵側はキャラ本体と同じく反転して描画する(第19条)。反転コンテキスト内では、
+                // 通常座標系のliveXに対応する位置は`-liveX - DB.IMG_SIZE`になる(敵キャラ本体の描画と同じ式)。
+                // これをしないと、位置が実際の敵の位置とズレるだけでなく、画像自体も反転されないまま出てしまう。
+                ctx.scale(-1, 1);
+                const drawX = -liveX - DB.IMG_SIZE + (DB.IMG_SIZE - dispW) / 2;
+                ctx.drawImage(img, 0, 0, def.srcW, def.srcH, drawX, drawY, dispW, dispH);
+            } else {
+                const drawX = liveX + (DB.IMG_SIZE - dispW) / 2; // キャラの横中央に重ねる
+                ctx.drawImage(img, 0, 0, def.srcW, def.srcH, drawX, drawY, dispW, dispH);
+            }
             ctx.restore();
             return;
         }
