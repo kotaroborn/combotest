@@ -3931,8 +3931,9 @@ async function runFinisher(attacker, defender, cursor) {
     const edgeX = defender === 'P' ? DB.POS.EDGE_P_X : DB.POS.EDGE_E_X;
     // キャラの絵柄自体が32×32のスプライト内で中央寄りに描かれているため、スプライトの基準点(edgeX)を
     // そのまま画面端に合わせただけでは、実際の見た目上は壁から離れて見えてしまう。そのため、最終停止位置は
-    // 基準点をさらに壁の方向へIMG_SIZEの約1/3だけめり込ませ、絵柄が壁に接しているように見せる。
-    const wallOverlap = Math.round(DB.IMG_SIZE / 3);
+    // 基準点をさらに壁の方向へIMG_SIZEの約2/3だけめり込ませ、絵柄が壁に接しているように見せる
+    // (当初1/3で対応したが、まだ壁から離れて見えるとの指摘を受け、さらに1/3(合計2/3)に増やした)。
+    const wallOverlap = Math.round(DB.IMG_SIZE * 2 / 3);
     const finalX = defender === 'P' ? edgeX - wallOverlap : edgeX + wallOverlap;
     const fromX = getX(defender);
     const flySteps = 8, flyStepMs = 30;
