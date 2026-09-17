@@ -3929,15 +3929,21 @@ async function runFinisher(attacker, defender, cursor) {
 
     // 被弾側を画面端まで吹き飛ばす(damage.PNGのまま)
     const edgeX = defender === 'P' ? DB.POS.EDGE_P_X : DB.POS.EDGE_E_X;
+    // キャラの絵柄自体が32×32のスプライト内で中央寄りに描かれているため、スプライトの基準点(edgeX)を
+    // そのまま画面端に合わせただけでは、実際の見た目上は壁から離れて見えてしまう。そのため、最終停止位置は
+    // 基準点をさらに壁の方向へIMG_SIZEの約1/3だけめり込ませ、絵柄が壁に接しているように見せる。
+    const wallOverlap = Math.round(DB.IMG_SIZE / 3);
+    const finalX = defender === 'P' ? edgeX - wallOverlap : edgeX + wallOverlap;
     const fromX = getX(defender);
     const flySteps = 8, flyStepMs = 30;
     for (let s = 1; s <= flySteps; s++) {
-        setX(defender, fromX + (edgeX - fromX) * (s / flySteps));
+        setX(defender, fromX + (finalX - fromX) * (s / flySteps));
         await wait(flyStepMs);
     }
-    setX(defender, edgeX);
+    setX(defender, finalX);
     // edgeXはキャラのスプライト基準点(左端)の座標。左壁(プレイヤー側)はこれがそのまま画面端に接するが、
     // 右壁(敵側)は逆にスプライトの右端(edgeX + IMG_SIZE)こそが実際に画面端(壁)に接する位置になるため、側で分けて求める。
+    // 壁の破裂エフェクト自体は実際の画面端(edgeX基準、上記のめり込み分は含めない)の位置に表示する。
     const wallX = defender === 'P' ? edgeX : edgeX + DB.IMG_SIZE;
     spawnHitEffect(defender, 'WALL', 1, wallX, getY(defender) + DB.IMG_SIZE / 2); // 壁(画面端)から飛び出してから落下するエフェクト
 
