@@ -467,7 +467,7 @@
         .popup-panel {
             position: relative; width: 80%; height: 80%;
             background: #161616; border: 2px solid #555; border-radius: 10px;
-            padding: 16px; box-sizing: border-box; overflow: hidden; /* スクロールしない一画面での説明 */
+            padding: 16px; box-sizing: border-box; overflow: hidden; /* パネル自体はクリップし、中の.howto-scrollだけを縦スクロールさせる */
             color: #eee;
             display: flex; flex-direction: column;
         }
@@ -479,6 +479,22 @@
         }
         .howto-content { flex: 1; font-size: 12px; line-height: 1.8; overflow: hidden; display: flex; flex-direction: column; min-height: 0; }
         .howto-content h2 { margin-top: 0; font-size: 16px; flex: none; }
+        /* HOW TOポップアップの本文だけは縦にスワイプ/ドラッグでスクロールできるようにする(OPTION等の.howto-contentは対象外) */
+        .howto-content.howto-scroll {
+            display: block;
+            overflow-y: auto;
+            overflow-x: hidden;
+            -webkit-overflow-scrolling: touch;
+            overscroll-behavior: contain;
+            touch-action: pan-y;
+        }
+        .howto-content.howto-scroll h2 { margin-bottom: 14px; }
+        .howto-content.howto-scroll p { margin: 0 0 14px; }
+        .howto-content.howto-scroll b { color: #fff; }
+        .howto-img {
+            display: block; width: 100%; max-width: 260px;
+            margin: 4px auto 16px; border-radius: 6px;
+        }
         .howto-footer { flex: none; display: flex; gap: 10px; padding-top: 10px; }
         #soundTestBody { flex: 1; display: flex; flex-direction: column; min-height: 0; }
         .sound-test-rows { flex: 1; min-height: 0; overflow: hidden; }
