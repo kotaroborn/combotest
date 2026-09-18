@@ -385,6 +385,58 @@ function loadCutsceneScreens(screens, folder) {
     return Promise.all(screens.map(sc => loadCutsceneImage(sc.img, folder)));
 }
 
+// 任意のURLの画像を1枚読み込み、成功/失敗問わず決着したら解決するPromiseを返す汎用ヘルパー。
+// タイトルロゴ(title_logo.PNG)のように、既にHTML側の<img src>タグで自然に読み込みが始まっている画像を
+// boot()側でも「読み込み完了まで待つ」ために使う(<img>タグ自体は変更しない。同じURLへのリクエストはブラウザ側で
+// 共有・重複排除されるため、二重ダウンロードにはならない)。
+function preloadImageUrl(url) {
+    return new Promise(resolve => {
+        const i = new Image();
+        i.onload = () => resolve(i);
+        i.onerror = () => resolve(null); // 任意アセットのため、読み込めなくても起動をブロックしない
+        i.src = url;
+    });
+}
+
+// battleSpeedX2の影響を受けない、単純なミリ秒待機(演出用のwait()とは別。ローディング表示の猶予時間・タイムアウト計測専用)
+function rawWait(ms) {
+    return new Promise(r => setTimeout(r, ms));
+}
+
+// バトル開始前/ストーリー開始前など、画面遷移の直前に必要な画像の読み込みが完了しているかどうかに応じて、
+// 簡易ローディング表示(#sceneLoadingScreen)を出し分けるための共通ヘルパー。
+// readyPromiseがgraceMsミリ秒以内に解決すれば(=既に読み込み済み、または十分速く終わる場合)、ローディング表示は
+// 一切見せない(体感の悪いチラつきを防ぐ)。graceMsを超えてもまだ解決していない場合のみ表示し、実際に解決する
+// (またはtimeoutMsに達する)まで待ってから隠す。timeoutMsは、万一何らかの理由で読み込みが完了しない場合の安全策
+// (fetchがハングする等)で、経過後は読み込み未完了のまま進行を続ける(永久にローディングのまま止まらないようにするため)。
+async function ensureReadyWithLoading(readyPromise, graceMs = 150, timeoutMs = 8000) {
+    const winner = await Promise.race([
+        readyPromise.then(() => 'ready'),
+        rawWait(graceMs).then(() => 'grace')
+    ]);
+    if (winner === 'ready') return; // 猶予時間内に読み込みが間に合った
+    showSceneLoading();
+    try {
+        await Promise.race([readyPromise, rawWait(timeoutMs)]);
+    } finally {
+        hideSceneLoading();
+    }
+}
+function showSceneLoading() {
+    const el = document.getElementById('sceneLoadingScreen');
+    if (!el) return;
+    el.style.transition = 'none';
+    el.style.opacity = '1';
+    el.classList.add('show');
+}
+function hideSceneLoading() {
+    const el = document.getElementById('sceneLoadingScreen');
+    if (!el) return;
+    el.style.transition = 'opacity 0.2s ease-out';
+    el.style.opacity = '0';
+    setTimeout(() => { el.classList.remove('show'); }, 200);
+}
+
 // バトルで使うキャラ画像(DB.ASSETS)・背景(bg.PNG)の読み込み状況フラグ。
 // オープニング/タイトル/バトル開始のいずれも、この読み込み完了を待たない(バトル演出自体の数秒を読み込みの猶予時間にする)。
 // 万一バトル開始時点で読み込みが間に合っていない場合は、draw()側の既存フォールバック表示(緑/赤の四角)が
@@ -544,7 +596,8 @@ const OPENING_SCREENS = [
 // 頭出しの猶予が無く表示までの待ちが目立っていた。DB.ASSETSと同様、ページ読み込み直後から先読みを始めることで、
 // ロゴ画面が表示されている数秒間を読み込みの猶予時間として使う(playPrologue側の読み込み待ちは、
 // このキャッシュ済みPromiseを再利用するだけになるため、通常は即座に解決する)。
-loadCutsceneScreens(OPENING_SCREENS, 'opening');
+// このPromiseはboot()側でも参照し、NOW LOADING表示を隠す前にここまでの読み込み完了を待つ(第X条参照)。
+const openingScreensReadyPromise = loadCutsceneScreens(OPENING_SCREENS, 'opening');
 
 let prologueToken = 0; // SKIP時に進行中のタイプライター処理を打ち切るためのトークン
 
@@ -1204,6 +1257,17 @@ let bgmToken = 0; // BGM要求の世代カウンタ。stopBGM()や新たなplayB
 // name比較だけでは区別できない世代のズレをここで確実に検出できる。
 const bgmBufferCache = {}; // 一度読み込んだBGMのAudioBufferをキャッシュ(再入場のたびの再読み込みを省く)
 
+// 指定したBGMを、実際に再生はせず読み込み(fetch+decode)だけ先に済ませておく。boot()がNOW LOADING中にこれを
+// 呼ぶことで、実際にplayBGMが呼ばれる時点(プロローグ開始時)ではbgmBufferCacheに既に載っており、即座に鳴らせる。
+// playBGM側と同じbgmBufferCacheを参照・共有するため、二重に読み込むことはない。
+function preloadBgm(name) {
+    if (bgmBufferCache[name] !== undefined) return Promise.resolve(bgmBufferCache[name]);
+    return loadAudioBuffer('bgm', name).then(buffer => {
+        bgmBufferCache[name] = buffer; // 未配置(null)の場合もその結果自体をキャッシュし、後で再度fetchし直さないようにする
+        return buffer;
+    });
+}
+
 // 指定したBGMをシームレスループで再生する。既に同じBGMがリクエスト/再生中なら何もしない。
 // state.soundOnがfalseの場合、次にONにした時すぐ再生できるよう読み込みだけ行い、実際の再生はしない。
 // 指定したBGMをシームレスループで再生する。既に同じ要求(name)がリクエスト/再生中なら何もしない。
@@ -1329,9 +1393,21 @@ document.addEventListener('visibilitychange', () => {
     }
 });
 
-function boot() {
-    // オープニング(ロゴ/プロローグ)〜タイトルはバトル用画像(DB.ASSETS)を使わないため、その読み込み完了を待たずに起動する。
-    // バトル用画像は裏で並行して読み込みを続け、バトル開始時には待たない(バトル演出時間そのものを読み込みの猶予にする)。
+async function boot() {
+    // オープニング(ロゴ/プロローグ)〜タイトルのうち「重い」素材(プロローグ4画面ぶんの画像・プロローグBGM・
+    // タイトルロゴ画像)は、NOW LOADING表示を隠す前にここで読み込み完了を待つ(この3つはページ読み込み直後から
+    // 既に並行して先読みが始まっているため、実際にはここで待つのはその残り時間だけで済むことが多い)。
+    // これ以外のバトル用画像(DB.ASSETS)・背景・STORY MODE各ステージの画像等は、従来通りここでは待たない
+    // (バトル/ストーリー演出そのものの数秒間を読み込みの猶予時間として使う方針は変更しない)。
+    const bootAssetsReadyPromise = Promise.all([
+        openingScreensReadyPromise,
+        preloadBgm('bgm_prologue'),
+        preloadImageUrl('assets/images/logo/title_logo.PNG')
+    ]);
+    // 万一これらの読み込みが何らかの理由で完了しない(ネットワーク切断等でfetchがハングする等)場合の安全策。
+    // 8秒経っても決着しなければ、読み込み未完了のまま起動を続行する(NOW LOADINGが永久に残る事態を避ける)。
+    const bootAssetsTimeoutPromise = new Promise(resolve => setTimeout(resolve, 8000));
+
     // 以下の初期化処理は必ずtry/catchで囲み、万一どこかで予期しない例外が発生しても、
     // NOW LOADING表示だけは確実に解除する(でないと画面が永久に「NOW LOADING」のまま止まってしまうため)。
     try {
@@ -1357,6 +1433,12 @@ function boot() {
         updateSpeedUI(); // セーブデータから復元したbattleSpeedX2をボタン表示に反映する
     } catch (e) {
         console.error('boot()の初期化処理でエラーが発生しましたが、NOW LOADINGは解除して起動を続行します:', e);
+    }
+
+    try {
+        await Promise.race([bootAssetsReadyPromise, bootAssetsTimeoutPromise]);
+    } catch (e) {
+        console.error('boot()のプロローグ素材読み込み待機でエラーが発生しましたが、NOW LOADINGは解除して起動を続行します:', e);
     }
 
     // オープニング〜タイトルの表示に必要な準備がここまでで整ったので、NOW LOADING表示を隠す。
@@ -1667,7 +1749,9 @@ async function playStorySequence() {
     imgArea.style.backgroundImage = 'none';
 
     const screens = currentStoryScreens(); // 現在の敵(state.storyEnemyIndex)に対応する3画面
-    await loadCutsceneScreens(screens, 'story'); // 表示を始める前に3画面分の読み込み完了を待つ(未配置ならnullで解決されすぐ進む)
+    // 表示を始める前に3画面分の読み込み完了を待つ(未配置ならnullで解決されすぐ進む)。以前はこの待機中も画面は
+    // 透明(真っ暗)なままだったが、読み込みが間に合っていない場合は#sceneLoadingScreenで明示的にローディングを見せる。
+    await ensureReadyWithLoading(loadCutsceneScreens(screens, 'story'));
     if (storyToken !== myToken) return; // 読み込み待ちの間にSKIPされていたら中断
 
     for (let i = 0; i < screens.length; i++) {
@@ -1971,10 +2055,15 @@ function goDeckBuild(mode) {
 
 // TRAINING MODE専用: デッキ編成を経由せず、タイトルから直接バトルへ入る(手札は固定のPUNCH/UPPER/GUARD、選び放題)。
 // デッキ編成を使わないため、goBattleStartと異なりdeckCountsのセーブ書き込みは行わない。
-function goTrainingBattle() {
+async function goTrainingBattle() {
     state.pendingMode = 'training';
-    loadEnemySet('training'); // TRAINING MODE用グラフィックの先読み(既に読み込み済み/読み込み中なら何もしない)
-    loadStageBackground('bg_training.PNG');
+    // TRAINING MODE用グラフィック・背景の読み込みが間に合っていない場合のみ、#sceneLoadingScreenを挟んでから入る
+    // (第X条: 以前はここで読み込み完了を待たず、間に合わなければバトル中にフォールバック表示→実画像へ差し替わっていたが、
+    // バトル前に素材が揃っていない場合は明示的にローディングを挟んでほしいとの要望を受けて変更した)。
+    await ensureReadyWithLoading(Promise.all([
+        loadEnemySet('training'),
+        loadStageBackground('bg_training.PNG')
+    ]));
     resetBattleState();
     showScene('battle');
     playBattleIntro();
@@ -1984,7 +2073,7 @@ function goTrainingBattle() {
 // サブストーリーバトル(検討中の新機能)を開始する。playerPresetKeyはプレイヤーが借りるキャラのENEMY_PRESETSキー
 // (例: 'ENEMY_01'=Noahとして戦う)。SUBSTORY_BATTLE_CONFIGから対戦相手・ステージを自動的に決定する。
 // デッキ編成は経由せず(借りているキャラのデッキ配分に固定)、直接バトルへ入る。
-function goSubstoryBattle(playerPresetKey) {
+async function goSubstoryBattle(playerPresetKey) {
     const config = SUBSTORY_BATTLE_CONFIG[playerPresetKey];
     if (!config) return;
     state.pendingMode = 'substoryBattle';
@@ -1992,10 +2081,14 @@ function goSubstoryBattle(playerPresetKey) {
     state.ePresetKey = config.opponent;
     state.substoryStageNum = config.stage;
     state.substoryMusicNum = config.music; // バトル曲は背景のステージ番号とは独立して指定できる
-    loadEnemySet(currentEnemySetName()); // 対戦相手側(ePresetKeyから導出。VALの場合は存在しない'val'でplayer.PNGに自然にフォールバック)
     const playerIdx = ENEMY_ORDER.indexOf(playerPresetKey);
-    if (playerIdx !== -1) loadEnemySet('enemy_' + (playerIdx + 1)); // プレイヤー側(借りているキャラの見た目)も先読みする
-    loadStageBackground(config.stage === 1 ? 'bg.PNG' : `bg_${config.stage}.PNG`);
+    // 対戦相手側(ePresetKeyから導出。VALの場合は存在しない'val'でplayer.PNGに自然にフォールバック)・
+    // プレイヤー側(借りているキャラの見た目)・背景、いずれかの読み込みが間に合っていない場合のみローディングを挟む
+    await ensureReadyWithLoading(Promise.all([
+        loadEnemySet(currentEnemySetName()),
+        playerIdx !== -1 ? loadEnemySet('enemy_' + (playerIdx + 1)) : Promise.resolve(),
+        loadStageBackground(config.stage === 1 ? 'bg.PNG' : `bg_${config.stage}.PNG`)
+    ]));
     resetBattleState();
     showScene('battle');
     playBattleIntro();
@@ -2003,12 +2096,15 @@ function goSubstoryBattle(playerPresetKey) {
 }
 // サブストーリーバトルで敗北(K.O.)した後、同じ対戦カード(pPresetKey/ePresetKey/substoryStageNumは維持したまま)で再戦する。
 // デッキ編成を経由しない点はgoSubstoryBattleと同じだが、こちらは既に設定済みの状態をそのまま使い回す。
-function retrySubstoryBattle() {
+async function retrySubstoryBattle() {
     state.pendingMode = 'substoryBattle'; // resetBattleStateはこの値からgameModeを決定するため、必ず設定する
-    loadEnemySet(currentEnemySetName());
     const playerIdx = ENEMY_ORDER.indexOf(state.pPresetKey);
-    if (playerIdx !== -1) loadEnemySet('enemy_' + (playerIdx + 1));
-    loadStageBackground(state.substoryStageNum === 1 ? 'bg.PNG' : `bg_${state.substoryStageNum}.PNG`);
+    // 通常は既に読み込み済み(goSubstoryBattle側で先読み済み)のため、ここでローディングが実際に表示されることは稀
+    await ensureReadyWithLoading(Promise.all([
+        loadEnemySet(currentEnemySetName()),
+        playerIdx !== -1 ? loadEnemySet('enemy_' + (playerIdx + 1)) : Promise.resolve(),
+        loadStageBackground(state.substoryStageNum === 1 ? 'bg.PNG' : `bg_${state.substoryStageNum}.PNG`)
+    ]));
     resetBattleState();
     showScene('battle');
     playBattleIntro();
@@ -2949,12 +3045,16 @@ function drawEnemySlots(activeIndex) {
 // ============================================================
 // バトル進行
 // ============================================================
-function goBattleStart() {
+async function goBattleStart() {
     writeSaveData({ deckCounts: { PUNCH: deckCounts.PUNCH, UPPER: deckCounts.UPPER, GUARD: deckCounts.GUARD } }); // デッキ編成を保存
-    // CONTINUE等、playStorySequenceを経由しない経路もあるため、ここでも念のため先読みを開始する(既に読み込み済み/読み込み中なら何もしない)
+    // CONTINUE等、playStorySequenceを経由しない経路もあるため、ここでも念のため先読みを開始する(既に読み込み済み/読み込み中なら何もしない)。
+    // 通常はplayStorySequence〜デッキ編成までの時間で既に読み込みが終わっているため、ここでローディングが実際に表示されるのは
+    // CONTINUE等でその猶予時間を経由しなかった場合が主になる。
     const battleStageNum = (state.storyEnemyIndex % ENEMY_ORDER.length) + 1;
-    loadEnemySet('enemy_' + battleStageNum);
-    loadStageBackground(battleStageNum === 1 ? 'bg.PNG' : `bg_${battleStageNum}.PNG`);
+    await ensureReadyWithLoading(Promise.all([
+        loadEnemySet('enemy_' + battleStageNum),
+        loadStageBackground(battleStageNum === 1 ? 'bg.PNG' : `bg_${battleStageNum}.PNG`)
+    ]));
     resetBattleState();
     showScene('battle');
     playBattleIntro();
@@ -4623,7 +4723,9 @@ async function readSubStory(idx) {
     flashEl.style.transition = 'none';
     flashEl.style.opacity = '0'; // 他の機能(エピローグのwhiteFadeAtPage等)がこの要素を使った直後でも、必ず非表示から始める
 
-    await loadCutsceneScreens(sub.screens, 'substory'); // 表示を始める前に3画面分の読み込み完了を待つ(未配置ならnullで解決されすぐ進む)
+    // 表示を始める前に3画面分の読み込み完了を待つ(未配置ならnullで解決されすぐ進む)。読み込みが間に合っていない
+    // 場合は#sceneLoadingScreenで明示的にローディングを見せる(以前はここでも画面が一時的に空白のままだった)。
+    await ensureReadyWithLoading(loadCutsceneScreens(sub.screens, 'substory'));
     if (subStoryToken !== myToken) return; // 読み込み待ちの間に戻る/閉じるで中断されていたら止める
 
     for (let i = 0; i < sub.screens.length; i++) {
