@@ -30,6 +30,13 @@
     <div id="nowLoadingPercent">0%</div>
 </div>
 
+<!-- バトル開始前/ストーリー(本編・SUB STORY)開始前など、画面遷移の直前に必要な画像の読み込みが間に合っていない
+     場合にだけ一時的に重ねる、簡易版のローディング表示(起動時のNOW LOADINGとは別)。ゲージは持たずテキストのみ。
+     読み込みが既に完了している/短時間で終わる場合は表示自体されない(.showクラスが付いた時のみ表示)。 -->
+<div id="sceneLoadingScreen">
+    <div id="sceneLoadingText">LOADING...</div>
+</div>
+
 <!-- ロゴシーン: BORN MAGAZINE presents。フェードイン→2秒表示→フェードアウトしてプロローグへ。画面タップでスキップ可能 -->
 <div id="sceneLogo" class="scene active" onclick="skipLogo()">
     <div id="logoContent">
@@ -81,7 +88,7 @@
                 <div class="title-logo-fallback-sub">CROSS DIMENSION</div>
             </div>
         </div>
-        <div class="title-version">ver. 0.9.101</div>
+        <div class="title-version">ver. 0.9.105</div>
     </div>
     <button id="titleContinueBtn" class="text-btn" onclick="tapFlickerThen(this, () => goContinueGame())" style="display:none;">CONTINUE</button>
     <button id="startBtn" class="text-btn" onclick="tapFlickerThen(this, () => goNewGame())" disabled>NEW GAME</button>
