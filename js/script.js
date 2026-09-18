@@ -1260,12 +1260,21 @@ const bgmBufferCache = {}; // 一度読み込んだBGMのAudioBufferをキャッ
 // 指定したBGMを、実際に再生はせず読み込み(fetch+decode)だけ先に済ませておく。boot()がNOW LOADING中にこれを
 // 呼ぶことで、実際にplayBGMが呼ばれる時点(プロローグ開始時)ではbgmBufferCacheに既に載っており、即座に鳴らせる。
 // playBGM側と同じbgmBufferCacheを参照・共有するため、二重に読み込むことはない。
-function preloadBgm(name) {
-    if (bgmBufferCache[name] !== undefined) return Promise.resolve(bgmBufferCache[name]);
-    return loadAudioBuffer('bgm', name).then(buffer => {
-        bgmBufferCache[name] = buffer; // 未配置(null)の場合もその結果自体をキャッシュし、後で再度fetchし直さないようにする
-        return buffer;
-    });
+// fallbackNameを指定すると、nameが未配置の場合にそちらを試す(playBGMのfallbackName引数と全く同じ考え方)。
+// フォールバック後のbufferであっても、nameキーにそのまま紐付けてキャッシュする(playBGM側と同じ挙動なので、
+// 後でplayBGM(name, fallbackName)が呼ばれた時、bgmBufferCache[name]が既に定義済みとなり即座に再生できる)。
+async function preloadBgm(name, fallbackName) {
+    if (bgmBufferCache[name] !== undefined) return bgmBufferCache[name];
+    let buffer = await loadAudioBuffer('bgm', name);
+    if (!buffer && fallbackName) {
+        buffer = bgmBufferCache[fallbackName];
+        if (buffer === undefined) {
+            buffer = await loadAudioBuffer('bgm', fallbackName);
+            bgmBufferCache[fallbackName] = buffer;
+        }
+    }
+    bgmBufferCache[name] = buffer; // 未配置(null)の場合もその結果自体をキャッシュし、後で再度fetchし直さないようにする
+    return buffer;
 }
 
 // 指定したBGMをシームレスループで再生する。既に同じBGMがリクエスト/再生中なら何もしない。
@@ -1730,11 +1739,11 @@ async function playStorySequence() {
     loadEnemySet('enemy_' + storyStageNum);
     loadStageBackground(storyStageNum === 1 ? 'bg.PNG' : `bg_${storyStageNum}.PNG`);
 
-    if (storyStageNum === 5) {
-        playBGM('bgm_story_5', 'bgm_story'); // 5人目(Alv)のストーリーシーンのみ専用BGM(未配置なら共通のbgm_storyへフォールバック)
-    } else {
-        playBGM('bgm_story'); // 1〜4人目のストーリーシーンは敵によらず共通のBGMを流す
-    }
+    // ストーリーシーンのBGM(5人目(Alv)のみ専用曲、未配置なら共通のbgm_storyへフォールバック)。
+    // 以前はここで即座にplayBGMを呼んで鳴らし始めていたが、画像と同じくローディング対象に含めるため、
+    // 読み込みだけ先に済ませておき(preloadBgm)、実際の再生開始は後段の読み込み待ち完了後に行う。
+    const storyBgmName = storyStageNum === 5 ? 'bgm_story_5' : 'bgm_story';
+    const storyBgmFallback = storyStageNum === 5 ? 'bgm_story' : undefined;
     const myToken = ++storyToken;
     const content = document.getElementById('storyContent');
     const imgArea = document.getElementById('storyImgArea');
@@ -1749,10 +1758,15 @@ async function playStorySequence() {
     imgArea.style.backgroundImage = 'none';
 
     const screens = currentStoryScreens(); // 現在の敵(state.storyEnemyIndex)に対応する3画面
-    // 表示を始める前に3画面分の読み込み完了を待つ(未配置ならnullで解決されすぐ進む)。以前はこの待機中も画面は
-    // 透明(真っ暗)なままだったが、読み込みが間に合っていない場合は#sceneLoadingScreenで明示的にローディングを見せる。
-    await ensureReadyWithLoading(loadCutsceneScreens(screens, 'story'));
+    // 表示を始める前に3画面分の画像・ストーリーBGM両方の読み込み完了を待つ(未配置ならnullで解決されすぐ進む)。
+    // 以前はこの待機中も画面は透明(真っ暗)なままだったが、読み込みが間に合っていない場合は#sceneLoadingScreenで
+    // 明示的にローディングを見せる。
+    await ensureReadyWithLoading(Promise.all([
+        loadCutsceneScreens(screens, 'story'),
+        preloadBgm(storyBgmName, storyBgmFallback)
+    ]));
     if (storyToken !== myToken) return; // 読み込み待ちの間にSKIPされていたら中断
+    playBGM(storyBgmName, storyBgmFallback); // 画像・BGM共に読み込み済みのはずなので、ここから即座に再生を開始する
 
     for (let i = 0; i < screens.length; i++) {
         const screen = screens[i];
@@ -2057,12 +2071,14 @@ function goDeckBuild(mode) {
 // デッキ編成を使わないため、goBattleStartと異なりdeckCountsのセーブ書き込みは行わない。
 async function goTrainingBattle() {
     state.pendingMode = 'training';
-    // TRAINING MODE用グラフィック・背景の読み込みが間に合っていない場合のみ、#sceneLoadingScreenを挟んでから入る
-    // (第X条: 以前はここで読み込み完了を待たず、間に合わなければバトル中にフォールバック表示→実画像へ差し替わっていたが、
-    // バトル前に素材が揃っていない場合は明示的にローディングを挟んでほしいとの要望を受けて変更した)。
+    // TRAINING MODE用グラフィック・背景・BGMの読み込みが間に合っていない場合のみ、#sceneLoadingScreenを挟んでから入る
+    // (第X条: 以前はここで読み込み完了を待たず、間に合わなければバトル中にフォールバック表示→実画像へ差し替わり、
+    // BGMも読み込み完了を待たず鳴らし始めていたが、バトル前に素材が揃っていない場合は明示的にローディングを
+    // 挟んでほしいとの要望を受けて変更した)。
     await ensureReadyWithLoading(Promise.all([
         loadEnemySet('training'),
-        loadStageBackground('bg_training.PNG')
+        loadStageBackground('bg_training.PNG'),
+        preloadBgm('bgm_battle')
     ]));
     resetBattleState();
     showScene('battle');
@@ -2083,11 +2099,12 @@ async function goSubstoryBattle(playerPresetKey) {
     state.substoryMusicNum = config.music; // バトル曲は背景のステージ番号とは独立して指定できる
     const playerIdx = ENEMY_ORDER.indexOf(playerPresetKey);
     // 対戦相手側(ePresetKeyから導出。VALの場合は存在しない'val'でplayer.PNGに自然にフォールバック)・
-    // プレイヤー側(借りているキャラの見た目)・背景、いずれかの読み込みが間に合っていない場合のみローディングを挟む
+    // プレイヤー側(借りているキャラの見た目)・背景・BGM、いずれかの読み込みが間に合っていない場合のみローディングを挟む
     await ensureReadyWithLoading(Promise.all([
         loadEnemySet(currentEnemySetName()),
         playerIdx !== -1 ? loadEnemySet('enemy_' + (playerIdx + 1)) : Promise.resolve(),
-        loadStageBackground(config.stage === 1 ? 'bg.PNG' : `bg_${config.stage}.PNG`)
+        loadStageBackground(config.stage === 1 ? 'bg.PNG' : `bg_${config.stage}.PNG`),
+        preloadBgm('bgm_battle_' + state.substoryMusicNum, 'bgm_battle')
     ]));
     resetBattleState();
     showScene('battle');
@@ -2103,7 +2120,8 @@ async function retrySubstoryBattle() {
     await ensureReadyWithLoading(Promise.all([
         loadEnemySet(currentEnemySetName()),
         playerIdx !== -1 ? loadEnemySet('enemy_' + (playerIdx + 1)) : Promise.resolve(),
-        loadStageBackground(state.substoryStageNum === 1 ? 'bg.PNG' : `bg_${state.substoryStageNum}.PNG`)
+        loadStageBackground(state.substoryStageNum === 1 ? 'bg.PNG' : `bg_${state.substoryStageNum}.PNG`),
+        preloadBgm('bgm_battle_' + state.substoryMusicNum, 'bgm_battle')
     ]));
     resetBattleState();
     showScene('battle');
@@ -3053,7 +3071,8 @@ async function goBattleStart() {
     const battleStageNum = (state.storyEnemyIndex % ENEMY_ORDER.length) + 1;
     await ensureReadyWithLoading(Promise.all([
         loadEnemySet('enemy_' + battleStageNum),
-        loadStageBackground(battleStageNum === 1 ? 'bg.PNG' : `bg_${battleStageNum}.PNG`)
+        loadStageBackground(battleStageNum === 1 ? 'bg.PNG' : `bg_${battleStageNum}.PNG`),
+        preloadBgm('bgm_battle_' + (state.storyEnemyIndex + 1), 'bgm_battle')
     ]));
     resetBattleState();
     showScene('battle');
@@ -4709,7 +4728,9 @@ async function readSubStory(idx) {
 
     // サブストーリーごとに個別のBGM(sub.bgm、例: 'bgm_battle_2'のような既存BGMの流用)を指定できる。
     // 指定が無ければ本編ストーリーシーンと同じ共通BGM(bgm_story)を流す。
-    playBGM(sub.bgm || 'bgm_story', 'bgm_story');
+    // 以前はここで即座にplayBGMを呼んで鳴らし始めていたが、画像と同じくローディング対象に含めるため、
+    // 読み込みだけ先に済ませておき(preloadBgm)、実際の再生開始は後段の読み込み待ち完了後に行う。
+    const subStoryBgmName = sub.bgm || 'bgm_story';
 
     // 戦う前のストーリーシーンと同じフルスクリーン表示に切り替える(ポップアップは一旦閉じる)
     document.getElementById('bonusContentsOverlay').classList.remove('show');
@@ -4723,10 +4744,14 @@ async function readSubStory(idx) {
     flashEl.style.transition = 'none';
     flashEl.style.opacity = '0'; // 他の機能(エピローグのwhiteFadeAtPage等)がこの要素を使った直後でも、必ず非表示から始める
 
-    // 表示を始める前に3画面分の読み込み完了を待つ(未配置ならnullで解決されすぐ進む)。読み込みが間に合っていない
-    // 場合は#sceneLoadingScreenで明示的にローディングを見せる(以前はここでも画面が一時的に空白のままだった)。
-    await ensureReadyWithLoading(loadCutsceneScreens(sub.screens, 'substory'));
+    // 表示を始める前に3画面分の画像・BGM両方の読み込み完了を待つ(未配置ならnullで解決されすぐ進む)。読み込みが
+    // 間に合っていない場合は#sceneLoadingScreenで明示的にローディングを見せる(以前はここでも画面が一時的に空白のままだった)。
+    await ensureReadyWithLoading(Promise.all([
+        loadCutsceneScreens(sub.screens, 'substory'),
+        preloadBgm(subStoryBgmName, 'bgm_story')
+    ]));
     if (subStoryToken !== myToken) return; // 読み込み待ちの間に戻る/閉じるで中断されていたら止める
+    playBGM(subStoryBgmName, 'bgm_story'); // 画像・BGM共に読み込み済みのはずなので、ここから即座に再生を開始する
 
     for (let i = 0; i < sub.screens.length; i++) {
         const screen = sub.screens[i];
