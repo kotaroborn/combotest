@@ -57,6 +57,18 @@
             transition: width 0.15s ease-out;
         }
         #nowLoadingPercent { color: #888; font-size: 11px; letter-spacing: 1px; }
+        /* ------- バトル/ストーリー開始前などの簡易ローディング表示(起動時のNOW LOADINGとは別の軽量版) ------- */
+        #sceneLoadingScreen {
+            position: absolute; inset: 0; z-index: 998; /* NOW LOADING(999)より低いが、他の全シーンより前面 */
+            background: #000;
+            display: none; align-items: center; justify-content: center;
+            opacity: 0; transition: opacity 0.2s ease-out;
+        }
+        #sceneLoadingScreen.show { display: flex; }
+        #sceneLoadingText {
+            color: #ccc; font-size: 13px; font-weight: 700; letter-spacing: 3px;
+            animation: nowLoadingPulse 1.4s ease-in-out infinite; /* NOW LOADINGと同じ明滅アニメーションを共用 */
+        }
         #gameHeader {
             height: var(--hdr-h);
             padding-top: var(--safe-top); /* 第26条: 時計回避余白。--hdr-hが同じ分を含むため、ここではヘッダー自体が伸びる(中身が圧縮されない) */
