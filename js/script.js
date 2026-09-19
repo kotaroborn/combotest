@@ -25,7 +25,10 @@ const DB = {
     DMG: { P: 10, U: 5, M: 35, CLASH: 3, TINY: 1, P_COMBO_STEP: 5, FINISHER: 50 }, // P:パンチ勝利 / U:アッパー初撃 / M:メテオ(初撃5+追撃10+追撃15+メテオ35=合計65になるよう調整) / CLASH:相討ち微ダメージ / TINY:ガードされたパンチの反撃 / P_COMBO_STEP:空中パンチ連続ヒットの増加量 / FINISHER:GUARD+PUNCH+GUARD+PUNCH+PUNCH成立時の必殺技(チャージ等の影響を受けない固定値)
     MAX_AIR_PUNCH: 3,
     BREATH_MS: 500, // player.PNG / player2.PNG の呼吸切替間隔
-    DECK_TOTAL: 21 // デッキ合計枚数(内訳は編成画面で自由配分)
+    DECK_TOTAL: 21, // デッキ合計枚数(内訳は編成画面で自由配分)
+    GUARD_PIYO_CHANCE: 0.5 // ガード成功時に相手をピヨらせる(しびれさせる)確率。以前は100%固定だったが、
+    // UPPER→GUARD→UPPERのような連携で「ピヨりによる無条件敗北(1/2)」がUPPERの空中コンボ突入率を
+    // 底上げしすぎる(GUARDを当てるだけで次のUPPERが読み合い無視で通りやすくなる)という懸念から確率制にした。
 };
 DB.IMG_SIZE = DB.SRC_PX * DB.SCALE; // 32×10=320。ソースpxとcanvasユニットの対応が常に整数になる
 // 地面バンド(3px)ぶんの余白を残して、キャラの足元が浮かないギリギリの高さにGROUND_Yを置く
@@ -3875,12 +3878,13 @@ async function runUpperCombo(attacker, defender, cursor) {
     toIdle();
 }
 
-// GUARDが勝った場合の演出(勝った側はガードのまま反撃、負けた側はしびれる)
+// GUARDが勝った場合の演出(勝った側はガードのまま反撃、負けた側はDB.GUARD_PIYO_CHANCEの確率でしびれる)
 // 第3すくみの通り、GUARDに勝てるのはPUNCHのみなので、通常は負けた側が必ずpunch.PNGの姿勢になる。
 // ただし、しびれによる無条件敗北(runNumbFail)経由で呼ばれた場合は、負けた側が実際にPUNCHを出していたとは限らないため、
 // loserPoseOverrideでポーズを明示的に上書きできるようにしている(その場合はdamage.PNGを指定する)。
-// ブロックされた瞬間からピヨり(頭上のpiyo.PNG)を開始し、以後damage.PNGの姿勢のまま維持する(IDLEには戻さない)。
-// このピヨり状態は、次の攻防でしびれ判定が解決される瞬間(resolveExchange)まで継続する。
+// ピヨり発動判定(guardPiyoTriggered)を通過した場合のみ、ブロックされた瞬間からピヨり(頭上のpiyo.PNG)を開始し、
+// 以後damage.PNGの姿勢のまま維持する(IDLEには戻さない)。このピヨり状態は、次の攻防でしびれ判定が解決される
+// 瞬間(resolveExchange)まで継続する。発動しなかった場合はしびれ扱いにならず、通常通りIDLEへ戻る。
 async function runGuardSuccess(winner, loser, loserPoseOverride) {
     hitComboSuccess(winner);
     hitComboBreak(loser);
@@ -3891,8 +3895,18 @@ async function runGuardSuccess(winner, loser, loserPoseOverride) {
     applyDamage(winner, DB.DMG.TINY); // 自己反動の微ダメージのため、チャージ倍率は適用しない
     triggerShake(winner, 250);
     triggerShake(loser, 400); // しびれによる振動(ダメージなし)
-    if (loser === 'P') state.pNumbed = true; else state.eNumbed = true; // 次のコマンドの成功率が1/2になる
-    if (winner === 'P') state.pGuardHoldPose = true; else state.eGuardHoldPose = true; // 相手がしびれている間、ガードの構えを維持する
+    // ピヨり発動判定(DB.GUARD_PIYO_CHANCE、既定50%)。外れた場合はしびれフラグを立てず、
+    // 敗者はこの後の演出でもダウン気味の姿勢(damage.PNG)やピヨり演出には移行せず、通常のブロック反応のまま
+    // (toIdle()がstate.pNumbed/eNumbedを見て判定するため、次の攻防が始まる頃には自然に通常ポーズへ戻る)。
+    const guardPiyoTriggered = Math.random() < DB.GUARD_PIYO_CHANCE;
+    if (guardPiyoTriggered) {
+        if (loser === 'P') state.pNumbed = true; else state.eNumbed = true; // 次のコマンドの成功率が1/2になる
+        // 相手がしびれている間、ガード成功側の構えを維持する(この保持フラグはresolveExchangeのしびれ判定
+        // (state.pNumbed||state.eNumbedの分岐)側で解除されるため、ピヨりが発動した場合のみ立てる。
+        // 発動しなかった場合にまで立ててしまうと、しびれ判定自体がスキップされ保持フラグが解除されないまま
+        // 残ってしまい、winner側がその後もdash.PNGでの間合い調整をできなくなる不具合になる)。
+        if (winner === 'P') state.pGuardHoldPose = true; else state.eGuardHoldPose = true;
+    }
     consumeCharge(loser); // 敗者側は「次に出したカード」がガードに防がれて負けたので、持っていたチャージがあればここで消費される
     consumeUpperCharge(loser); // UPPER+GUARD+UPPER用のチャージも同様に、敗者側が持っていればここで消費される
 
@@ -3944,10 +3958,15 @@ async function runGuardSuccess(winner, loser, loserPoseOverride) {
     // UPPER+GUARD+UPPERが成立する場合、両者は既にrunUpperCombo側の専用演出でGROUND_Yまで降下済み(このGUARDの前に完了している)。
 
     await wait(400);
-    setAct(loser, 'damage.PNG'); // ブロック反応から、しびれてダウン気味の姿勢へ
-    startPiyo(loser); // ここから次の攻防が解決されるまでピヨり続ける(チャージとは独立して、通常通りターン終了時に解消される)
-    playSE('se_piyo');
-    await wait(100);
+    if (guardPiyoTriggered) {
+        setAct(loser, 'damage.PNG'); // ブロック反応から、しびれてダウン気味の姿勢へ
+        startPiyo(loser); // ここから次の攻防が解決されるまでピヨり続ける(チャージとは独立して、通常通りターン終了時に解消される)
+        playSE('se_piyo');
+        await wait(100);
+    }
+    // guardPiyoTriggeredがfalseの場合はここで何もせず、ブロック反応(punch.PNG等)のまま関数を抜ける。
+    // 敗者のポーズは、次の攻防が始まる際のtoIdle()呼び出しでstate.pNumbed/eNumbedがfalseのため
+    // 自然にIDLE(通常の呼吸ポーズ)へ戻る。
 }
 
 async function runNumbFail(numbedSide, cursor, pAct, eAct) {
