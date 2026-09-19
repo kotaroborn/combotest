@@ -22,7 +22,7 @@ const DB = {
         RETREAT_HALF: 200,  // 攻防のあと軽く距離を取る位置（ホームまでは戻らない）
         GROUND_MARGIN_PX: 3 // 地面バンドの高さ(ソースpx換算。キャラ下部3px想定)
     },
-    DMG: { P: 10, U: 5, M: 35, CLASH: 3, TINY: 1, P_COMBO_STEP: 5, FINISHER: 50 }, // P:パンチ勝利 / U:アッパー初撃 / M:メテオ(初撃5+追撃10+追撃15+メテオ35=合計65になるよう調整) / CLASH:相討ち微ダメージ / TINY:ガードされたパンチの反撃 / P_COMBO_STEP:空中パンチ連続ヒットの増加量 / FINISHER:GUARD+PUNCH+GUARD+PUNCH+PUNCH成立時の必殺技(チャージ等の影響を受けない固定値)
+    DMG: { P: 10, U: 7, M: 35, CLASH: 3, TINY: 1, P_COMBO_STEP: 5, FINISHER: 50 }, // P:パンチ勝利 / U:アッパー初撃(2026-09-20、初見のプレイヤーがコンボを知らずに単発で出した時に弱く見えすぎる問題を受け、5→7に引き上げ。コンボ・メテオ側の追撃ダメージ(P_COMBO_STEP等)には触れていないため、メテオまで通した場合の合計は65→67に微増するのみ) / M:メテオ(初撃7+追撃10+追撃15+メテオ35=合計67) / CLASH:相討ち微ダメージ / TINY:ガードされたパンチの反撃 / P_COMBO_STEP:空中パンチ連続ヒットの増加量 / FINISHER:GUARD+PUNCH+GUARD+PUNCH+PUNCH成立時の必殺技(チャージ等の影響を受けない固定値)
     MAX_AIR_PUNCH: 3,
     BREATH_MS: 500, // player.PNG / player2.PNG の呼吸切替間隔
     DECK_TOTAL: 21, // デッキ合計枚数(内訳は編成画面で自由配分)
