@@ -85,7 +85,6 @@ let state = {
     pHitComboBigMilestoneAt: 0, eHitComboBigMilestoneAt: 0, // 直近で15/20/25…(5の倍数、15以上)に到達した時刻。大型の赤い強調演出用
     lastExchangeResult: null, // 直近の攻防結果 { P: 'win'|'lose'|'draw', E: 'win'|'lose'|'draw' }。resolveExchange/runFinisherが設定し、resolveTurnがコンボ判定に使う
     finisherAlreadyDown: false, // 必殺技でK.O.した場合、画面端でdown.PNGのまま倒れる(通常のホーム帰還演出をスキップする合図)
-    pGuardHoldPose: false, eGuardHoldPose: false, // 相手がしびれている間、ガード成功側の構えを維持するフラグ
     gameMode: 'story', pendingMode: 'story', // 'story' | 'training' | 'substoryBattle'
     storyEnemyIndex: 0, // STORY MODE: ENEMY_ORDER内の現在の敵の位置(連戦で進んでいく想定。セーブデータから復元される)
     // サブストーリーバトル(検討中の新機能): プレイヤーがENEMY_PRESETSのいずれかのキャラとして戦う時に使う。
@@ -3124,8 +3123,6 @@ function resetBattleState() {
     updateSpeedUI(); // バトル操作列のSPEEDボタンの表示(解放状態・▶︎/▶︎▶︎)をここで同期する
     state.lastExchangeResult = null;
     state.finisherAlreadyDown = false;
-    state.pGuardHoldPose = false;
-    state.eGuardHoldPose = false;
     state.gameMode = state.pendingMode || 'story'; // デッキ編成画面へ来た時に選んだモードを確定
     updateCharNames(); // 味方=VAL(固定)、敵=STORY MODEなら現在の敵プリセット名、TRAINING MODEならENEMY
     state.introCharAlpha = 0; // 開始演出でふわっと表示するため、まずは透明から
@@ -3537,9 +3534,11 @@ function wait(ms) {
 async function moveBothX(pTo, eTo, steps = 6, stepMs = 40) {
     const pFrozen = state.piyoSide === 'P';
     const eFrozen = state.piyoSide === 'E';
-    // ガード成功後、相手がしびれている間は構え(guard.PNG)を維持し、dash.PNGへ上書きしない
-    if (!pFrozen && !state.pGuardHoldPose) state.pAct = 'dash.PNG';
-    if (!eFrozen && !state.eGuardHoldPose) state.eAct = 'dash.PNG';
+    // 2026-09-22: 以前はガード成功後、相手がしびれている間は構え(guard.PNG)を維持しdash.PNGへ上書きしない
+    // 仕様だったが、「ガードを連続で決めた時、dashではなくガードの構えのまま下がる動きになるのが気になる」
+    // という要望を受け、ピヨり中(state.piyoSide、その場に留まる側)以外は常にdash.PNGへ切り替えるよう変更した。
+    if (!pFrozen) state.pAct = 'dash.PNG';
+    if (!eFrozen) state.eAct = 'dash.PNG';
     const pFrom = state.pX, eFrom = state.eX;
     for (let s = 1; s <= steps; s++) {
         const t = s / steps;
@@ -3901,11 +3900,6 @@ async function runGuardSuccess(winner, loser, loserPoseOverride) {
     const guardPiyoTriggered = Math.random() < DB.GUARD_PIYO_CHANCE;
     if (guardPiyoTriggered) {
         if (loser === 'P') state.pNumbed = true; else state.eNumbed = true; // 次のコマンドの成功率が1/2になる
-        // 相手がしびれている間、ガード成功側の構えを維持する(この保持フラグはresolveExchangeのしびれ判定
-        // (state.pNumbed||state.eNumbedの分岐)側で解除されるため、ピヨりが発動した場合のみ立てる。
-        // 発動しなかった場合にまで立ててしまうと、しびれ判定自体がスキップされ保持フラグが解除されないまま
-        // 残ってしまい、winner側がその後もdash.PNGでの間合い調整をできなくなる不具合になる)。
-        if (winner === 'P') state.pGuardHoldPose = true; else state.eGuardHoldPose = true;
     }
     consumeCharge(loser); // 敗者側は「次に出したカード」がガードに防がれて負けたので、持っていたチャージがあればここで消費される
     consumeUpperCharge(loser); // UPPER+GUARD+UPPER用のチャージも同様に、敗者側が持っていればここで消費される
@@ -4144,7 +4138,6 @@ async function resolveExchange(pAct, eAct, cursor) {
         const numbedSide = state.pNumbed ? 'P' : 'E';
         const guardSide = numbedSide === 'P' ? 'E' : 'P';
         if (numbedSide === 'P') state.pNumbed = false; else state.eNumbed = false;
-        if (guardSide === 'P') state.pGuardHoldPose = false; else state.eGuardHoldPose = false; // 判定が出たので構え保持を解除
         let numbFailChance = 0.5;
         const numbedSidePreset = presetForSide(numbedSide);
         const guardSidePreset = presetForSide(guardSide);
@@ -4297,8 +4290,6 @@ async function resolveTurn() {
         // しびれはターンをまたいで持ち越さない仕様: 使われなかった場合はここで消える(ピヨり表示も同時に終了する)
         state.pNumbed = false;
         state.eNumbed = false;
-        state.pGuardHoldPose = false;
-        state.eGuardHoldPose = false;
         stopPiyo();
         // ガード連続成功のカウントは同一ターン内のみ有効。ターンをまたいで持ち越さない(チャージ状態自体は持ち越すため、ここではリセットしない)
         state.pGuardStreak = 0;
@@ -4649,8 +4640,18 @@ async function playSubstoryBattleEpilogue(playerPresetKey) {
                 imgArea.classList.add('placeholder');
                 fallback.innerText = epilogue.img + ' (未配置)';
             }
-            // epilogue.shake: 画像が表示されている間ずっと小刻みに揺れ続ける演出(1回きりのshakingとは別のループ用クラス)
-            imgArea.classList.toggle('shaking-loop', !!epilogue.shake);
+            // epilogue.shake: 画像表示直後から1秒間だけ小刻みに揺れる演出(1回きりのshakingとは別のループ用クラス)。
+            // 以前はエピローグを読み終える(全ページタップし終える)までずっと揺れ続けていたが、
+            // 「EXTRA BATTLE後、振動し続けているのが気になる」という指摘を受け、1秒経過したら
+            // 自動的に揺れを止める(以降はテキストを読み終えるまで静止した画像のまま)よう変更した。
+            imgArea.classList.remove('shaking-loop');
+            if (epilogue.shake) {
+                void imgArea.offsetWidth; // クラス再付与時にアニメーションを確実に最初から再生させるための強制リフロー
+                imgArea.classList.add('shaking-loop');
+                setTimeout(() => {
+                    if (subStoryToken === myToken) imgArea.classList.remove('shaking-loop');
+                }, 1000);
+            }
             // epilogue.darkenAtPage: 指定したページ(0始まり)に到達した時点で、画像を徐々に暗く沈めていく演出
             imgArea.style.transition = 'none';
             imgArea.style.filter = 'none';
