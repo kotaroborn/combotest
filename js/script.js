@@ -546,6 +546,14 @@ const COSTUME_ASSET_FOLDER = {
 function costumeAssetFolder(skinName) {
     return COSTUME_ASSET_FOLDER[skinName] || skinName;
 }
+// COSTUME選択(OPTION画面のCOSTUME行・BONUS CONTENTSのCOSTUME行、両方で共通の解放条件)。
+// enemy_N形式の通常コスチュームは「STORY MODEを一度最後までクリアした(gameClearedOnce)」まで隠す設計だが、
+// EXTRA_COSTUME_LABELSに登録された追加コスチューム(GIFT CODE等、ストーリー進行と無関係に解放されるもの)を
+// 1つでも持っていれば、gameClearedOnceを問わずCOSTUME自体(延いてはBONUS CONTENTSボタン自体)を解放する。
+// これが無いと、ゲーム開始直後にGIFT CODEでMIFUNEを解放しても、BONUS CONTENTS自体が出現せず選べない不具合になる。
+function costumeSelectionAvailable() {
+    return unlockedSkins.length > 0 && (gameClearedOnce || unlockedSkins.some(s => EXTRA_COSTUME_LABELS[s]));
+}
 // 以前は6セット×11ポーズ=66枚を起動時にまとめて読み込んでいたが、実際に使うのは今の対戦相手の1セットだけのため、
 // 遅延読み込みに変更した(バトルで使うキャラ画像・背景と同様、実際にそのセットが必要になる直前だけ読み込みを開始する)。
 const enemySetLoadPromises = {}; // setName -> そのセット(11枚)の読み込み完了(成功/失敗問わず)をまとめたPromise
@@ -1976,12 +1984,12 @@ function goPrologue() { hideResult(); showScene('prologue'); playPrologue(); }
 
 // タイトル画面に戻るたびに呼ぶ。新たに解放された(かつ未通知の)ものがあれば、スライド通知で知らせる
 function checkUnlockAnnouncements() {
-    if ((unlockedSubStories.length > 0 || gameClearedOnce || soundTestUnlocked) && !bonusContentsAnnounced) {
+    if (bonusContentsAvailable() && !bonusContentsAnnounced) {
         bonusContentsAnnounced = true;
         writeSaveData({ bonusContentsAnnounced: true });
         showUnlockToast('BONUS CONTENTS 解放！');
     }
-    if (unlockedSkins.length > 0 && gameClearedOnce && !costumeUnlockAnnounced) {
+    if (costumeSelectionAvailable() && !costumeUnlockAnnounced) {
         costumeUnlockAnnounced = true;
         writeSaveData({ costumeUnlockAnnounced: true });
         showUnlockToast('COSTUME 解放！');
@@ -4431,14 +4439,20 @@ function openOption() {
     document.getElementById('optionOverlay').classList.add('show');
 }
 
-// BONUS CONTENTS(タイトル画面専用): SUB STORY/SOUND TESTのいずれかが1つでも解除されていればボタン自体を表示する
-function updateBonusContentsUI() {
+// BONUS CONTENTS(タイトル画面専用): SUB STORY/SOUND TEST/COSTUME/SPEEDのいずれかが1つでも解除されていればボタン自体を表示する。
+// この関数とcheckUnlockAnnouncements(タイトル復帰時の「BONUS CONTENTS 解放！」トースト)の両方から共通で参照し、
+// ボタンの表示条件とトースト発火条件がズレないようにする。
+function bonusContentsAvailable() {
     const soundTestAvailable = gameClearedOnce || soundTestUnlocked; // 新条件(エンディングを迎えてタイトルへ戻る)。旧セーブデータのsoundTestUnlockedも引き続き有効
-    const costumeAvailable = unlockedSkins.length > 0 && gameClearedOnce; // OPTION画面のCOSTUME行と同じ解放条件
+    const costumeAvailable = costumeSelectionAvailable(); // OPTION画面のCOSTUME行と同じ解放条件
     const speedAvailable = gameClearedOnce; // SPEED機能自体の解放条件(クリア後に出現)
-    const anyUnlocked = unlockedSubStories.length > 0 || soundTestAvailable || costumeAvailable || speedAvailable;
+    return unlockedSubStories.length > 0 || soundTestAvailable || costumeAvailable || speedAvailable;
+}
+function updateBonusContentsUI() {
+    const soundTestAvailable = gameClearedOnce || soundTestUnlocked;
+    const costumeAvailable = costumeSelectionAvailable(); // OPTION画面のCOSTUME行と同じ解放条件
     const btn = document.getElementById('bonusContentsBtn');
-    if (btn) btn.style.display = anyUnlocked ? '' : 'none';
+    if (btn) btn.style.display = bonusContentsAvailable() ? '' : 'none';
     const subRow = document.getElementById('bonusSubStoryRow');
     const soundRow = document.getElementById('bonusSoundTestRow');
     const costumeRow = document.getElementById('bonusCostumeRow');
@@ -4532,9 +4546,10 @@ function updateOptionUI() {
     document.getElementById('optionItemsRow').style.display = unlockedItems.length > 0 ? 'flex' : 'none';
     // タイトルから開いた場合は「今のバトル」が存在しないため、RETRY/RETURN TO TITLEを隠す
     const isTitle = document.getElementById('sceneTitle').classList.contains('active');
-    // COSTUMEは「サブストーリーを1つ以上見た」に加え「STORY MODEを一度最後までクリアした」場合のみ表示する
+    // COSTUMEは「STORY MODEを一度最後までクリアした」場合、またはGIFT CODE等の追加コスチュームを1つでも
+    // 持っている場合(costumeSelectionAvailable)のみ表示する
     document.getElementById('optionCostumeRow').style.display =
-        (unlockedSkins.length > 0 && gameClearedOnce && state.gameMode !== 'substoryBattle') ? 'flex' : 'none'; // サブストーリーバトル中は借りているキャラの見た目を変更できないようにする
+        (costumeSelectionAvailable() && state.gameMode !== 'substoryBattle') ? 'flex' : 'none'; // サブストーリーバトル中は借りているキャラの見た目を変更できないようにする
     // GIFT CODEはタイトル画面のOPTIONからのみ入力できるようにする(バトル中は表示しない)
     document.getElementById('optionGiftCodeRow').style.display = isTitle ? 'flex' : 'none';
     document.getElementById('optionFooter').style.display = isTitle ? 'none' : 'flex';
@@ -4643,6 +4658,11 @@ function submitGiftCode() {
     unlockSkin(rewardSkin);
     closeGiftCodeInput();
     updateOptionUI();
+    // GIFT CODEはタイトル画面のOPTIONから直接入力するため(シーン遷移を経ないため)goTitle()は呼ばれない。
+    // そのため、タイトル画面本体のBONUS CONTENTSボタンをここで明示的に再描画し、OPTIONを閉じた瞬間から
+    // (ゲーム開始直後の初回コード入力のように、これがBONUS CONTENTS自体の初解放になる場合でも)選べるようにする。
+    updateBonusContentsUI();
+    checkUnlockAnnouncements(); // 初回のBONUS CONTENTS解放であれば、ここで「BONUS CONTENTS 解放！」も案内する
     // 他のコスチューム解放と同じ2段階トースト(COSTUMEモード自体の初回案内→個別の解放案内)を出す
     if (!costumeUnlockAnnounced) {
         costumeUnlockAnnounced = true;
