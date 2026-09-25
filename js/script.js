@@ -3877,6 +3877,15 @@ async function runUpperCombo(attacker, defender, cursor) {
         }
     }
 
+    // UPPER+GUARD+UPPERのチャージは「UPPERの直後にGUARDが来た」場合にのみ成立させたい(コマンドとしてのUGU)。
+    // 空中コンボでPUNCHを1発でも挟んだ場合(例: UPPER+PUNCH+PUNCH+GUARD+UPPER)は、そのPUNCH自体は3すくみ判定を経ない
+    // 自動ヒットのため直前勝利フラグ(pLastWinWasUpper/eLastWinWasUpper)がリセットされずに生き残ってしまうが、
+    // 「UPPERの直後」ではなくなっているため、ここで明示的に解除し、この後に続くGUARDでチャージが発動しないようにする。
+    if (airPunches > 0) {
+        state.pLastWinWasUpper = false;
+        state.eLastWinWasUpper = false;
+    }
+
     // コンボ終了(メテオに至らない場合): 次の手がGUARDの場合は専用の演出にする(UPPER+GUARD+UPPERが成立するかどうかに関わらず、
     // 次の手がGUARDであれば常にこの演出になる)。攻撃側はdashで元の位置には戻らず、その場で着地して次のGUARDの構えを先取りする。
     // 被弾側は無防備なままdamage.PNGの姿勢を保ち、重力に従うように加速しながら落下する(弾んだりはしない)。
