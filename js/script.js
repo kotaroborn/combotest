@@ -530,6 +530,16 @@ const ENEMY_OPTIONAL_KEYS = ['player', 'player2', 'upper', 'damage', 'knock', 'k
 const EXTRA_COSTUME_LABELS = {
     mifune: 'MIFUNE',
 };
+// 上記のような追加コスチュームは、専用の画像フォルダ(assets/images/characters_enemy/{スキン名}/)を持たず、
+// 既存の別セットの画像をそのまま流用したい場合がある。ここに登録したスキンは、読み込み・描画の際に
+// 実際の画像フォルダ名としてこちらを使う(未登録のスキンは従来通りスキン名=フォルダ名のまま)。
+// 例: 'mifune'はTRAINING MODEで使っている'training'セット(assets/images/characters_enemy/training/)を流用する。
+const COSTUME_ASSET_FOLDER = {
+    mifune: 'training',
+};
+function costumeAssetFolder(skinName) {
+    return COSTUME_ASSET_FOLDER[skinName] || skinName;
+}
 // 以前は6セット×11ポーズ=66枚を起動時にまとめて読み込んでいたが、実際に使うのは今の対戦相手の1セットだけのため、
 // 遅延読み込みに変更した(バトルで使うキャラ画像・背景と同様、実際にそのセットが必要になる直前だけ読み込みを開始する)。
 const enemySetLoadPromises = {}; // setName -> そのセット(11枚)の読み込み完了(成功/失敗問わず)をまとめたPromise
@@ -1161,7 +1171,9 @@ function playerSpriteName(baseName) {
     }
     if (!skin) return baseName;
     const key = baseName.replace('.PNG', '');
-    const skinName = skin + '_' + key + '.PNG';
+    // COSTUME_ASSET_FOLDERに登録されたスキン(例: 'mifune'→'training')は、実際に読み込んだ画像セットの
+    // フォルダ名で解決する(loadEnemySet側もこのマッピング先の名前で読み込んでいるため、揃える必要がある)。
+    const skinName = costumeAssetFolder(skin) + '_' + key + '.PNG';
     return imgs[skinName] ? skinName : baseName;
 }
 
@@ -1429,7 +1441,7 @@ async function boot() {
     // NOW LOADING表示だけは確実に解除する(でないと画面が永久に「NOW LOADING」のまま止まってしまうため)。
     try {
         applySaveDataOnBoot(); // 進行状況・デッキ編成・サウンド設定をセーブデータから復元
-        if (selectedSkin) loadEnemySet(selectedSkin); // 前回セッションで選択済みのコスチュームがあれば、対戦する敵に関わらずここで先読みしておく
+        if (selectedSkin) loadEnemySet(costumeAssetFolder(selectedSkin)); // 前回セッションで選択済みのコスチュームがあれば、対戦する敵に関わらずここで先読みしておく
 
         // ▼▼▼ 動作確認用の一時デバッグ設定 ▼▼▼
         // 友人テスト用に、エンディングを見なくてもBONUS CONTENTS/SOUND TESTが見られるよう強制的に解放している。
@@ -2887,7 +2899,7 @@ function updateUI(activeIndex) {
         // TRAINING MODEはrequiredHandSizeを使わない(何枚出してもよい)ため、同じラベル欄を使って
         // 「好きなカードを出して自由に練習してよい」という雰囲気を出す一言を表示する(EXTRA BATTLEの指示表示と同じ枠)
         label.style.display = '';
-        label.innerText = 'PLAY ANY CARDS YOU LIKE. TRAIN FREELY!';
+        label.innerText = 'PLAY ANY CARD, MAKE ANY COMBO!';
     } else {
         label.style.display = 'none';
     }
@@ -5153,8 +5165,9 @@ let costumeOpenedFromBonus = false; // COSTUME画面をBONUS CONTENTS経由で�
 // 同じ周期でアニメーションさせるためのタイマー。COSTUME画面を開くたびに張り直し、閉じる時に必ず止める。
 let costumeThumbTimer = null;
 function costumeThumbSrc(skinName, frame) {
-    // skinNameがnull(Val=デフォルト見た目)の場合は本編と同じ既定のキャラ画像フォルダを使う
-    return skinName ? `assets/images/characters_enemy/${skinName}/${frame}` : `assets/images/characters/${frame}`;
+    // skinNameがnull(Val=デフォルト見た目)の場合は本編と同じ既定のキャラ画像フォルダを使う。
+    // COSTUME_ASSET_FOLDERに登録されたスキンは、実際の画像フォルダ名(例: 'mifune'→'training')で解決する。
+    return skinName ? `assets/images/characters_enemy/${costumeAssetFolder(skinName)}/${frame}` : `assets/images/characters/${frame}`;
 }
 function startCostumeThumbAnim() {
     stopCostumeThumbAnim();
@@ -5211,7 +5224,7 @@ function openCostumeSelect(fromBonus) {
 function selectCostume(skinName) {
     selectedSkin = skinName;
     writeSaveData({ selectedSkin });
-    if (skinName) loadEnemySet(skinName); // まだ対戦していない敵のコスチュームを選んだ場合でも、その場でグラフィックセットを読み込む
+    if (skinName) loadEnemySet(costumeAssetFolder(skinName)); // まだ対戦していない敵のコスチュームを選んだ場合でも、その場でグラフィックセットを読み込む
     openCostumeSelect(); // 選択状態を反映して再描画(fromBonus省略、costumeOpenedFromBonusの現在値がそのまま使われる)
 }
 // 「戻る」ボタン用: COSTUME単体を閉じ、BONUS本体(または呼び出し元のOPTION)は開いたまま残す
