@@ -577,6 +577,13 @@
         .confirm-btns { display: flex; gap: 12px; }
         .confirm-btns button { padding: 10px 22px; border: none; border-radius: 6px; font-size: 12px; font-weight: bold; cursor: pointer; background: #444; color: #eee; }
         .confirm-btns .confirm-ok { background: #a00; color: #fff; } /* 隠しアイテムを1つでも取得したら表示する */
+        .gift-code-input {
+            width: 190px; max-width: 80%; padding: 10px 8px; font-size: 18px; font-weight: 900; letter-spacing: 3px;
+            text-align: center; text-transform: uppercase; border: 2px solid #666; border-radius: 6px;
+            background: #111; color: #fff; box-sizing: border-box;
+        }
+        .gift-code-input:focus { outline: none; border-color: #a00; }
+        .gift-code-error { color: #ff5555 !important; font-size: 12px !important; margin-top: -8px !important; }
         /* サブストーリーバトルの確認ポップアップは、他のオーバーレイ(BONUS CONTENTS等)の表示状態に関わらず
            常に最前面に表示できるよう、position:fixedの独立要素にする(.confirm-panelのposition:absoluteを上書き) */
         .confirm-panel-standalone { position: fixed; z-index: 10000; }
