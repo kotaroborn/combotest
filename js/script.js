@@ -301,6 +301,12 @@ const SUBSTORY_BY_ENEMY = {
         ],
     },
 };
+// サブストーリーのタイトルを表示する箇所(一覧・解除トースト)で共通して使う、「Ex1:」「Ex2:」…という接頭辞付きの表示名。
+// 上から順にEx+(enemyIndex+1)を付ける(隠しタップで解除した順ではなく、常に敵の並び順=ENEMY_ORDERの順)。
+function subStoryDisplayTitle(idx) {
+    const sub = SUBSTORY_BY_ENEMY[ENEMY_ORDER[idx]];
+    return sub ? `Ex${idx + 1}: ${sub.title}` : '';
+}
 // サウンドテストの一覧(実ファイルはassets/audio/配下に今後配置。未配置の項目は再生時に何も鳴らないだけで、エラーにはしない)
 const SOUND_TEST_TRACKS = [
     { name: 'bgm_title', label: 'title' },
@@ -1643,7 +1649,7 @@ function onStoryHiddenTap() {
     if (!alreadyUnlocked) {
         playHiddenTapSparkle(); // 発見の瞬間、タップ位置に小さなキラキラエフェクトを出す
         const sub = SUBSTORY_BY_ENEMY[ENEMY_ORDER[idx]];
-        showUnlockToast({ small: `SUB STORY ${idx + 1}`, large: sub.title });
+        showUnlockToast({ small: `SUB STORY ${idx + 1}`, large: subStoryDisplayTitle(idx) });
     }
 }
 
@@ -4650,7 +4656,7 @@ function openSubStoryList() {
         if (!sub) return;
         const row = document.createElement('div');
         row.className = 'option-row';
-        row.innerHTML = `<span class="option-label">${sub.title}</span><button onclick="readSubStory(${idx})">読む</button>`;
+        row.innerHTML = `<span class="option-label">${subStoryDisplayTitle(idx)}</span><button onclick="readSubStory(${idx})">読む</button>`;
         rows.appendChild(row);
     });
     if (unlockedSubStories.length === 0) {
@@ -4660,6 +4666,7 @@ function openSubStoryList() {
 }
 let subStoryToken = 0;
 let subStoryTapResolve = null; // サブストーリーのタップ待ち中のPromiseのresolve関数
+let subStoryReadIdx = null; // readSubStoryで現在読んでいるサブストーリーのenemyIndex(0〜4)。右下のSKIPボタンから参照する
 
 function onSubStoryTap() {
     if (subStoryTapResolve) { subStoryTapResolve(); subStoryTapResolve = null; }
@@ -4727,6 +4734,7 @@ async function playSubstoryBattleEpilogue(playerPresetKey) {
     document.getElementById('bonusContentsOverlay').classList.remove('show');
     document.getElementById('subStoryOverlay').classList.remove('show');
     showScene('subStoryRead');
+    document.getElementById('subStoryReadSkipBtn').style.display = 'none'; // エピローグ中は(readSubStory由来のSKIPボタンが残っていないよう)必ず隠す
     block.style.transition = 'none';
     block.style.opacity = '0';
     await wait(30);
@@ -4860,6 +4868,11 @@ async function readSubStory(idx) {
     document.getElementById('bonusContentsOverlay').classList.remove('show');
     document.getElementById('subStoryOverlay').classList.remove('show');
     showScene('subStoryRead');
+    // 右下のSKIPボタン(バトルへ直接スキップ)は、このサブストーリーバトルに既に勝利済み(コスチューム解除済み)の
+    // 場合のみ表示する。押された時にどのキャラかわかるよう、対象のidxをモジュール変数に覚えておく。
+    subStoryReadIdx = idx;
+    const skinNameForSkip = 'enemy_' + (idx + 1);
+    document.getElementById('subStoryReadSkipBtn').style.display = unlockedSkins.includes(skinNameForSkip) ? '' : 'none';
     block.style.transition = 'none';
     block.style.opacity = '0';
     await wait(30); // 直前のopacity:0が確実に描画されてからフェードインを開始させる
@@ -4962,6 +4975,16 @@ async function readSubStory(idx) {
         return;
     }
     openSubstoryBattleConfirm(idx);
+}
+
+// 右下のSKIPボタン(readSubStory側で、既に勝利済み=コスチューム解除済みの場合のみ表示している)。
+// テキストを読み終えるのを待たず、その場でサブストーリーバトルへ直接進む(読み終えた時の確認ポップアップは経由しない)。
+function skipSubStoryToBattle() {
+    if (subStoryReadIdx === null) return;
+    const idx = subStoryReadIdx;
+    subStoryToken++; // 読み進行(文字送り・タップ待ち)を中断する
+    if (subStoryTapResolve) { subStoryTapResolve(); subStoryTapResolve = null; }
+    goSubstoryBattle(ENEMY_ORDER[idx]);
 }
 
 // 「このキャラでバトルをしますか？」確認パネルの制御。解放済みのサブストーリーを読み終えた直後にのみ表示する。
