@@ -164,7 +164,8 @@ let unlockedSubStories = []; // 解除済みサブストーリーのenemyIndex(0
 let defeatedEnemyIndices = []; // STORY MODEで一度でも撃破したことのある敵のenemyIndex(0〜4)の配列。
 // BONUSの解除状況(SUB STORY/SOUND TEST/COSTUME/SPEED)とは別軸の、恒久的な進行記録として扱う
 // (storyEnemyIndexと同様、BONUS ALLリセットの対象には含めない)。
-let unlockedSkins = []; // 解除済みコスチュームのセット名('enemy_1'〜'enemy_5')の配列
+let unlockedSkins = []; // 解除済みコスチュームのセット名('enemy_1'〜'enemy_5'、GIFT CODEで解放したもの('mifune'等)も同じ配列に入る)の配列
+let redeemedGiftCodes = []; // 使用済みGIFT CODEの配列(同じコードを二度使えないようにする。BONUS ALLリセットの対象に含む)
 let soundTestUnlocked = false; // SOUND TESTが解除済みか(旧条件。新条件はgameClearedOnce、後方互換のため残す)
 let battleSpeedX2 = false; // バトル中2倍速が有効か。SPEED機能自体の解放条件はgameClearedOnce(クリア後)。セーブデータに永続化する
 // SOUND TEST画面の状態: カテゴリ選択→BGM/SE一覧(6件ずつページ送り)の2階層
@@ -525,6 +526,10 @@ function currentBgName() {
 // 未用意でも起動やUIをブロックせず、404になっても黙ってプレイヤー画像にフォールバックする。
 const ENEMY_SET_NAMES = ['enemy_1', 'enemy_2', 'enemy_3', 'enemy_4', 'enemy_5', 'training'];
 const ENEMY_OPTIONAL_KEYS = ['player', 'player2', 'upper', 'damage', 'knock', 'knock2', 'dash', 'punch', 'punch2', 'guard', 'down'];
+// enemy_N形式ではない追加コスチューム(GIFT CODE等で解放するもの)の表示名。COSTUME選択画面・解放トーストの両方で使う。
+const EXTRA_COSTUME_LABELS = {
+    mifune: 'MIFUNE',
+};
 // 以前は6セット×11ポーズ=66枚を起動時にまとめて読み込んでいたが、実際に使うのは今の対戦相手の1セットだけのため、
 // 遅延読み込みに変更した(バトルで使うキャラ画像・背景と同様、実際にそのセットが必要になる直前だけ読み込みを開始する)。
 const enemySetLoadPromises = {}; // setName -> そのセット(11枚)の読み込み完了(成功/失敗問わず)をまとめたPromise
@@ -999,6 +1004,7 @@ function applySaveDataOnBoot() {
     if (Array.isArray(save.unlockedSubStories)) unlockedSubStories = save.unlockedSubStories;
     if (Array.isArray(save.defeatedEnemyIndices)) defeatedEnemyIndices = save.defeatedEnemyIndices;
     if (Array.isArray(save.unlockedSkins)) unlockedSkins = save.unlockedSkins;
+    if (Array.isArray(save.redeemedGiftCodes)) redeemedGiftCodes = save.redeemedGiftCodes;
     if (typeof save.soundTestUnlocked === 'boolean') soundTestUnlocked = save.soundTestUnlocked;
     if (typeof save.battleSpeedX2 === 'boolean') battleSpeedX2 = save.battleSpeedX2;
     if (save.specialsUsed) {
@@ -4470,9 +4476,10 @@ function doResetAllBonus() {
     soundTestUnlocked = false; // 旧セーブデータ互換の解除フラグも一緒に戻す
     unlockedSubStories = [];
     unlockedSkins = [];
+    redeemedGiftCodes = []; // GIFT CODEの使用履歴も戻す(再度同じコードを入力できるようにする)
     selectedSkin = null;
     battleSpeedX2 = false; // SPEED設定も初期状態(通常速度)に戻す
-    writeSaveData({ gameClearedOnce, soundTestUnlocked, unlockedSubStories, unlockedSkins, selectedSkin, battleSpeedX2 });
+    writeSaveData({ gameClearedOnce, soundTestUnlocked, unlockedSubStories, unlockedSkins, redeemedGiftCodes, selectedSkin, battleSpeedX2 });
     closeBonusResetConfirm();
     closeAllBonus(); // リセット後は表示する内容が無くなるため、BONUS関連のポップアップを一括で閉じる
 }
@@ -4505,6 +4512,7 @@ function updateOptionUI() {
     closeResetConfirm(); // 開き直したら確認状態はリセット
     closeRetryConfirm();
     closeReturnConfirm();
+    closeGiftCodeInput();
 }
 
 function setSound(on) {
@@ -4534,6 +4542,82 @@ function doResetProgress() {
 
 function openItemGallery() {
     alert('図鑑機能は準備中です。');
+}
+
+// ------- GIFT CODE(シリアルコード) -------
+// 8桁の英数字コード。仕組みの詳細(検証方式・報酬IDの決め方・制約)はARCHITECTURE.mdを参照。
+const GIFT_CHARSET = '23456789ABCDEFGHJKMNPQRSTUVWXYZ'; // 31文字(0,1,I,L,Oを除く)
+// ソースをざっと流し読みしただけでは値が読み取れないよう、文字コード配列で保持する(実行時にfromCharCodeで復元)。
+const GIFT_CODE_KEY = [67, 76, 65, 83, 72, 53, 45, 88, 68, 73, 77, 45, 71, 73, 70, 84, 45, 83, 65, 76, 84, 45, 50, 48, 50, 54]
+    .map(n => String.fromCharCode(n)).join('');
+const GIFT_CODE_REWARD_MOD = 8; // 報酬ID = コード1文字目のcharsetインデックス % この値。追加報酬があってもこの値は変えない
+const GIFT_CODE_REWARDS = {
+    0: 'mifune', // 今後コードを増やす場合はここに 1: '...', 2: '...' を追記するだけでよい
+};
+function giftCodeChecksumChar(body7) {
+    let h = 0;
+    const mixed = GIFT_CODE_KEY + body7;
+    for (let i = 0; i < mixed.length; i++) {
+        h = (h * 31 + mixed.charCodeAt(i)) >>> 0; // >>>0で符号なし32bit整数に丸める(単純な多項式ハッシュ)
+    }
+    return GIFT_CHARSET[h % GIFT_CHARSET.length];
+}
+function normalizeGiftCode(raw) {
+    return (raw || '').trim().toUpperCase();
+}
+function isValidGiftCode(code) {
+    if (code.length !== 8) return false;
+    for (const ch of code) { if (!GIFT_CHARSET.includes(ch)) return false; }
+    return giftCodeChecksumChar(code.slice(0, 7)) === code.slice(7, 8);
+}
+function giftCodeRewardSkin(code) {
+    const rewardId = GIFT_CHARSET.indexOf(code[0]) % GIFT_CODE_REWARD_MOD;
+    return GIFT_CODE_REWARDS[rewardId] || null;
+}
+function openGiftCodeInput() {
+    document.getElementById('giftCodeInput').value = '';
+    document.getElementById('giftCodeError').style.display = 'none';
+    document.getElementById('giftCodeConfirmPanel').classList.add('show');
+}
+function closeGiftCodeInput() {
+    document.getElementById('giftCodeConfirmPanel').classList.remove('show');
+}
+function showGiftCodeError(text) {
+    const errorEl = document.getElementById('giftCodeError');
+    errorEl.textContent = text;
+    errorEl.style.display = 'block';
+}
+function submitGiftCode() {
+    const code = normalizeGiftCode(document.getElementById('giftCodeInput').value);
+    if (!isValidGiftCode(code)) {
+        showGiftCodeError('コードが正しくありません');
+        return;
+    }
+    const rewardSkin = giftCodeRewardSkin(code);
+    if (!rewardSkin) {
+        showGiftCodeError('コードが正しくありません');
+        return;
+    }
+    if (redeemedGiftCodes.includes(code)) {
+        showGiftCodeError('このコードは使用済みです');
+        return;
+    }
+    redeemedGiftCodes.push(code);
+    writeSaveData({ redeemedGiftCodes });
+    const alreadyUnlocked = unlockedSkins.includes(rewardSkin);
+    unlockSkin(rewardSkin);
+    closeGiftCodeInput();
+    updateOptionUI();
+    // 他のコスチューム解放と同じ2段階トースト(COSTUMEモード自体の初回案内→個別の解放案内)を出す
+    if (!costumeUnlockAnnounced) {
+        costumeUnlockAnnounced = true;
+        writeSaveData({ costumeUnlockAnnounced: true });
+        showUnlockToast('COSTUME 解放！');
+    }
+    if (!alreadyUnlocked) {
+        const label = EXTRA_COSTUME_LABELS[rewardSkin] || rewardSkin;
+        showUnlockToast({ small: 'COSTUME', large: `${label} 解放！` });
+    }
 }
 
 // ------- SUB STORY(一覧/閲覧) -------
@@ -5065,10 +5149,20 @@ function openCostumeSelect(fromBonus) {
     defaultRow.className = 'option-row';
     defaultRow.innerHTML = `<span class="option-label">Val</span><button onclick="selectCostume(null)">${selectedSkin === null ? '選択中' : '選ぶ'}</button>`;
     rows.appendChild(defaultRow);
-    unlockedSkins.slice().sort((a, b) => parseInt(a.replace('enemy_', ''), 10) - parseInt(b.replace('enemy_', ''), 10)).forEach(skinName => {
-        const idx = parseInt(skinName.replace('enemy_', ''), 10);
-        const enemyName = ENEMY_PRESETS['ENEMY_0' + idx] ? ENEMY_PRESETS['ENEMY_0' + idx].name : `敵${idx}`;
-        const label = enemyName;
+    // 'enemy_N'形式(敵1〜5、STORY MODEクリアで解放)は番号順に並べ、それ以外(GIFT CODE等で解放する追加コスチューム)は
+    // EXTRA_COSTUME_LABELSの表示名を使い、末尾にまとめて並べる
+    const isEnemySkin = (name) => /^enemy_\d+$/.test(name);
+    const sortedEnemySkins = unlockedSkins.filter(isEnemySkin)
+        .sort((a, b) => parseInt(a.replace('enemy_', ''), 10) - parseInt(b.replace('enemy_', ''), 10));
+    const extraSkins = unlockedSkins.filter(name => !isEnemySkin(name));
+    sortedEnemySkins.concat(extraSkins).forEach(skinName => {
+        let label;
+        if (isEnemySkin(skinName)) {
+            const idx = parseInt(skinName.replace('enemy_', ''), 10);
+            label = ENEMY_PRESETS['ENEMY_0' + idx] ? ENEMY_PRESETS['ENEMY_0' + idx].name : `敵${idx}`;
+        } else {
+            label = EXTRA_COSTUME_LABELS[skinName] || skinName;
+        }
         const row = document.createElement('div');
         row.className = 'option-row';
         row.innerHTML = `<span class="option-label">${label}</span><button onclick="selectCostume('${skinName}')">${selectedSkin === skinName ? '選択中' : '選ぶ'}</button>`;
