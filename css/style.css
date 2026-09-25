@@ -483,6 +483,12 @@
             color: #eee;
             display: flex; flex-direction: column;
         }
+        /* COSTUME選択画面: 解放済みコスチュームが増えて一覧が長くなっても、下部の※注記が見えなくなることが
+           あった(パネル自体がoverflow:hiddenのため、収まりきらない分がそのまま非表示になっていた)。
+           パネルを縦に大きく(80%→92%)取った上で、一覧部分(#costumeRows)だけを可変・スクロール可能にし、
+           見出し・「戻る」ボタン・下部の注記は常に表示されたまま保つ。 */
+        #costumeOverlay .popup-panel { height: 92%; }
+        #costumeRows { flex: 1 1 auto; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; }
         .popup-close {
             position: absolute; top: 8px; right: 8px; z-index: 1;
             width: 30px; height: 30px; border-radius: 50%;
