@@ -269,8 +269,13 @@
             15%, 45%, 75% { filter: brightness(2.4); text-shadow: 0 0 10px rgba(255,255,255,0.95); }
             30%, 60%, 90% { filter: brightness(1); text-shadow: none; }
         }
-        #skipBtn, #skipStoryBtn, #backSubStoryBtn {
+        #skipBtn, #skipStoryBtn, #subStoryReadSkipBtn {
             position: absolute; right: 14px; bottom: 14px;
+            font-size: 13px; color: #eee;
+        }
+        /* サブストーリー閲覧画面のみ「戻る」を左下に配置する(右下は上記のSKIPボタン用に空けておく) */
+        #backSubStoryBtn {
+            position: absolute; left: 14px; bottom: 14px;
             font-size: 13px; color: #eee;
         }
         #titleContinueBtn {
