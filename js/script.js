@@ -2883,6 +2883,11 @@ function updateUI(activeIndex) {
         // 英語表記(アーケード風のUIトーンに合わせる)。1枚の時だけ単数形(CARD)、2枚以上は複数形(CARDS)にする。
         const n = state.requiredHandSize;
         label.innerText = `PLAY ${n} CARD${n === 1 ? '' : 'S'} THIS TURN`;
+    } else if (state.gameMode === 'training') {
+        // TRAINING MODEはrequiredHandSizeを使わない(何枚出してもよい)ため、同じラベル欄を使って
+        // 「好きなカードを出して自由に練習してよい」という雰囲気を出す一言を表示する(EXTRA BATTLEの指示表示と同じ枠)
+        label.style.display = '';
+        label.innerText = 'PLAY ANY CARDS YOU LIKE. TRAIN FREELY!';
     } else {
         label.style.display = 'none';
     }
@@ -4463,6 +4468,7 @@ function closeAllBonus() {
     document.getElementById('bonusContentsOverlay').classList.remove('show');
     document.getElementById('subStoryOverlay').classList.remove('show');
     document.getElementById('soundTestOverlay').classList.remove('show');
+    stopCostumeThumbAnim();
     document.getElementById('costumeOverlay').classList.remove('show'); // BONUS経由でCOSTUMEが開いたまま残っている場合の安全策
     playBGM('bgm_title'); // SOUND TESTでタイトルBGMを止めていた場合でも、×で一括で閉じた時に確実に再開させる(既に流れていれば何もしない)
 }
@@ -4497,11 +4503,13 @@ function updateOptionUI() {
     document.getElementById('bgmVolumeSlider').value = Math.round(state.bgmVolume * 100);
     document.getElementById('seVolumeSlider').value = Math.round(state.seVolume * 100);
     document.getElementById('optionItemsRow').style.display = unlockedItems.length > 0 ? 'flex' : 'none';
+    // タイトルから開いた場合は「今のバトル」が存在しないため、RETRY/RETURN TO TITLEを隠す
+    const isTitle = document.getElementById('sceneTitle').classList.contains('active');
     // COSTUMEは「サブストーリーを1つ以上見た」に加え「STORY MODEを一度最後までクリアした」場合のみ表示する
     document.getElementById('optionCostumeRow').style.display =
         (unlockedSkins.length > 0 && gameClearedOnce && state.gameMode !== 'substoryBattle') ? 'flex' : 'none'; // サブストーリーバトル中は借りているキャラの見た目を変更できないようにする
-    // タイトルから開いた場合は「今のバトル」が存在しないため、RETRY/RETURN TO TITLEを隠す
-    const isTitle = document.getElementById('sceneTitle').classList.contains('active');
+    // GIFT CODEはタイトル画面のOPTIONからのみ入力できるようにする(バトル中は表示しない)
+    document.getElementById('optionGiftCodeRow').style.display = isTitle ? 'flex' : 'none';
     document.getElementById('optionFooter').style.display = isTitle ? 'none' : 'flex';
     // TRAINING MODEはデッキ編成を経由しない(選び放題の固定手札のため)、RETRYボタン自体を隠す
     document.getElementById('optionRetryBtn').style.display = state.gameMode === 'training' ? 'none' : '';
@@ -5141,13 +5149,39 @@ function closeSoundTestBackdrop(e) { if (e.target.id === 'soundTestOverlay') clo
 
 // ------- COSTUME(コスチューム選択) -------
 let costumeOpenedFromBonus = false; // COSTUME画面をBONUS CONTENTS経由で開いたかどうか。選択操作等で再描画されても状態を保持する
+// 各行のプレビュー画像(player.PNG/player2.PNG)を第7条の呼吸表現(DB.BREATH_MS間隔での交互切り替え)と
+// 同じ周期でアニメーションさせるためのタイマー。COSTUME画面を開くたびに張り直し、閉じる時に必ず止める。
+let costumeThumbTimer = null;
+function costumeThumbSrc(skinName, frame) {
+    // skinNameがnull(Val=デフォルト見た目)の場合は本編と同じ既定のキャラ画像フォルダを使う
+    return skinName ? `assets/images/characters_enemy/${skinName}/${frame}` : `assets/images/characters/${frame}`;
+}
+function startCostumeThumbAnim() {
+    stopCostumeThumbAnim();
+    let frameIsFirst = true;
+    const tick = () => {
+        const frame = frameIsFirst ? 'player.PNG' : 'player2.PNG';
+        document.querySelectorAll('#costumeRows .costume-thumb').forEach(img => {
+            const skinName = img.dataset.skin || null; // data-skin未指定(空文字)はデフォルト見た目
+            // 用意されていないセットの場合、既定のプレイヤー画像へフォールバックする(任意アセットの既存パターンに倣う)
+            img.onerror = () => { img.onerror = null; img.src = `assets/images/characters/${frame}`; };
+            img.src = costumeThumbSrc(skinName, frame);
+        });
+        frameIsFirst = !frameIsFirst;
+    };
+    tick(); // 開いた瞬間に1コマ目を反映してから、以後は一定間隔で交互に切り替える
+    costumeThumbTimer = setInterval(tick, DB.BREATH_MS);
+}
+function stopCostumeThumbAnim() {
+    if (costumeThumbTimer) { clearInterval(costumeThumbTimer); costumeThumbTimer = null; }
+}
 function openCostumeSelect(fromBonus) {
     if (fromBonus !== undefined) costumeOpenedFromBonus = fromBonus; // 明示的に指定された時だけ更新し、再描画時(引数省略)は前回の状態を保つ
     const rows = document.getElementById('costumeRows');
     rows.innerHTML = '';
     const defaultRow = document.createElement('div');
     defaultRow.className = 'option-row';
-    defaultRow.innerHTML = `<span class="option-label">Val</span><button onclick="selectCostume(null)">${selectedSkin === null ? '選択中' : '選ぶ'}</button>`;
+    defaultRow.innerHTML = `<span class="option-label costume-label-group"><img class="costume-thumb" data-skin=""><span>Val</span></span><button onclick="selectCostume(null)">${selectedSkin === null ? '選択中' : '選ぶ'}</button>`;
     rows.appendChild(defaultRow);
     // 'enemy_N'形式(敵1〜5、STORY MODEクリアで解放)は番号順に並べ、それ以外(GIFT CODE等で解放する追加コスチューム)は
     // EXTRA_COSTUME_LABELSの表示名を使い、末尾にまとめて並べる
@@ -5165,13 +5199,14 @@ function openCostumeSelect(fromBonus) {
         }
         const row = document.createElement('div');
         row.className = 'option-row';
-        row.innerHTML = `<span class="option-label">${label}</span><button onclick="selectCostume('${skinName}')">${selectedSkin === skinName ? '選択中' : '選ぶ'}</button>`;
+        row.innerHTML = `<span class="option-label costume-label-group"><img class="costume-thumb" data-skin="${skinName}"><span>${label}</span></span><button onclick="selectCostume('${skinName}')">${selectedSkin === skinName ? '選択中' : '選ぶ'}</button>`;
         rows.appendChild(row);
     });
     // BONUS CONTENTS経由で開いた場合のみ、OPTIONからもいつでも変更できる旨の注記と「戻る」ボタンを表示する(OPTION自身から開いた時は不要なため)
     document.getElementById('costumeFromBonusNote').style.display = costumeOpenedFromBonus ? 'block' : 'none';
     document.getElementById('costumeBackBtn').style.display = costumeOpenedFromBonus ? 'block' : 'none';
     document.getElementById('costumeOverlay').classList.add('show');
+    startCostumeThumbAnim();
 }
 function selectCostume(skinName) {
     selectedSkin = skinName;
@@ -5180,7 +5215,7 @@ function selectCostume(skinName) {
     openCostumeSelect(); // 選択状態を反映して再描画(fromBonus省略、costumeOpenedFromBonusの現在値がそのまま使われる)
 }
 // 「戻る」ボタン用: COSTUME単体を閉じ、BONUS本体(または呼び出し元のOPTION)は開いたまま残す
-function closeCostume() { document.getElementById('costumeOverlay').classList.remove('show'); }
+function closeCostume() { stopCostumeThumbAnim(); document.getElementById('costumeOverlay').classList.remove('show'); }
 // 右上の×・背景クリック用: BONUS CONTENTS経由で開いた場合はBONUS全体を一括で閉じる(closeAllBonus、SUB STORY/SOUND TESTと同じ一貫した挙動)。
 // OPTION経由の場合は、closeAllBonusのBGM切り替え等の副作用(バトル中に呼ばれる可能性があるため)を避け、従来通りCOSTUME単体だけを閉じる。
 function closeCostumeX() {
