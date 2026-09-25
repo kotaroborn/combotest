@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>CLASH5 - CROSS DIMENSION</title>
-    <link rel="stylesheet" href="css/style.css?v=089">
+    <link rel="stylesheet" href="css/style.css?v=111">
 
     <!-- ホーム画面追加時のアイコン・見た目設定。実際のアイコン画像(下記パス)は別途用意が必要(ASSETS.md参照)。
          画像が未配置でも404になるだけでエラーにはならず、通常のブラウザ表示には一切影響しない。 -->
@@ -88,7 +88,7 @@
                 <div class="title-logo-fallback-sub">CROSS DIMENSION</div>
             </div>
         </div>
-        <div class="title-version">ver. 0.9.105</div>
+        <div class="title-version">ver. 0.9.111</div>
     </div>
     <button id="titleContinueBtn" class="text-btn" onclick="tapFlickerThen(this, () => goContinueGame())" style="display:none;">CONTINUE</button>
     <button id="startBtn" class="text-btn" onclick="tapFlickerThen(this, () => goNewGame())" disabled>NEW GAME</button>
@@ -316,6 +316,10 @@
                 <button onclick="openCostumeSelect()">見る</button>
             </div>
             <div class="option-row">
+                <span class="option-label">GIFT CODE</span>
+                <button onclick="openGiftCodeInput()">入力する</button>
+            </div>
+            <div class="option-row">
                 <span class="option-label">進行状況(セーブデータ)</span>
                 <button id="resetProgressBtn" onclick="openResetConfirm()">リセット</button>
             </div>
@@ -343,6 +347,15 @@
             <div class="confirm-btns">
                 <button onclick="closeReturnConfirm()">キャンセル</button>
                 <button onclick="doOptionReturnToTitle()" class="confirm-ok">OK</button>
+            </div>
+        </div>
+        <div id="giftCodeConfirmPanel" class="confirm-panel">
+            <p class="confirm-text">GIFT CODE<br>8桁のコードを入力してください</p>
+            <input type="text" id="giftCodeInput" class="gift-code-input" maxlength="8" autocomplete="off" autocapitalize="characters" spellcheck="false" oninput="this.value = this.value.toUpperCase();">
+            <p class="confirm-text gift-code-error" id="giftCodeError" style="display:none;"></p>
+            <div class="confirm-btns">
+                <button onclick="closeGiftCodeInput()">キャンセル</button>
+                <button onclick="submitGiftCode()" class="confirm-ok">OK</button>
             </div>
         </div>
     </div>
