@@ -584,6 +584,9 @@
         }
         .gift-code-input:focus { outline: none; border-color: #a00; }
         .gift-code-error { color: #ff5555 !important; font-size: 12px !important; margin-top: -8px !important; }
+        /* COSTUME選択画面の各行に添えるキャラの待機画像(player.PNG/player2.PNGを交互に呼吸させる) */
+        .costume-label-group { display: inline-flex; align-items: center; gap: 8px; }
+        .costume-thumb { width: 32px; height: 32px; object-fit: contain; image-rendering: pixelated; background: #000; border-radius: 4px; flex-shrink: 0; }
         /* サブストーリーバトルの確認ポップアップは、他のオーバーレイ(BONUS CONTENTS等)の表示状態に関わらず
            常に最前面に表示できるよう、position:fixedの独立要素にする(.confirm-panelのposition:absoluteを上書き) */
         .confirm-panel-standalone { position: fixed; z-index: 10000; }
