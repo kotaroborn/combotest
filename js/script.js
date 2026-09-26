@@ -2254,6 +2254,29 @@ async function playFinisherBuildup(attacker) {
     finisherFlashSide = null;
 }
 
+// GUARD+PUNCH+UPPER(簡易な追加打)の空中コンボ統合分岐(4枚目がPUNCHの場合)専用の演出(2026-09-26追加)。
+// この追加打は、通常の空中コンボ1発目と全く同じ見た目・ダメージで処理されるため、続く本来の4枚目(PUNCH、
+// 空中コンボ2発目)と並ぶと「どちらが技で増えた1発なのか分かりづらい」との指摘を受けて対応した。
+// playFinisherBuildupの発光部分(finisherFlashSide/finisherFlashAlpha)のみを流用し、暗転は伴わない簡易な
+// 白い発光を攻撃側キャラにパッと出す。呼び出し側ではawaitせず(ヒットストップの間合いと並行して進む)、
+// 打撃絵を出した瞬間(Beat1)から発光を開始し、振動が始まる頃(Beat3)には消え始めるようにしている。
+async function flashAttackerWhiteForBonusPunch(attacker) {
+    finisherFlashSide = attacker;
+    const inSteps = 4, inStepMs = 15; // パッと立ち上がる(約60ms)
+    for (let s = 1; s <= inSteps; s++) {
+        finisherFlashAlpha = s / inSteps;
+        await wait(inStepMs);
+    }
+    await wait(120); // 発光を保つ(ヒットストップの静止と重なる間)
+    const outSteps = 6, outStepMs = 15; // 消えていく(約90ms)
+    for (let s = 1; s <= outSteps; s++) {
+        finisherFlashAlpha = 1 - s / outSteps;
+        await wait(outStepMs);
+    }
+    finisherFlashAlpha = 0;
+    finisherFlashSide = null;
+}
+
 function nextPunchSprite(side) {
     const key = side === 'P' ? 'pLastAtk' : 'eLastAtk';
     state[key] = state[key] === 'punch.PNG' ? 'punch2.PNG' : 'punch.PNG'; // 第21条
@@ -3964,6 +3987,7 @@ async function runUpperCombo(attacker, defender, cursor) {
             hitComboSuccess(attacker);
             await flashDashBetweenPunches(attacker);
             setAct(attacker, nextPunchSprite(attacker)); // Beat1: 攻撃絵
+            flashAttackerWhiteForBonusPunch(attacker); // awaitしない(この追加打だけキャラを白く発光させ、続く本来の4枚目と見分けやすくする)
             await wait(DB.HITSTOP.POSE_MS); // ヒットストップ(この技はGUARD+PUNCH+UPPER成立時のみ発生するため常に挟む)
             applyDamage(defender, DB.DMG.P * chargeMultOf(attacker) * atkMultOf(attacker) * defMultOf(defender)); // Beat2: ダメージ絵(命中の瞬間、被弾側は既にdamage.PNGのまま)
             playSE('se_punch');
