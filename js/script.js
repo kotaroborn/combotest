@@ -64,7 +64,8 @@ let state = {
     pLastAtk: null, eLastAtk: null,
     pNumbed: false, eNumbed: false, // しびれフラグ: 次のコマンドの成功率が1/2になる(ガード成功で相手に付与)
     piyoSide: null, // ピヨり演出: どちら側の頭上に出すか(truthyな間、継続して表示される)
-    piyoBreakUntil: 0, // ピヨりが割れて解ける演出の終了時刻(performance.now()基準)。しびれた側がダメージを受けずに済んだ時に使う
+    piyoBreakUntil: 0, // ピヨりが割れて分裂する演出の終了時刻(performance.now()基準)。しびれた側の判定が決着した時に使う
+    piyoBroken: false, // 割れる演出を開始済みかどうか。trueの間はdraw()側が通常のバウンド表示に戻らないようにする(下記参照)
     pPunchStreak: 0, ePunchStreak: 0, // 地上パンチの連続ヒット数(コンボではなく、単発同士の連続成功を記録)
     pGuardStreak: 0, eGuardStreak: 0, // ガード成功の連続回数(同一ターン内のみ。2回で2倍・3回以降は4倍が上限。ターン終了時にリセット)
     pChargeValue: 0, eChargeValue: 0, // チャージの倍率(0=無し、2以上の数値)。ガード成功以外の次のカードで勝敗に関わらず消費される。ターンをまたいで持ち越す
@@ -1195,10 +1196,15 @@ function applyCardVisual(el, type) {
     const fname = type ? CARD_IMG_MAP[type] : null;
     const img = fname ? imgs[fname] : null;
     if (img) {
-        el.style.backgroundImage = `url('assets/images/cards/${fname}')`;
+        const url = `url('assets/images/cards/${fname}')`;
+        el.style.backgroundImage = url;
+        // CSS変数にも同じ画像を複製して持たせておく(card-shatter演出の::before/::afterが、
+        // 分裂した破片としてこの絵柄を複製表示する際に参照する。詳細はstyle.css側のコメントを参照)。
+        el.style.setProperty('--card-img', url);
         el.innerText = '';
     } else {
         el.style.backgroundImage = 'none';
+        el.style.removeProperty('--card-img');
         el.innerText = type ? type[0] : '';
     }
 }
@@ -2263,8 +2269,8 @@ function toIdle() {
     if (!state.eNumbed) state.eAct = 'IDLE';
 }
 // ピヨり演出の開始/終了。以後は draw() が state.piyoSide を見て継続的に描画し続ける(固定時間の演出ではない)
-function startPiyo(side) { state.piyoSide = side; }
-function stopPiyo() { state.piyoSide = null; }
+function startPiyo(side) { state.piyoSide = side; state.piyoBroken = false; }
+function stopPiyo() { state.piyoSide = null; state.piyoBroken = false; }
 
 // COMBOカウンターの描画。2以上のみ表示し、以下の演出を重ねる:
 // ・増えた瞬間: 軽く上へポップする(sinカーブで跳ねて戻る)
@@ -2725,16 +2731,23 @@ function draw(tRaw) {
     // ピヨり演出: しびれている側の頭上にpiyo.PNGを表示(反転を交互に切り替える)。
     // state.piyoSideがtruthyな間はずっと表示し続ける(開始/終了は startPiyo/stopPiyo が担う)。反転は経過時間から計算する。
     // piyo.PNGは実ファイルが32x32pxで、実際に使う絵柄は左上を基準にした横21px×縦9pxの範囲のみ。
-    // state.piyoBreakUntilが未来の時刻の間は、通常のバウンドの代わりに「ひび割れて分裂する」演出にする
-    // (2026-09-26: 以前は等倍のまま縮小+フェードするだけだったが、「割れるというより縮んで消える演出に見える」
-    // との指摘を受け、ひびの線が入った直後に左右2つの破片に分裂して弾け飛ぶ、より「割れた」感のある表現に変更した)。
+    // state.piyoBrokenがtrueの間(割れる演出が開始されてからstopPiyoが呼ばれるまで)は、通常のバウンドの
+    // 代わりに「ひび割れて分裂する」演出にする(2026-09-26: 以前は等倍のまま縮小+フェードするだけだったが、
+    // 「割れるというより縮んで消える演出に見える」との指摘を受け、ひびの線が入った直後に左右2つの破片に
+    // 分裂して弾け飛ぶ、より「割れた」感のある表現に変更した)。
+    // 割れ終わった後(t >= piyoBreakUntil)も、呼び出し元がstopPiyo()を呼ぶまでのごく短い間(setTimeout系の
+    // wait()とrequestAnimationFrameのタイミングのずれ分)はstate.piyoSideがまだtruthyのまま残るが、この間に
+    // 「割れる前の通常表示」へ一瞬戻ってしまう(せっかく消えたのに一瞬だけ元の姿が見える)不具合が実際にあった。
+    // これを防ぐため、割れる演出を開始したかどうかをstate.piyoBrokenで記録し、trueの間は割れ終わった後も
+    // 何も描画しない(通常表示には絶対に戻さない)ようにする。
     if (state.piyoSide) {
         const piyoImg = imgs['piyo.PNG'];
         if (piyoImg) {
             const SRC_X = 6, SRC_Y = 0, SRC_W = 20, SRC_H = 9; // 元画像内での切り出し範囲(上・横中央寄せ)
             const baseX = state.piyoSide === 'P' ? state.pX : state.eX;
             const baseY = state.piyoSide === 'P' ? state.pY : state.eY;
-            const isBreaking = t < state.piyoBreakUntil;
+            const isBreaking = state.piyoBroken && t < state.piyoBreakUntil;
+            const breakFinished = state.piyoBroken && !isBreaking; // 割れ終わったが、stopPiyoがまだ呼ばれていない一瞬の猶予
             const breakP = isBreaking ? 1 - Math.max(0, (state.piyoBreakUntil - t) / 300) : 0; // 0〜1
             const pw = SRC_W * DB.SCALE, ph = SRC_H * DB.SCALE; // 割れる演出中もサイズは縮めない(分裂そのもので「割れた」感を出す)
             const px = baseX + (DB.IMG_SIZE - pw) / 2;
@@ -2752,7 +2765,10 @@ function draw(tRaw) {
                     ctx.drawImage(piyoImg, SRC_X, SRC_Y, SRC_W, SRC_H, dx, dy, pw, ph);
                 }
             };
-            if (!isBreaking) {
+            if (breakFinished) {
+                // 割れ終わった後、まだstopPiyoが呼ばれていない一瞬の猶予: 何も描画しない
+                // (通常表示への巻き戻りを防ぐ。上のコメント参照)。
+            } else if (!isBreaking) {
                 ctx.save();
                 drawWhole(px, py);
                 ctx.restore();
@@ -3190,6 +3206,7 @@ function resetBattleState() {
     state.pNumbed = false;
     state.eNumbed = false;
     state.piyoSide = null;
+    state.piyoBroken = false;
     state.pPunchStreak = 0;
     state.ePunchStreak = 0;
     state.pGuardStreak = 0;
@@ -4077,9 +4094,10 @@ async function runNumbFail(numbedSide, cursor, pAct, eAct) {
     setAct(loser, 'damage.PNG');
     triggerBlink(loser, 1400);
     state.piyoBreakUntil = performance.now() + 300; // 300msかけて割れて消える
+    state.piyoBroken = true; // 割れ始めたことを記録する(draw()側が通常表示に巻き戻らないようにするため)
     await wait(300);
-    // 割れる演出はpiyoBreakUntilの時刻を過ぎるとdraw()側で通常表示に戻ってしまうため、
-    // 完全にフェードし終わったこのタイミングでstopPiyo()を呼び、再表示されないよう確定させる。
+    // 完全にフェードし終わったこのタイミングでstopPiyo()を呼び、再表示されないよう確定させる
+    // (呼ぶまでの短い間もstate.piyoBrokenにより通常表示には戻らない。詳細はdraw()側のコメントを参照)。
     stopPiyo();
     await wait(400); // 点滅演出の残り時間(割れる演出と合わせて合計700ms)
 
@@ -4103,6 +4121,7 @@ async function runNumbFail(numbedSide, cursor, pAct, eAct) {
 // 通常ポーズ(player.PNG)に戻る。この後、呼び出し元で通常の3すくみ判定(judge)へ進む。
 async function runNumbEscape(numbedSide) {
     state.piyoBreakUntil = performance.now() + 300; // 300msかけて割れて消える
+    state.piyoBroken = true; // 割れ始めたことを記録する(draw()側が通常表示に巻き戻らないようにするため)
     await wait(300);
     stopPiyo();
     triggerShake(numbedSide, 300); // damage.PNGのまま横揺れ
