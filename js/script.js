@@ -2725,7 +2725,9 @@ function draw(tRaw) {
     // ピヨり演出: しびれている側の頭上にpiyo.PNGを表示(反転を交互に切り替える)。
     // state.piyoSideがtruthyな間はずっと表示し続ける(開始/終了は startPiyo/stopPiyo が担う)。反転は経過時間から計算する。
     // piyo.PNGは実ファイルが32x32pxで、実際に使う絵柄は左上を基準にした横21px×縦9pxの範囲のみ。
-    // state.piyoBreakUntilが未来の時刻の間は、通常のバウンドではなく「割れて消える」演出(縮小しながらフェードアウト)にする。
+    // state.piyoBreakUntilが未来の時刻の間は、通常のバウンドの代わりに「ひび割れて分裂する」演出にする
+    // (2026-09-26: 以前は等倍のまま縮小+フェードするだけだったが、「割れるというより縮んで消える演出に見える」
+    // との指摘を受け、ひびの線が入った直後に左右2つの破片に分裂して弾け飛ぶ、より「割れた」感のある表現に変更した)。
     if (state.piyoSide) {
         const piyoImg = imgs['piyo.PNG'];
         if (piyoImg) {
@@ -2734,22 +2736,76 @@ function draw(tRaw) {
             const baseY = state.piyoSide === 'P' ? state.pY : state.eY;
             const isBreaking = t < state.piyoBreakUntil;
             const breakP = isBreaking ? 1 - Math.max(0, (state.piyoBreakUntil - t) / 300) : 0; // 0〜1
-            const breakScale = isBreaking ? Math.max(0.05, 1 - breakP) : 1; // だんだん縮む
-            const breakAlpha = isBreaking ? Math.max(0, 1 - breakP) : 1; // だんだん透明に
-            const pw = SRC_W * DB.SCALE * breakScale, ph = SRC_H * DB.SCALE * breakScale;
+            const pw = SRC_W * DB.SCALE, ph = SRC_H * DB.SCALE; // 割れる演出中もサイズは縮めない(分裂そのもので「割れた」感を出す)
             const px = baseX + (DB.IMG_SIZE - pw) / 2;
             const py = baseY - ph - 10;
-            ctx.save();
-            ctx.globalAlpha = breakAlpha;
-            const piyoFlipNow = Math.floor(t / 180) % 2 === 1; // 180msごとに反転(割れる演出中も継続)
-            if (piyoFlipNow) {
-                ctx.translate(px + pw, py);
-                ctx.scale(-1, 1);
-                ctx.drawImage(piyoImg, SRC_X, SRC_Y, SRC_W, SRC_H, 0, 0, pw, ph);
+            // 通常表示時の反転(180msごとに交互)。割れ始めた瞬間の状態で固定する(分裂した破片が
+            // 飛び散っている途中で絵柄が反転すると不自然なため、割れ始めの時刻を使って以後固定する)。
+            const flipRefTime = isBreaking ? (state.piyoBreakUntil - 300) : t;
+            const piyoFlipNow = Math.floor(flipRefTime / 180) % 2 === 1;
+            const drawWhole = (dx, dy) => {
+                if (piyoFlipNow) {
+                    ctx.translate(dx + pw, dy);
+                    ctx.scale(-1, 1);
+                    ctx.drawImage(piyoImg, SRC_X, SRC_Y, SRC_W, SRC_H, 0, 0, pw, ph);
+                } else {
+                    ctx.drawImage(piyoImg, SRC_X, SRC_Y, SRC_W, SRC_H, dx, dy, pw, ph);
+                }
+            };
+            if (!isBreaking) {
+                ctx.save();
+                drawWhole(px, py);
+                ctx.restore();
             } else {
-                ctx.drawImage(piyoImg, SRC_X, SRC_Y, SRC_W, SRC_H, px, py, pw, ph);
+                // 最初の30%(90ms)はひびの線を重ねて見せるだけに留め、そこから分裂を始める。
+                const CRACK_FRAC = 0.3;
+                const shatterP = Math.max(0, Math.min(1, (breakP - CRACK_FRAC) / (1 - CRACK_FRAC))); // 0〜1
+                const halfW = pw / 2;
+                const drawShard = (isLeft) => {
+                    const dir = isLeft ? -1 : 1;
+                    const cx = px + (isLeft ? halfW * 0.5 : halfW * 1.5); // 破片の中心(回転軸)
+                    const cy = py + ph * 0.5;
+                    const offsetX = shatterP * 10 * DB.SCALE * dir; // 左右に弾け飛ぶ距離
+                    const offsetY = shatterP * 6 * DB.SCALE; // わずかに落下もさせる
+                    const rot = shatterP * 0.6 * dir; // 外側へ回転しながら飛ぶ(ラジアン)
+                    // フェードは分裂が始まってしばらく経ってから(破片が見えている時間を確保する)
+                    const alpha = Math.max(0, 1 - Math.max(0, (shatterP - 0.2) / 0.8));
+                    ctx.save();
+                    ctx.globalAlpha = alpha;
+                    ctx.translate(cx + offsetX, cy + offsetY);
+                    ctx.rotate(rot);
+                    ctx.translate(-cx, -cy);
+                    ctx.beginPath();
+                    ctx.rect(px + (isLeft ? 0 : halfW), py, halfW, ph); // 縦の中央線で2分割してクリップ
+                    ctx.clip();
+                    drawWhole(px, py);
+                    ctx.restore();
+                };
+                ctx.save();
+                drawShard(true);
+                drawShard(false);
+                ctx.restore();
+
+                // ひびの線: 分裂が始まる前(CRACK_FRACの間)だけ、不透明度を上げながら重ねて表示する。
+                const crackIn = Math.max(0, Math.min(1, breakP / CRACK_FRAC));
+                const crackOut = 1 - Math.max(0, Math.min(1, (breakP - CRACK_FRAC) / 0.08)); // 分裂開始直後に素早く消す
+                const crackAlpha = crackIn * crackOut;
+                if (crackAlpha > 0) {
+                    ctx.save();
+                    ctx.globalAlpha = crackAlpha;
+                    ctx.strokeStyle = '#fff';
+                    ctx.lineWidth = Math.max(1, DB.SCALE * 0.3);
+                    ctx.beginPath();
+                    ctx.moveTo(px + pw * 0.5, py);
+                    ctx.lineTo(px + pw * 0.5, py + ph);
+                    ctx.moveTo(px + pw * 0.35, py + ph * 0.25);
+                    ctx.lineTo(px + pw * 0.5, py + ph * 0.45);
+                    ctx.moveTo(px + pw * 0.65, py + ph * 0.6);
+                    ctx.lineTo(px + pw * 0.5, py + ph * 0.8);
+                    ctx.stroke();
+                    ctx.restore();
+                }
             }
-            ctx.restore();
         }
     }
 
