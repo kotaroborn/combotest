@@ -26,9 +26,16 @@ const DB = {
     MAX_AIR_PUNCH: 3,
     BREATH_MS: 500, // player.PNG / player2.PNG の呼吸切替間隔
     DECK_TOTAL: 21, // デッキ合計枚数(内訳は編成画面で自由配分)
-    GUARD_PIYO_CHANCE: 0.5 // ガード成功時に相手をピヨらせる(しびれさせる)確率。以前は100%固定だったが、
+    GUARD_PIYO_CHANCE: 0.5, // ガード成功時に相手をピヨらせる(しびれさせる)確率。以前は100%固定だったが、
     // UPPER→GUARD→UPPERのような連携で「ピヨりによる無条件敗北(1/2)」がUPPERの空中コンボ突入率を
     // 底上げしすぎる(GUARDを当てるだけで次のUPPERが読み合い無視で通りやすくなる)という懸念から確率制にした。
+    // ヒットストップ(2026-09-26追加): 「攻撃側の攻撃絵→一瞬静止→被弾側のダメージ絵(命中の瞬間)→一瞬静止→
+    // 振動/移動などの反応」という3拍子の間合いを作る演出。暗転演出(playFinisherBuildup)を伴う技(必殺技・
+    // メテオ・PUNCH+PUNCH+UPPER/UPPER+GUARD+UPPERのスーパーアッパー・追撃)、および壁のめり込み技
+    // (GUARD+PUNCH+UPPER)など、「最後のコマンドに何かしら付加されている技」に共通で使う。
+    // POSE_MS: 攻撃絵を見せてから静止する時間。IMPACT_MS: ダメージ絵(命中の瞬間、効果音・ヒットエフェクト・
+    // ダメージ反映を含む)を見せてから、振動/移動などの反応が始まるまでの静止時間。
+    HITSTOP: { POSE_MS: 90, IMPACT_MS: 110 }
 };
 DB.IMG_SIZE = DB.SRC_PX * DB.SCALE; // 32×10=320。ソースpxとcanvasユニットの対応が常に整数になる
 // 地面バンド(3px)ぶんの余白を残して、キャラの足元が浮かないギリギリの高さにGROUND_Yを置く
@@ -73,8 +80,8 @@ let state = {
     pUpperChargeReady: false, eUpperChargeReady: false, // UPPER→GUARDの連続成功で発動するチャージ(次に出すカードがUPPERの時だけ2倍高く速く強いアッパーになる)。水色の発光で示す。ターンをまたいで持ち越す
     pLastWinWasUpper: false, eLastWinWasUpper: false, // 直前の攻防でこの側がUPPERで勝ったか(UPPER→GUARDの連続検知に使う、毎攻防resolveExchangeの冒頭でリセットする一時フラグ)
     skipNextReposition: false, // UPPER→GUARDの専用着地演出の直後にtrueになり、次の攻防の後退→接近ダッシュ往復を1回だけスキップする
-    pComboType: null, eComboType: null, // このターンの手札パターン('followup'=PUNCH+GUARD+PUNCH, 'finisher'=GUARD+PUNCH+GUARD+PUNCH+PUNCH, null=該当なし)。ターン開始時に手札から判定する
-    pComboStart: -1, eComboStart: -1, // followup該当時、手札内でPUNCH+GUARD+PUNCHが始まる位置(0始まり)。finisherは常に0固定
+    pComboType: null, eComboType: null, // このターンの手札パターン('followup'=PUNCH+GUARD+PUNCH, 'finisher'=FINISHER_PATTERNSのいずれか, 'guardPunchUpper'=GUARD+PUNCH+UPPER, null=該当なし)。ターン開始時に手札から判定する
+    pComboStart: -1, eComboStart: -1, // followup/guardPunchUpper該当時、手札内で該当パターンが始まる位置(0始まり)。finisherは常に0固定
     pComboAlive: false, eComboAlive: false, // 対応する各攻防が要件(勝ち、または必殺技は勝ちか相打ち)を満たし続けているか。1つでも要件を満たさなければfalseになりコンボは不成立になる
     // ------- COMBOカウンター(第26条とは別概念。上記pComboType等は手札パターン判定名で、こちらは連続成功回数の表示用) -------
     pHitCombo: 0, eHitCombo: 0, // 現在の連続成功回数。GUARD成功・空中コンボ・メテオ・追撃・必殺技も含め、成功する技すべてでカウントする。ターンをまたいでも持ち越す
@@ -177,7 +184,7 @@ let soundTestBgmSource = null; // SOUND TEST専用のBGMプレビュー再生ノ
 let soundTestBgmPlayingName = null; // 現在プレビュー再生中のBGMトラック名(null=何も再生していない)
 let soundTestSeSource = null; // SOUND TEST専用のSEプレビュー再生ノード。BGMプレビューとは独立に、単発で重ねて鳴らせる
 let soundTestSePlayingName = null; // 現在プレビュー再生中のSEトラック名(null=何も再生していない)
-let specialsUsed = { superUpper: false, charge: false, followUp: false, finisher: false, upperGuardUpper: false }; // 各種必殺技を、これまでの対戦を通じて1回でも使ったか(バトルをまたいで積み上げ)。SOUND TESTの解放条件は当初の4種のまま(upperGuardUpperは将来の実績拡張用に記録のみ)
+let specialsUsed = { superUpper: false, charge: false, followUp: false, finisher: false, upperGuardUpper: false, guardPunchUpper: false }; // 各種必殺技を、これまでの対戦を通じて1回でも使ったか(バトルをまたいで積み上げ)。SOUND TESTの解放条件は当初の4種のまま(upperGuardUpper/guardPunchUpperは将来の実績拡張用に記録のみ)
 let selectedSkin = null; // 現在選択中のコスチューム('enemy_1'等、nullはデフォルトのプレイヤー見た目)
 let gameClearedOnce = false; // STORY MODEを一度でも最後(5人目)までクリアしたか。COSTUMEの解放条件の一部
 let costumeUnlockAnnounced = false; // タイトル画面でCOSTUME解放のポップアップを既に一度見せたか(繰り返し表示しないため)
@@ -1039,6 +1046,7 @@ function applySaveDataOnBoot() {
             followUp: !!save.specialsUsed.followUp,
             finisher: !!save.specialsUsed.finisher,
             upperGuardUpper: !!save.specialsUsed.upperGuardUpper,
+            guardPunchUpper: !!save.specialsUsed.guardPunchUpper,
         };
     }
     if (typeof save.selectedSkin === 'string' || save.selectedSkin === null) selectedSkin = save.selectedSkin;
@@ -3832,12 +3840,14 @@ async function runMeteor(attacker, defender) {
     hitComboSuccess(attacker);
     hitComboBreak(defender);
     await playFinisherBuildup(attacker); // 暗転→一時停止→攻撃側が白く発光→晴れる、のフィニッシュ演出
-    applyDamage(defender, DB.DMG.M * chargeMultOf(attacker) * atkMultOf(attacker) * defMultOf(defender));
+    setAct(attacker, 'knock.PNG'); // Beat1: 攻撃絵(放つ瞬間のポーズ)
+    await wait(DB.HITSTOP.POSE_MS); // ヒットストップ
+    applyDamage(defender, DB.DMG.M * chargeMultOf(attacker) * atkMultOf(attacker) * defMultOf(defender)); // Beat2: ダメージ絵(命中の瞬間)
     playSE('se_meteor'); // 未配置ならse_punchで代用される
-    setAct(attacker, 'knock.PNG');
     spawnHitEffect(attacker, 'METEOR_LAUNCH'); // 放つ瞬間、攻撃側に重ねて光のエフェクトを表示する
     setAct(defender, 'damage.PNG');
-    await wait(400); // 一時停止
+    await wait(DB.HITSTOP.IMPACT_MS);
+    await wait(400 - DB.HITSTOP.POSE_MS - DB.HITSTOP.IMPACT_MS); // 元の一時停止(400ms)の残り分。Beat3(落下)開始までの間合いを概ね維持する
 
     // 打たれる方が先に地面へ落下(実際の現在の高さを起点にする。PUNCH+PUNCH+UPPERで通常より高い位置にいても正しく動作する)
     const defenderFromY = getY(defender);
@@ -3894,12 +3904,14 @@ async function runUpperCombo(attacker, defender, cursor) {
     state.pGuardStreak = 0; state.eGuardStreak = 0; // ガード以外で勝敗が決したのでガード連続記録は途切れる
 
     if (isSuperUpper) await playFinisherBuildup(attacker); // スーパーアッパー(ダメージ2倍)成立時のみ、暗転→一時停止→発光の演出を挟む
-    setAct(attacker, 'upper.PNG');
-    setAct(defender, 'damage.PNG');
+    setAct(attacker, 'upper.PNG'); // Beat1: 攻撃絵
+    if (isSuperUpper) await wait(DB.HITSTOP.POSE_MS); // スーパーアッパーのみヒットストップを挟む(通常のUPPERは従来通り)
+    setAct(defender, 'damage.PNG'); // Beat2: ダメージ絵(命中の瞬間)
     applyDamage(defender, DB.DMG.U * chargeMultOf(attacker) * (isSuperUpper ? 2 : 1) * atkMultOf(attacker, 'UPPER') * defMultOf(defender, 'UPPER'));
     playSE('se_upper'); // 未配置ならse_punchで代用される
     spawnHitEffect(attacker, 'UPPER', isSuperUpper ? 2 : 1); // ダメージが2倍になる時はhit_upper_2を使う
-    triggerShake(defender, 300);
+    if (isSuperUpper) await wait(DB.HITSTOP.IMPACT_MS);
+    triggerShake(defender, 300); // Beat3: 振動などの反応
     // チャージ(ガード+ガード、UPPER+GUARD+UPPER)は「次に出すカードの初撃」のみに適用される一度限りの効果のため、
     // ここで即座に消費する。以降の空中コンボ継続・メテオには適用しない(通常倍率で計算する)。
     consumeCharge(attacker); consumeCharge(defender);
@@ -3926,6 +3938,46 @@ async function runUpperCombo(attacker, defender, cursor) {
     await wait(430); // 空中での間(上昇分と合わせて元の700ms相当を維持)
 
     let airPunches = 0;
+
+    // GUARD+PUNCH+UPPER(簡易な追加打)の3枚目がこのUPPERだった場合の分岐(2026-09-26)。
+    // この技の3枚目は常にUPPERのため、このタイミング(浮遊後・空中コンボ開始前)でのみ判定できる。
+    // 直後の手がPUNCHなら、この追加打自体を空中コンボの1発目として扱う(カードを消費せず、
+    // 通常の1発目と全く同じ演出・ダメージ計算で処理し、airPunchesを1から始める。続く実際のPUNCHカードは
+    // 2発目以降として通常通り消費される)。直後の手がPUNCH以外(手札が尽きている場合を含む)なら、
+    // まだ浮いたままの被弾側を、地面に降ろさずそのまま画面端まで吹き飛ばす専用の壁めり込みパンチにする。
+    const gpuComboType = attacker === 'P' ? state.pComboType : state.eComboType;
+    const gpuComboStart = attacker === 'P' ? state.pComboStart : state.eComboStart;
+    const gpuComboAlive = attacker === 'P' ? state.pComboAlive : state.eComboAlive;
+    if (gpuComboType === 'guardPunchUpper' && cursor.i === gpuComboStart + 2 && gpuComboAlive) {
+        markSpecialUsed('guardPunchUpper');
+        if (nextQueuedMove(attacker, cursor) === 'PUNCH') {
+            // 通常の空中コンボ1発目と同じ演出(打ち上げられた側が攻撃側の高さまで降りてくる)
+            const meetY = getY(attacker);
+            const defenderFromY = getY(defender);
+            const descSteps = 5, descStepMs = 30;
+            for (let s = 1; s <= descSteps; s++) {
+                const dt = s / descSteps;
+                setY(defender, defenderFromY + (meetY - defenderFromY) * dt);
+                await wait(descStepMs);
+            }
+            setY(defender, meetY);
+            hitComboSuccess(attacker);
+            await flashDashBetweenPunches(attacker);
+            setAct(attacker, nextPunchSprite(attacker)); // Beat1: 攻撃絵
+            await wait(DB.HITSTOP.POSE_MS); // ヒットストップ(この技はGUARD+PUNCH+UPPER成立時のみ発生するため常に挟む)
+            applyDamage(defender, DB.DMG.P * chargeMultOf(attacker) * atkMultOf(attacker) * defMultOf(defender)); // Beat2: ダメージ絵(命中の瞬間、被弾側は既にdamage.PNGのまま)
+            playSE('se_punch');
+            spawnHitEffect(attacker, 'PUNCH', 1);
+            await wait(DB.HITSTOP.IMPACT_MS);
+            triggerShake(defender, 200); // Beat3: 振動などの反応
+            await wait(500);
+            airPunches = 1; // 続く実際のPUNCHカードは2発目以降として通常のループで処理される
+        } else {
+            await runGuardPunchUpperWallStrike(attacker, defender);
+            return; // 着地・後処理はrunGuardPunchUpperWallStrike側で完結させる
+        }
+    }
+
     while (true) {
         const next = nextQueuedMove(attacker, cursor);
         if (next !== 'PUNCH') break;
@@ -4163,17 +4215,46 @@ function markCardOutcome(side, idx, outcomeClass) {
     }
 }
 
+// 必殺技(5枚固定・1〜4枚目が勝ちまたは相打ちで5枚目がヒット確定になる)として認める手札の並び。
+// 当初はGUARD+PUNCH+GUARD+PUNCH+PUNCHの1種類のみだったが、「負けなければ発動する手をいくつか増やしたい」との
+// 要望を受け、2026-09-26に3種追加した(P+P+G+G+U/U+G+P+P+G/U+U+G+G+P)。追加した3種はいずれも既存の
+// 追撃(PUNCH+GUARD+PUNCH)・アッパーチャージ(UPPER+GUARD+UPPER)・空中コンボの起点(PUNCH+PUNCH+UPPER)・
+// ガードチャージ(GUARD+GUARD/GUARD+GUARD+GUARD)のいずれとも3枚連続の並びが重ならないように選んでいる。
+// 発動時の演出・ダメージ(runFinisher)はいずれも既存の必殺技と全く同じ(3すくみ判定を行わずヒット確定・
+// 固定ダメージ・画面端までの吹き飛ばし)で、5枚目の見た目上の技種別(UPPER/GUARD/PUNCH)による違いは無い
+// (発動条件のバリエーションを増やすことが目的で、専用の新規演出は今回作っていない)。
+const FINISHER_PATTERNS = [
+    ['GUARD', 'PUNCH', 'GUARD', 'PUNCH', 'PUNCH'],
+    ['PUNCH', 'PUNCH', 'GUARD', 'GUARD', 'UPPER'],
+    ['UPPER', 'GUARD', 'PUNCH', 'PUNCH', 'GUARD'],
+    ['UPPER', 'UPPER', 'GUARD', 'GUARD', 'PUNCH'],
+];
+
 // このターンの手札から特殊コンボの種類を判定する。
-// 'finisher'(GUARD+PUNCH+GUARD+PUNCH+PUNCH)は手札の1〜5枚目に固定で該当するかのみを見る。
-// 該当する場合は即座に返す(内部にPUNCH+GUARD+PUNCHの並びを含むが、followup判定へは進まないため自動的にキャンセルされる)。
+// 'finisher'は`FINISHER_PATTERNS`のいずれかに手札の1〜5枚目が完全一致するかのみを見る(固定位置)。
+// 該当する場合は即座に返す(4種のいずれも、内部にPUNCH+GUARD+PUNCHおよびGUARD+PUNCH+UPPERの並びを
+// 含まないよう選んであるため、followup/guardPunchUpper判定と競合することはない)。
 // 'followup'(PUNCH+GUARD+PUNCH)は、手札のどの位置でも3連続で出ていれば該当し、開始インデックス(start)も返す。
+// 'guardPunchUpper'(GUARD+PUNCH+UPPER、2026-09-26追加)も同様に手札のどの位置でも3連続で出ていれば該当する。
+// UPPER+GUARD+UPPER(アッパーチャージ)は「UPPER勝利の直後にGUARD勝利」という状態遷移で判定しており、
+// 手札の1〜2枚目が常にU,Gになるため、GUARD+PUNCH+UPPERのように先頭2枚がG,Pの並びであれば、
+// アッパーチャージを狙った手(1〜2枚目がU,G)とは先頭からして一致せず、意図せず同時発動することがない。
 function detectComboType(hand, total) {
-    if (total >= 5 && hand[0] === 'GUARD' && hand[1] === 'PUNCH' && hand[2] === 'GUARD' && hand[3] === 'PUNCH' && hand[4] === 'PUNCH') {
-        return { type: 'finisher', start: 0 };
+    if (total >= 5) {
+        for (const pattern of FINISHER_PATTERNS) {
+            if (pattern.every((move, i) => hand[i] === move)) {
+                return { type: 'finisher', start: 0 };
+            }
+        }
     }
     for (let start = 0; start + 2 < total; start++) {
         if (hand[start] === 'PUNCH' && hand[start + 1] === 'GUARD' && hand[start + 2] === 'PUNCH') {
             return { type: 'followup', start };
+        }
+    }
+    for (let start = 0; start + 2 < total; start++) {
+        if (hand[start] === 'GUARD' && hand[start + 1] === 'PUNCH' && hand[start + 2] === 'UPPER') {
+            return { type: 'guardPunchUpper', start };
         }
     }
     return { type: null, start: -1 };
@@ -4187,14 +4268,64 @@ async function runFollowUpFlurry(attacker, defender) {
     for (let i = 0; i < 3; i++) {
         hitComboSuccess(attacker); // 追撃は3連打それぞれをCOMBOとして数える
         if (i >= 1) await flashDashBetweenPunches(attacker); // 2発目以降のみ、パンチ同士の切り替えなのでdashを挟む
-        setAct(attacker, nextPunchSprite(attacker)); // 第21条
-        setAct(defender, 'damage.PNG');
+        setAct(attacker, nextPunchSprite(attacker)); // 第21条。Beat1: 攻撃絵
+        // ヒットストップは1発目にのみ挟む(2・3発目まで挟むと3連打の「素早い連打」感が失われるため)。
+        if (i === 0) await wait(DB.HITSTOP.POSE_MS);
+        setAct(defender, 'damage.PNG'); // Beat2: ダメージ絵(命中の瞬間)
         applyDamage(defender, DB.DMG.P * atkMultOf(attacker) * defMultOf(defender));
         playSE('se_punch');
         spawnHitEffect(attacker, 'PUNCH', i + 1); // 追撃3連打それぞれに対応する段階の見た目を使う
-        triggerShake(defender, 150);
+        if (i === 0) await wait(DB.HITSTOP.IMPACT_MS);
+        triggerShake(defender, 150); // Beat3: 振動などの反応
         await wait(120); // 素早い連打
     }
+    await wait(200);
+    toIdle();
+}
+
+// GUARD+PUNCH+UPPER(1〜3枚目が全て勝利)成立時、直後の手がPUNCH以外(手札が尽きている場合を含む)だった
+// 場合の専用演出(2026-09-26)。3枚目のUPPERで浮かせた直後のため、被弾側はまだ地面に降りていない
+// (空中コンボが続く場合と異なり、このタイミングでは着地させない)。この浮いたままの状態を保ったまま、
+// 3すくみ判定を行わずヒット確定のパンチをもう1発追加し、被弾側を地面へ降ろさず画面端まで吹き飛ばす
+// (`runFinisher`の壁演出と同じ考え方だが、Yは地面まで落とさず浮遊高さのまま横方向にのみ移動させる)。
+// ダメージは通常パンチ1発分(チャージ等の影響は受けない)。必殺技と異なりこのターンの最後のカードとは
+// 限らないため(このUPPERが手札の3枚目で、4・5枚目が残っている場合がある)、壁への激突後は
+// 必殺技のようにターン終了処理任せにはせず、この関数自身で両者を地面まで着地させてから返す。
+async function runGuardPunchUpperWallStrike(attacker, defender) {
+    hitComboSuccess(attacker);
+    hitComboBreak(defender);
+    setAct(attacker, nextPunchSprite(attacker)); // 第21条。Beat1: 攻撃絵
+    await wait(DB.HITSTOP.POSE_MS); // ヒットストップ(被弾側は既にUPPERでdamage.PNGのまま浮いている)
+    applyDamage(defender, DB.DMG.P * atkMultOf(attacker) * defMultOf(defender)); // Beat2: ダメージ絵(命中の瞬間)
+    playSE('se_punch');
+    spawnHitEffect(attacker, 'PUNCH', 1);
+    await wait(DB.HITSTOP.IMPACT_MS);
+    triggerShake(defender, 150); // Beat3: 振動などの反応
+    await wait(150);
+
+    // 被弾側を、浮いた高さを保ったまま画面端まで吹き飛ばす(damage.PNGのまま)
+    const edgeX = defender === 'P' ? DB.POS.EDGE_P_X : DB.POS.EDGE_E_X;
+    const wallOverlap = Math.round(DB.IMG_SIZE * 2 / 3); // 絵柄と壁の隙間をなくすためのめり込み量(runFinisherと同じ)
+    const finalX = defender === 'P' ? edgeX - wallOverlap : edgeX + wallOverlap;
+    const fromX = getX(defender);
+    const flySteps = 6, flyStepMs = 30;
+    for (let s = 1; s <= flySteps; s++) {
+        setX(defender, fromX + (finalX - fromX) * (s / flySteps));
+        await wait(flyStepMs);
+    }
+    setX(defender, finalX);
+    const wallX = defender === 'P' ? edgeX : edgeX + DB.IMG_SIZE;
+    spawnHitEffect(defender, 'WALL', 1, wallX, getY(defender) + DB.IMG_SIZE / 2);
+    triggerBlink(defender, 400);
+    triggerShake(defender, 250);
+    playSE('se_kabe');
+    await wait(400);
+
+    // このターンはここで終わるとは限らない(必殺技と違い最終カードとは限らないため)ので、
+    // ここで両者を地面まで着地させてから通常の攻防に戻す(Xは戻さず、後続の後退演出に任せる)
+    await waitBothLanded();
+    setAct(attacker, 'dash.PNG');
+    setAct(defender, 'damage.PNG');
     await wait(200);
     toIdle();
 }
@@ -4207,13 +4338,15 @@ async function runFinisher(attacker, defender, cursor) {
     hitComboSuccess(attacker);
     hitComboBreak(defender);
     await playFinisherBuildup(attacker); // 暗転→一時停止→攻撃側が白く発光→晴れる、のフィニッシュ演出
-    setAct(attacker, nextPunchSprite(attacker)); // 第21条
-    setAct(defender, 'damage.PNG');
+    setAct(attacker, nextPunchSprite(attacker)); // 第21条。Beat1: 攻撃絵
+    await wait(DB.HITSTOP.POSE_MS); // ヒットストップ
+    setAct(defender, 'damage.PNG'); // Beat2: ダメージ絵(命中の瞬間)
     markCardOutcome(defender, cursor.i, 'card-shatter'); // 3すくみ無視のヒットなのでヒビ割れ表現にする
     applyDamage(defender, DB.DMG.FINISHER * atkMultOf(attacker) * defMultOf(defender));
     playSE('se_finisher'); // 未配置ならse_punchで代用される
     spawnHitEffect(attacker, 'PUNCH', 3); // 必殺技の一撃として、最も迫力のある段階(3)の見た目を使う
-    triggerShake(defender, 300);
+    await wait(DB.HITSTOP.IMPACT_MS);
+    triggerShake(defender, 300); // Beat3: 振動などの反応
     await wait(150);
 
     // 被弾側を画面端まで吹き飛ばす(damage.PNGのまま)
@@ -4283,7 +4416,7 @@ async function resolveExchange(pAct, eAct, cursor) {
         await approachCenter(); // 第24条: 残像付きで中央へ踏み込む
     }
 
-    // 必殺技(GUARD+PUNCH+GUARD+PUNCH+PUNCH、5枚目)の判定: 3すくみ・しびれ判定を行わずヒット確定で処理する
+    // 必殺技(FINISHER_PATTERNSのいずれか、5枚目)の判定: 3すくみ・しびれ判定を行わずヒット確定で処理する
     if (cursor.i === 4) {
         const pFinisherReady = pFinisherReadyPre;
         const eFinisherReady = eFinisherReadyPre;
@@ -4406,7 +4539,8 @@ async function resolveTurn() {
     }
     drawEnemySlots();
 
-    // このターンの手札から特殊コンボの種類を判定する(GUARD+PUNCH+GUARD+PUNCH+PUNCHの必殺技、PUNCH+GUARD+PUNCHの追撃)。
+    // このターンの手札から特殊コンボの種類を判定する(FINISHER_PATTERNSのいずれかに該当する必殺技、
+    // PUNCH+GUARD+PUNCHの追撃、GUARD+PUNCH+UPPERの簡易な追加打)。
     // 手札は既に確定しているため、攻防が始まる前(敵の手が伏せられている段階)でも判定して問題ない。
     const pCombo = detectComboType(state.hands, total);
     const eCombo = detectComboType(state.enemyHands, total);
@@ -4421,6 +4555,7 @@ async function resolveTurn() {
         while (cursor.i < total) {
             if (gameOverSide) break;
 
+            const iAtStart = cursor.i; // resolveExchange呼び出し前のインデックスを保持しておく(下記コメント参照)
             const pAct = state.hands[cursor.i];
             const eAct = state.enemyHands[cursor.i];
 
@@ -4434,18 +4569,29 @@ async function resolveTurn() {
             await resolveExchange(pAct, eAct, cursor);
 
             // コンボ成立要件の判定を更新する(1つでも要件を満たさなければ不成立になる)。
-            // followup(PUNCH+GUARD+PUNCH)は該当する3枚(index: start〜start+2)がすべて勝ちである必要がある。
-            // finisher(GUARD+PUNCH+GUARD+PUNCH+PUNCH)は1〜4枚目(index0-3)が勝ちまたは相打ちである必要がある。
+            // followup(PUNCH+GUARD+PUNCH)・guardPunchUpper(GUARD+PUNCH+UPPER)は該当する3枚
+            // (index: start〜start+2)がすべて勝ちである必要がある。
+            // finisher(`FINISHER_PATTERNS`のいずれか、2026-09-26に3種追加)は1〜4枚目(index0-3)が
+            // 勝ちまたは相打ちである必要がある(=負けなければ良い)。
+            // 判定には`cursor.i`ではなく上で保持した`iAtStart`(resolveExchange呼び出し前のインデックス)を使う。
+            // `resolveExchange`はUPPER勝利+次カードがPUNCHの場合、空中コンボとして内部で`cursor.i`を
+            // 追加でインクリメントすることがあるため(3発目は自動でメテオに変換)、呼び出し後の`cursor.i`を
+            // そのまま使うと本来の「今回解決したカードの位置」とズレる場合がある。
+            // なお、guardPunchUpperの発動チェック自体(3枚目=UPPERの直後に追加打を出すかどうか)は、
+            // この位置ではなく`runUpperCombo`内で行っている(3枚目は常にUPPERのため、そちらでしか
+            // 「直後の手がPUNCHかどうか」を空中コンボ開始前に判定できないため。詳細は`runUpperCombo`を参照)。
             const res = state.lastExchangeResult;
             if (res) {
-                if (state.pComboType === 'followup' && cursor.i >= state.pComboStart && cursor.i <= state.pComboStart + 2 && res.P !== 'win') state.pComboAlive = false;
-                if (state.pComboType === 'finisher' && cursor.i <= 3 && res.P === 'lose') state.pComboAlive = false;
-                if (state.eComboType === 'followup' && cursor.i >= state.eComboStart && cursor.i <= state.eComboStart + 2 && res.E !== 'win') state.eComboAlive = false;
-                if (state.eComboType === 'finisher' && cursor.i <= 3 && res.E === 'lose') state.eComboAlive = false;
+                if (state.pComboType === 'followup' && iAtStart >= state.pComboStart && iAtStart <= state.pComboStart + 2 && res.P !== 'win') state.pComboAlive = false;
+                if (state.pComboType === 'guardPunchUpper' && iAtStart >= state.pComboStart && iAtStart <= state.pComboStart + 2 && res.P !== 'win') state.pComboAlive = false;
+                if (state.pComboType === 'finisher' && iAtStart <= 3 && res.P === 'lose') state.pComboAlive = false;
+                if (state.eComboType === 'followup' && iAtStart >= state.eComboStart && iAtStart <= state.eComboStart + 2 && res.E !== 'win') state.eComboAlive = false;
+                if (state.eComboType === 'guardPunchUpper' && iAtStart >= state.eComboStart && iAtStart <= state.eComboStart + 2 && res.E !== 'win') state.eComboAlive = false;
+                if (state.eComboType === 'finisher' && iAtStart <= 3 && res.E === 'lose') state.eComboAlive = false;
             }
             // PUNCH+GUARD+PUNCHの3枚目(start+2枚目)が成立した直後に追撃を発生させる
-            if (state.pComboType === 'followup' && cursor.i === state.pComboStart + 2 && state.pComboAlive) { await runFollowUpFlurry('P', 'E'); markSpecialUsed('followUp'); }
-            if (state.eComboType === 'followup' && cursor.i === state.eComboStart + 2 && state.eComboAlive) { await runFollowUpFlurry('E', 'P'); markSpecialUsed('followUp'); }
+            if (state.pComboType === 'followup' && iAtStart === state.pComboStart + 2 && state.pComboAlive) { await runFollowUpFlurry('P', 'E'); markSpecialUsed('followUp'); }
+            if (state.eComboType === 'followup' && iAtStart === state.eComboStart + 2 && state.eComboAlive) { await runFollowUpFlurry('E', 'P'); markSpecialUsed('followUp'); }
 
             // TRAINING MODEは練習場のためK.O./YOU WIN判定を行わない(ターン終了時にHPが全回復する)
             if (state.gameMode !== 'training' && (state.hpP <= 0 || state.hpE <= 0)) {
