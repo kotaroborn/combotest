@@ -416,26 +416,48 @@
             box-shadow: none !important;
             filter: brightness(0.32);
         }
-        /* 3すくみを無視して敗北したカード(空中コンボ継続・しびれ強制被弾): ヒビ割れ模様を表示する(透過はしない) */
+        /* 3すくみを無視して敗北したカード(空中コンボ継続・しびれ強制被弾): ヒビ割れて左右にわずかにずれる。
+           ピヨり(頭上のpiyo.PNG)の「割れて消える」演出と近い表現だが、カードは弾け飛んで消えてしまうと
+           何のカードだったか読み取れなくなるため、完全に分離させず、断面がずれて見える程度の小さな変位に留める
+           (2026-09-26変更。以前はヒビの線を重ねて表示するだけで、カード自体は動かなかった)。
+           実際のカード絵柄は`applyCardVisual`がインラインstyleの`background-image`に加えて
+           CSS変数`--card-img`にも同じ画像を設定しており、下の::before/::after(左右の破片)はそちらを参照して
+           同じ絵柄を複製する。`.slot`本体側の`background-image`は`!important`で無効化し、破片側にのみ描画させる。 */
         .slot.card-shatter {
             position: relative;
             animation: none !important;
             box-shadow: none !important;
+            background-image: none !important;
         }
+        .slot.card-shatter::before,
         .slot.card-shatter::after {
             content: '';
             position: absolute; inset: 0;
-            background:
-                linear-gradient(105deg, transparent 47%, #fff 49%, #fff 51%, transparent 53%),
-                linear-gradient(18deg, transparent 47%, #fff 49%, #fff 51%, transparent 53%),
-                linear-gradient(198deg, transparent 47%, #fff 49%, #fff 51%, transparent 53%);
-            opacity: 0;
-            animation: cardCrackIn 0.2s ease-out forwards;
+            background-image: var(--card-img, none);
+            background-size: cover;
+            background-position: center;
+            image-rendering: pixelated;
             pointer-events: none;
         }
-        @keyframes cardCrackIn {
-            0% { opacity: 0; }
-            100% { opacity: 0.9; }
+        .slot.card-shatter::before {
+            /* 左側の破片(斜めの断面で右側と噛み合う) */
+            clip-path: polygon(0 0, 58% 0, 42% 100%, 0 100%);
+            box-shadow: inset -3px 0 0 rgba(0,0,0,0.6);
+            animation: cardShatterLeft 0.3s ease-out forwards;
+        }
+        .slot.card-shatter::after {
+            /* 右側の破片 */
+            clip-path: polygon(58% 0, 100% 0, 100% 100%, 42% 100%);
+            box-shadow: inset 3px 0 0 rgba(0,0,0,0.6);
+            animation: cardShatterRight 0.3s ease-out forwards;
+        }
+        @keyframes cardShatterLeft {
+            0%   { transform: translate(0, 0) rotate(0deg); }
+            100% { transform: translate(-3px, 2px) rotate(-3deg); }
+        }
+        @keyframes cardShatterRight {
+            0%   { transform: translate(0, 0) rotate(0deg); }
+            100% { transform: translate(3px, 2px) rotate(3deg); }
         }
         .controls { display: flex; gap: 8px; align-items: stretch; }
         .fn-group { display:flex; gap:8px; flex:1; }  /* 第26条: 右に機能ボタン */
