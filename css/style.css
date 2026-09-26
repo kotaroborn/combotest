@@ -420,23 +420,31 @@
            ピヨり(頭上のpiyo.PNG)の「割れて消える」演出と近い表現だが、カードは弾け飛んで消えてしまうと
            何のカードだったか読み取れなくなるため、完全に分離させず、断面がずれて見える程度の小さな変位に留める
            (2026-09-26変更。以前はヒビの線を重ねて表示するだけで、カード自体は動かなかった)。
-           実際のカード絵柄は`applyCardVisual`がインラインstyleの`background-image`に加えて
-           CSS変数`--card-img`にも同じ画像を設定しており、下の::before/::after(左右の破片)はそちらを参照して
-           同じ絵柄を複製する。`.slot`本体側の`background-image`は`!important`で無効化し、破片側にのみ描画させる。 */
+           カード画像(card_P.PNG等)が用意されている場合は、`applyCardVisual`がインラインstyleの
+           `background-image`に加えてCSS変数`--card-img`にも同じ画像を設定しており、下の::before/::after
+           (左右の破片)はそちらを参照して同じ絵柄を複製する。カード画像が無く文字(P/U/G)表示にフォールバック
+           している場合は、代わりに`data-letter`属性(applyCardVisualが同じタイミングで設定)を`content: attr(...)`
+           で複製する(2026-09-26追記。当初は画像front提のみ対応しており、文字フォールバック時は破片側に何も
+           表示されず「無地のカードになる」不具合があったため、両対応にした)。
+           `.slot`本体側の`background-image`と文字色(color)はいずれも`!important`で無効化し、破片側にのみ
+           描画させる(本体の文字をtransparentにするのは、破片と重なって二重表示・幽霊のように見えるのを防ぐため)。 */
         .slot.card-shatter {
             position: relative;
             animation: none !important;
             box-shadow: none !important;
             background-image: none !important;
+            color: transparent !important;
         }
         .slot.card-shatter::before,
         .slot.card-shatter::after {
-            content: '';
+            content: attr(data-letter);
+            display: flex; align-items: center; justify-content: center;
             position: absolute; inset: 0;
             background-image: var(--card-img, none);
             background-size: cover;
             background-position: center;
             image-rendering: pixelated;
+            color: #fff; /* 文字フォールバック時のみ使う色。本体側のcolor:transparentを上書きする */
             pointer-events: none;
         }
         .slot.card-shatter::before {
