@@ -1196,11 +1196,15 @@ function applyCardVisual(el, type) {
     const fname = type ? CARD_IMG_MAP[type] : null;
     const img = fname ? imgs[fname] : null;
     if (img) {
-        const url = `url('assets/images/cards/${fname}')`;
-        el.style.backgroundImage = url;
+        const path = `assets/images/cards/${fname}`;
+        el.style.backgroundImage = `url('${path}')`;
         // CSS変数にも同じ画像を複製して持たせておく(card-shatter演出の::before/::afterが、
-        // 分裂した破片としてこの絵柄を複製表示する際に参照する。詳細はstyle.css側のコメントを参照)。
-        el.style.setProperty('--card-img', url);
+        // 分裂した破片としてこの絵柄を複製表示する際に参照する)。ここだけは相対パスではなく
+        // 絶対URL(new URLで解決)を使う必要がある: CSSのvar()内のurl()は「変数を設定した場所」ではなく
+        // 「var()を実際に使っている(参照している)スタイルシートの場所」を基準に解決されるため、
+        // css/style.css側で参照すると`css/assets/images/cards/...`という誤ったパスになり、画像が
+        // 読み込めず割れた破片が無地になってしまう(実機で発生・報告を受けて特定した不具合)。
+        el.style.setProperty('--card-img', `url('${new URL(path, document.baseURI).href}')`);
         el.innerText = '';
         el.removeAttribute('data-letter'); // 画像表示時は文字フォールバック用属性を残さない(card-shatter側は--card-imgを使う)
     } else {
