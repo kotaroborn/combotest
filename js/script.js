@@ -44,6 +44,12 @@ DB.POS.P_ATTACK_X = DB.POS.CENTER_X - DB.POS.ATTACK_HALF - DB.IMG_SIZE / 2;
 DB.POS.E_ATTACK_X = DB.POS.CENTER_X + DB.POS.ATTACK_HALF - DB.IMG_SIZE / 2;
 DB.POS.P_RETREAT_X = DB.POS.CENTER_X - DB.POS.RETREAT_HALF - DB.IMG_SIZE / 2;
 DB.POS.E_RETREAT_X = DB.POS.CENTER_X + DB.POS.RETREAT_HALF - DB.IMG_SIZE / 2;
+// しびれ(ピヨり)の1/2抽選を伴う攻防専用の間合い。RETREATとATTACKのちょうど中間(中心からの距離150)まで
+// しか踏み込まず、この位置でdashのまま一旦静止して「溜め」を作る(この後、画面が一瞬暗くなり、
+// 抽選結果が決まってから残りの距離を詰めてATTACK_Xまで踏み込む。第16条のピヨり側除外はそのまま適用される)。
+DB.POS.SUSPENSE_HALF = (DB.POS.ATTACK_HALF + DB.POS.RETREAT_HALF) / 2; // 150
+DB.POS.P_SUSPENSE_X = DB.POS.CENTER_X - DB.POS.SUSPENSE_HALF - DB.IMG_SIZE / 2;
+DB.POS.E_SUSPENSE_X = DB.POS.CENTER_X + DB.POS.SUSPENSE_HALF - DB.IMG_SIZE / 2;
 // 必殺技(GUARD+PUNCH+GUARD+PUNCH+PUNCH)で吹き飛ばす先の画面端座標
 DB.POS.EDGE_P_X = 10;
 DB.POS.EDGE_E_X = 960 - DB.IMG_SIZE - 10;
@@ -100,6 +106,7 @@ let state = {
     introCharAlpha: 1, // バトル開始演出: 味方のフェードイン係数(0〜1)
     introEnemyAlpha: 1, // バトル開始演出: 敵のフェードイン係数(0〜1)。ステージ固有の登場演出のため味方とは別に管理する
     screenFlashAlpha: 0, // 画面全体を白く明滅させる演出(5THステージの敵登場等で使用)
+    screenDarkAlpha: 0, // 画面全体を一瞬暗くする「溜め」演出(しびれの1/2抽選前、playNumbSuspensePauseで使用)
     screenShakeUntil: 0, // 画面全体を揺らす演出の終了時刻(performance.now()基準、メテオ着地等で使用)
     screenShakeMagnitude: 0, // 画面全体の揺れ幅(px)
     bgRevealRadius: 0, // バトル開始演出: 背景を中心から広げる円形クリップの半径(0で真っ暗)
@@ -2766,6 +2773,15 @@ function draw(tRaw) {
         ctx.fillRect(0, 0, cvs.width, cvs.height);
         ctx.restore();
     }
+    // 画面全体を一瞬暗くする「溜め」演出(しびれの1/2抽選前、playNumbSuspensePauseで使用)。白フラッシュとは
+    // 独立した別レイヤーで、両方が同時に有効になることは想定していないが、念のため重ねて描画できるようにしておく
+    if (state.screenDarkAlpha > 0) {
+        ctx.save();
+        ctx.globalAlpha = state.screenDarkAlpha;
+        ctx.fillStyle = '#000';
+        ctx.fillRect(0, 0, cvs.width, cvs.height);
+        ctx.restore();
+    }
 
     requestAnimationFrame(draw);
     ctx.restore(); // 画面揺れの変換を解除(次フレームのclearRectに影響しないようにする)
@@ -3165,6 +3181,7 @@ function resetBattleState() {
     state.introCharAlpha = 0; // 開始演出でふわっと表示するため、まずは透明から
     state.introEnemyAlpha = 0; // 敵も同様、まずは透明から(ステージ固有演出の場合は別タイミングで表示する)
     state.screenFlashAlpha = 0;
+    state.screenDarkAlpha = 0;
     state.bgRevealRadius = 0; // 背景も真っ暗な状態からスタート
     state.battleReady = false; // 開始演出が終わるまで操作不可
     state.resolving = false;
@@ -3588,6 +3605,26 @@ async function moveBothX(pTo, eTo, steps = 6, stepMs = 40) {
 }
 
 async function approachCenter() { await moveBothX(DB.POS.P_ATTACK_X, DB.POS.E_ATTACK_X); }
+
+// しびれ(ピヨり)の1/2抽選を伴う攻防専用: 通常のATTACK_Xまで踏み込みきらず、一段手前(SUSPENSE_X)で止まる。
+// ピヨり側はmoveBothX側の除外(第16条)でそのまま動かないため、実質的には攻撃側だけが動くことになる。
+async function approachSuspense() { await moveBothX(DB.POS.P_SUSPENSE_X, DB.POS.E_SUSPENSE_X, 5, 35); }
+
+// approachSuspenseで止まった位置から、残りの短い距離を素早く詰めてATTACK_Xまで踏み込む(抽選結果が出た後の最終接近)。
+async function approachCenterQuick() { await moveBothX(DB.POS.P_ATTACK_X, DB.POS.E_ATTACK_X, 3, 30); }
+
+// しびれの1/2抽選前、緊張感を出すための「溜め」演出。dashの構えのまま静止している間に、
+// 画面全体が三角波(0→ピーク→0)でふっと暗くなってすぐ元に戻る(合計200ms程度)。
+// 「まだ結果が決まっていない」間合いの静止と暗転を挟むことで、抽選という一呼吸を可視化する狙い。
+async function playNumbSuspensePause() {
+    const steps = 8, stepMs = 25, peak = 0.55;
+    for (let s = 1; s <= steps; s++) {
+        const t = s / steps;
+        state.screenDarkAlpha = t <= 0.5 ? (t / 0.5) * peak : (1 - (t - 0.5) / 0.5) * peak;
+        await wait(stepMs);
+    }
+    state.screenDarkAlpha = 0;
+}
 
 async function retreatSlightly() { await moveBothX(DB.POS.P_RETREAT_X, DB.POS.E_RETREAT_X, 4, 35); }
 
@@ -4150,18 +4187,30 @@ async function resolveExchange(pAct, eAct, cursor) {
     // ガード成功時は消費せず連続カウントを伸ばして格上げし、それ以外(PUNCH/UPPER勝利・負け・相討ち)の
     // 結果が決まった時点で、各処理関数(runNormalHit/runUpperCombo/resolveExchange内の相討ち処理)がconsumeCharge()を呼んで消費する。
 
+    // 必殺技(5枚目)が成立する攻防かどうかは、しびれ演出の分岐より前に判定しておく必要がある(成立時は
+    // 3すくみ・しびれ判定を行わずヒット確定で処理するため、しびれの1/2抽選専用の間合い・溜め演出も対象外とする)。
+    const pFinisherReadyPre = cursor.i === 4 && state.pComboType === 'finisher' && state.pComboAlive;
+    const eFinisherReadyPre = cursor.i === 4 && state.eComboType === 'finisher' && state.eComboAlive;
+    // しびれ(ピヨり)の1/2抽選を伴う攻防かどうか。伴う場合は通常の「中央まで一気に踏み込む」演出の代わりに、
+    // 一段手前で止まってdashの構えのまま静止し、画面が一瞬暗くなる「溜め」を挟んでから、残りの距離を詰める。
+    const numbJudgmentPending = (state.pNumbed || state.eNumbed) && !pFinisherReadyPre && !eFinisherReadyPre;
+
     // UPPER→GUARDの専用着地演出の直後は、既にその場でGUARDを実行する想定のため、
     // 通常の後退→接近ダッシュ往復をスキップする(間延びを防ぐ)。
     if (state.skipNextReposition) {
         state.skipNextReposition = false;
+    } else if (numbJudgmentPending) {
+        await approachSuspense(); // 一段手前で止まる(ピヨり側はmoveBothX側の除外でそのまま動かない)
+        await playNumbSuspensePause(); // dashのまま静止、画面が一瞬暗くなる
+        await approachCenterQuick(); // 抽選結果が決まる前に、残りの距離を素早く詰めて通常の間合いへ
     } else {
         await approachCenter(); // 第24条: 残像付きで中央へ踏み込む
     }
 
     // 必殺技(GUARD+PUNCH+GUARD+PUNCH+PUNCH、5枚目)の判定: 3すくみ・しびれ判定を行わずヒット確定で処理する
     if (cursor.i === 4) {
-        const pFinisherReady = state.pComboType === 'finisher' && state.pComboAlive;
-        const eFinisherReady = state.eComboType === 'finisher' && state.eComboAlive;
+        const pFinisherReady = pFinisherReadyPre;
+        const eFinisherReady = eFinisherReadyPre;
         if (pFinisherReady || eFinisherReady) {
             const attacker = pFinisherReady ? 'P' : 'E'; // 両者同時成立は理論上稀なケースのためPを優先する
             const defender = attacker === 'P' ? 'E' : 'P';
