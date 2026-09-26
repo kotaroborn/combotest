@@ -44,12 +44,6 @@ DB.POS.P_ATTACK_X = DB.POS.CENTER_X - DB.POS.ATTACK_HALF - DB.IMG_SIZE / 2;
 DB.POS.E_ATTACK_X = DB.POS.CENTER_X + DB.POS.ATTACK_HALF - DB.IMG_SIZE / 2;
 DB.POS.P_RETREAT_X = DB.POS.CENTER_X - DB.POS.RETREAT_HALF - DB.IMG_SIZE / 2;
 DB.POS.E_RETREAT_X = DB.POS.CENTER_X + DB.POS.RETREAT_HALF - DB.IMG_SIZE / 2;
-// しびれ(ピヨり)の1/2抽選を伴う攻防専用の間合い。RETREATとATTACKのちょうど中間(中心からの距離150)まで
-// しか踏み込まず、この位置でdashのまま一旦静止して抽選結果を確定させてから、残りの距離を素早く詰めて
-// ATTACK_Xまで踏み込む(第16条のピヨり側除外はそのまま適用される)。
-DB.POS.SUSPENSE_HALF = (DB.POS.ATTACK_HALF + DB.POS.RETREAT_HALF) / 2; // 150
-DB.POS.P_SUSPENSE_X = DB.POS.CENTER_X - DB.POS.SUSPENSE_HALF - DB.IMG_SIZE / 2;
-DB.POS.E_SUSPENSE_X = DB.POS.CENTER_X + DB.POS.SUSPENSE_HALF - DB.IMG_SIZE / 2;
 // 必殺技(GUARD+PUNCH+GUARD+PUNCH+PUNCH)で吹き飛ばす先の画面端座標
 DB.POS.EDGE_P_X = 10;
 DB.POS.EDGE_E_X = 960 - DB.IMG_SIZE - 10;
@@ -3595,17 +3589,6 @@ async function moveBothX(pTo, eTo, steps = 6, stepMs = 40) {
 
 async function approachCenter() { await moveBothX(DB.POS.P_ATTACK_X, DB.POS.E_ATTACK_X); }
 
-// しびれ(ピヨり)の1/2抽選を伴う攻防専用: 通常のATTACK_Xまで踏み込みきらず、一段手前(SUSPENSE_X)で止まる。
-// ピヨり側はmoveBothX側の除外(第16条)でそのまま動かないため、実質的には攻撃側だけが動くことになる。
-async function approachSuspense() { await moveBothX(DB.POS.P_SUSPENSE_X, DB.POS.E_SUSPENSE_X, 5, 35); }
-
-// approachSuspenseで止まった位置から、残りの短い距離を素早く詰めてATTACK_Xまで踏み込む。
-// 1/2抽選(numbFailChance)自体はこの関数を呼ぶ前、SUSPENSE_Xで離れたままの状態で確定させ、
-// 結果が決まった後にこの関数で踏み込む(2026-09-26: 判定を離れた位置で行うよう変更。以前は逆に、
-// 判定前にここまで踏み込んでいた)。以前はこの前に画面が一瞬暗くなる「溜め」演出(playNumbSuspensePause)を
-// 挟んでいたが、テンポを落とすという指摘を受けて廃止した(同日)。停止位置自体(SUSPENSE_X)はそのまま残している。
-async function approachCenterQuick() { await moveBothX(DB.POS.P_ATTACK_X, DB.POS.E_ATTACK_X, 3, 30); }
-
 async function retreatSlightly() { await moveBothX(DB.POS.P_RETREAT_X, DB.POS.E_RETREAT_X, 4, 35); }
 
 // 指定した片側だけを、現在位置から目標X座標までアニメーション付きで後退させる(相手側は動かさない)。
@@ -4036,10 +4019,10 @@ async function runNumbFail(numbedSide, cursor, pAct, eAct) {
     triggerBlink(loser, 1400);
     await wait(700);
 
-    // 点滅演出の間は攻撃側をSUSPENSE_Xの離れた間合いに留め、この演出が終わった直後、実際に攻撃が始まる
-    // 直前になって初めて通常の間合い(ATTACK_X)まで素早く詰める(攻撃側が相手のすぐ近くで無意味に待機して
-    // 見える時間を最小限にするため)。
-    await approachCenterQuick();
+    // 点滅演出の間は攻撃側を初期位置(RETREAT_X)に留め、この演出が終わった直後、実際に攻撃が始まる
+    // 直前になって初めて中央(ATTACK_X)まで一気に踏み込む(第24条: 残像付き。攻撃側が相手のすぐ近くで
+    // 無意味に待機して見える時間を無くすため)。
+    await approachCenter();
 
     // 相手の技の種類に応じた通常の勝敗処理へ(空中コンボならコンボも発生する)
     if (winnerMove === 'UPPER') {
@@ -4062,9 +4045,9 @@ async function runNumbEscape(numbedSide) {
     await wait(300);
     setAct(numbedSide, 'player.PNG'); // 通常ポーズへ戻る
     await wait(150);
-    // この一連の演出の間は攻撃側をSUSPENSE_Xの離れた間合いに留め、演出が終わり通常の3すくみ判定へ進む
-    // 直前になって初めて通常の間合い(ATTACK_X)まで素早く詰める(runNumbFail側の対応する処理と同じ理由)。
-    await approachCenterQuick();
+    // この一連の演出の間は攻撃側を初期位置(RETREAT_X)に留め、演出が終わり通常の3すくみ判定へ進む
+    // 直前になって初めて中央(ATTACK_X)まで一気に踏み込む(runNumbFail側の対応する処理と同じ理由)。
+    await approachCenter();
 }
 
 function markCardOutcome(side, idx, outcomeClass) {
@@ -4179,8 +4162,11 @@ async function resolveExchange(pAct, eAct, cursor) {
     // 3すくみ・しびれ判定を行わずヒット確定で処理するため、しびれの1/2抽選専用の間合い・溜め演出も対象外とする)。
     const pFinisherReadyPre = cursor.i === 4 && state.pComboType === 'finisher' && state.pComboAlive;
     const eFinisherReadyPre = cursor.i === 4 && state.eComboType === 'finisher' && state.eComboAlive;
-    // しびれ(ピヨり)の1/2抽選を伴う攻防かどうか。伴う場合は通常の「中央まで一気に踏み込む」演出の代わりに、
-    // 一段手前で止まってdashの構えのまま静止してから、残りの距離を素早く詰める2段階の踏み込みにする。
+    // しびれ(ピヨり)の1/2抽選を伴う攻防かどうか。伴う場合は、通常の「中央まで一気に踏み込む」演出はここでは行わない。
+    // 抽選(1/2の的中判定)自体を初期位置(後退位置、RETREAT_X)のまま、全く踏み込まずに確定させ、
+    // 結果が決まった後の演出がすべて終わってから、初めて中央(ATTACK_X)まで一気に踏み込む
+    // (2026-09-26: 少しでも踏み込んだ位置で判定しているのが不自然という指摘を受け、間に一段手前で
+    // 止まる中間地点(旧SUSPENSE_X)を挟む方式自体を廃止し、初期位置から全く動かさずに判定するよう変更)。
     const numbJudgmentPending = (state.pNumbed || state.eNumbed) && !pFinisherReadyPre && !eFinisherReadyPre;
 
     // UPPER→GUARDの専用着地演出の直後は、既にその場でGUARDを実行する想定のため、
@@ -4188,8 +4174,8 @@ async function resolveExchange(pAct, eAct, cursor) {
     if (state.skipNextReposition) {
         state.skipNextReposition = false;
     } else if (numbJudgmentPending) {
-        await approachSuspense(); // 一段手前(離れた間合い)で止まる(ピヨり側はmoveBothX側の除外でそのまま動かない)。
-        // 1/2抽選の結果が出るまではここで待機し、通常の間合いへは詰めない(詰めるのは判定確定後、下のしびれ判定ブロック内)。
+        // ここでは何もしない(初期位置=RETREAT_Xのまま動かさない)。中央への踏み込みは、抽選確定後の演出が
+        // すべて終わった直後、runNumbFail/runNumbEscape側でapproachCenter()を呼ぶ形で行う。
     } else {
         await approachCenter(); // 第24条: 残像付きで中央へ踏み込む
     }
@@ -4228,8 +4214,8 @@ async function resolveExchange(pAct, eAct, cursor) {
         } else if (guardSidePreset && guardSidePreset.numbFailMult) {
             numbFailChance = Math.min(1, 0.5 * guardSidePreset.numbFailMult);
         }
-        const numbFailed = Math.random() < numbFailChance; // 判定はまだ間合い(SUSPENSE_X)にいる段階で確定させる
-        // ここでは踏み込まない(通常の間合いへの接近=approachCenterQuickは、runNumbFail/runNumbEscape側で
+        const numbFailed = Math.random() < numbFailChance; // 判定は初期位置(RETREAT_X、全く踏み込んでいない)のまま確定させる
+        // ここでは踏み込まない(中央=ATTACK_Xへの接近は、runNumbFail/runNumbEscape側で
         // 点滅・シェイク等の「間」の演出を終えた直後、実際に攻撃が始まる/3すくみ判定へ進む直前まで遅らせる。
         // ここで先に詰めてしまうと、抽選後もしばらく攻撃側だけが相手のすぐ近くで待機して見えるため)。
         if (numbFailed) {
