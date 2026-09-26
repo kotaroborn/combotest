@@ -416,10 +416,15 @@
             box-shadow: none !important;
             filter: brightness(0.32);
         }
-        /* 3すくみを無視して敗北したカード(空中コンボ継続・しびれ強制被弾): ヒビ割れて左右にわずかにずれる。
+        /* 3すくみを無視して敗北したカード(空中コンボ継続・しびれ強制被弾): 縦ナナメにヒビ割れて上下にわずかにずれる。
            ピヨり(頭上のpiyo.PNG)の「割れて消える」演出と近い表現だが、カードは弾け飛んで消えてしまうと
            何のカードだったか読み取れなくなるため、完全に分離させず、断面がずれて見える程度の小さな変位に留める
            (2026-09-26変更。以前はヒビの線を重ねて表示するだけで、カード自体は動かなかった)。
+           断面の向き・ずれ方は2026-09-26に再調整した: 当初は左右の破片を水平方向に開きつつ回転させる
+           (果物を切り開くような)動きだったが、回転の軸が中心にあるため上端は大きく開き下端はあまり動かず
+           「下がつながっているように見える」との指摘を受けた。現在は、断面をほぼ縦(わずかにナナメ)の
+           一直線にし、回転・水平移動は行わず、左右の破片をそれぞれ上下逆方向にわずかに平行移動させるだけ
+           にしている(地層がずれるような、断層状の「縦ずれ」表現)。
            カード画像(card_P.PNG等)が用意されている場合は、`applyCardVisual`がインラインstyleの
            `background-image`に加えてCSS変数`--card-img`にも同じ画像を設定しており、下の::before/::after
            (左右の破片)はそちらを参照して同じ絵柄を複製する。カード画像が無く文字(P/U/G)表示にフォールバック
@@ -448,24 +453,24 @@
             pointer-events: none;
         }
         .slot.card-shatter::before {
-            /* 左側の破片(斜めの断面で右側と噛み合う) */
-            clip-path: polygon(0 0, 58% 0, 42% 100%, 0 100%);
+            /* 左側の破片(縦にほぼ一直線、わずかにナナメの断面で右側と噛み合う) */
+            clip-path: polygon(0 0, 52% 0, 48% 100%, 0 100%);
             box-shadow: inset -3px 0 0 rgba(0,0,0,0.6);
             animation: cardShatterLeft 0.3s ease-out forwards;
         }
         .slot.card-shatter::after {
             /* 右側の破片 */
-            clip-path: polygon(58% 0, 100% 0, 100% 100%, 42% 100%);
+            clip-path: polygon(52% 0, 100% 0, 100% 100%, 48% 100%);
             box-shadow: inset 3px 0 0 rgba(0,0,0,0.6);
             animation: cardShatterRight 0.3s ease-out forwards;
         }
         @keyframes cardShatterLeft {
-            0%   { transform: translate(0, 0) rotate(0deg); }
-            100% { transform: translate(-3px, 2px) rotate(-3deg); }
+            0%   { transform: translateY(0); }
+            100% { transform: translateY(-3px); } /* 左の破片は上へずれる */
         }
         @keyframes cardShatterRight {
-            0%   { transform: translate(0, 0) rotate(0deg); }
-            100% { transform: translate(3px, 2px) rotate(3deg); }
+            0%   { transform: translateY(0); }
+            100% { transform: translateY(3px); } /* 右の破片は下へずれる(左と逆方向。断層のような縦ずれに見せる) */
         }
         .controls { display: flex; gap: 8px; align-items: stretch; }
         .fn-group { display:flex; gap:8px; flex:1; }  /* 第26条: 右に機能ボタン */
