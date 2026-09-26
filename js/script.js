@@ -4014,10 +4014,18 @@ async function runNumbFail(numbedSide, cursor, pAct, eAct) {
     const loser = numbedSide;
     const winnerMove = winner === 'P' ? pAct : eAct;
 
-    // ピヨりは前の攻防(GUARDにブロックされた瞬間)から継続表示中。ここでは点滅を強めて「発動」を演出するだけに留める
+    // ピヨりは前の攻防(GUARDにブロックされた瞬間)から継続表示中。ここで判定が確定し、もう無防備な
+    // (ピヨり)状態ではなくなった合図として、頭上のpiyoをrunNumbEscape側と同じ「割れて消える」演出
+    // (state.piyoBreakUntilをdraw()が見て縮小+フェードアウトさせる)に切り替える。
+    // ただの消失(setAct+stopPiyoのみ)ではなく、ここでも割れる演出を挟むようにした(2026-09-26)。
     setAct(loser, 'damage.PNG');
     triggerBlink(loser, 1400);
-    await wait(700);
+    state.piyoBreakUntil = performance.now() + 300; // 300msかけて割れて消える
+    await wait(300);
+    // 割れる演出はpiyoBreakUntilの時刻を過ぎるとdraw()側で通常表示に戻ってしまうため、
+    // 完全にフェードし終わったこのタイミングでstopPiyo()を呼び、再表示されないよう確定させる。
+    stopPiyo();
+    await wait(400); // 点滅演出の残り時間(割れる演出と合わせて合計700ms)
 
     // 点滅演出の間は攻撃側を初期位置(RETREAT_X)に留め、この演出が終わった直後、実際に攻撃が始まる
     // 直前になって初めて中央(ATTACK_X)まで一気に踏み込む(第24条: 残像付き。攻撃側が相手のすぐ近くで
@@ -4200,8 +4208,8 @@ async function resolveExchange(pAct, eAct, cursor) {
     // 0.5に乗算してこの確率を調整する(例: Galdは1.25倍→0.625、ガードで転ばせる力が強い、という個性)。
     // 逆に、しびれさせられた側が敵(numbedSide==='E')で、その敵がnumbVulnerableMultを持っていれば、そちらを優先する
     // (1より大きければしびれに弱い=Jack、1より小さければしびれに強い=Alv、という個性を表現できる)。
-    // ダメージを受ける(無条件敗北)場合はピヨったまま(stopPiyoを呼ばない)、runNumbFailの一連の演出後に解除する。
-    // ダメージを受けずに済んだ場合は、runNumbEscapeでピヨりが割れて解ける演出を挟んでから、通常の3すくみ判定へ進む。
+    // ダメージを受ける(無条件敗北)場合は、runNumbFail内で点滅演出とあわせてピヨりが割れて解ける演出を行い、解除する。
+    // ダメージを受けずに済んだ場合は、runNumbEscapeで同様にピヨりが割れて解ける演出を挟んでから、通常の3すくみ判定へ進む。
     if (state.pNumbed || state.eNumbed) {
         const numbedSide = state.pNumbed ? 'P' : 'E';
         const guardSide = numbedSide === 'P' ? 'E' : 'P';
@@ -4224,8 +4232,7 @@ async function resolveExchange(pAct, eAct, cursor) {
             consumeUpperCharge(numbedSide); // UPPER+GUARD+UPPER用のチャージも同様に消費する
             if (numbedSide === 'P') state.pLastWinWasUpper = false; else state.eLastWinWasUpper = false; // 無条件敗北なのでUPPER勝利ではない
             state.lastExchangeResult = numbedSide === 'P' ? { P: 'lose', E: 'win' } : { P: 'win', E: 'lose' };
-            await runNumbFail(numbedSide, cursor, pAct, eAct);
-            stopPiyo(); // ダメージを受ける一連の演出が終わった後にピヨりを解除する
+            await runNumbFail(numbedSide, cursor, pAct, eAct); // ピヨりの解除(割れて消える演出)はrunNumbFail内で行う
             return;
         }
         await runNumbEscape(numbedSide); // ダメージを受けずに済んだので、割れて解ける演出を挟んでから通常判定へ
