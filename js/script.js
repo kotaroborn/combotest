@@ -4145,12 +4145,22 @@ async function runNumbEscape(numbedSide) {
 
 function markCardOutcome(side, idx, outcomeClass) {
     const arr = side === 'P' ? cardOutcomes.P : cardOutcomes.E;
-    arr[idx] = outcomeClass || null; // ターンが終わるまで保持する
+    arr[idx] = outcomeClass || null; // ターンが終わるまで保持する(以後updateUI/drawEnemySlotsの再描画でこの文字列がそのままクラス名として使われる)
     const container = document.getElementById(side === 'P' ? 'slots' : 'enemySlots');
     const el = container.children[idx];
     if (!el) return;
-    el.classList.remove('card-lose', 'card-shatter');
-    if (outcomeClass) el.classList.add(outcomeClass);
+    el.classList.remove('card-lose', 'card-shatter', 'card-shatter-flash');
+    if (outcomeClass) {
+        el.classList.add(outcomeClass);
+        // card-shatterが割れる瞬間(今まさにmarkCardOutcomeが呼ばれた、この一回だけ)にのみ、
+        // 割れるアニメーション(css側のcardShatterLeft/Right)を再生させるための一時的なクラス。
+        // cardOutcomes配列(=updateUI/drawEnemySlotsが再描画時に付与するクラス文字列そのもの)には含めないため、
+        // このカードが既に割れている状態のまま手札全体が再描画(他のカードの決着やハイライト移動のたびに
+        // #slots/#enemySlotsはinnerHTMLごと作り直される)されても、新しく作られる要素にはこのクラスが付かず、
+        // 割れるアニメーションが再生されない(以前は無条件でcard-shatterクラスにアニメーションを持たせていたため、
+        // 既に割れたカードや他のカードが割れるたびに何度も割れ直すように見える不具合があった)。
+        if (outcomeClass === 'card-shatter') el.classList.add('card-shatter-flash');
+    }
 }
 
 // このターンの手札から特殊コンボの種類を判定する。
