@@ -22,7 +22,7 @@ const DB = {
         RETREAT_HALF: 200,  // 攻防のあと軽く距離を取る位置（ホームまでは戻らない）
         GROUND_MARGIN_PX: 3 // 地面バンドの高さ(ソースpx換算。キャラ下部3px想定)
     },
-    DMG: { P: 10, U: 7, M: 35, CLASH: 3, TINY: 1, P_COMBO_STEP: 5, FINISHER: 50 }, // P:パンチ勝利 / U:アッパー初撃(2026-09-20、初見のプレイヤーがコンボを知らずに単発で出した時に弱く見えすぎる問題を受け、5→7に引き上げ。コンボ・メテオ側の追撃ダメージ(P_COMBO_STEP等)には触れていないため、メテオまで通した場合の合計は65→67に微増するのみ) / M:メテオ(初撃7+追撃10+追撃15+メテオ35=合計67) / CLASH:相討ち微ダメージ / TINY:ガードされたパンチの反撃 / P_COMBO_STEP:空中パンチ連続ヒットの増加量 / FINISHER:GUARD+PUNCH+GUARD+PUNCH+PUNCH成立時の必殺技(チャージ等の影響を受けない固定値)
+    DMG: { P: 10, U: 7, M: 35, CLASH: 3, TINY: 1, P_COMBO_STEP: 5, FINISHER: 50, WALL_LAUNCH_BONUS: 2, WALL_IMPACT: 3 }, // P:パンチ勝利 / U:アッパー初撃(2026-09-20、初見のプレイヤーがコンボを知らずに単発で出した時に弱く見えすぎる問題を受け、5→7に引き上げ。コンボ・メテオ側の追撃ダメージ(P_COMBO_STEP等)には触れていないため、メテオまで通した場合の合計は65→67に微増するのみ) / M:メテオ(初撃7+追撃10+追撃15+メテオ35=合計67) / CLASH:相討ち微ダメージ / TINY:ガードされたパンチの反撃 / P_COMBO_STEP:空中パンチ連続ヒットの増加量 / FINISHER:GUARD+PUNCH+GUARD+PUNCH+PUNCH成立時の必殺技(チャージ等の影響を受けない固定値) / WALL_LAUNCH_BONUS・WALL_IMPACT:壁に叩きつける技(必殺技の壁激突・GUARD+PUNCH+UPPERの壁のめり込み)専用(2026-09-26追加)。「壁まで飛ばす力が強いので初撃に微量ダメージ増加、壁に当たること自体にも別枠のダメージ」という要望を受けたもの。WALL_LAUNCH_BONUSは初撃(パンチ/必殺技)のダメージに上乗せする微量ボーナス(他の倍率と一緒に乗算される)。WALL_IMPACTは壁に当たった瞬間の固定ダメージで、TINY/CLASHと同様チャージ・敵の個性(atkMult/defMult)いずれの倍率も適用しない(壁への激突という物理的な衝撃そのもののダメージのため)
     MAX_AIR_PUNCH: 3,
     BREATH_MS: 500, // player.PNG / player2.PNG の呼吸切替間隔
     DECK_TOTAL: 21, // デッキ合計枚数(内訳は編成画面で自由配分)
@@ -2254,25 +2254,39 @@ async function playFinisherBuildup(attacker) {
     finisherFlashSide = null;
 }
 
-// GUARD+PUNCH+UPPER(簡易な追加打)の空中コンボ統合分岐(4枚目がPUNCHの場合)専用の演出(2026-09-26追加)。
+// 追撃・追加打系の技の命中を強調する簡易な白い発光(2026-09-26追加)。
+// 当初はGUARD+PUNCH+UPPER(簡易な追加打)の空中コンボ統合分岐(4枚目がPUNCHの場合)専用として追加した。
 // この追加打は、通常の空中コンボ1発目と全く同じ見た目・ダメージで処理されるため、続く本来の4枚目(PUNCH、
-// 空中コンボ2発目)と並ぶと「どちらが技で増えた1発なのか分かりづらい」との指摘を受けて対応した。
+// 空中コンボ2発目)と並ぶと「どちらが技で増えた1発なのか分かりづらい」との指摘を受けて対応したもの。
+// その後、「追撃となる攻撃の場合は、全てこの白発光にしてみよう」との要望を受け、PUNCH+GUARD+PUNCH(追撃)の
+// 3連打(`runFollowUpFlurry`)にも同様に適用するようになったため、汎用の名前に変更した。
 // playFinisherBuildupの発光部分(finisherFlashSide/finisherFlashAlpha)のみを流用し、暗転は伴わない簡易な
 // 白い発光を攻撃側キャラにパッと出す。呼び出し側ではawaitせず(ヒットストップの間合いと並行して進む)、
 // 打撃絵を出した瞬間(Beat1)から発光を開始し、振動が始まる頃(Beat3)には消え始めるようにしている。
-async function flashAttackerWhiteForBonusPunch(attacker) {
+// PUNCH+GUARD+PUNCH(追撃)の3連打のように、1サイクル(約270ms)より短い間隔(約120ms)で連続してこの関数が
+// 呼ばれる場合があるため、世代トークン(flashWhiteToken)で「自分より後に開始した呼び出しがあれば、そちらに
+// 譲って以降のグローバル状態の書き換えを行わない」という仕組みを入れている。これが無いと、古い呼び出しの
+// 消灯処理が新しい呼び出しの立ち上げ中の値を上書きしてしまい、発光がちらついたり途中で消えたりする不具合が
+// 起きる(実際にPlaywrightのトレースで発生を確認して対応した)。
+let flashWhiteToken = 0;
+async function flashAttackerWhite(attacker) {
+    const myToken = ++flashWhiteToken;
     finisherFlashSide = attacker;
     const inSteps = 4, inStepMs = 15; // パッと立ち上がる(約60ms)
     for (let s = 1; s <= inSteps; s++) {
+        if (myToken !== flashWhiteToken) return; // 後続の呼び出しに追い越された場合は何もしない
         finisherFlashAlpha = s / inSteps;
         await wait(inStepMs);
     }
+    if (myToken !== flashWhiteToken) return;
     await wait(120); // 発光を保つ(ヒットストップの静止と重なる間)
     const outSteps = 6, outStepMs = 15; // 消えていく(約90ms)
     for (let s = 1; s <= outSteps; s++) {
+        if (myToken !== flashWhiteToken) return;
         finisherFlashAlpha = 1 - s / outSteps;
         await wait(outStepMs);
     }
+    if (myToken !== flashWhiteToken) return;
     finisherFlashAlpha = 0;
     finisherFlashSide = null;
 }
@@ -3928,6 +3942,7 @@ async function runUpperCombo(attacker, defender, cursor) {
 
     if (isSuperUpper) await playFinisherBuildup(attacker); // スーパーアッパー(ダメージ2倍)成立時のみ、暗転→一時停止→発光の演出を挟む
     setAct(attacker, 'upper.PNG'); // Beat1: 攻撃絵
+    if (isSuperUpper) flashAttackerWhite(attacker); // awaitしない(命中の瞬間にもう一度白く発光させる。playFinisherBuildupの発光は命中前の演出のため別枠)
     if (isSuperUpper) await wait(DB.HITSTOP.POSE_MS); // スーパーアッパーのみヒットストップを挟む(通常のUPPERは従来通り)
     setAct(defender, 'damage.PNG'); // Beat2: ダメージ絵(命中の瞬間)
     applyDamage(defender, DB.DMG.U * chargeMultOf(attacker) * (isSuperUpper ? 2 : 1) * atkMultOf(attacker, 'UPPER') * defMultOf(defender, 'UPPER'));
@@ -3987,7 +4002,7 @@ async function runUpperCombo(attacker, defender, cursor) {
             hitComboSuccess(attacker);
             await flashDashBetweenPunches(attacker);
             setAct(attacker, nextPunchSprite(attacker)); // Beat1: 攻撃絵
-            flashAttackerWhiteForBonusPunch(attacker); // awaitしない(この追加打だけキャラを白く発光させ、続く本来の4枚目と見分けやすくする)
+            flashAttackerWhite(attacker); // awaitしない(この追加打だけキャラを白く発光させ、続く本来の4枚目と見分けやすくする)
             await wait(DB.HITSTOP.POSE_MS); // ヒットストップ(この技はGUARD+PUNCH+UPPER成立時のみ発生するため常に挟む)
             applyDamage(defender, DB.DMG.P * chargeMultOf(attacker) * atkMultOf(attacker) * defMultOf(defender)); // Beat2: ダメージ絵(命中の瞬間、被弾側は既にdamage.PNGのまま)
             playSE('se_punch');
@@ -4293,6 +4308,7 @@ async function runFollowUpFlurry(attacker, defender) {
         hitComboSuccess(attacker); // 追撃は3連打それぞれをCOMBOとして数える
         if (i >= 1) await flashDashBetweenPunches(attacker); // 2発目以降のみ、パンチ同士の切り替えなのでdashを挟む
         setAct(attacker, nextPunchSprite(attacker)); // 第21条。Beat1: 攻撃絵
+        flashAttackerWhite(attacker); // awaitしない(追撃は3連打すべてに白い発光を入れる)
         // ヒットストップは1発目にのみ挟む(2・3発目まで挟むと3連打の「素早い連打」感が失われるため)。
         if (i === 0) await wait(DB.HITSTOP.POSE_MS);
         setAct(defender, 'damage.PNG'); // Beat2: ダメージ絵(命中の瞬間)
@@ -4319,8 +4335,10 @@ async function runGuardPunchUpperWallStrike(attacker, defender) {
     hitComboSuccess(attacker);
     hitComboBreak(defender);
     setAct(attacker, nextPunchSprite(attacker)); // 第21条。Beat1: 攻撃絵
+    const wallStrikeMult = atkMultOf(attacker) * defMultOf(defender);
+    if (wallStrikeMult !== 1) flashAttackerWhite(attacker); // awaitしない(敵の個性(atkMult/defMult)でダメージが通常と異なる場合のみ光らせる)
     await wait(DB.HITSTOP.POSE_MS); // ヒットストップ(被弾側は既にUPPERでdamage.PNGのまま浮いている)
-    applyDamage(defender, DB.DMG.P * atkMultOf(attacker) * defMultOf(defender)); // Beat2: ダメージ絵(命中の瞬間)
+    applyDamage(defender, (DB.DMG.P + DB.DMG.WALL_LAUNCH_BONUS) * wallStrikeMult); // Beat2: ダメージ絵(命中の瞬間。壁まで飛ばす力が強いので通常のパンチより微量ダメージ増加)
     playSE('se_punch');
     spawnHitEffect(attacker, 'PUNCH', 1);
     await wait(DB.HITSTOP.IMPACT_MS);
@@ -4340,6 +4358,7 @@ async function runGuardPunchUpperWallStrike(attacker, defender) {
     setX(defender, finalX);
     const wallX = defender === 'P' ? edgeX : edgeX + DB.IMG_SIZE;
     spawnHitEffect(defender, 'WALL', 1, wallX, getY(defender) + DB.IMG_SIZE / 2);
+    applyDamage(defender, DB.DMG.WALL_IMPACT); // 壁に当たること自体の固定ダメージ(倍率は適用しない)
     triggerBlink(defender, 400);
     triggerShake(defender, 250);
     playSE('se_kabe');
@@ -4363,10 +4382,11 @@ async function runFinisher(attacker, defender, cursor) {
     hitComboBreak(defender);
     await playFinisherBuildup(attacker); // 暗転→一時停止→攻撃側が白く発光→晴れる、のフィニッシュ演出
     setAct(attacker, nextPunchSprite(attacker)); // 第21条。Beat1: 攻撃絵
+    flashAttackerWhite(attacker); // awaitしない(命中の瞬間にもう一度白く発光させる。playFinisherBuildupの発光は命中前の演出のため別枠)
     await wait(DB.HITSTOP.POSE_MS); // ヒットストップ
     setAct(defender, 'damage.PNG'); // Beat2: ダメージ絵(命中の瞬間)
     markCardOutcome(defender, cursor.i, 'card-shatter'); // 3すくみ無視のヒットなのでヒビ割れ表現にする
-    applyDamage(defender, DB.DMG.FINISHER * atkMultOf(attacker) * defMultOf(defender));
+    applyDamage(defender, (DB.DMG.FINISHER + DB.DMG.WALL_LAUNCH_BONUS) * atkMultOf(attacker) * defMultOf(defender)); // 壁まで飛ばす力が強いので通常の必殺技より微量ダメージ増加
     playSE('se_finisher'); // 未配置ならse_punchで代用される
     spawnHitEffect(attacker, 'PUNCH', 3); // 必殺技の一撃として、最も迫力のある段階(3)の見た目を使う
     await wait(DB.HITSTOP.IMPACT_MS);
@@ -4393,6 +4413,7 @@ async function runFinisher(attacker, defender, cursor) {
     // 壁の破裂エフェクト自体は実際の画面端(edgeX基準、上記のめり込み分は含めない)の位置に表示する。
     const wallX = defender === 'P' ? edgeX : edgeX + DB.IMG_SIZE;
     spawnHitEffect(defender, 'WALL', 1, wallX, getY(defender) + DB.IMG_SIZE / 2); // 壁(画面端)から飛び出してから落下するエフェクト
+    applyDamage(defender, DB.DMG.WALL_IMPACT); // 壁に当たること自体の固定ダメージ(倍率は適用しない)
 
     // 端にぶつかって点滅
     triggerBlink(defender, 500);
