@@ -1202,10 +1202,16 @@ function applyCardVisual(el, type) {
         // 分裂した破片としてこの絵柄を複製表示する際に参照する。詳細はstyle.css側のコメントを参照)。
         el.style.setProperty('--card-img', url);
         el.innerText = '';
+        el.removeAttribute('data-letter'); // 画像表示時は文字フォールバック用属性を残さない(card-shatter側は--card-imgを使う)
     } else {
         el.style.backgroundImage = 'none';
         el.style.removeProperty('--card-img');
-        el.innerText = type ? type[0] : '';
+        const letter = type ? type[0] : '';
+        el.innerText = letter;
+        // card-shatter演出の::before/::afterが`content: attr(data-letter)`でこの文字を複製表示するために必要
+        // (カード画像が用意されておらず文字表示にフォールバックしている場合、--card-imgが無いため画像複製ができず、
+        // 以前はここが空のままで「無地のカードになる」不具合があった。詳細はstyle.css側のコメントを参照)。
+        if (letter) el.setAttribute('data-letter', letter); else el.removeAttribute('data-letter');
     }
 }
 
