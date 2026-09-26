@@ -4036,6 +4036,11 @@ async function runNumbFail(numbedSide, cursor, pAct, eAct) {
     triggerBlink(loser, 1400);
     await wait(700);
 
+    // 点滅演出の間は攻撃側をSUSPENSE_Xの離れた間合いに留め、この演出が終わった直後、実際に攻撃が始まる
+    // 直前になって初めて通常の間合い(ATTACK_X)まで素早く詰める(攻撃側が相手のすぐ近くで無意味に待機して
+    // 見える時間を最小限にするため)。
+    await approachCenterQuick();
+
     // 相手の技の種類に応じた通常の勝敗処理へ(空中コンボならコンボも発生する)
     if (winnerMove === 'UPPER') {
         await runUpperCombo(winner, loser, cursor);
@@ -4057,6 +4062,9 @@ async function runNumbEscape(numbedSide) {
     await wait(300);
     setAct(numbedSide, 'player.PNG'); // 通常ポーズへ戻る
     await wait(150);
+    // この一連の演出の間は攻撃側をSUSPENSE_Xの離れた間合いに留め、演出が終わり通常の3すくみ判定へ進む
+    // 直前になって初めて通常の間合い(ATTACK_X)まで素早く詰める(runNumbFail側の対応する処理と同じ理由)。
+    await approachCenterQuick();
 }
 
 function markCardOutcome(side, idx, outcomeClass) {
@@ -4221,9 +4229,9 @@ async function resolveExchange(pAct, eAct, cursor) {
             numbFailChance = Math.min(1, 0.5 * guardSidePreset.numbFailMult);
         }
         const numbFailed = Math.random() < numbFailChance; // 判定はまだ間合い(SUSPENSE_X)にいる段階で確定させる
-        // 抽選結果が決まった後で、初めて残りの距離を素早く詰めて通常の間合い(ATTACK_X)まで踏み込む。
-        // これにより、打つ側が離れた位置で「判定」し、結果が決まってから踏み込む、という順序になる。
-        await approachCenterQuick();
+        // ここでは踏み込まない(通常の間合いへの接近=approachCenterQuickは、runNumbFail/runNumbEscape側で
+        // 点滅・シェイク等の「間」の演出を終えた直後、実際に攻撃が始まる/3すくみ判定へ進む直前まで遅らせる。
+        // ここで先に詰めてしまうと、抽選後もしばらく攻撃側だけが相手のすぐ近くで待機して見えるため)。
         if (numbFailed) {
             markCardOutcome(numbedSide, cursor.i, 'card-shatter'); // 3すくみ無視の敗北: ヒビ割れる
             consumeCharge(numbedSide); // しびれで無条件敗北する側のチャージも、次のカードとして消費される
