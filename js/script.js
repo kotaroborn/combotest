@@ -45,7 +45,7 @@ DB.POS.E_ATTACK_X = DB.POS.CENTER_X + DB.POS.ATTACK_HALF - DB.IMG_SIZE / 2;
 DB.POS.P_RETREAT_X = DB.POS.CENTER_X - DB.POS.RETREAT_HALF - DB.IMG_SIZE / 2;
 DB.POS.E_RETREAT_X = DB.POS.CENTER_X + DB.POS.RETREAT_HALF - DB.IMG_SIZE / 2;
 // しびれ(ピヨり)の1/2抽選を伴う攻防専用の間合い。RETREATとATTACKのちょうど中間(中心からの距離150)まで
-// しか踏み込まず、この位置でdashのまま一旦静止してから、抽選結果が決まる前に残りの距離を素早く詰めて
+// しか踏み込まず、この位置でdashのまま一旦静止して抽選結果を確定させてから、残りの距離を素早く詰めて
 // ATTACK_Xまで踏み込む(第16条のピヨり側除外はそのまま適用される)。
 DB.POS.SUSPENSE_HALF = (DB.POS.ATTACK_HALF + DB.POS.RETREAT_HALF) / 2; // 150
 DB.POS.P_SUSPENSE_X = DB.POS.CENTER_X - DB.POS.SUSPENSE_HALF - DB.IMG_SIZE / 2;
@@ -3599,9 +3599,11 @@ async function approachCenter() { await moveBothX(DB.POS.P_ATTACK_X, DB.POS.E_AT
 // ピヨり側はmoveBothX側の除外(第16条)でそのまま動かないため、実質的には攻撃側だけが動くことになる。
 async function approachSuspense() { await moveBothX(DB.POS.P_SUSPENSE_X, DB.POS.E_SUSPENSE_X, 5, 35); }
 
-// approachSuspenseで止まった位置から、残りの短い距離を素早く詰めてATTACK_Xまで踏み込む(抽選結果が出る前の最終接近)。
-// 以前はこの前に画面が一瞬暗くなる「溜め」演出(playNumbSuspensePause)を挟んでいたが、テンポを落とすという
-// 指摘を受けて廃止した(2026-09-26)。停止位置自体(SUSPENSE_X)はそのまま残し、暗転だけを取り除いている。
+// approachSuspenseで止まった位置から、残りの短い距離を素早く詰めてATTACK_Xまで踏み込む。
+// 1/2抽選(numbFailChance)自体はこの関数を呼ぶ前、SUSPENSE_Xで離れたままの状態で確定させ、
+// 結果が決まった後にこの関数で踏み込む(2026-09-26: 判定を離れた位置で行うよう変更。以前は逆に、
+// 判定前にここまで踏み込んでいた)。以前はこの前に画面が一瞬暗くなる「溜め」演出(playNumbSuspensePause)を
+// 挟んでいたが、テンポを落とすという指摘を受けて廃止した(同日)。停止位置自体(SUSPENSE_X)はそのまま残している。
 async function approachCenterQuick() { await moveBothX(DB.POS.P_ATTACK_X, DB.POS.E_ATTACK_X, 3, 30); }
 
 async function retreatSlightly() { await moveBothX(DB.POS.P_RETREAT_X, DB.POS.E_RETREAT_X, 4, 35); }
@@ -4178,8 +4180,8 @@ async function resolveExchange(pAct, eAct, cursor) {
     if (state.skipNextReposition) {
         state.skipNextReposition = false;
     } else if (numbJudgmentPending) {
-        await approachSuspense(); // 一段手前で止まる(ピヨり側はmoveBothX側の除外でそのまま動かない)
-        await approachCenterQuick(); // 抽選結果が決まる前に、残りの距離を素早く詰めて通常の間合いへ
+        await approachSuspense(); // 一段手前(離れた間合い)で止まる(ピヨり側はmoveBothX側の除外でそのまま動かない)。
+        // 1/2抽選の結果が出るまではここで待機し、通常の間合いへは詰めない(詰めるのは判定確定後、下のしびれ判定ブロック内)。
     } else {
         await approachCenter(); // 第24条: 残像付きで中央へ踏み込む
     }
@@ -4218,7 +4220,11 @@ async function resolveExchange(pAct, eAct, cursor) {
         } else if (guardSidePreset && guardSidePreset.numbFailMult) {
             numbFailChance = Math.min(1, 0.5 * guardSidePreset.numbFailMult);
         }
-        if (Math.random() < numbFailChance) {
+        const numbFailed = Math.random() < numbFailChance; // 判定はまだ間合い(SUSPENSE_X)にいる段階で確定させる
+        // 抽選結果が決まった後で、初めて残りの距離を素早く詰めて通常の間合い(ATTACK_X)まで踏み込む。
+        // これにより、打つ側が離れた位置で「判定」し、結果が決まってから踏み込む、という順序になる。
+        await approachCenterQuick();
+        if (numbFailed) {
             markCardOutcome(numbedSide, cursor.i, 'card-shatter'); // 3すくみ無視の敗北: ヒビ割れる
             consumeCharge(numbedSide); // しびれで無条件敗北する側のチャージも、次のカードとして消費される
             consumeUpperCharge(numbedSide); // UPPER+GUARD+UPPER用のチャージも同様に消費する
