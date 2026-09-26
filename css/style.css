@@ -420,11 +420,13 @@
            ピヨり(頭上のpiyo.PNG)の「割れて消える」演出と近い表現だが、カードは弾け飛んで消えてしまうと
            何のカードだったか読み取れなくなるため、完全に分離させず、断面がずれて見える程度の小さな変位に留める
            (2026-09-26変更。以前はヒビの線を重ねて表示するだけで、カード自体は動かなかった)。
-           断面の向き・ずれ方は2026-09-26に再調整した: 当初は左右の破片を水平方向に開きつつ回転させる
+           断面の向き・ずれ方は2026-09-26に二度再調整した。当初は左右の破片を水平方向に開きつつ回転させる
            (果物を切り開くような)動きだったが、回転の軸が中心にあるため上端は大きく開き下端はあまり動かず
-           「下がつながっているように見える」との指摘を受けた。現在は、断面をほぼ縦(わずかにナナメ)の
-           一直線にし、回転・水平移動は行わず、左右の破片をそれぞれ上下逆方向にわずかに平行移動させるだけ
-           にしている(地層がずれるような、断層状の「縦ずれ」表現)。
+           「下がつながっているように見える」との指摘を受け、回転・水平移動をやめ、左右の破片を上下逆方向へ
+           平行移動させるだけの「断層のような縦ずれ」に変更した。その際に断面のクリップも上下差4ポイント
+           (52%/48%)というほぼ真っ直ぐな縦線にしていたが、「縦一直線ではなくナナメに切って欲しい」との
+           指摘を受け、上下差20ポイント(60%/40%)の、はっきりナナメと分かる断面に戻した(動き自体=上下の
+           平行移動のみで回転・水平移動をしない点は変更していない)。
            カード画像(card_P.PNG等)が用意されている場合は、`applyCardVisual`がインラインstyleの
            `background-image`に加えてCSS変数`--card-img`にも同じ画像を設定しており、下の::before/::after
            (左右の破片)はそちらを参照して同じ絵柄を複製する。カード画像が無く文字(P/U/G)表示にフォールバック
@@ -432,7 +434,19 @@
            で複製する(2026-09-26追記。当初は画像front提のみ対応しており、文字フォールバック時は破片側に何も
            表示されず「無地のカードになる」不具合があったため、両対応にした)。
            `.slot`本体側の`background-image`と文字色(color)はいずれも`!important`で無効化し、破片側にのみ
-           描画させる(本体の文字をtransparentにするのは、破片と重なって二重表示・幽霊のように見えるのを防ぐため)。 */
+           描画させる(本体の文字をtransparentにするのは、破片と重なって二重表示・幽霊のように見えるのを防ぐため)。
+           `.slot.card-shatter`(状態を表す本体クラス。`markCardOutcome`が`cardOutcomes`配列に保持し、
+           `updateUI`/`drawEnemySlots`の再描画のたびにこの文字列がそのままクラス名として使われる)自体には
+           アニメーションを持たせず、割れた後の最終的な位置(`transform: translateY(±3px)`)を直接指定している。
+           実際に「割れる」アニメーション(`cardShatterLeft`/`cardShatterRight`のkeyframes)は、別クラス
+           `.card-shatter-flash`にのみ持たせており、これは`markCardOutcome`が割れた瞬間(その1回の呼び出し内)
+           にだけ、既存の(作り直していない)DOM要素へ直接`classList.add`する一時的なクラスで、`cardOutcomes`
+           配列には含まれない。こうすることで、既に割れているカードや他のカードの決着のたびに手札全体が
+           再描画(`#slots`/`#enemySlots`がinnerHTMLごと作り直される)されても、新しく作られる要素には
+           `card-shatter`(最終位置に静止)のみが付き`card-shatter-flash`は付かないため、割れるアニメーションが
+           再生されない(2026-09-26追記。以前は`card-shatter`クラス自体にアニメーションを持たせていたため、
+           再描画のたびに新しい要素が作られてアニメーションが最初から再生され、「一度割れたカードがもう一度
+           割れる」「他のカードが割れるたびに前のカードも割れ直す」ように見える不具合があった)。 */
         .slot.card-shatter {
             position: relative;
             animation: none !important;
@@ -453,15 +467,23 @@
             pointer-events: none;
         }
         .slot.card-shatter::before {
-            /* 左側の破片(縦にほぼ一直線、わずかにナナメの断面で右側と噛み合う) */
-            clip-path: polygon(0 0, 52% 0, 48% 100%, 0 100%);
+            /* 左側の破片(はっきりナナメと分かる断面で右側と噛み合う) */
+            clip-path: polygon(0 0, 60% 0, 40% 100%, 0 100%);
             box-shadow: inset -3px 0 0 rgba(0,0,0,0.6);
-            animation: cardShatterLeft 0.3s ease-out forwards;
+            transform: translateY(-3px); /* 上へずれた最終位置(通常時はアニメーション無しでこの位置のまま) */
         }
         .slot.card-shatter::after {
             /* 右側の破片 */
-            clip-path: polygon(52% 0, 100% 0, 100% 100%, 48% 100%);
+            clip-path: polygon(60% 0, 100% 0, 100% 100%, 40% 100%);
             box-shadow: inset 3px 0 0 rgba(0,0,0,0.6);
+            transform: translateY(3px); /* 下へずれた最終位置(左と逆方向。断層のような縦ずれに見せる) */
+        }
+        /* 割れる瞬間のみ付与される一時クラス(詳細は上のコメント参照)。0%から上のtransformの値まで
+           アニメーションさせることで「今まさに割れた」演出にする。 */
+        .slot.card-shatter.card-shatter-flash::before {
+            animation: cardShatterLeft 0.3s ease-out forwards;
+        }
+        .slot.card-shatter.card-shatter-flash::after {
             animation: cardShatterRight 0.3s ease-out forwards;
         }
         @keyframes cardShatterLeft {
