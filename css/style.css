@@ -278,25 +278,30 @@
             position: absolute; left: 14px; bottom: 14px;
             font-size: 13px; color: #eee;
         }
-        /* タイトルのボタン縦位置: ローカル対戦(VERSUS)の追加に伴い、間隔を6.75%→5.8%に詰めて1段増やした */
+        /* タイトルのボタン縦位置: ローカル対戦(VERSUS)の追加に伴い、間隔を6.75%→5.8%に詰めて1段増やした。
+           2026-09-28、100 BATTLE RUSHの追加に伴い、さらに5.2%に詰めてもう1段増やした(BONUSの位置12%は据え置き) */
         #titleContinueBtn {
-            position: absolute; left: 50%; bottom: 41%; transform: translateX(-50%);
+            position: absolute; left: 50%; bottom: 43.2%; transform: translateX(-50%);
             font-size: 13px; letter-spacing: 3.5px;
         }
         #startBtn {
-            position: absolute; left: 50%; bottom: 35.2%; transform: translateX(-50%);
+            position: absolute; left: 50%; bottom: 38%; transform: translateX(-50%);
             font-size: 13px; letter-spacing: 3.5px;
         }
         #trainingBtn {
-            position: absolute; left: 50%; bottom: 29.4%; transform: translateX(-50%);
+            position: absolute; left: 50%; bottom: 32.8%; transform: translateX(-50%);
             font-size: 13px; letter-spacing: 3.5px; color: #bbb;
         }
         #versusBtn {
-            position: absolute; left: 50%; bottom: 23.6%; transform: translateX(-50%);
+            position: absolute; left: 50%; bottom: 27.6%; transform: translateX(-50%);
             font-size: 13px; letter-spacing: 3.5px; color: #bbb;
         }
+        #rushBtn {
+            position: absolute; left: 50%; bottom: 22.4%; transform: translateX(-50%);
+            font-size: 13px; letter-spacing: 3.5px; color: #bbb; white-space: nowrap;
+        }
         #optionBtn {
-            position: absolute; left: 50%; bottom: 17.8%; transform: translateX(-50%);
+            position: absolute; left: 50%; bottom: 17.2%; transform: translateX(-50%);
             font-size: 13px; letter-spacing: 3.5px; color: #888;
         }
         #bonusContentsBtn {
@@ -912,3 +917,51 @@
             text-shadow: 0 0 18px rgba(255,210,60,0.9); background: rgba(0,0,0,0.55);
         }
         #vsSelFight.show { display: flex; animation: vsResultIn 0.3s ease-out; }
+
+
+/* ------- 100 BATTLE RUSH(2026-09-28追加) ------- */
+/* TURN表示の位置に出す撃破数/経過タイム */
+.rush-hud-label { font-size: 9px; font-weight: 700; color: #bbb; letter-spacing: 1px; }
+.rush-hud-time { font-size: 10px; font-weight: 700; color: #ffd23c; letter-spacing: 0.5px; font-variant-numeric: tabular-nums; }
+/* RESULT: 本文は上から詰めて配置し、ボタンは常に最下部。縦に収まらない端末でも本文側だけが縮む/スクロールする */
+#rushResultOverlay {
+    position: absolute; inset: 0; background: rgba(0,0,0,0.9); z-index: 50;
+    display: none; flex-direction: column; align-items: stretch;
+    padding: calc(var(--safe-top, 0px) + 18px) 20px calc(env(safe-area-inset-bottom, 0px) + 18px);
+    box-sizing: border-box;
+}
+#rushResultOverlay.show { display: flex; }
+.rush-result-body {
+    flex: 1 1 auto; min-height: 0; overflow-y: auto;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
+}
+#rushResultClear {
+    font-size: 34px; font-weight: 900; letter-spacing: 3px; color: #ffd23c;
+    text-shadow: 0 0 14px rgba(255,210,60,0.8); white-space: nowrap;
+}
+.rush-result-title {
+    font-size: 26px; font-weight: 900; letter-spacing: 5px; color: #fff;
+    text-shadow: 0 0 12px rgba(255,255,255,0.6); margin-bottom: 4px;
+}
+.rush-result-row {
+    width: 100%; max-width: 300px; display: flex; flex-direction: column; align-items: center;
+    padding: 8px 0; border-top: 1px solid rgba(255,255,255,0.18);
+}
+.rush-result-label { font-size: 11px; font-weight: 700; color: #aaa; letter-spacing: 2px; }
+.rush-result-value {
+    font-size: 28px; font-weight: 900; color: #fff; letter-spacing: 1px; line-height: 1.2;
+    font-variant-numeric: tabular-nums;
+}
+.rush-result-sub { display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 10px; color: #888; letter-spacing: 1px; }
+.rush-new { display: none; font-size: 11px; color: #ff5a3c; font-weight: 900; animation: rushNewBlink 0.8s steps(1, end) infinite; }
+@keyframes rushNewBlink { 50% { opacity: 0.25; } }
+.rush-new.show { display: block; }
+.rush-result-btns { flex: none; display: flex; justify-content: center; gap: 14px; padding-top: 12px; }
+#rushRetryBtn {
+    background: #a00; border: none; color: #fff;
+    padding: 12px 30px; font-size: 14px; font-weight: bold; letter-spacing: 1px; border-radius: 8px; cursor: pointer;
+}
+#rushTitleBtn {
+    background: transparent; border: 1px solid rgba(255,255,255,0.55); color: #eee;
+    padding: 11px 26px; font-size: 13px; letter-spacing: 1px; border-radius: 8px; cursor: pointer;
+}
