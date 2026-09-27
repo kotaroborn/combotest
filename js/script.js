@@ -3937,9 +3937,9 @@ async function runNormalHit(winner, loser, move) {
 async function runMeteor(attacker, defender) {
     hitComboSuccess(attacker);
     hitComboBreak(defender);
+    spawnTechNamePop(attacker, 'METEOR!'); // 技名ポップ(第36条: メテオ)。暗転が始まるタイミングで表示する
     await playFinisherBuildup(attacker); // 暗転→一時停止→攻撃側が白く発光→晴れる、のフィニッシュ演出
     setAct(attacker, 'knock.PNG'); // Beat1: 攻撃絵(放つ瞬間のポーズ)
-    spawnTechNamePop(attacker, 'METEOR!'); // 技名ポップ(第36条: メテオ)
     await wait(DB.HITSTOP.POSE_MS); // ヒットストップ
     applyDamage(defender, DB.DMG.M * chargeMultOf(attacker) * atkMultOf(attacker) * defMultOf(defender)); // Beat2: ダメージ絵(命中の瞬間)
     playSE('se_meteor'); // 未配置ならse_punchで代用される
@@ -4002,10 +4002,10 @@ async function runUpperCombo(attacker, defender, cursor) {
     state.ePunchStreak = 0;
     state.pGuardStreak = 0; state.eGuardStreak = 0; // ガード以外で勝敗が決したのでガード連続記録は途切れる
 
+    if (isSuperUpper) spawnTechNamePop(attacker, 'RISING!'); // 技名ポップ(第36条: 2倍アッパー=ライジング)。暗転が始まるタイミングで表示する
     if (isSuperUpper) await playFinisherBuildup(attacker); // スーパーアッパー(ダメージ2倍)成立時のみ、暗転→一時停止→発光の演出を挟む
     setAct(attacker, 'upper.PNG'); // Beat1: 攻撃絵
     if (isSuperUpper) flashAttackerWhite(attacker); // awaitしない(命中の瞬間にもう一度白く発光させる。playFinisherBuildupの発光は命中前の演出のため別枠)
-    if (isSuperUpper) spawnTechNamePop(attacker, 'RISING!'); // 技名ポップ(第36条: 2倍アッパー=ライジング)
     if (isSuperUpper) await wait(DB.HITSTOP.POSE_MS); // スーパーアッパーのみヒットストップを挟む(通常のUPPERは従来通り)
     setAct(defender, 'damage.PNG'); // Beat2: ダメージ絵(命中の瞬間)
     applyDamage(defender, DB.DMG.U * chargeMultOf(attacker) * (isSuperUpper ? 2 : 1) * atkMultOf(attacker, 'UPPER') * defMultOf(defender, 'UPPER'));
@@ -4366,8 +4366,8 @@ function detectComboType(hand, total) {
 // 合計ダメージは通常パンチ1発の3倍(1発ごとにDB.DMG.P、チャージ等の影響は受けない)。
 async function runFollowUpFlurry(attacker, defender) {
     hitComboBreak(defender);
+    spawnTechNamePop(attacker, 'RUSH!'); // 技名ポップ(第36条: 追撃=ラッシュ)。3連打全体で1回だけ、暗転が始まるタイミングで表示する
     await playFinisherBuildup(attacker); // 暗転→一時停止→攻撃側が白く発光→晴れる、のフィニッシュ演出(3連打全体の前に1回だけ)
-    spawnTechNamePop(attacker, 'RUSH!'); // 技名ポップ(第36条: 追撃=ラッシュ)。3連打全体で1回だけ表示する
     for (let i = 0; i < 3; i++) {
         hitComboSuccess(attacker); // 追撃は3連打それぞれをCOMBOとして数える
         if (i >= 1) await flashDashBetweenPunches(attacker); // 2発目以降のみ、パンチ同士の切り替えなのでdashを挟む
@@ -4445,10 +4445,10 @@ async function runGuardPunchUpperWallStrike(attacker, defender) {
 async function runFinisher(attacker, defender, cursor) {
     hitComboSuccess(attacker);
     hitComboBreak(defender);
+    spawnTechNamePop(attacker, 'CRASH!'); // 技名ポップ(第36条: 必殺技=クラッシュ)。暗転が始まるタイミングで表示する
     await playFinisherBuildup(attacker); // 暗転→一時停止→攻撃側が白く発光→晴れる、のフィニッシュ演出
     setAct(attacker, nextPunchSprite(attacker)); // 第21条。Beat1: 攻撃絵
     flashAttackerWhite(attacker); // awaitしない(命中の瞬間にもう一度白く発光させる。playFinisherBuildupの発光は命中前の演出のため別枠)
-    spawnTechNamePop(attacker, 'CRASH!'); // 技名ポップ(第36条: 必殺技=クラッシュ)
     await wait(DB.HITSTOP.POSE_MS); // ヒットストップ
     setAct(defender, 'damage.PNG'); // Beat2: ダメージ絵(命中の瞬間)
     markCardOutcome(defender, cursor.i, 'card-shatter'); // 3すくみ無視のヒットなのでヒビ割れ表現にする
