@@ -46,6 +46,9 @@
 | `enemyRevealedUpTo` | 敵の手のうち公開済みの枚数 |
 | `battleReady` | 操作可能かどうか |
 | `resolving` | ターン解決処理中かどうか |
+| `pChargeValue, eChargeValue` | ガード連続成功チャージの倍率(0=無し、2または4)。次に出すカードの初撃1回分のみに適用され、勝敗を問わず消費される |
+| `pUpperChargeReady, eUpperChargeReady` | UPPER→GUARD連続成功で発動するチャージ(次がUPPERの時だけライジング!になる) |
+| `pComboType, eComboType` | このターンの手札パターン(`'followup'`=ラッシュ!、`'finisher'`=クラッシュ!、`'guardPunchUpper'`=ブレイク!、`null`=該当なし)。ターン開始時に手札から判定する |
 
 ## モジュール一覧(script.js内の出現順)
 
@@ -70,7 +73,7 @@ localStorageへの保存・復元を担当。
 ロゴ→プロローグ→タイトル→ストーリー→デッキ編成の画面遷移全般と、共通のタップ演出(`tapFlickerThen`)を担当。
 
 ### 5. 描画・スプライト管理
-`setAct`, `getX`, `setX`, `setY`, `triggerShake`, `triggerBlink`, `nextPunchSprite`, `moveSprite`, `breathSprite`, `spriteFor`, `toIdle`, `draw`
+`setAct`, `getX`, `setX`, `setY`, `triggerShake`, `triggerBlink`, `nextPunchSprite`, `moveSprite`, `breathSprite`, `spriteFor`, `toIdle`, `draw`, `spawnHitEffect`, `spawnTechNamePop`, `drawTechNamePops`(2026-09-27、VERSUS対応時に関数化。技名ポップの生成・描画。CONSTITUTION.md第30条参照)
 
 canvas描画ループ本体と、キャラクターの座標・表示スプライト・振動/点滅状態を操作する汎用アクセサ群。
 
@@ -80,7 +83,7 @@ canvas描画ループ本体と、キャラクターの座標・表示スプラ�
 手札の表示・カード操作と、STORY MODE/TRAINING MODEの敵の手札生成・表示を担当。
 
 ### 7. バトル進行
-`goBattleStart`, `resetBattleState`, `playBattleIntro`, `showResult`, `hideResult`, `judge`(3すくみ判定), `applyDamage`, `healBothToFull`, `wait`, `moveBothX`, `approachCenter`, `retreatSlightly`, `goHome`, `waitBothLanded`, `runFinishSequence`, `nextQueuedMove`, `runNormalHit`, `runMeteor`, `runUpperCombo`, `runGuardSuccess`, `runPiyoEffect`, `runNumbFail`, `markCardOutcome`, `resolveExchange`(1回の攻防を解決する中心関数), `resolveTurn`(GO!ボタン押下時のエントリーポイント)
+`goBattleStart`, `resetBattleState`, `playBattleIntro`, `showResult`, `hideResult`, `judge`(3すくみ判定), `applyDamage`, `healBothToFull`, `wait`, `moveBothX`, `approachCenter`, `retreatSlightly`, `goHome`, `waitBothLanded`, `runFinishSequence`, `nextQueuedMove`, `runNormalHit`, `runMeteor`(メテオ!), `runUpperCombo`(内部で`isSuperUpper`判定=ライジング!), `runGuardSuccess`, `runPiyoEffect`, `runNumbFail`, `runFollowUpFlurry`(ラッシュ!), `runGuardPunchUpperWallStrike`(ブレイク!), `runFinisher`(クラッシュ!), `flashAttackerWhite`(追撃・追加打系の白い発光。CONSTITUTION.md第28条), `chargeMultOf`, `consumeCharge`, `consumeUpperCharge`, `atkMultOf`, `defMultOf`, `markCardOutcome`, `resolveExchange`(1回の攻防を解決する中心関数), `resolveTurn`(GO!ボタン押下時のエントリーポイント)
 
 バトル開始演出から、1回の攻防の解決、ターン全体の進行、決着演出までを担当する最大のモジュール。これらの関数群は互いに密結合しているため、あえて分割していない。
 
