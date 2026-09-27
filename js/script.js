@@ -93,7 +93,7 @@ let state = {
     pHitComboBigMilestoneAt: 0, eHitComboBigMilestoneAt: 0, // 直近で15/20/25…(5の倍数、15以上)に到達した時刻。大型の赤い強調演出用
     lastExchangeResult: null, // 直近の攻防結果 { P: 'win'|'lose'|'draw', E: 'win'|'lose'|'draw' }。resolveExchange/runFinisherが設定し、resolveTurnがコンボ判定に使う
     finisherAlreadyDown: false, // 必殺技でK.O.した場合、画面端でdown.PNGのまま倒れる(通常のホーム帰還演出をスキップする合図)
-    gameMode: 'story', pendingMode: 'story', // 'story' | 'training' | 'substoryBattle'
+    gameMode: 'story', pendingMode: 'story', // 'story' | 'training' | 'substoryBattle' | 'versus'(ローカル対戦。詳細は「ローカル対戦(VERSUS)」節)
     storyEnemyIndex: 0, // STORY MODE: ENEMY_ORDER内の現在の敵の位置(連戦で進んでいく想定。セーブデータから復元される)
     // サブストーリーバトル(検討中の新機能): プレイヤーがENEMY_PRESETSのいずれかのキャラとして戦う時に使う。
     // いずれもnull/未設定なら通常のSTORY MODE/TRAINING MODEと完全に同じ挙動になる(既存動作に影響しない)。
@@ -916,6 +916,7 @@ const STAGE_ORDINALS = ['1ST', '2ND', '3RD', '4TH', '5TH']; // ENEMY_ORDERのイ
 function currentStageLabel() {
     if (state.gameMode === 'training') return 'TRAINING';
     if (state.gameMode === 'substoryBattle') return 'EXTRA';
+    if (state.gameMode === 'versus') return 'VERSUS'; // ローカル対戦
     if (state.gameMode !== 'story') return '';
     if (state.storyEnemyIndex === ENEMY_ORDER.length - 1) return 'FINAL STAGE'; // 5人目(最終)のみ特別表記
     const ordinal = STAGE_ORDINALS[state.storyEnemyIndex] || (state.storyEnemyIndex + 1) + 'TH';
@@ -1198,7 +1199,8 @@ function enemySpriteName(baseName) {
 // いずれにも該当しない、または該当画像が読み込まれていない場合は通常のプレイヤー画像を返す。
 function playerSpriteName(baseName) {
     let skin = selectedSkin;
-    if (state.gameMode === 'substoryBattle' && state.pPresetKey) {
+    // ローカル対戦(VERSUS)も、1Pが選んだキャラ(pPresetKey)の見た目で固定する(コスチュームは反映しない。'VAL'は既定の見た目)
+    if ((state.gameMode === 'substoryBattle' || state.gameMode === 'versus') && state.pPresetKey) {
         const m = state.pPresetKey.match(/^ENEMY_(\d+)$/);
         skin = m ? 'enemy_' + parseInt(m[1], 10) : null;
     }
@@ -1505,6 +1507,7 @@ async function boot() {
         preloadSE(); // SEは軽量なので先読みしておく(起動をブロックしない非同期処理)
         document.getElementById('startBtn').disabled = false;
         document.getElementById('trainingBtn').disabled = false;
+        document.getElementById('versusBtn').disabled = false;
         document.getElementById('optionBtn').disabled = false;
         updateTitleContinueVisibility();
         updateSpeedUI(); // セーブデータから復元したbattleSpeedX2をボタン表示に反映する
@@ -1581,6 +1584,7 @@ function goLogo() {
     // サブストーリーバトルのものになってしまう不具合が実際に発生した)。タイトルへ戻る経路はここに集約されて
     // いるため、endSubstoryBattle()は必ず呼ぶ(サブストーリーバトル中でない場合は何もしない安全な処理)。
     endSubstoryBattle();
+    exitVersusLayout(); // ローカル対戦(VERSUS)の上下分割レイアウトも必ず解除する(対戦中でない場合は何もしない)
     hideResult();
     showScene('logo');
     playLogo();
@@ -2342,7 +2346,9 @@ function stopPiyo() { state.piyoSide = null; state.piyoBroken = false; }
 // ・途切れた瞬間: 直前の値を保持したまま短時間でフッとフェードアウトする
 // ・5/10/15到達時: 一瞬だけ膨らみながら金色に光るきらびやかな強調演出
 // COMBOは斜体、数字はCOMBOよりやや大きいフォントサイズで、同じ斜体にする。
-function drawComboCounter(side, anchorX, align) {
+// c: 描画先のcontext(省略時はメインのctx)。ローカル対戦(VERSUS)では2P側の反転canvasにも同じ関数で描く。
+function drawComboCounter(side, anchorX, align, c) {
+    c = c || ctx;
     const p = side === 'P';
     const combo = state[p ? 'pHitCombo' : 'eHitCombo'];
     const dispValue = state[p ? 'pHitComboDisplayValue' : 'eHitComboDisplayValue'];
@@ -2409,42 +2415,42 @@ function drawComboCounter(side, anchorX, align) {
 
     const totalScale = popScale * (isBigMilestoneActive ? bigMilestoneScale : milestoneScale);
 
-    ctx.save();
-    ctx.globalAlpha = opacity;
-    ctx.translate(anchorX, 46 + popOffsetY);
-    ctx.scale(totalScale, totalScale);
-    ctx.textBaseline = 'alphabetic';
-    ctx.fillStyle = color;
+    c.save();
+    c.globalAlpha = opacity;
+    c.translate(anchorX, 46 + popOffsetY);
+    c.scale(totalScale, totalScale);
+    c.textBaseline = 'alphabetic';
+    c.fillStyle = color;
     if (isBigMilestoneActive) {
-        ctx.shadowColor = 'rgba(255,59,59,0.95)';
-        ctx.shadowBlur = 20 * bigMilestoneGlow;
+        c.shadowColor = 'rgba(255,59,59,0.95)';
+        c.shadowBlur = 20 * bigMilestoneGlow;
     } else if (isSmallMilestoneActive) {
-        ctx.shadowColor = 'rgba(255,210,60,0.9)';
-        ctx.shadowBlur = 16 * milestoneGlow;
+        c.shadowColor = 'rgba(255,210,60,0.9)';
+        c.shadowBlur = 16 * milestoneGlow;
     } else if (isAlwaysSparkly) {
-        ctx.shadowColor = 'rgba(255,210,60,0.9)';
-        ctx.shadowBlur = 6 + 10 * sparklyPulse;
+        c.shadowColor = 'rgba(255,210,60,0.9)';
+        c.shadowBlur = 6 + 10 * sparklyPulse;
     } else {
-        ctx.shadowColor = 'rgba(0,0,0,0.7)';
-        ctx.shadowBlur = 4;
+        c.shadowColor = 'rgba(0,0,0,0.7)';
+        c.shadowBlur = 4;
     }
 
     const comboText = 'COMBO';
     const numberText = String(showValue);
-    ctx.font = `italic 900 ${comboFontSize}px sans-serif`;
-    const comboWidth = ctx.measureText(comboText).width;
-    ctx.font = `italic 900 ${numberFontSize}px sans-serif`;
-    const numberWidth = ctx.measureText(numberText).width;
+    c.font = `italic 900 ${comboFontSize}px sans-serif`;
+    const comboWidth = c.measureText(comboText).width;
+    c.font = `italic 900 ${numberFontSize}px sans-serif`;
+    const numberWidth = c.measureText(numberText).width;
     const gap = 6;
     const totalWidth = comboWidth + gap + numberWidth;
     const startX = align === 'left' ? 0 : -totalWidth; // 右揃えの場合、全体をtotalWidth分左へオフセットする
 
-    ctx.font = `italic 900 ${comboFontSize}px sans-serif`;
-    ctx.fillText(comboText, startX, 0);
-    ctx.font = `italic 900 ${numberFontSize}px sans-serif`;
-    ctx.fillText(numberText, startX + comboWidth + gap, 4); // 数字が大きい分、ベースラインを少し下げて視覚的に揃える
+    c.font = `italic 900 ${comboFontSize}px sans-serif`;
+    c.fillText(comboText, startX, 0);
+    c.font = `italic 900 ${numberFontSize}px sans-serif`;
+    c.fillText(numberText, startX + comboWidth + gap, 4); // 数字が大きい分、ベースラインを少し下げて視覚的に揃える
 
-    ctx.restore();
+    c.restore();
 }
 
 // キャラごとの表示サイズ倍率(見た目のみの変更。座標・当たり判定・エフェクト位置・攻撃力等には一切影響しない)。
@@ -2460,6 +2466,56 @@ function growRectKeepBottomCenter(x, y, scale) {
     const size = DB.IMG_SIZE * scale;
     const grow = size - DB.IMG_SIZE;
     return { x: x - grow / 2, y: y - grow, size };
+}
+
+// 技名ポップの描画(2026-09-27追加の演出を、ローカル対戦(VERSUS)の反転canvasでも描けるよう関数化したもの)。
+// c: 描画先のcontext。mirrorW: 0以外なら、その幅で左右反転した位置に(文字は正しい向きのまま)描く。
+function drawTechNamePops(c, t, mirrorW) {
+    const TECH_NAME_POP_IN_MS = 130; // 出現: 0.3倍→1.3倍まで一気に飛び出す
+    const TECH_NAME_SETTLE_MS = 90; // 直後: 1.3倍→1.0倍まで一瞬で収まる
+    const TECH_NAME_POP_OUT_MS = 130; // 消滅: 最後の一瞬で1.0倍→1.4倍に弾けながら消える(なだらかなフェードにしない)
+    const TECH_NAME_TILT_RAD = -14 * Math.PI / 180; // 右肩上がりに傾ける角度(斜め上を向く見た目にする)
+    techNamePops.forEach(p => {
+        const age = t - p.born;
+        const life = TECH_NAME_POP_LIFE;
+        const popOutStart = life - TECH_NAME_POP_OUT_MS;
+        let scale, alpha;
+        if (age < TECH_NAME_POP_IN_MS) {
+            const ip = age / TECH_NAME_POP_IN_MS;
+            scale = 0.3 + ip * 1.0; // 0.3倍→1.3倍
+            alpha = 1; // 透明度はフェードさせず、最初から不透明のまま勢いだけで見せる
+        } else if (age < TECH_NAME_POP_IN_MS + TECH_NAME_SETTLE_MS) {
+            const sp = (age - TECH_NAME_POP_IN_MS) / TECH_NAME_SETTLE_MS;
+            scale = 1.3 - sp * 0.3; // 1.3倍→1.0倍
+            alpha = 1;
+        } else if (age < popOutStart) {
+            scale = 1.0; // 静止表示(なだらかな変化を挟まない)
+            alpha = 1;
+        } else {
+            const op = (age - popOutStart) / TECH_NAME_POP_OUT_MS; // 0→1
+            scale = 1.0 + op * 0.4; // 1.0倍→1.4倍に一気に弾ける
+            alpha = 1 - op; // 消える直前まで不透明を保ち、最後の短い間だけ一気に消える
+        }
+        if (alpha <= 0) return;
+        const baseAnchorX = p.x + DB.IMG_SIZE / 2; // 位置は固定(移動させない)
+        const anchorX = mirrorW ? mirrorW - baseAnchorX : baseAnchorX; // 反転canvasでは位置だけ左右反転し、文字自体は反転させない
+        const anchorY = p.y - 10;
+        c.save();
+        c.globalAlpha = alpha;
+        c.translate(anchorX, anchorY);
+        c.rotate(TECH_NAME_TILT_RAD);
+        c.scale(scale, scale);
+        c.font = `32px ${TECH_NAME_FONT_FAMILY}`;
+        c.textAlign = 'center';
+        c.textBaseline = 'alphabetic';
+        c.lineJoin = 'round';
+        c.lineWidth = 4;
+        c.strokeStyle = 'rgba(0,0,0,0.8)'; // 背景を選ばず読めるよう、黒い縁取りを先に描いてから白抜きにする
+        c.strokeText(p.text, 0, 0);
+        c.fillStyle = '#fff';
+        c.fillText(p.text, 0, 0);
+        c.restore();
+    });
 }
 
 function draw(tRaw) {
@@ -2540,7 +2596,10 @@ function draw(tRaw) {
     ctx.save();
     ctx.globalAlpha = pAlpha;
     const pGlowPulse = (Math.sin(t / 180) + 1) / 2; // 0〜1でゆっくり明滅
-    const pScale = CHARACTER_SCALE_BY_SET[selectedSkin] || 1; // コスチュームとしてGald/Alvを選んでいる場合のみ1.2倍/1.1倍になる
+    // EXTRA BATTLE・ローカル対戦(VERSUS)でキャラを借りている場合は、そのキャラのセットで倍率を決める
+    // (Gald/Alvとして戦う時も、敵として登場する時と同じ大きさにする。2026-09-27、KNOWN_ISSUESの不具合を修正)。
+    // それ以外はコスチュームとしてGald/Alvを選んでいる場合のみ1.2倍/1.1倍になる
+    const pScale = CHARACTER_SCALE_BY_SET[playerCharacterSetName()] || 1;
     const pRect = growRectKeepBottomCenter(state.pX + pJit, state.pY + pJit, pScale);
     if (state.pUpperChargeReady && pImg) {
         // UPPER+GUARD+UPPER用のチャージ: 水色の発光(ガード+ガードの金色とは別の色で見分けられるようにする)
@@ -2799,50 +2858,10 @@ function draw(tRaw) {
     // との要望を受け、なだらかなフェードではなく、短時間で勢いよく飛び出す(オーバーシュートしてから僅かに
     // 収まる)ポップイン→そのまま静止表示→短時間で一気に弾けるように消えるポップアウト、という構成にした。
     techNamePops = techNamePops.filter(p => (t - p.born) < TECH_NAME_POP_LIFE);
-    const TECH_NAME_POP_IN_MS = 130; // 出現: 0.3倍→1.3倍まで一気に飛び出す
-    const TECH_NAME_SETTLE_MS = 90; // 直後: 1.3倍→1.0倍まで一瞬で収まる
-    const TECH_NAME_POP_OUT_MS = 130; // 消滅: 最後の一瞬で1.0倍→1.4倍に弾けながら消える(なだらかなフェードにしない)
-    const TECH_NAME_TILT_RAD = -14 * Math.PI / 180; // 右肩上がりに傾ける角度(斜め上を向く見た目にする)
-    techNamePops.forEach(p => {
-        const age = t - p.born;
-        const life = TECH_NAME_POP_LIFE;
-        const popOutStart = life - TECH_NAME_POP_OUT_MS;
-        let scale, alpha;
-        if (age < TECH_NAME_POP_IN_MS) {
-            const ip = age / TECH_NAME_POP_IN_MS;
-            scale = 0.3 + ip * 1.0; // 0.3倍→1.3倍
-            alpha = 1; // 透明度はフェードさせず、最初から不透明のまま勢いだけで見せる
-        } else if (age < TECH_NAME_POP_IN_MS + TECH_NAME_SETTLE_MS) {
-            const sp = (age - TECH_NAME_POP_IN_MS) / TECH_NAME_SETTLE_MS;
-            scale = 1.3 - sp * 0.3; // 1.3倍→1.0倍
-            alpha = 1;
-        } else if (age < popOutStart) {
-            scale = 1.0; // 静止表示(なだらかな変化を挟まない)
-            alpha = 1;
-        } else {
-            const op = (age - popOutStart) / TECH_NAME_POP_OUT_MS; // 0→1
-            scale = 1.0 + op * 0.4; // 1.0倍→1.4倍に一気に弾ける
-            alpha = 1 - op; // 消える直前まで不透明を保ち、最後の短い間だけ一気に消える
-        }
-        if (alpha <= 0) return;
-        const anchorX = p.x + DB.IMG_SIZE / 2; // 位置は固定(移動させない)
-        const anchorY = p.y - 10;
-        ctx.save();
-        ctx.globalAlpha = alpha;
-        ctx.translate(anchorX, anchorY);
-        ctx.rotate(TECH_NAME_TILT_RAD);
-        ctx.scale(scale, scale);
-        ctx.font = `32px ${TECH_NAME_FONT_FAMILY}`;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'alphabetic';
-        ctx.lineJoin = 'round';
-        ctx.lineWidth = 4;
-        ctx.strokeStyle = 'rgba(0,0,0,0.8)'; // 背景を選ばず読めるよう、黒い縁取りを先に描いてから白抜きにする
-        ctx.strokeText(p.text, 0, 0);
-        ctx.fillStyle = '#fff';
-        ctx.fillText(p.text, 0, 0);
-        ctx.restore();
-    });
+    // ローカル対戦(VERSUS)中は、文字(技名ポップ・COMBOカウンター)を反転コピーの後に描く(vsRenderMirror参照)。
+    // 先にメインcanvasへ描いてしまうと、2P側の反転canvasで文字が鏡文字になってしまうため。
+    const versusMirrorActive = isVersusMirrorActive();
+    if (!versusMirrorActive) drawTechNamePops(ctx, t, 0);
 
     // ピヨり演出: しびれている側の頭上にpiyo.PNGを表示(反転を交互に切り替える)。
     // state.piyoSideがtruthyな間はずっと表示し続ける(開始/終了は startPiyo/stopPiyo が担う)。反転は経過時間から計算する。
@@ -2943,8 +2962,10 @@ function draw(tRaw) {
 
     // COMBOカウンター(第26条とは別の演出用記録。バトル背景の左上=味方、右上=敵)。2以上のみ表示し、
     // 増えた瞬間に軽くポップ、途切れるとフッとフェードアウトし、5/10/15到達時はきらびやかに強調する。
-    drawComboCounter('P', 24, 'left');
-    drawComboCounter('E', cvs.width - 24, 'right');
+    if (!versusMirrorActive) {
+        drawComboCounter('P', 24, 'left');
+        drawComboCounter('E', cvs.width - 24, 'right');
+    }
 
     // 画面全体を白く明滅させる演出(5THステージの敵登場等で使用)。他の描画すべての最後に重ねる
     if (state.screenFlashAlpha > 0) {
@@ -2955,6 +2976,9 @@ function draw(tRaw) {
         ctx.restore();
     }
 
+    // ローカル対戦(VERSUS): 2P側のcanvasへ左右反転コピーし、文字だけは両canvasに正しい向きで描き足す
+    if (versusMirrorActive) vsRenderMirror(t);
+
     requestAnimationFrame(draw);
     ctx.restore(); // 画面揺れの変換を解除(次フレームのclearRectに影響しないようにする)
 }
@@ -2964,6 +2988,7 @@ function draw(tRaw) {
 // ============================================================
 function playCard(handIdx) {
     if (state.resolving || !state.battleReady) return;
+    if (state.gameMode === 'versus' && versusState.phase !== 'inputP') return; // ローカル対戦: 1Pの入力番以外は操作不可
     const card = state.playerHand[handIdx];
     if (!card) return;
     if (state.requiredHandSize && filledCount() >= state.requiredHandSize) return; // このターン出せる枚数(ちょうど)に既に達している
@@ -2978,6 +3003,7 @@ function playCard(handIdx) {
 
 function resetHands() {
     if (state.resolving || !state.battleReady) return;
+    if (state.gameMode === 'versus' && versusState.phase !== 'inputP') return; // ローカル対戦: 1Pの入力番以外は操作不可
     playSE('se_cancel');
     // 場に出したカードを手札の空きへ戻す
     state.hands.forEach(card => {
@@ -3045,6 +3071,8 @@ async function dealInitialHandAnimation() {
 function updateHandUI(animateIndices) {
     animateIndices = animateIndices || [];
     const s = document.getElementById('handRow'); s.innerHTML = '';
+    // ローカル対戦(VERSUS): 1Pの入力番以外は、相手に見られないよう手札を裏向き(タップ不可)で表示する
+    const hideForVersus = state.gameMode === 'versus' && versusState.phase !== 'inputP';
     const n = state.playerHand.length; // STORY MODEは5、TRAINING MODEは3(PUNCH/UPPER/GUARD固定・選び放題)
     const mid = (n - 1) / 2; // 中央インデックス
     const GAP_X = 48; // カード中心同士の横間隔(px)
@@ -3052,7 +3080,8 @@ function updateHandUI(animateIndices) {
     state.playerHand.forEach((card, idx) => {
         const d = document.createElement('div');
         d.className = 'card ' + (card ? 'filled' : 'empty');
-        applyCardVisual(d, card); // card_p/u/G.PNGがあれば画像、無ければP/U/Gの文字
+        if (hideForVersus && card) setCardBackVisual(d);
+        else applyCardVisual(d, card); // card_p/u/G.PNGがあれば画像、無ければP/U/Gの文字
 
         const offset = idx - mid; // -2, -1, 0, 1, 2
         // 高さ(top)は放物線(offset^2)で決める。中心=0が最も高く(top最小)、外側ほどなだらかに下がる。
@@ -3061,7 +3090,7 @@ function updateHandUI(animateIndices) {
         const tx = offset * GAP_X; // 横方向の間隔(中心からの距離)
         const angle = offset * 9; // deg (外側ほど上が外向きに傾く。見た目の傾きのみ)
         d.style.top = ty + 'px';
-        if (card) d.onclick = () => playCard(idx);
+        if (card && !hideForVersus) d.onclick = () => playCard(idx);
 
         const finalTransform = `translateX(calc(-50% + ${tx}px)) rotate(${angle}deg)`;
         if (animateIndices.includes(idx)) {
@@ -3113,10 +3142,13 @@ function updateUI(activeIndex) {
         if (state.requiredHandSize && idx >= state.requiredHandSize) cls += ' slot-locked'; // 出せない枠を薄く見せる
         if (cardOutcomes.P[idx]) cls += ' ' + cardOutcomes.P[idx]; // ターン中の勝敗表現を保持
         d.className = cls;
-        applyCardVisual(d, h);
+        // ローカル対戦(VERSUS): 両者の手が揃う(解決が始まる)までは、1P以外が見ている間は場のカードも伏せる
+        if (h && state.gameMode === 'versus' && versusSlotsHidden('P')) setCardBackVisual(d);
+        else applyCardVisual(d, h);
         s.appendChild(d);
     });
     updateActionButtons();
+    if (state.gameMode === 'versus') vsRenderTop(activeIndex); // 2P側(上半分)の場・相手カード表示も同期する
 }
 
 function updateActionButtons() {
@@ -3127,12 +3159,15 @@ function updateActionButtons() {
     // EXTRA BATTLEでちょうどの枚数を揃えるまでCANCELすら押せない不具合があった)。
     const goOk = state.requiredHandSize ? filledCount() === state.requiredHandSize : filledCount() > 0;
     const clrOk = filledCount() > 0;
-    document.getElementById('goBtn').disabled = !(state.battleReady && !state.resolving && goOk);
-    document.getElementById('clrBtn').disabled = !(state.battleReady && !state.resolving && clrOk);
+    // ローカル対戦(VERSUS): 1PのGO!/CANCELは1Pの入力番の間だけ押せる
+    const versusBlocked = state.gameMode === 'versus' && versusState.phase !== 'inputP';
+    document.getElementById('goBtn').disabled = !(state.battleReady && !state.resolving && goOk && !versusBlocked);
+    document.getElementById('clrBtn').disabled = !(state.battleReady && !state.resolving && clrOk && !versusBlocked);
 }
 
 async function fadeOutQueueCards() {
-    const cards = document.querySelectorAll('#slots .slot.filled');
+    // ローカル対戦(VERSUS)では、2P側(上半分)の場のカードも同時に消す
+    const cards = document.querySelectorAll(state.gameMode === 'versus' ? '#slots .slot.filled, #vsSlots2 .slot.filled' : '#slots .slot.filled');
     if (cards.length === 0) return;
     cards.forEach(el => {
         el.style.transition = 'opacity 0.45s ease-out, transform 0.45s ease-out';
@@ -3150,7 +3185,9 @@ async function fadeOutQueueCards() {
 // 上限を実際の手札枚数に合わせて絞る(手札4枚以下なら5は出さない、3枚以下なら4以上は出さない、…という形)。
 function rollRequiredHandSize() {
     if (!state.pPresetKey) { state.requiredHandSize = null; return; }
-    const availableCount = state.playerHand.filter(c => c !== null).length;
+    let availableCount = state.playerHand.filter(c => c !== null).length;
+    // ローカル対戦(VERSUS): 両者とも同じ枚数を出すため、2Pの手札枚数とも比べて少ない方に合わせる
+    if (state.gameMode === 'versus') availableCount = Math.min(availableCount, versusState.hand2.filter(c => c !== null).length);
     const maxAllowed = Math.max(1, Math.min(5, availableCount)); // 万一0枚でも最低1にしておく安全策
     state.requiredHandSize = 1 + Math.floor(Math.random() * maxAllowed);
 }
@@ -3174,6 +3211,7 @@ function presetForSide(side) {
 // HPバー下の名前表示を更新する。味方は固定でVAL、敵はSTORY MODEなら現在の敵プリセット名、
 // TRAINING MODEなら固定でMIFUNE(STORY MODEは今後の連戦で敵が変わるたびに自動で切り替わる)
 function updateCharNames() {
+    if (state.gameMode === 'versus') { vsUpdateNames(); return; } // ローカル対戦は1P/2P表記付きの実名(？？？マスキングなし)
     document.getElementById('playerName').innerText =
         state.pPresetKey ? ENEMY_PRESETS[state.pPresetKey].name.toUpperCase() : 'VAL'; // サブストーリーバトルは借りているキャラの名前を表示
     document.getElementById('enemyName').innerText =
@@ -3285,6 +3323,7 @@ function drawEnemySlots(activeIndex) {
         }
         s.appendChild(d);
     });
+    if (state.gameMode === 'versus') vsRenderTop(activeIndex); // 2P側(上半分)の相手カード表示も同期する
 }
 
 // ============================================================
@@ -3375,6 +3414,7 @@ function resetBattleState() {
         state.playerHand = new Array(5).fill(null);
         for (let i = 0; i < 5; i++) state.playerHand[i] = drawCard();
     }
+    if (state.gameMode === 'versus') vsResetBattleSide2(); // ローカル対戦: 2P側の山札・手札・場も同様に用意する
     rollRequiredHandSize(); // サブストーリーバトルなら1枚目のターン分の枚数をここで決める(通常時はnullのまま)
 
     document.getElementById('hpP').style.width = '100%';
@@ -3556,14 +3596,27 @@ async function playBattleIntro() {
     // BATTLE START: 左からディゾルブして中央で停止(STORY MODEのみ、上の行にステージ表記を添える)
     document.getElementById('battleStageLabel').innerText = currentStageLabel();
     const bst = document.getElementById('battleStartText');
+    // ローカル対戦(VERSUS)では、2P側(上半分)の同じ表示にも同じクラスを付け外しして同時に演出する
+    const bstMirror = state.gameMode === 'versus' ? document.getElementById('vsBattleStartText2') : null;
+    if (bstMirror) document.getElementById('vsBattleStageLabel2').innerText = currentStageLabel();
     bst.classList.add('enter');
+    if (bstMirror) bstMirror.classList.add('enter');
     await wait(650);
     await wait(450); // 中央で少し静止
 
     // 拡大しながら消える
     bst.classList.add('exit');
+    if (bstMirror) bstMirror.classList.add('exit');
     await wait(550);
     bst.classList.remove('enter', 'exit');
+    if (bstMirror) bstMirror.classList.remove('enter', 'exit');
+
+    if (state.gameMode === 'versus') {
+        // ローカル対戦: 手札は相手に見られないよう、各自の入力番が来た時にめくる(vsBeginTurnInput参照)
+        state.battleReady = true;
+        vsBeginTurnInput();
+        return;
+    }
 
     await dealInitialHandAnimation(); // 手札を裏向きで配り、左から順にめくる(バトル開始時だけの演出)
 
@@ -3585,6 +3638,7 @@ function isEnemyDefeated(idx) {
 }
 
 function showResult(type) {
+    if (state.gameMode === 'versus') { vsShowResult(); return; } // ローカル対戦は上下それぞれにYOU WIN/YOU LOSEを出す専用の決着画面
     // STORY MODEでの勝利(K.O.以外)は、その時点で戦っていた敵を撃破履歴に記録する(最終戦に限らず毎回)
     if (type !== 'KO' && state.gameMode === 'story') {
         markEnemyDefeated(state.storyEnemyIndex);
@@ -4300,6 +4354,7 @@ async function runNumbEscape(numbedSide) {
 function markCardOutcome(side, idx, outcomeClass) {
     const arr = side === 'P' ? cardOutcomes.P : cardOutcomes.E;
     arr[idx] = outcomeClass || null; // ターンが終わるまで保持する(以後updateUI/drawEnemySlotsの再描画でこの文字列がそのままクラス名として使われる)
+    if (state.gameMode === 'versus') vsMirrorCardOutcome(side, idx, outcomeClass); // 2P側(上半分)の同じカードにも反映する
     const container = document.getElementById(side === 'P' ? 'slots' : 'enemySlots');
     const el = container.children[idx];
     if (!el) return;
@@ -4624,6 +4679,12 @@ async function resolveExchange(pAct, eAct, cursor) {
 
 async function resolveTurn() {
     if (state.resolving || !state.battleReady || filledCount() === 0) return;
+    // ローカル対戦(VERSUS): 1PのGO!は「1Pの手を確定して2Pへ交代」の意味になる。両者が確定した後、
+    // 2PのGO!(vsGo2)がphaseを'resolve'にしてから改めてこの関数を呼び、通常のターン解決へ進む。
+    if (state.gameMode === 'versus' && versusState.phase !== 'resolve') {
+        if (versusState.phase === 'inputP') vsSubmitP();
+        return;
+    }
     if (state.requiredHandSize && filledCount() !== state.requiredHandSize) return; // このターン出す枚数がちょうど揃っていない場合は開始しない(ボタンの無効化と二重の安全策)
     playSE('se_go');
     state.resolving = true;
@@ -4644,6 +4705,10 @@ async function resolveTurn() {
         // プレイヤーが実際に場に出した手に応じて、必ず負ける手を1枚ずつ生成する(第20条: 相手と同じ枚数だけ行動する点は維持)
         state.enemyHands = state.hands.slice(0, total).map(trainingCounterMove);
         state.enemyRevealedUpTo = total; // 生成した時点で内容は確定しているため、そのまま公開する
+    } else if (state.gameMode === 'versus') {
+        // ローカル対戦: 敵AIではなく、2Pが確定させた手をそのまま使う(中身は伏せたまま攻防の直前に1枚ずつ公開する)
+        state.enemyHands = versusState.played2.slice(0, total);
+        state.enemyRevealedUpTo = 0;
     } else {
         state.enemyHands = generateEnemyTurnHand(total);
         state.enemyRevealedUpTo = 0; // 第2条: 中身を伏せて攻防の直前に1枚ずつ公開する
@@ -4755,6 +4820,7 @@ async function resolveTurn() {
             updateHandUI(drawnIndices); // 補充分だけ画面下から回転しつつ登場するアニメーション
             updateDeckCountDisplay();
         }
+        if (state.gameMode === 'versus') vsDiscardAndDraw2(total); // ローカル対戦: 2P側も同じく捨札へ送り、使った枚数分だけ補充する
 
         if (gameOverSide) {
             // 体力を0にする最後の一撃: 通常の帰還処理の代わりに専用の決着演出を実行
@@ -4763,6 +4829,7 @@ async function resolveTurn() {
             await fadeOutQueueCards(); // 場のカードがふわっと消える
             cardOutcomes = { P: new Array(5).fill(null), E: new Array(5).fill(null) }; // ターン終了につき勝敗表現をリセット
             state.hands = new Array(5).fill(null);
+            if (state.gameMode === 'versus') versusState.played2 = new Array(5).fill(null); // ローカル対戦: 2Pの場も同様に空にする
             updateUI();
             state.resolving = false; // バトルは決着済み。ボタンは結果画面から「タイトルへ戻る」でリセットされる
         } else {
@@ -4775,7 +4842,9 @@ async function resolveTurn() {
             // 手札・山が共に尽きた場合のみ、Refresh演出(点滅→カウントアップ)を挟んで捨札をリシャッフルする。
             // 両者が元の立ち位置に戻った後に行う。
             const handIsEmpty = state.playerHand.every(c => c === null);
-            if (handIsEmpty && state.playerDeck.length === 0) {
+            if (state.gameMode === 'versus') {
+                await vsRefreshDecksIfNeeded(); // ローカル対戦: 両者分のリフレッシュ(手札は各自の入力番まで伏せたまま)
+            } else if (handIsEmpty && state.playerDeck.length === 0) {
                 await runDeckRefresh();
                 for (let i = 0; i < state.playerHand.length; i++) {
                     if (state.playerHand[i] === null) {
@@ -4794,12 +4863,14 @@ async function resolveTurn() {
                 healBothToFull(); // TRAINING MODE: ターン終了ごとに双方のHPを全回復する
             }
             state.hands = new Array(5).fill(null); // 第1条: 5つの空枠に戻す
+            if (state.gameMode === 'versus') versusState.played2 = new Array(5).fill(null); // ローカル対戦: 2Pの場も同様に空にする
             rollRequiredHandSize(); // サブストーリーバトルなら次のターン分の枚数をここで新たに抽選し直す(通常時はnullのまま)
             updateUI();
             state.enemyHands = [];
             state.enemyRevealedUpTo = 0;
             drawEnemySlots();
             state.resolving = false;
+            if (state.gameMode === 'versus') vsBeginTurnInput(); // ローカル対戦: 次のターンの入力(1Pから)へ
         }
     }
 }
@@ -4934,14 +5005,14 @@ function updateOptionUI() {
     // COSTUMEは「STORY MODEを一度最後までクリアした」場合、またはGIFT CODE等の追加コスチュームを1つでも
     // 持っている場合(costumeSelectionAvailable)のみ表示する
     document.getElementById('optionCostumeRow').style.display =
-        (costumeSelectionAvailable() && state.gameMode !== 'substoryBattle') ? 'flex' : 'none'; // サブストーリーバトル中は借りているキャラの見た目を変更できないようにする
+        (costumeSelectionAvailable() && state.gameMode !== 'substoryBattle' && state.gameMode !== 'versus') ? 'flex' : 'none'; // サブストーリーバトル中は借りているキャラの見た目を変更できないようにする
     // GIFT CODEはタイトル画面のOPTIONからのみ入力できるようにする(バトル中は表示しない)
     document.getElementById('optionGiftCodeRow').style.display = isTitle ? 'flex' : 'none';
     document.getElementById('optionFooter').style.display = isTitle ? 'none' : 'flex';
     // TRAINING MODEはデッキ編成を経由しない(選び放題の固定手札のため)、RETRYボタン自体を隠す
     document.getElementById('optionRetryBtn').style.display = state.gameMode === 'training' ? 'none' : '';
     // RETURN TO TITLEの確認文言: STORY MODEは進行状況の保存に触れるが、TRAINING MODEは進行状況を持たないため短い文言にする
-    document.getElementById('returnConfirmText').innerHTML = state.gameMode === 'training'
+    document.getElementById('returnConfirmText').innerHTML = (state.gameMode === 'training' || state.gameMode === 'versus')
         ? 'タイトルに戻りますか？'
         : 'タイトルに戻りますか？<br>（ストーリーの進行状況は保存されます）';
     closeResetConfirm(); // 開き直したら確認状態はリセット
@@ -5684,6 +5755,8 @@ function doOptionRetry() {
         goTrainingBattle(); // TRAINING MODEはデッキ編成を経由しないため直接バトルへ
     } else if (state.gameMode === 'substoryBattle') {
         retrySubstoryBattle(); // EXTRA BATTLEも同じ対戦カードのまま、デッキ編成・ストーリーシーンを経由せず直接バトルへ
+    } else if (state.gameMode === 'versus') {
+        vsRematch(); // ローカル対戦も同じキャラ同士のまま最初から
     } else {
         // STORY MODEは、デッキ編成へ直接ではなく現在の敵のストーリーシーンから再生する。
         // 戦う前の会話が相手の癖を読み取るヒントになるため、RETRY時も見返せるようにする。
@@ -5698,4 +5771,613 @@ function doOptionReturnToTitle() {
     closeReturnConfirm();
     closeOption();
     goLogo();
+}
+
+// ============================================================
+// ローカル対戦(VERSUS)
+// ============================================================
+// スマホ縦持ちの1画面を上下に分け、下半分=1P(通常の向き)、上半分=2P(180°回転)として向かい合って遊ぶ2人対戦。
+// ・キャラ選択: デッキ編成は行わず、ENEMY_PRESETSのキャラ(VAL+本編の5人)から選ぶ。デッキ配分・攻撃力/防御力等の
+//   個性はそのキャラのプリセットをそのまま使う(EXTRA BATTLEでプレイヤーが敵キャラを借りる仕組みと同じ)。
+// ・バトルの中身(判定・コンボ・しびれ・チャージ・必殺技・ダメージ)は通常のバトル進行(resolveTurn/resolveExchange)を
+//   そのまま使う。敵AIの代わりに、2Pが確定させた手(versusState.played2)をstate.enemyHandsとして渡すだけ。
+// ・出す枚数はEXTRA BATTLEと同じく毎ターン1〜5のランダム(rollRequiredHandSize)。両者とも同じ枚数を出す。
+// ・同じ画面を覗くため、入力は1P→2Pの順番制。自分の番以外は手札・場のカードを裏向きにし、各自のUI部分は
+//   「READY」ボタン付きの目隠し(ゲート)で覆う。両者が確定したら、攻防の直前に1枚ずつ公開していく。
+// ・描画: 2P側のcanvas(#cvs2)には、メインのcanvasを毎フレーム左右反転してコピーする。上半分全体(#vsTop)をCSSで
+//   180°回転させるため、2Pから見ても「自分が左・相手が右」になる。文字(技名・COMBO)だけは鏡文字にならないよう、
+//   コピーの後で両canvasに描き足す(vsRenderMirror)。
+// ・体力ゲージは画面中央(既存の#gameHeader)を両者で共有する。1PのHPが左・2PのHPが右の点対称配置なので、
+//   2Pから見ても自分のHPが左に来る。
+// ・下半分(1P)は既存のバトル画面の要素(#gameArea/#ui/#handRow/#slots等)をそのまま使い、上半分(2P)は
+//   #vsTop以下の専用要素を使う。
+const VERSUS_CHARACTERS = [
+    { key: 'VAL', storyIdx: -1, thumbSet: null }, // 主人公(常に選択可)。見た目は既定のプレイヤー画像
+    { key: 'ENEMY_01', storyIdx: 0, thumbSet: 'enemy_1' },
+    { key: 'ENEMY_02', storyIdx: 1, thumbSet: 'enemy_2' },
+    { key: 'ENEMY_03', storyIdx: 2, thumbSet: 'enemy_3' },
+    { key: 'ENEMY_04', storyIdx: 3, thumbSet: 'enemy_4' },
+    { key: 'ENEMY_05', storyIdx: 4, thumbSet: 'enemy_5' },
+];
+const VERSUS_STAGE_COUNT = 5; // 背景・BGMは、STORY MODEでクリア済みのステージ(1〜5)からランダムに選ぶ(再戦時は同じステージのまま)
+
+// ローカル対戦の状態。stateと同様、以後再定義・再初期化せず、プロパティのみ書き換えて使う(第13条に倣う)。
+let versusState = {
+    // 'idle'(対戦外) | 'select'(キャラ選択) | 'intro'(開始演出中) | 'readyP'/'readyE'(交代待ち、READY待ち) |
+    // 'inputP'/'inputE'(各自がカードを選んでいる) | 'resolve'(ターン解決中) | 'over'(決着)
+    phase: 'idle',
+    selP: 'VAL', selE: 'VAL', // 選択中のキャラ(ENEMY_PRESETSのキー)
+    readyP: false, readyE: false, // キャラ選択画面でREADYを押したか
+    stageNum: 1, // 使用中のステージ(背景・BGM)番号
+    deck2: [], discard2: [], hand2: new Array(5).fill(null), // 2Pの山札/捨札/手札(1Pはstate.playerDeck等をそのまま使う)
+    played2: new Array(5).fill(null), // 2Pがこのターン場に出したカード(1Pのstate.handsに相当)
+    committedP: [], // このターンに1Pが確定させた手の控え(2P側に表示する相手カード用。決着時にstate.handsが空になっても表示を保つ)
+    winsP: 0, winsE: 0, // 同じキャラ選択のまま続けた場合の勝利数(キャラ選択へ戻るとリセット)
+    revealToken: 0, // 手札をめくる演出の世代カウンタ(途中で番が変わった場合に打ち切る)
+    mirrorCtx: null // #cvs2のcontext(初回使用時に取得)
+};
+
+// ------- レイアウト(body.versus-layoutで上下分割のCSSに切り替える) -------
+function enterVersusLayout() {
+    document.body.classList.add('versus-layout');
+}
+// タイトルへ戻る経路(goLogo等)から必ず呼ばれる。ローカル対戦中でなければ何もしない安全な処理。
+function exitVersusLayout() {
+    if (!document.body.classList.contains('versus-layout')) return;
+    document.body.classList.remove('versus-layout');
+    versusState.phase = 'idle';
+    versusState.revealToken++;
+    vsHideResults();
+}
+
+// ------- 描画(2P側の反転canvas) -------
+function getVersusMirrorCtx() {
+    if (versusState.mirrorCtx) return versusState.mirrorCtx;
+    const c2 = document.getElementById('cvs2');
+    if (!c2) return null;
+    versusState.mirrorCtx = c2.getContext('2d');
+    return versusState.mirrorCtx;
+}
+function isVersusMirrorActive() {
+    return state.gameMode === 'versus' && document.body.classList.contains('versus-layout') && !!getVersusMirrorCtx();
+}
+// draw()の最後に毎フレーム呼ばれる。メインcanvasの内容を#cvs2へ左右反転してコピーし、文字だけは両方へ正しい向きで描く。
+function vsRenderMirror(t) {
+    const c2 = getVersusMirrorCtx();
+    const W = cvs.width, H = cvs.height;
+    c2.setTransform(1, 0, 0, 1, 0, 0);
+    c2.clearRect(0, 0, W, H);
+    c2.imageSmoothingEnabled = false; // 第10条: ドット絵品質を維持する
+    c2.save();
+    c2.translate(W, 0);
+    c2.scale(-1, 1);
+    c2.drawImage(cvs, 0, 0);
+    c2.restore();
+    // 1P側(メインcanvas): 通常と同じ位置・向き
+    drawTechNamePops(ctx, t, 0);
+    drawComboCounter('P', 24, 'left', ctx);
+    drawComboCounter('E', W - 24, 'right', ctx);
+    // 2P側: 位置だけ左右反転(2Pのコンボが左上、1Pのコンボが右上)
+    drawTechNamePops(c2, t, W);
+    drawComboCounter('E', 24, 'left', c2);
+    drawComboCounter('P', W - 24, 'right', c2);
+}
+// 1Pが選んだキャラのグラフィックセット名('VAL'はnull=既定の見た目)。表示倍率(CHARACTER_SCALE_BY_SET)の判定に使う
+function vsPlayerSetName() {
+    const m = state.pPresetKey ? state.pPresetKey.match(/^ENEMY_(\d+)$/) : null;
+    return m ? 'enemy_' + parseInt(m[1], 10) : null;
+}
+// プレイヤー側に実際に使われる見た目のセット名(表示倍率の判定用)。キャラを借りるモード(EXTRA BATTLE/VERSUS)では
+// 借りているキャラ(playerSpriteNameと同じ判定)、それ以外は選択中のコスチューム
+function playerCharacterSetName() {
+    if ((state.gameMode === 'substoryBattle' || state.gameMode === 'versus') && state.pPresetKey) return vsPlayerSetName();
+    return selectedSkin;
+}
+
+// ------- カード表示の共通処理 -------
+// 裏向きのカード表示にする(.card/.slotどちらにも使える)。card_back.PNGが無ければCSSの縞模様にフォールバックする
+function setCardBackVisual(el) {
+    el.classList.add('card-back');
+    el.innerText = '';
+    el.removeAttribute('data-letter');
+    el.style.removeProperty('--card-img');
+    el.style.backgroundImage = imgs[CARD_BACK_IMG] ? `url('assets/images/cards/${CARD_BACK_IMG}')` : '';
+}
+// そのside('P'/'E')の場のカードを、今は伏せて表示すべきかどうか。
+// 入力の交代中(ready/input)は、自分の入力番以外は自分の場も伏せる(相手が画面を見ているため)。
+function versusSlotsHidden(side) {
+    const ph = versusState.phase;
+    const own = side === 'P' ? 'inputP' : 'inputE';
+    return ['readyP', 'inputP', 'readyE', 'inputE'].includes(ph) && ph !== own;
+}
+function vsHandHidden(side) {
+    return versusState.phase !== (side === 'P' ? 'inputP' : 'inputE');
+}
+function vsCountFilled(arr) {
+    const idx = arr.indexOf(null);
+    return idx === -1 ? arr.length : idx;
+}
+
+// ------- 2P側の山札・手札 -------
+function vsResetBattleSide2() {
+    const preset = ENEMY_PRESETS[state.ePresetKey];
+    versusState.deck2 = buildDeckArray(preset.deck);
+    versusState.discard2 = [];
+    versusState.hand2 = new Array(5).fill(null);
+    for (let i = 0; i < 5; i++) versusState.hand2[i] = vsDrawCard2();
+    versusState.played2 = new Array(5).fill(null);
+    versusState.committedP = [];
+    versusState.phase = 'intro';
+    versusState.revealToken++;
+    vsHideResults();
+    vsRenderHand2();
+    vsSetGates();
+    vsRenderTop();
+}
+function vsDrawCard2() {
+    if (versusState.deck2.length === 0) return null; // 1Pと同じく自動リシャッフルはしない
+    return versusState.deck2.pop();
+}
+// ターン終了時(resolveTurnのfinally)に呼ばれる: 使ったカードを捨札へ送り、使った枚数分だけ山から補充する
+function vsDiscardAndDraw2(total) {
+    for (let i = 0; i < total; i++) {
+        if (versusState.played2[i]) versusState.discard2.push(versusState.played2[i]);
+    }
+    for (let i = 0; i < versusState.hand2.length; i++) {
+        if (versusState.hand2[i] === null) {
+            const c = vsDrawCard2();
+            if (c !== null) versusState.hand2[i] = c;
+        }
+    }
+    vsRenderHand2();
+    vsRenderTop();
+}
+// 手札・山が共に尽きた側だけ、捨札を山へリシャッフルする(両者とも毎ターン同じ枚数を出すため、通常は同時に起きる)
+async function vsRefreshDecksIfNeeded() {
+    const needP = state.playerHand.every(c => c === null) && state.playerDeck.length === 0;
+    const needE = versusState.hand2.every(c => c === null) && versusState.deck2.length === 0;
+    const tasks = [];
+    if (needP) {
+        tasks.push(runDeckRefresh().then(() => {
+            for (let i = 0; i < state.playerHand.length; i++) {
+                if (state.playerHand[i] === null) {
+                    const c = drawCard();
+                    if (c !== null) state.playerHand[i] = c;
+                }
+            }
+        }));
+    }
+    if (needE) {
+        tasks.push(vsRunDeckRefresh2().then(() => {
+            for (let i = 0; i < versusState.hand2.length; i++) {
+                if (versusState.hand2[i] === null) {
+                    const c = vsDrawCard2();
+                    if (c !== null) versusState.hand2[i] = c;
+                }
+            }
+        }));
+    }
+    if (tasks.length === 0) return;
+    await Promise.all(tasks);
+    updateDeckCountDisplay();
+    updateHandUI();
+    vsRenderHand2();
+    vsRenderTop();
+}
+// 2P側のRefresh演出(runDeckRefreshと同じ見た目。効果音は1P側のループ再生と重ならないよう鳴らさない)
+async function vsRunDeckRefresh2() {
+    const deckEl = document.getElementById('vsDeckInfo2');
+    const label = document.getElementById('vsDeckRefreshLabel2');
+    label.classList.add('show');
+    for (let i = 0; i < 3; i++) {
+        deckEl.style.opacity = '0.15';
+        await wait(75);
+        deckEl.style.opacity = '1';
+        await wait(75);
+    }
+    versusState.deck2 = shuffleArray(versusState.discard2.slice());
+    versusState.discard2 = [];
+    const target = versusState.deck2.length;
+    const steps = 30;
+    for (let s = 1; s <= steps; s++) {
+        deckEl.innerText = `DECK ${Math.round(target * (s / steps))}/${DB.DECK_TOTAL}`;
+        await wait(1250 / steps);
+    }
+    deckEl.innerText = `DECK ${target}/${DB.DECK_TOTAL}`;
+    label.classList.remove('show');
+}
+
+// ------- 手札の表示(2P) -------
+// updateHandUI(1P用)と同じ円弧配置で、2Pの手札を#vsHandRow2へ描く。2Pの入力番以外は裏向き・タップ不可。
+function vsRenderHand2() {
+    const s = document.getElementById('vsHandRow2');
+    if (!s) return;
+    s.innerHTML = '';
+    const hidden = vsHandHidden('E');
+    const hand = versusState.hand2;
+    const mid = (hand.length - 1) / 2;
+    hand.forEach((card, idx) => {
+        const d = document.createElement('div');
+        d.className = 'card ' + (card ? 'filled' : 'empty');
+        if (hidden && card) setCardBackVisual(d);
+        else applyCardVisual(d, card);
+        const offset = idx - mid;
+        d.style.top = (offset * offset * 4) + 'px';
+        d.style.transform = `translateX(calc(-50% + ${offset * 48}px)) rotate(${offset * 9}deg)`;
+        if (card && !hidden) d.onclick = () => vsPlayCard2(idx);
+        s.appendChild(d);
+    });
+}
+// READYを押した直後、裏向きの手札を左から順にめくって見せる(dealInitialHandAnimationのめくり部分と同じ見た目)
+async function vsFlipRevealHand(side) {
+    const token = ++versusState.revealToken;
+    const row = document.getElementById(side === 'P' ? 'handRow' : 'vsHandRow2');
+    const hand = side === 'P' ? state.playerHand : versusState.hand2;
+    const els = Array.from(row.children);
+    for (let idx = 0; idx < els.length; idx++) {
+        if (token !== versusState.revealToken) return; // 途中で番が変わった(GO!を押した等)場合は打ち切る
+        const d = els[idx];
+        const card = hand[idx];
+        if (!card) continue;
+        const base = d.style.transform;
+        d.style.transition = 'transform 0.07s ease-in';
+        d.style.transform = base + ' scaleX(0)';
+        await rawWait(70);
+        if (token !== versusState.revealToken) return;
+        d.classList.remove('card-back');
+        applyCardVisual(d, card);
+        d.onclick = side === 'P' ? () => playCard(idx) : () => vsPlayCard2(idx);
+        d.style.transition = 'transform 0.07s ease-out';
+        d.style.transform = base;
+        await rawWait(50);
+    }
+}
+
+// ------- 2Pのカード操作 -------
+function vsPlayCard2(handIdx) {
+    if (versusState.phase !== 'inputE' || state.resolving) return;
+    const card = versusState.hand2[handIdx];
+    if (!card) return;
+    if (state.requiredHandSize && vsCountFilled(versusState.played2) >= state.requiredHandSize) return;
+    const slotIdx = versusState.played2.indexOf(null);
+    if (slotIdx === -1) return;
+    versusState.played2[slotIdx] = card;
+    versusState.hand2[handIdx] = null;
+    playSE('se_deck_plus');
+    vsRenderHand2();
+    vsRenderTop();
+}
+function vsResetHands2() {
+    if (versusState.phase !== 'inputE' || state.resolving) return;
+    playSE('se_cancel');
+    versusState.played2.forEach(card => {
+        if (!card) return;
+        const emptyIdx = versusState.hand2.indexOf(null);
+        if (emptyIdx !== -1) versusState.hand2[emptyIdx] = card;
+    });
+    versusState.played2 = new Array(5).fill(null);
+    vsRenderHand2();
+    vsRenderTop();
+}
+
+// ------- 交代の流れ -------
+// ターン開始(バトル開始演出の直後、または前のターンの解決が終わった直後): 1PのREADY待ちから始める
+function vsBeginTurnInput() {
+    versusState.played2 = new Array(5).fill(null);
+    versusState.committedP = [];
+    versusState.phase = 'readyP';
+    versusState.revealToken++;
+    updateHandUI();
+    vsRenderHand2();
+    updateUI();
+    vsSetGates();
+}
+// ゲートのREADYボタン: 自分の手札をめくって入力を始める
+function vsOnReady(side) {
+    if (side === 'P' && versusState.phase !== 'readyP') return;
+    if (side === 'E' && versusState.phase !== 'readyE') return;
+    playSE('se_select');
+    versusState.phase = side === 'P' ? 'inputP' : 'inputE';
+    vsSetGates();
+    updateUI(); // 自分の場の伏せ表示を解除する(updateUI内でvsRenderTopも呼ばれる)
+    // いったん裏向きのまま描いてから、左から順にめくる
+    if (side === 'P') {
+        versusState.phase = 'readyP'; updateHandUI(); versusState.phase = 'inputP';
+    } else {
+        versusState.phase = 'readyE'; vsRenderHand2(); versusState.phase = 'inputE';
+    }
+    updateActionButtons();
+    vsFlipRevealHand(side);
+}
+// 1PのGO!(resolveTurnから呼ばれる): 1Pの手を確定して2Pへ交代する
+function vsSubmitP() {
+    if (state.requiredHandSize && filledCount() !== state.requiredHandSize) return;
+    playSE('se_select');
+    versusState.phase = 'readyE';
+    versusState.revealToken++;
+    updateHandUI();
+    updateUI();
+    vsRenderHand2();
+    vsSetGates();
+}
+// 2PのGO!: 2Pの手を確定し、通常のターン解決(resolveTurn)へ進む
+function vsGo2() {
+    if (versusState.phase !== 'inputE' || state.resolving) return;
+    const count = vsCountFilled(versusState.played2);
+    if (count === 0 || (state.requiredHandSize && count !== state.requiredHandSize)) return;
+    versusState.phase = 'resolve';
+    versusState.committedP = state.hands.slice(0, count);
+    versusState.revealToken++;
+    vsSetGates();
+    updateHandUI();
+    vsRenderHand2();
+    updateUI();
+    resolveTurn();
+}
+
+// ------- ゲート(各自のUI部分を覆う目隠し・交代案内) -------
+function vsSetGates() {
+    const ph = versusState.phase;
+    const n = state.requiredHandSize;
+    const cardsText = n ? `PLAY ${n} CARD${n === 1 ? '' : 'S'}` : '';
+    ['P', 'E'].forEach(side => {
+        const gate = document.getElementById(side === 'P' ? 'vsGate1' : 'vsGate2');
+        if (!gate) return;
+        const me = side === 'P' ? '1P' : '2P';
+        const other = side === 'P' ? '2P' : '1P';
+        const myReady = side === 'P' ? 'readyP' : 'readyE';
+        const otherTurn = side === 'P' ? ['readyE', 'inputE'] : ['readyP', 'inputP'];
+        gate.className = 'vs-gate vs-gate-' + side;
+        if (ph === myReady) {
+            gate.classList.add('show');
+            gate.innerHTML = `<div class="vs-gate-title">${me} TURN</div>` +
+                `<div class="vs-gate-sub">${cardsText}</div>` +
+                `<button class="vs-ready-btn" onclick="vsOnReady('${side}')">READY</button>`;
+        } else if (otherTurn.includes(ph)) {
+            gate.classList.add('show', 'waiting');
+            gate.innerHTML = `<div class="vs-gate-title">${other} IS CHOOSING...</div>` +
+                `<div class="vs-gate-sub">DON'T PEEK!</div>`;
+        } else {
+            gate.innerHTML = '';
+        }
+    });
+}
+
+// ------- 上半分(2P側)の場・相手カード・ボタン等の同期 -------
+function vsRenderTop(activeIndex) {
+    const slots2 = document.getElementById('vsSlots2');
+    if (!slots2) return;
+    const n = state.requiredHandSize;
+
+    const label = document.getElementById('vsRequiredLabel2');
+    label.innerText = n ? `PLAY ${n} CARD${n === 1 ? '' : 'S'} THIS TURN` : '';
+
+    // 2P自身の場(1Pの#slotsに相当)
+    const hideE = versusSlotsHidden('E');
+    slots2.innerHTML = '';
+    versusState.played2.forEach((h, idx) => {
+        const d = document.createElement('div');
+        let cls = 'slot ' + (h ? 'filled' : 'empty');
+        if (idx === activeIndex) cls += ' active-card';
+        if (n && idx >= n) cls += ' slot-locked';
+        if (cardOutcomes.E[idx]) cls += ' ' + cardOutcomes.E[idx];
+        d.className = cls;
+        if (h && hideE) setCardBackVisual(d);
+        else applyCardVisual(d, h);
+        slots2.appendChild(d);
+    });
+
+    // 2Pから見た相手(1P)のカード(1Pの#enemySlotsに相当)。ターン解決中のみ、攻防の直前に1枚ずつ公開する
+    const enemy2 = document.getElementById('vsEnemySlots2');
+    enemy2.innerHTML = '';
+    const total = state.enemyHands.length;
+    versusState.committedP.slice(0, total).forEach((h, idx) => {
+        const d = document.createElement('div');
+        let cls = 'slot filled';
+        if (idx === activeIndex) cls += ' active-card';
+        if (cardOutcomes.P[idx]) cls += ' ' + cardOutcomes.P[idx];
+        d.className = cls;
+        if (idx < state.enemyRevealedUpTo) {
+            applyCardVisual(d, h);
+        } else {
+            d.style.backgroundImage = 'none';
+            d.innerText = '?';
+        }
+        enemy2.appendChild(d);
+    });
+
+    const count = vsCountFilled(versusState.played2);
+    const canInput = versusState.phase === 'inputE' && state.battleReady && !state.resolving;
+    document.getElementById('vsGoBtn2').disabled = !(canInput && (n ? count === n : count > 0));
+    document.getElementById('vsClrBtn2').disabled = !(canInput && count > 0);
+
+    document.getElementById('vsDeckInfo2').innerText = `DECK ${versusState.deck2.length}/${DB.DECK_TOTAL}`;
+    document.getElementById('vsTurn2').innerHTML = `TURN<br>${state.turn}`;
+}
+// markCardOutcomeから呼ばれる: 1P側で付けた勝敗表現(暗転・ヒビ割れ)を、上半分の同じカードにも付ける
+function vsMirrorCardOutcome(side, idx, outcomeClass) {
+    const container = document.getElementById(side === 'E' ? 'vsSlots2' : 'vsEnemySlots2');
+    if (!container) return;
+    const el = container.children[idx];
+    if (!el) return;
+    el.classList.remove('card-lose', 'card-shatter', 'card-shatter-flash');
+    if (outcomeClass) {
+        el.classList.add(outcomeClass);
+        if (outcomeClass === 'card-shatter') el.classList.add('card-shatter-flash');
+    }
+}
+// HPバーの名前表示。下(1P向き)の名前はHPバーの下、上(2P向き)の名前はHPバーの上に逆さで表示する
+function vsUpdateNames() {
+    const nameP = ENEMY_PRESETS[state.pPresetKey].name.toUpperCase();
+    const nameE = ENEMY_PRESETS[state.ePresetKey].name.toUpperCase();
+    document.getElementById('playerName').innerText = '1P ' + nameP;
+    document.getElementById('enemyName').innerText = '2P ' + nameE;
+    document.getElementById('vsNameRotP').innerText = '1P ' + nameP;
+    document.getElementById('vsNameRotE').innerText = '2P ' + nameE;
+}
+
+// ------- 決着 -------
+// showResultから呼ばれる。勝った側の半分にYOU WIN、負けた側の半分にYOU LOSEを出す(同時にHPが0ならDRAW)
+function vsShowResult() {
+    versusState.phase = 'over';
+    const winner = (state.hpP <= 0 && state.hpE <= 0) ? null : (state.hpE <= 0 ? 'P' : 'E');
+    if (winner === 'P') versusState.winsP++;
+    else if (winner === 'E') versusState.winsE++;
+    const textFor = side => winner === null ? 'DRAW' : (winner === side ? 'YOU WIN' : 'YOU LOSE');
+    [['P', 'vsResult1'], ['E', 'vsResult2']].forEach(([side, id]) => {
+        const el = document.getElementById(id);
+        const mine = side === 'P' ? versusState.winsP : versusState.winsE;
+        const theirs = side === 'P' ? versusState.winsE : versusState.winsP;
+        const me = side === 'P' ? '1P' : '2P', other = side === 'P' ? '2P' : '1P';
+        el.className = 'vs-result show ' + (winner === null ? 'draw' : (winner === side ? 'win' : 'lose'));
+        el.innerHTML = `<div class="vs-result-text">${textFor(side)}</div>` +
+            `<div class="vs-result-score">${me} ${mine} - ${theirs} ${other}</div>`;
+    });
+    // 操作ボタンは各自の手元(ゲートの位置)に出す。タイトルへ戻るのは1P側のみ
+    ['P', 'E'].forEach(side => {
+        const gate = document.getElementById(side === 'P' ? 'vsGate1' : 'vsGate2');
+        gate.className = 'vs-gate vs-gate-' + side + ' show result';
+        gate.innerHTML = `<div class="vs-result-btns">` +
+            `<button class="vs-ready-btn" onclick="vsRematch()">REMATCH</button>` +
+            `<button class="vs-sub-btn" onclick="vsBackToSelect()">CHARACTER</button>` +
+            (side === 'P' ? `<button class="vs-sub-btn" onclick="vsExitToTitle()">TITLE</button>` : '') +
+            `</div>`;
+    });
+    playSE('se_win');
+    playBGM('bgm_victory');
+}
+function vsHideResults() {
+    ['vsResult1', 'vsResult2'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) { el.className = 'vs-result'; el.innerHTML = ''; }
+    });
+}
+
+// ------- 開始・再戦・終了 -------
+async function vsStartBattle() {
+    state.pendingMode = 'versus'; // resetBattleStateはこの値からgameModeを決定する
+    state.pPresetKey = versusState.selP;
+    state.ePresetKey = versusState.selE;
+    state.substoryStageNum = versusState.stageNum; // 背景の指定はEXTRA BATTLEと同じ仕組みを使う
+    state.substoryMusicNum = versusState.stageNum;
+    const pSet = vsPlayerSetName();
+    await ensureReadyWithLoading(Promise.all([
+        loadEnemySet(currentEnemySetName()),
+        pSet ? loadEnemySet(pSet) : Promise.resolve(),
+        loadStageBackground(versusState.stageNum === 1 ? 'bg.PNG' : `bg_${versusState.stageNum}.PNG`),
+        preloadBgm('bgm_battle_' + versusState.stageNum, 'bgm_battle')
+    ]));
+    enterVersusLayout();
+    resetBattleState();
+    showScene('battle');
+    playBattleIntro();
+    playBGM('bgm_battle_' + versusState.stageNum, 'bgm_battle');
+}
+// 同じキャラ・同じステージのまま、もう一度最初から(決着画面のREMATCH、OPTIONのRETRY)
+function vsRematch() {
+    playSE('se_select');
+    vsHideResults();
+    vsStartBattle();
+}
+function vsBackToSelect() {
+    playSE('se_select');
+    vsHideResults();
+    goVersusSelect();
+}
+function vsExitToTitle() {
+    playSE('se_select');
+    exitVersusLayout();
+    endSubstoryBattle(); // pPresetKey等を通常の状態へ戻す(STORY MODEへの持ち越しを防ぐ)
+    goTitle();
+}
+
+// ------- キャラ選択画面 -------
+function goVersusSelect() {
+    enterVersusLayout();
+    versusState.phase = 'select';
+    versusState.readyP = false;
+    versusState.readyE = false;
+    versusState.winsP = 0;
+    versusState.winsE = 0;
+    // 本編の敵を選べる状態なら、選択肢のグラフィックを先に読み込んでおく(サムネイル自体は<img>で直接読む)
+    VERSUS_CHARACTERS.forEach(ch => { if (ch.thumbSet && vsCharUnlocked(ch)) loadEnemySet(ch.thumbSet); });
+    if (!vsCharUnlocked(vsCharByKey(versusState.selP))) versusState.selP = 'VAL';
+    if (!vsCharByKey(versusState.selE) || !vsCharUnlocked(vsCharByKey(versusState.selE))) versusState.selE = 'VAL';
+    document.getElementById('vsSelFight').classList.remove('show');
+    vsRenderSelect();
+    showScene('versusSelect');
+    playBGM('bgm_deck');
+}
+function vsCharByKey(key) { return VERSUS_CHARACTERS.find(c => c.key === key); }
+// 本編で出会う前の敵はネタバレ防止のため選べない(EXTRA BATTLEの？？？表示と同じ考え方)。
+// STORY MODEで撃破済み、またはSTORY MODEを一度クリアしていれば選べる。VALは常に選べる。
+function vsCharUnlocked(ch) {
+    if (!ch) return false;
+    if (ch.storyIdx < 0) return true;
+    return gameClearedOnce || isEnemyDefeated(ch.storyIdx);
+}
+function vsThumbSrc(ch) {
+    return ch.thumbSet ? `assets/images/characters_enemy/${ch.thumbSet}/player.PNG` : 'assets/images/characters/player.PNG';
+}
+function vsRenderSelect() {
+    ['P', 'E'].forEach(side => {
+        const grid = document.getElementById(side === 'P' ? 'vsSelGridP' : 'vsSelGridE');
+        const selKey = side === 'P' ? versusState.selP : versusState.selE;
+        const ready = side === 'P' ? versusState.readyP : versusState.readyE;
+        grid.innerHTML = '';
+        VERSUS_CHARACTERS.forEach(ch => {
+            const unlocked = vsCharUnlocked(ch);
+            const tile = document.createElement('div');
+            tile.className = 'vs-sel-tile' + (unlocked ? '' : ' locked') + (ch.key === selKey ? ' selected' : '');
+            const name = unlocked ? ENEMY_PRESETS[ch.key].name : '???';
+            tile.innerHTML = `<img class="vs-sel-thumb" src="${vsThumbSrc(ch)}" alt="" onerror="this.onerror=null; this.src='assets/images/characters/player.PNG';"><div class="vs-sel-tile-name">${name}</div>`;
+            if (unlocked) tile.onclick = () => vsSelectChar(side, ch.key);
+            grid.appendChild(tile);
+        });
+        const preset = ENEMY_PRESETS[selKey];
+        document.getElementById(side === 'P' ? 'vsSelNameP' : 'vsSelNameE').innerText = preset.name.toUpperCase();
+        document.getElementById(side === 'P' ? 'vsSelDeckP' : 'vsSelDeckE').innerText =
+            `DECK  P${preset.deck.PUNCH} / U${preset.deck.UPPER} / G${preset.deck.GUARD}`;
+        const btn = document.getElementById(side === 'P' ? 'vsSelReadyP' : 'vsSelReadyE');
+        btn.innerText = ready ? 'CANCEL' : 'READY';
+        btn.classList.toggle('is-ready', ready);
+        document.getElementById(side === 'P' ? 'vsSelHalfP' : 'vsSelHalfE').classList.toggle('ready', ready);
+    });
+}
+function vsSelectChar(side, key) {
+    if (versusState.phase !== 'select') return;
+    if (side === 'P' ? versusState.readyP : versusState.readyE) return; // READY中は変更不可(CANCELで解除してから)
+    if (side === 'P') versusState.selP = key; else versusState.selE = key;
+    playSE('se_deck_plus');
+    vsRenderSelect();
+}
+function vsToggleSelectReady(side) {
+    if (versusState.phase !== 'select') return;
+    if (side === 'P') versusState.readyP = !versusState.readyP; else versusState.readyE = !versusState.readyE;
+    playSE(side === 'P' ? (versusState.readyP ? 'se_select' : 'se_cancel') : (versusState.readyE ? 'se_select' : 'se_cancel'));
+    vsRenderSelect();
+    if (versusState.readyP && versusState.readyE) vsStartFromSelect();
+}
+async function vsStartFromSelect() {
+    versusState.phase = 'starting';
+    const stages = vsAvailableStages();
+    versusState.stageNum = stages[Math.floor(Math.random() * stages.length)];
+    document.getElementById('vsSelFight').classList.add('show');
+    playSE('se_go');
+    await rawWait(900);
+    document.getElementById('vsSelFight').classList.remove('show');
+    vsStartBattle();
+}
+// 出現させるステージ番号の一覧。STORY MODEで撃破済みの敵のステージ(enemyIndex+1)のみ。クリア済み(gameClearedOnce)なら全ステージ。
+// 1人も撃破していない場合は、1ST STAGE(bg.PNG)のみにする。
+function vsAvailableStages() {
+    const list = [];
+    for (let n = 1; n <= VERSUS_STAGE_COUNT; n++) {
+        if (gameClearedOnce || isEnemyDefeated(n - 1)) list.push(n);
+    }
+    return list.length > 0 ? list : [1];
+}
+function vsSelectBackToTitle() {
+    if (versusState.phase !== 'select') return;
+    vsExitToTitle();
 }
