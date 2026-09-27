@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>CLASH5 - CROSS DIMENSION</title>
-    <link rel="stylesheet" href="css/style.css?v=115">
+    <link rel="stylesheet" href="css/style.css?v=116">
 
     <!-- 技名ポップ(2026-09-27追加)用の手書き風フォント。Google FontsのCDNから読み込む(ファイル同梱はせず、
          プレイ時のネット接続を前提とする。GitHub Pages/itch.ioでの公開自体が既にネット接続前提のため問題ない)。
@@ -95,11 +95,12 @@
                 <div class="title-logo-fallback-sub">CROSS DIMENSION</div>
             </div>
         </div>
-        <div class="title-version">ver. 0.9.115</div>
+        <div class="title-version">ver. 0.9.116</div>
     </div>
     <button id="titleContinueBtn" class="text-btn" onclick="tapFlickerThen(this, () => goContinueGame())" style="display:none;">CONTINUE</button>
     <button id="startBtn" class="text-btn" onclick="tapFlickerThen(this, () => goNewGame())" disabled>NEW GAME</button>
     <button id="trainingBtn" class="text-btn" onclick="tapFlickerThen(this, () => goTrainingBattle())" disabled>TRAINING MODE</button>
+    <button id="versusBtn" class="text-btn" onclick="tapFlickerThen(this, () => goVersusSelect())" disabled>VERSUS</button>
     <button id="optionBtn" class="text-btn" onclick="openOption()" disabled>OPTION</button>
     <button id="bonusContentsBtn" class="text-btn" onclick="openBonusContents()" style="display:none;">BONUS</button>
     <button class="howto-btn howto-corner" onclick="openHowTo()">HOW<br>TO</button>
@@ -137,10 +138,59 @@
     <button class="howto-btn howto-corner" onclick="openHowTo()">HOW<br>TO</button>
 </div>
 
+<!-- ローカル対戦(VERSUS)のキャラ選択: 上半分=2P(180°回転)、下半分=1P。両者がREADYを押すとバトルへ -->
+<div id="sceneVersusSelect" class="scene">
+    <div id="vsSelHalfE" class="vs-sel-half vs-sel-half-e">
+        <div class="vs-sel-head"><span class="vs-sel-badge">2P</span><span class="vs-sel-name" id="vsSelNameE"></span></div>
+        <div class="vs-sel-deck" id="vsSelDeckE"></div>
+        <div class="vs-sel-grid" id="vsSelGridE"></div>
+        <button class="vs-ready-btn" id="vsSelReadyE" onclick="vsToggleSelectReady('E')">READY</button>
+    </div>
+    <div class="vs-sel-center">
+        <button class="vs-sel-back" onclick="vsSelectBackToTitle()">✕</button>
+        <div class="vs-sel-vs">VS</div>
+    </div>
+    <div id="vsSelHalfP" class="vs-sel-half vs-sel-half-p">
+        <div class="vs-sel-head"><span class="vs-sel-badge">1P</span><span class="vs-sel-name" id="vsSelNameP"></span></div>
+        <div class="vs-sel-deck" id="vsSelDeckP"></div>
+        <div class="vs-sel-grid" id="vsSelGridP"></div>
+        <button class="vs-ready-btn" id="vsSelReadyP" onclick="vsToggleSelectReady('P')">READY</button>
+    </div>
+    <div id="vsSelFight">FIGHT!</div>
+</div>
+
 <!-- バトルシーン -->
 <div id="sceneBattle" class="scene">
+<!-- ローカル対戦(VERSUS)専用: 上半分=2P側。body.versus-layoutの時だけ表示し、要素全体を180°回転させる。
+     2Pから見て、画面中央側(このdivの先頭)がcanvas、手前側(末尾)が手札・ボタン -->
+<div id="vsTop">
+    <div id="vsGameArea2" class="vs-game-area">
+        <canvas id="cvs2" width="960" height="560"></canvas>
+        <div id="vsEnemySlots2" class="vs-enemy-slots"></div>
+        <div id="vsBattleStartText2" class="vs-battle-start">
+            <div id="vsBattleStageLabel2" class="vs-battle-stage"></div>
+            <div class="vs-battle-start-label">BATTLE START</div>
+        </div>
+        <div id="vsResult2" class="vs-result"></div>
+    </div>
+    <div id="vsUi2" class="vs-ui">
+        <div id="vsRequiredLabel2" class="vs-required-label"></div>
+        <div id="vsSlots2" class="vs-slots"></div>
+        <div class="vs-hand-wrap">
+            <div id="vsHandRow2" class="vs-hand-row"></div>
+            <div id="vsDeckInfo2" class="vs-deck-info">DECK 21/21</div>
+            <div id="vsDeckRefreshLabel2" class="vs-deck-refresh">Refresh</div>
+        </div>
+        <div class="vs-controls">
+            <button id="vsClrBtn2" onclick="vsResetHands2()" disabled>CANCEL</button>
+            <button id="vsGoBtn2" onclick="vsGo2()" disabled>GO!</button>
+        </div>
+        <div id="vsGate2" class="vs-gate"></div>
+    </div>
+</div>
 <div id="gameHeader">
     <div class="hp-col">
+        <div class="vs-name-rot" id="vsNameRotP"></div>
         <div class="hp-wrap">
             <div class="hp-bar-bg"></div>
             <div class="hp-yellow" id="hpP_y" style="width:100%"></div>
@@ -148,8 +198,12 @@
         </div>
         <div class="char-name" id="playerName">VAL</div>
     </div>
-    <div id="turnDisplay">TURN<br><span id="turnNumber">0</span><br><span id="turnStageLabel"></span></div>
+    <div class="vs-turn-col">
+        <div id="vsTurn2" class="vs-turn-rot"></div>
+        <div id="turnDisplay">TURN<br><span id="turnNumber">0</span><br><span id="turnStageLabel"></span></div>
+    </div>
     <div class="hp-col">
+        <div class="vs-name-rot" id="vsNameRotE"></div>
         <div class="hp-wrap">
             <div class="hp-bar-bg"></div>
             <div class="hp-yellow" id="hpE_y" style="width:100%"></div>
@@ -165,6 +219,7 @@
         <div id="battleStageLabel"></div>
         <div id="battleStartLabel">BATTLE START</div>
     </div>
+    <div id="vsResult1" class="vs-result"></div>
 </div>
 <div id="ui">
     <div id="requiredHandSizeLabel" style="display:none;"></div>
@@ -183,6 +238,7 @@
             <button onclick="resolveTurn()" id="goBtn" disabled>GO!</button>
         </div>
     </div>
+    <div id="vsGate1" class="vs-gate"></div>
 </div>
 <!-- 決着オーバーレイ: ヘッダー・場・手札すべてを含む画面全体を覆う -->
 <div id="resultOverlay">

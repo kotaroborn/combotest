@@ -3,6 +3,21 @@
 このプロジェクトの変更履歴。日付は新しいものを上に追記する。
 コード(`index.html` / `css/style.css` / `js/script.js`)や仕様に変更を加えた場合は、このファイルに追記すること(詳細は `AI_GUIDE.md` を参照)。
 
+## 2026-09-27(2)
+
+- ローカル対戦(VERSUS)の背景・BGMを、STORY MODEでクリア済みのステージからのみ選ぶよう変更(1人も撃破していなければ1ST STAGE)。`vsAvailableStages`を追加。
+- 不具合修正: EXTRA BATTLEでGald/Alvとして戦う時、プレイヤー側の表示倍率が敵として登場する時と異なっていた。`playerCharacterSetName`を追加し、`draw`の倍率判定に使用。
+
+## 2026-09-27
+
+- ローカル対戦(VERSUS)を追加(ver. 0.9.116)。
+  - 追加: タイトルのVERSUSボタン、キャラ選択シーン(`#sceneVersusSelect`)、バトル画面の上半分(2P側、`#vsTop`)、中央HPゲージの2P向き表示、各自のUIを覆うゲート、上下別の決着表示
+  - 追加: `js/script.js`末尾に「ローカル対戦(VERSUS)」節(`versusState`ほか)
+  - 変更: 既存のバトル関数に`state.gameMode === 'versus'`の分岐(フック)を追加。通常モードの挙動は変更なし
+  - 変更: `draw`内の技名ポップを`drawTechNamePops`に関数化、`drawComboCounter`に描画先contextの引数を追加(描画内容は変更なし)
+  - 変更: タイトルのボタン縦位置の間隔を6.75%→5.8%に詰めてVERSUSを追加
+  - style.cssのキャッシュ用クエリをv=116に更新
+
 ## 2026-08-05(4)
 
 - `AI_GUIDE.md` を強化(長期・複数AI共同開発を前提としたルールを追加)。

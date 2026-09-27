@@ -37,7 +37,7 @@
 | `piyoSide, piyoFlip` | ピヨり演出の対象側/反転状態 |
 | `pPunchStreak, ePunchStreak` | 地上パンチの連続ヒット数 |
 | `pGuardHoldPose, eGuardHoldPose` | ガード構え維持フラグ |
-| `gameMode, pendingMode` | 現在/次回のゲームモード(`'story'` \| `'training'`) |
+| `gameMode, pendingMode` | 現在/次回のゲームモード(`'story'` \| `'training'` \| `'substoryBattle'` \| `'versus'`) |
 | `trainingCycleIndex` | TRAINING MODEの技サイクル位置 |
 | `storyEnemyIndex` | STORY MODEでの現在の敵の位置(セーブ対象) |
 | `soundOn` | サウンド設定値(セーブ対象。再生処理は未実装) |
@@ -89,9 +89,16 @@ canvas描画ループ本体と、キャラクターの座標・表示スプラ�
 
 HOW TO/OPTIONポップアップの開閉と、OPTION画面内の各操作を担当。
 
+### 9. ローカル対戦(VERSUS)
+`enterVersusLayout`, `exitVersusLayout`, `getVersusMirrorCtx`, `isVersusMirrorActive`, `vsRenderMirror`, `vsPlayerSetName`, `setCardBackVisual`, `versusSlotsHidden`, `vsHandHidden`, `vsCountFilled`, `vsResetBattleSide2`, `vsDrawCard2`, `vsDiscardAndDraw2`, `vsRefreshDecksIfNeeded`, `vsRunDeckRefresh2`, `vsRenderHand2`, `vsFlipRevealHand`, `vsPlayCard2`, `vsResetHands2`, `vsBeginTurnInput`, `vsOnReady`, `vsSubmitP`, `vsGo2`, `vsSetGates`, `vsRenderTop`, `vsMirrorCardOutcome`, `vsUpdateNames`, `vsShowResult`, `vsHideResults`, `vsStartBattle`, `vsRematch`, `vsBackToSelect`, `vsExitToTitle`, `goVersusSelect`, `vsCharByKey`, `vsCharUnlocked`, `vsThumbSrc`, `vsRenderSelect`, `vsSelectChar`, `vsToggleSelectReady`, `vsStartFromSelect`, `vsAvailableStages`, `vsSelectBackToTitle`, `playerCharacterSetName`
+
+スマホ縦画面を上下に分けた2人対戦(下=1P、上=2Pを180°回転)。キャラ選択、2P側の山札・手札、1P→2Pの交代(ゲート)、2P側canvasへの反転コピー、上下別の決着表示を担当する。バトルの判定・演出はモジュール7をそのまま使い、既存関数には`state.gameMode === 'versus'`の分岐でこのモジュールを呼ぶフックだけを入れている(`resolveTurn`/`resetBattleState`/`playBattleIntro`/`showResult`/`updateUI`/`updateHandUI`/`drawEnemySlots`/`markCardOutcome`/`rollRequiredHandSize`/`draw`等)。
+状態は`versusState`(定数`VERSUS_CHARACTERS`/`VERSUS_STAGE_COUNT`)にまとめている。`draw`内の技名ポップは`drawTechNamePops`に関数化し、`drawComboCounter`は描画先contextを引数で受け取れるようにした(反転canvasにも正しい向きで文字を描くため)。
+
 ## 処理フローの起点(呼び出しの入口)
 
 - ゲーム起動: 画像読み込み完了 → `checkAllSettled` → `boot` → `playLogo`
 - カードを場に出す: `playCard`(手札タップ時のonclick)
 - ターン実行: `resolveTurn`(GO!ボタンのonclick) → ループ内で `resolveExchange` を攻防回数分呼び出す → `finally`句で後処理
 - バトル開始: `goBattleStart` → `resetBattleState` → `playBattleIntro`
+- ローカル対戦: タイトルのVERSUS → `goVersusSelect` → 両者READY → `vsStartFromSelect` → `vsStartBattle` → `resetBattleState` → `playBattleIntro` → `vsBeginTurnInput`。各ターンは `vsOnReady('P')` → 1PのGO!(`resolveTurn`→`vsSubmitP`) → `vsOnReady('E')` → 2PのGO!(`vsGo2`→`resolveTurn`) の順
