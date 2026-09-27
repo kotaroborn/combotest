@@ -7,7 +7,7 @@
  */
 
 // ============================================================
-// 設定・状態管理(DB / state / imgs / trails / cardOutcomes / deckCounts / unlockedItems / 各種初期化処理)
+// 設定・状態管理(DB / state / imgs / trails / cardOutcomes / deckCounts / 各種初期化処理)
 // ============================================================
 
 // 第22条: ファイル名は小文字、拡張子は常に大文字 .PNG
@@ -174,7 +174,6 @@ function spawnTechNamePop(side, text) {
 }
 let cardOutcomes = { P: new Array(5).fill(null), E: new Array(5).fill(null) }; // ターン中の各カードの勝敗表現(card-lose/card-shatter)。ターン終了(両者が定位置へ戻り、場のカードが消えた後)にリセットする
 let deckCounts = { PUNCH: 7, UPPER: 7, GUARD: 7 }; // デッキ編成(合計21枚、内訳は自由)
-let unlockedItems = []; // 隠しアイテム(今後実装予定)。取得済みアイテムIDを貯めていく想定
 
 // ------- 実績システム(汎用・今後も追加していく前提) -------
 // 解除状況はすべてlocalStorageに永続保存し、ブラウザを閉じても解除済みのまま残る。
@@ -199,6 +198,7 @@ let selectedSkin = null; // 現在選択中のコスチューム('enemy_1'等、
 let gameClearedOnce = false; // STORY MODEを一度でも最後(5人目)までクリアしたか。COSTUMEの解放条件の一部
 let costumeUnlockAnnounced = false; // タイトル画面でCOSTUME解放のポップアップを既に一度見せたか(繰り返し表示しないため)
 let bonusContentsAnnounced = false; // タイトル画面でBONUS CONTENTS解放のポップアップを既に一度見せたか
+let versusUnlocked = false; // 対戦モード(VERSUS)が解放済みか。専用のGIFT CODEでのみ解放する(2026-09-27追加。それまでは常時解放だった)
 
 // 各敵のストーリーシーン内に仕込む隠しタップで解除するサブストーリー(本文は完成済み。画像は今後配置予定、未配置ならプレースホルダー表示)
 // 隠しタップの対象画面(ストーリーシーン3画面のうち何枚目か、0始まり)。敵ごとにバラバラの画面に仕込む。
@@ -953,8 +953,6 @@ function currentStageLabel() {
 
 
 
-// 図鑑(取得アイテムの一覧・ミニストーリー表示)。今後実装予定のプレースホルダー。
-
 // OPTION内のRETRY: このバトル直前のデッキ編成へ戻る(現在のモードを維持)
 
 // OPTION内のRETURN TO TITLE: ロゴシーンまで戻る
@@ -1045,7 +1043,6 @@ function applySaveDataOnBoot() {
     if (typeof save.soundOn === 'boolean') state.soundOn = save.soundOn;
     if (typeof save.bgmVolume === 'number') state.bgmVolume = save.bgmVolume;
     if (typeof save.seVolume === 'number') state.seVolume = save.seVolume;
-    if (Array.isArray(save.unlockedItems)) unlockedItems = save.unlockedItems;
     if (Array.isArray(save.unlockedSubStories)) unlockedSubStories = save.unlockedSubStories;
     if (Array.isArray(save.defeatedEnemyIndices)) defeatedEnemyIndices = save.defeatedEnemyIndices;
     if (Array.isArray(save.unlockedSkins)) unlockedSkins = save.unlockedSkins;
@@ -1066,6 +1063,7 @@ function applySaveDataOnBoot() {
     if (typeof save.gameClearedOnce === 'boolean') gameClearedOnce = save.gameClearedOnce;
     if (typeof save.costumeUnlockAnnounced === 'boolean') costumeUnlockAnnounced = save.costumeUnlockAnnounced;
     if (typeof save.bonusContentsAnnounced === 'boolean') bonusContentsAnnounced = save.bonusContentsAnnounced;
+    if (typeof save.versusUnlocked === 'boolean') versusUnlocked = save.versusUnlocked;
 }
 
 // サブストーリーを解除する(ストーリーシーン内の隠しタップから呼ばれる)。既に解除済みなら何もしない。
@@ -1504,6 +1502,7 @@ async function boot() {
         gameClearedOnce = true;
         unlockedSubStories = [0, 1, 2, 3, 4]; // 5体分すべてのサブストーリーを解放
         unlockedSkins = ['enemy_1', 'enemy_2', 'enemy_3', 'enemy_4', 'enemy_5']; // 5体分すべてのコスチュームを解放
+        versusUnlocked = true; // 対戦モード(VERSUS)もGIFT CODEなしで確認できるようにしておく
         // ▲▲▲ 動作確認用の一時デバッグ設定 ▲▲▲
 
         preloadSE(); // SEは軽量なので先読みしておく(起動をブロックしない非同期処理)
@@ -1512,6 +1511,7 @@ async function boot() {
         document.getElementById('versusBtn').disabled = false;
         document.getElementById('optionBtn').disabled = false;
         updateTitleContinueVisibility();
+        updateVersusButtonVisibility(); // GIFT CODEでのみ解放するVERSUSボタンの表示を、復元済みのversusUnlockedに合わせる
         updateSpeedUI(); // セーブデータから復元したbattleSpeedX2をボタン表示に反映する
     } catch (e) {
         console.error('boot()の初期化処理でエラーが発生しましたが、NOW LOADINGは解除して起動を続行します:', e);
@@ -1549,6 +1549,13 @@ function updateTitleContinueVisibility() {
     const save = loadSaveData();
     const hasStoryProgress = !!save && typeof save.storyEnemyIndex === 'number' && save.storyEnemyIndex >= 1;
     document.getElementById('titleContinueBtn').style.display = hasStoryProgress ? 'block' : 'none';
+}
+
+// 対戦モード(VERSUS)ボタンの表示を、専用GIFT CODEでの解放状態(versusUnlocked)に合わせる。
+// 未解放時はボタン自体を隠す(titleContinueBtn/bonusContentsBtnと同じ、隠し要素の表示パターン)。
+function updateVersusButtonVisibility() {
+    const btn = document.getElementById('versusBtn');
+    if (btn) btn.style.display = versusUnlocked ? '' : 'none';
 }
 
 async function playLogo() {
@@ -2103,6 +2110,7 @@ function skipTitleLogoIntro() {
 function goTitle() {
     showScene('title');
     updateTitleContinueVisibility();
+    updateVersusButtonVisibility();
     playBGM('bgm_title');
     updateBonusContentsUI();
     checkUnlockAnnouncements();
@@ -5005,7 +5013,6 @@ function updateOptionUI() {
     document.querySelector(`input[name="soundRadio"][value="${state.soundOn ? 'on' : 'off'}"]`).checked = true;
     document.getElementById('bgmVolumeSlider').value = Math.round(state.bgmVolume * 100);
     document.getElementById('seVolumeSlider').value = Math.round(state.seVolume * 100);
-    document.getElementById('optionItemsRow').style.display = unlockedItems.length > 0 ? 'flex' : 'none';
     // タイトルから開いた場合は「今のバトル」が存在しないため、RETRY/RETURN TO TITLEを隠す
     const isTitle = document.getElementById('sceneTitle').classList.contains('active');
     // COSTUMEは「STORY MODEを一度最後までクリアした」場合、またはGIFT CODE等の追加コスチュームを1つでも
@@ -5044,16 +5051,12 @@ function openResetConfirm() { document.getElementById('resetConfirmPanel').class
 function closeResetConfirm() { document.getElementById('resetConfirmPanel').classList.remove('show'); }
 
 // OPTION内の「進行状況(セーブデータ)のリセット」: storyEnemyIndexをセーブデータごと0に戻す。
-// これによりタイトルのCONTINUEも即座に消える(図鑑等の隠し要素のリセットは別途用意する予定)。
+// これによりタイトルのCONTINUEも即座に消える。
 function doResetProgress() {
     state.storyEnemyIndex = 0;
     writeSaveData({ storyEnemyIndex: 0 });
     updateTitleContinueVisibility();
     closeResetConfirm();
-}
-
-function openItemGallery() {
-    alert('図鑑機能は準備中です。');
 }
 
 // ------- GIFT CODE(シリアルコード) -------
@@ -5063,8 +5066,12 @@ const GIFT_CHARSET = '23456789ABCDEFGHJKMNPQRSTUVWXYZ'; // 31文字(0,1,I,L,Oを
 const GIFT_CODE_KEY = [67, 76, 65, 83, 72, 53, 45, 88, 68, 73, 77, 45, 71, 73, 70, 84, 45, 83, 65, 76, 84, 45, 50, 48, 50, 54]
     .map(n => String.fromCharCode(n)).join('');
 const GIFT_CODE_REWARD_MOD = 8; // 報酬ID = コード1文字目のcharsetインデックス % この値。追加報酬があってもこの値は変えない
+// GIFT_CODE_VERSUS_REWARD: コスチュームではなく「対戦モード(VERSUS)の解放」を表す特別な報酬値(2026-09-27追加)。
+// submitGiftCode側でこの値かどうかを見て、コスチューム解放とは別の専用処理に分岐する。
+const GIFT_CODE_VERSUS_REWARD = 'unlock_versus';
 const GIFT_CODE_REWARDS = {
-    0: 'mifune', // 今後コードを増やす場合はここに 1: '...', 2: '...' を追記するだけでよい
+    0: 'mifune', // 今後コードを増やす場合はここに 1: '...', 3: '...' を追記するだけでよい(2は対戦モード解放で使用済み)
+    2: GIFT_CODE_VERSUS_REWARD, // 対戦モード(VERSUS)解放。例: CY5GBDQT
 };
 function giftCodeChecksumChar(body7) {
     let h = 0;
@@ -5105,8 +5112,8 @@ function submitGiftCode() {
         showGiftCodeError('コードが正しくありません');
         return;
     }
-    const rewardSkin = giftCodeRewardSkin(code);
-    if (!rewardSkin) {
+    const reward = giftCodeRewardSkin(code);
+    if (!reward) {
         showGiftCodeError('コードが正しくありません');
         return;
     }
@@ -5116,6 +5123,20 @@ function submitGiftCode() {
     }
     redeemedGiftCodes.push(code);
     writeSaveData({ redeemedGiftCodes });
+    if (reward === GIFT_CODE_VERSUS_REWARD) {
+        // 対戦モード(VERSUS)解放コード。コスチュームではないため、以下のコスチューム解放処理には進まずここで完結させる。
+        const alreadyUnlocked = versusUnlocked;
+        versusUnlocked = true;
+        writeSaveData({ versusUnlocked: true });
+        updateVersusButtonVisibility();
+        closeGiftCodeInput();
+        updateOptionUI();
+        if (!alreadyUnlocked) {
+            showUnlockToast({ small: 'VERSUS', large: '対戦モード 解放！' });
+        }
+        return;
+    }
+    const rewardSkin = reward;
     const alreadyUnlocked = unlockedSkins.includes(rewardSkin);
     unlockSkin(rewardSkin);
     closeGiftCodeInput();
