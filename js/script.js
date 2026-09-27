@@ -2793,33 +2793,44 @@ function draw(tRaw) {
         drawOne(alpha, 0);
     });
 
-    // 技名ポップ(2026-09-27追加): 技が発動した瞬間、その英語名をキャラの頭上に表示し、右斜め上へ上がっていき
-    // ながらフェードアウトさせる(「右斜め上にあがっていく文字にしたい」との要望による)。開始直後から常に
-    // 上昇を続け(止まっている時間を作らない)、最初の15%だけ「パッと飛び出す」ポップイン(0.4倍→1.15倍で
-    // 現れ、続く20%で1.0倍へ落ち着く)を挟み、40%地点から少しずつフェードアウトする。
+    // 技名ポップ(2026-09-27追加): 技が発動した瞬間、その英語名をキャラの頭上に、位置は動かさず斜め上へ
+    // 傾けた状態で表示する(「斜め上に飛んでいくのではなく、斜め上に傾けて表示して欲しかっただけ」との指摘を
+    // 受け、移動させる演出から角度を固定した表示に変更した)。出現・消滅とも「メリハリをつけた演出」にしたい
+    // との要望を受け、なだらかなフェードではなく、短時間で勢いよく飛び出す(オーバーシュートしてから僅かに
+    // 収まる)ポップイン→そのまま静止表示→短時間で一気に弾けるように消えるポップアウト、という構成にした。
     techNamePops = techNamePops.filter(p => (t - p.born) < TECH_NAME_POP_LIFE);
+    const TECH_NAME_POP_IN_MS = 130; // 出現: 0.3倍→1.3倍まで一気に飛び出す
+    const TECH_NAME_SETTLE_MS = 90; // 直後: 1.3倍→1.0倍まで一瞬で収まる
+    const TECH_NAME_POP_OUT_MS = 130; // 消滅: 最後の一瞬で1.0倍→1.4倍に弾けながら消える(なだらかなフェードにしない)
+    const TECH_NAME_TILT_RAD = -14 * Math.PI / 180; // 右肩上がりに傾ける角度(斜め上を向く見た目にする)
     techNamePops.forEach(p => {
         const age = t - p.born;
         const life = TECH_NAME_POP_LIFE;
-        const popInDur = life * 0.15;
-        const fadeStart = life * 0.4;
+        const popOutStart = life - TECH_NAME_POP_OUT_MS;
         let scale, alpha;
-        if (age < popInDur) {
-            const ip = age / popInDur;
-            scale = 0.4 + ip * 0.75; // 0.4倍→1.15倍
-            alpha = ip;
+        if (age < TECH_NAME_POP_IN_MS) {
+            const ip = age / TECH_NAME_POP_IN_MS;
+            scale = 0.3 + ip * 1.0; // 0.3倍→1.3倍
+            alpha = 1; // 透明度はフェードさせず、最初から不透明のまま勢いだけで見せる
+        } else if (age < TECH_NAME_POP_IN_MS + TECH_NAME_SETTLE_MS) {
+            const sp = (age - TECH_NAME_POP_IN_MS) / TECH_NAME_SETTLE_MS;
+            scale = 1.3 - sp * 0.3; // 1.3倍→1.0倍
+            alpha = 1;
+        } else if (age < popOutStart) {
+            scale = 1.0; // 静止表示(なだらかな変化を挟まない)
+            alpha = 1;
         } else {
-            const settleP = Math.min(1, (age - popInDur) / (life * 0.2));
-            scale = 1.15 - settleP * 0.15; // 1.15倍→1.0倍へ落ち着く
-            alpha = age < fadeStart ? 1 : Math.max(0, 1 - (age - fadeStart) / (life - fadeStart));
+            const op = (age - popOutStart) / TECH_NAME_POP_OUT_MS; // 0→1
+            scale = 1.0 + op * 0.4; // 1.0倍→1.4倍に一気に弾ける
+            alpha = 1 - op; // 消える直前まで不透明を保ち、最後の短い間だけ一気に消える
         }
         if (alpha <= 0) return;
-        const riseP = Math.min(1, age / life); // 0→1、開始直後から常に上がり続ける
-        const anchorX = p.x + DB.IMG_SIZE / 2 + riseP * 60; // 右へ最大60px
-        const anchorY = p.y - 10 - riseP * 90; // 上へ最大90px
+        const anchorX = p.x + DB.IMG_SIZE / 2; // 位置は固定(移動させない)
+        const anchorY = p.y - 10;
         ctx.save();
         ctx.globalAlpha = alpha;
         ctx.translate(anchorX, anchorY);
+        ctx.rotate(TECH_NAME_TILT_RAD);
         ctx.scale(scale, scale);
         ctx.font = `32px ${TECH_NAME_FONT_FAMILY}`;
         ctx.textAlign = 'center';
@@ -3928,7 +3939,7 @@ async function runMeteor(attacker, defender) {
     hitComboBreak(defender);
     await playFinisherBuildup(attacker); // 暗転→一時停止→攻撃側が白く発光→晴れる、のフィニッシュ演出
     setAct(attacker, 'knock.PNG'); // Beat1: 攻撃絵(放つ瞬間のポーズ)
-    spawnTechNamePop(attacker, 'METEOR'); // 技名ポップ(第36条: メテオ)
+    spawnTechNamePop(attacker, 'METEOR!'); // 技名ポップ(第36条: メテオ)
     await wait(DB.HITSTOP.POSE_MS); // ヒットストップ
     applyDamage(defender, DB.DMG.M * chargeMultOf(attacker) * atkMultOf(attacker) * defMultOf(defender)); // Beat2: ダメージ絵(命中の瞬間)
     playSE('se_meteor'); // 未配置ならse_punchで代用される
@@ -3994,7 +4005,7 @@ async function runUpperCombo(attacker, defender, cursor) {
     if (isSuperUpper) await playFinisherBuildup(attacker); // スーパーアッパー(ダメージ2倍)成立時のみ、暗転→一時停止→発光の演出を挟む
     setAct(attacker, 'upper.PNG'); // Beat1: 攻撃絵
     if (isSuperUpper) flashAttackerWhite(attacker); // awaitしない(命中の瞬間にもう一度白く発光させる。playFinisherBuildupの発光は命中前の演出のため別枠)
-    if (isSuperUpper) spawnTechNamePop(attacker, 'RISING'); // 技名ポップ(第36条: 2倍アッパー=ライジング)
+    if (isSuperUpper) spawnTechNamePop(attacker, 'RISING!'); // 技名ポップ(第36条: 2倍アッパー=ライジング)
     if (isSuperUpper) await wait(DB.HITSTOP.POSE_MS); // スーパーアッパーのみヒットストップを挟む(通常のUPPERは従来通り)
     setAct(defender, 'damage.PNG'); // Beat2: ダメージ絵(命中の瞬間)
     applyDamage(defender, DB.DMG.U * chargeMultOf(attacker) * (isSuperUpper ? 2 : 1) * atkMultOf(attacker, 'UPPER') * defMultOf(defender, 'UPPER'));
@@ -4356,7 +4367,7 @@ function detectComboType(hand, total) {
 async function runFollowUpFlurry(attacker, defender) {
     hitComboBreak(defender);
     await playFinisherBuildup(attacker); // 暗転→一時停止→攻撃側が白く発光→晴れる、のフィニッシュ演出(3連打全体の前に1回だけ)
-    spawnTechNamePop(attacker, 'RUSH'); // 技名ポップ(第36条: 追撃=ラッシュ)。3連打全体で1回だけ表示する
+    spawnTechNamePop(attacker, 'RUSH!'); // 技名ポップ(第36条: 追撃=ラッシュ)。3連打全体で1回だけ表示する
     for (let i = 0; i < 3; i++) {
         hitComboSuccess(attacker); // 追撃は3連打それぞれをCOMBOとして数える
         if (i >= 1) await flashDashBetweenPunches(attacker); // 2発目以降のみ、パンチ同士の切り替えなのでdashを挟む
@@ -4388,7 +4399,7 @@ async function runGuardPunchUpperWallStrike(attacker, defender) {
     hitComboSuccess(attacker);
     hitComboBreak(defender);
     setAct(attacker, nextPunchSprite(attacker)); // 第21条。Beat1: 攻撃絵
-    spawnTechNamePop(attacker, 'BREAK'); // 技名ポップ(第36条: GUARD+PUNCH+UPPERの壁のめり込み=ブレイク)
+    spawnTechNamePop(attacker, 'BREAK!'); // 技名ポップ(第36条: GUARD+PUNCH+UPPERの壁のめり込み=ブレイク)
     const wallStrikeMult = atkMultOf(attacker) * defMultOf(defender);
     if (wallStrikeMult !== 1) flashAttackerWhite(attacker); // awaitしない(敵の個性(atkMult/defMult)でダメージが通常と異なる場合のみ光らせる)
     await wait(DB.HITSTOP.POSE_MS); // ヒットストップ(被弾側は既にUPPERでdamage.PNGのまま浮いている)
@@ -4437,7 +4448,7 @@ async function runFinisher(attacker, defender, cursor) {
     await playFinisherBuildup(attacker); // 暗転→一時停止→攻撃側が白く発光→晴れる、のフィニッシュ演出
     setAct(attacker, nextPunchSprite(attacker)); // 第21条。Beat1: 攻撃絵
     flashAttackerWhite(attacker); // awaitしない(命中の瞬間にもう一度白く発光させる。playFinisherBuildupの発光は命中前の演出のため別枠)
-    spawnTechNamePop(attacker, 'CRASH'); // 技名ポップ(第36条: 必殺技=クラッシュ)
+    spawnTechNamePop(attacker, 'CRASH!'); // 技名ポップ(第36条: 必殺技=クラッシュ)
     await wait(DB.HITSTOP.POSE_MS); // ヒットストップ
     setAct(defender, 'damage.PNG'); // Beat2: ダメージ絵(命中の瞬間)
     markCardOutcome(defender, cursor.i, 'card-shatter'); // 3すくみ無視のヒットなのでヒビ割れ表現にする
