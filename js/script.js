@@ -918,7 +918,7 @@ const STAGE_ORDINALS = ['1ST', '2ND', '3RD', '4TH', '5TH']; // ENEMY_ORDERのイ
 function currentStageLabel() {
     if (state.gameMode === 'training') return 'TRAINING';
     if (state.gameMode === 'substoryBattle') return 'EXTRA';
-    if (state.gameMode === 'versus') return 'VERSUS'; // ローカル対戦
+    if (state.gameMode === 'versus') return 'LOCAL V.S.'; // ローカル対戦(2026-09-27、モード表示名を「VERSUS」から変更)
     if (state.gameMode !== 'story') return '';
     if (state.storyEnemyIndex === ENEMY_ORDER.length - 1) return 'FINAL STAGE'; // 5人目(最終)のみ特別表記
     const ordinal = STAGE_ORDINALS[state.storyEnemyIndex] || (state.storyEnemyIndex + 1) + 'TH';
@@ -5132,7 +5132,7 @@ function submitGiftCode() {
         closeGiftCodeInput();
         updateOptionUI();
         if (!alreadyUnlocked) {
-            showUnlockToast({ small: 'VERSUS', large: '対戦モード 解放！' });
+            showUnlockToast({ small: 'LOCAL V.S. MODE', large: 'ローカル対戦モード 解放！' });
         }
         return;
     }
