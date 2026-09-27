@@ -278,20 +278,25 @@
             position: absolute; left: 14px; bottom: 14px;
             font-size: 13px; color: #eee;
         }
+        /* タイトルのボタン縦位置: ローカル対戦(VERSUS)の追加に伴い、間隔を6.75%→5.8%に詰めて1段増やした */
         #titleContinueBtn {
-            position: absolute; left: 50%; bottom: 39%; transform: translateX(-50%);
+            position: absolute; left: 50%; bottom: 41%; transform: translateX(-50%);
             font-size: 13px; letter-spacing: 3.5px;
         }
         #startBtn {
-            position: absolute; left: 50%; bottom: 32.25%; transform: translateX(-50%);
+            position: absolute; left: 50%; bottom: 35.2%; transform: translateX(-50%);
             font-size: 13px; letter-spacing: 3.5px;
         }
         #trainingBtn {
-            position: absolute; left: 50%; bottom: 25.5%; transform: translateX(-50%);
+            position: absolute; left: 50%; bottom: 29.4%; transform: translateX(-50%);
+            font-size: 13px; letter-spacing: 3.5px; color: #bbb;
+        }
+        #versusBtn {
+            position: absolute; left: 50%; bottom: 23.6%; transform: translateX(-50%);
             font-size: 13px; letter-spacing: 3.5px; color: #bbb;
         }
         #optionBtn {
-            position: absolute; left: 50%; bottom: 18.75%; transform: translateX(-50%);
+            position: absolute; left: 50%; bottom: 17.8%; transform: translateX(-50%);
             font-size: 13px; letter-spacing: 3.5px; color: #888;
         }
         #bonusContentsBtn {
@@ -679,3 +684,231 @@
         #subStoryEndText { color: #fff; font-size: 26px; font-weight: 900; letter-spacing: 4px; text-align: center; line-height: 1.8; }
         #subStoryEndCharName { color: #ffd23c; } /* キャラ名だけ金色にして目立たせる */
     
+
+
+        /* ============================================================
+           ローカル対戦(VERSUS)
+           body.versus-layoutの間だけ、appRootを画面の高さいっぱいに広げ、上下分割のレイアウトにする。
+           物理的な並び(上→下): 2Pの手札/ボタン → 2Pのcanvas → 共通のHPゲージ → 1Pのcanvas → 1Pの手札/ボタン。
+           上半分(#vsTop)は要素ごと180°回転させるため、2Pから見ると下半分(1P)と全く同じ見た目になる。
+           ============================================================ */
+        #vsTop, .vs-name-rot, #vsTurn2, .vs-gate, .vs-result { display: none; }
+        .vs-turn-col { display: contents; } /* 通常時はレイアウトに影響させない(中の#turnDisplayがそのまま並ぶ) */
+
+        body.versus-layout {
+            --vs-ui-h: 150px;  /* 片側の手札・ボタン部分の高さ(セーフエリアを除く) */
+            --vs-hdr-h: 56px;  /* 中央のHPゲージ部分の高さ */
+            /* canvasの幅: 画面の高さから、両側のUI・中央ゲージ・セーフエリアを引いた残りを2つのcanvasで分け合う */
+            --vs-cw: min(100vw, 520px, calc((100vh - 2 * var(--vs-ui-h) - var(--vs-hdr-h) - var(--safe-top) - env(safe-area-inset-bottom, 0px)) * 960 / 1120));
+            --vs-cw: min(100dvw, 520px, calc((100dvh - 2 * var(--vs-ui-h) - var(--vs-hdr-h) - var(--safe-top) - env(safe-area-inset-bottom, 0px)) * 960 / 1120));
+        }
+        body.versus-layout #appRoot {
+            width: min(100vw, 520px); height: 100vh;
+            width: min(100dvw, 520px); height: 100dvh;
+        }
+        body.versus-layout #sceneBattle.active { justify-content: center; background: #000; }
+
+        /* 上半分(2P) */
+        body.versus-layout #vsTop {
+            display: flex; flex-direction: column; flex: none;
+            transform: rotate(180deg);
+        }
+        .vs-game-area {
+            width: var(--vs-cw); margin: 0 auto;
+            aspect-ratio: 960 / 560; flex: none; position: relative; overflow: hidden; background: #000;
+        }
+        body.versus-layout #gameArea { width: var(--vs-cw); margin: 0 auto; }
+
+        /* 中央の共通HPゲージ: 1PのHPが左、2PのHPが右の点対称配置。名前は1P向き(下)と2P向き(上、逆さ)の両方を出す */
+        body.versus-layout #gameHeader {
+            height: var(--vs-hdr-h); padding: 3px 10px;
+            border-top: 2px solid #555; border-bottom: 2px solid #555;
+        }
+        body.versus-layout .hp-col { gap: 2px; }
+        body.versus-layout .hp-wrap { height: 16px; }
+        body.versus-layout .char-name { font-size: 10px; }
+        body.versus-layout #playerName { color: #ff8a8a; }
+        body.versus-layout #enemyName { color: #8cc6ff; }
+        body.versus-layout .vs-name-rot {
+            display: block; transform: rotate(180deg);
+            font-size: 10px; font-weight: bold; letter-spacing: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        /* 逆さにした名前は、2Pから見て「HPバーの下」に来るよう、揃え位置も左右逆にする */
+        body.versus-layout #vsNameRotP { text-align: left; color: #ff8a8a; }
+        body.versus-layout #vsNameRotE { text-align: right; color: #8cc6ff; }
+        body.versus-layout .vs-turn-col { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+        body.versus-layout #turnDisplay, body.versus-layout #vsTurn2 { font-size: 11px; font-weight: 900; line-height: 1.05; text-align: center; }
+        body.versus-layout #vsTurn2 { display: block; transform: rotate(180deg); }
+        body.versus-layout #turnStageLabel { display: none; }
+
+        /* 手札・ボタン部分(1Pは既存の#ui、2Pは.vs-ui。どちらも同じ並びにする) */
+        body.versus-layout #ui, .vs-ui {
+            display: grid;
+            grid-template-columns: 1fr 84px;
+            grid-template-rows: 14px 50px 1fr;
+            grid-template-areas: "label ctrls" "slots ctrls" "hand ctrls";
+            gap: 4px 8px;
+            padding: 6px 10px;
+            position: relative;
+            flex: none;
+            min-height: var(--vs-ui-h);
+        }
+        body.versus-layout #ui { padding-bottom: calc(6px + env(safe-area-inset-bottom, 0px)); }
+        .vs-ui {
+            /* 2P側は回転しているため、物理的な画面上端(時計・ノッチ側)の余白は、要素の「下」側の余白になる */
+            padding-bottom: calc(6px + var(--safe-top));
+            background: linear-gradient(to bottom,
+                #000000 0%, #000000 10%, #030712 10%, #030712 20%, #040b1a 20%, #040b1a 30%,
+                #061022 30%, #061022 40%, #07142a 40%, #07142a 50%, #091932 50%, #091932 60%,
+                #0a1d3a 60%, #0a1d3a 70%, #0c2242 70%, #0c2242 80%, #0d264a 80%, #0d264a 90%, #0f2b52 90%, #0f2b52 100%
+            ); /* 1P(黒→深緑)と同じ10段階帯を、2Pは黒→深い青で表現して区別する */
+        }
+        body.versus-layout #requiredHandSizeLabel, .vs-required-label {
+            grid-area: label; margin: 0; font-size: 11px; line-height: 14px;
+            text-align: center; color: #ffd23c; font-weight: 900; letter-spacing: 1px; white-space: nowrap;
+        }
+        body.versus-layout #slots, .vs-slots { grid-area: slots; display: flex; justify-content: center; gap: 5px; height: 50px; }
+        body.versus-layout #slots .slot, .vs-slots .slot { width: 35px; height: 50px; }
+        .vs-slots .slot.slot-locked { opacity: 0.25; }
+        body.versus-layout #handWrap, .vs-hand-wrap { grid-area: hand; position: relative; height: auto; min-height: 76px; }
+        .vs-hand-row { position: relative; width: 100%; height: 100%; }
+        .vs-deck-info {
+            position: absolute; right: -4px; bottom: -2px; z-index: 5;
+            font-size: 10px; color: #ccc; background: rgba(0,0,0,0.45); padding: 2px 6px; border-radius: 4px;
+            transition: opacity 0.1s linear;
+        }
+        body.versus-layout #deckInfo { right: -4px; font-size: 10px; padding: 2px 6px; }
+        .vs-deck-refresh {
+            position: absolute; right: -4px; bottom: 20px; z-index: 6;
+            font-size: 11px; font-weight: bold; color: #ff5; background: rgba(0,0,0,0.6); padding: 2px 7px; border-radius: 4px;
+            display: none;
+        }
+        .vs-deck-refresh.show { display: block; }
+
+        /* ボタン列(右側): 1PはOPTION・CANCEL・GO!、2PはCANCEL・GO!。HOW TO・SPEEDは対戦中は出さない */
+        body.versus-layout .controls, .vs-controls {
+            grid-area: ctrls; display: flex; flex-direction: column; gap: 6px; justify-content: flex-end;
+        }
+        body.versus-layout #howToBtn, body.versus-layout #speedToggleBtn { display: none; }
+        body.versus-layout #optionBattleBtn { width: 100%; height: 26px; flex: none; font-size: 10px; line-height: 1; }
+        body.versus-layout .fn-group { flex-direction: column; gap: 6px; flex: 1; }
+        body.versus-layout #clrBtn, .vs-controls #vsClrBtn2 { flex: 0 0 36px; padding: 0; font-size: 12px; background: #444; }
+        body.versus-layout #goBtn, .vs-controls #vsGoBtn2 { flex: 1 1 auto; padding: 0; font-size: 17px; }
+        .vs-controls #vsGoBtn2 { background: #0a50a0; } /* 2PのGO!は青系 */
+        .vs-controls button:disabled { background: #333 !important; }
+
+        /* 相手のカード(canvas上部の小さな伏せ札)。1Pの#enemySlotsと同じ見た目 */
+        .vs-enemy-slots { position: absolute; top: 6px; left: 50%; transform: translateX(-50%); display: flex; gap: 4px; z-index: 3; }
+        .vs-enemy-slots .slot { width: 18px; height: 26px; font-size: 10px; }
+
+        /* 裏向きのカード(場のスロット用。手札の.card.card-backと同じ縞模様) */
+        .slot.card-back {
+            background-image: repeating-linear-gradient(45deg, #234 0, #234 6px, #2a3f5f 6px, #2a3f5f 12px);
+            border-style: solid; border-color: #6a8; opacity: 1;
+        }
+        .card.card-back { cursor: default; }
+
+        /* BATTLE START(2P側)。1Pの#battleStartTextと同じ演出をクラスの付け外しで同時に行う */
+        .vs-battle-start {
+            position: absolute; top: 50%; left: -80%;
+            transform: translate(-50%, -50%) scale(1); opacity: 0;
+            display: flex; flex-direction: column; align-items: center;
+            white-space: nowrap; z-index: 20; pointer-events: none;
+        }
+        .vs-battle-stage, .vs-battle-start-label {
+            font-size: 40px; font-weight: 900; letter-spacing: 2px; color: #fff; line-height: 1.05;
+            text-shadow: 0 0 14px rgba(255,255,255,0.8);
+        }
+        .vs-battle-stage:empty { display: none; }
+        .vs-battle-start.enter { transition: left 0.65s ease-out, opacity 0.65s ease-out; left: 50%; opacity: 1; }
+        .vs-battle-start.exit { transition: transform 0.55s ease-in, opacity 0.55s ease-in; transform: translate(-50%, -50%) scale(2.4); opacity: 0; }
+        body.versus-layout #battleStageLabel, body.versus-layout #battleStartLabel,
+        body.versus-layout .vs-battle-stage, body.versus-layout .vs-battle-start-label { font-size: 30px; }
+
+        /* ゲート: 各自の手札・ボタン部分を覆い、交代の案内とREADYボタンを出す(相手の番の間は目隠しになる) */
+        body.versus-layout .vs-gate.show {
+            display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+            position: absolute; inset: 0; z-index: 30;
+            background: rgba(0,0,0,0.9);
+        }
+        .vs-gate.waiting { background: rgba(0,0,0,0.96) !important; }
+        .vs-gate-title { font-size: 16px; font-weight: 900; letter-spacing: 3px; }
+        .vs-gate-P .vs-gate-title { color: #ff8a8a; }
+        .vs-gate-E .vs-gate-title { color: #8cc6ff; }
+        .vs-gate.waiting .vs-gate-title { color: #999; font-size: 13px; }
+        .vs-gate-sub { font-size: 11px; font-weight: 700; letter-spacing: 1.5px; color: #ffd23c; }
+        .vs-gate.waiting .vs-gate-sub { color: #666; }
+        .vs-ready-btn {
+            background: #a00; min-width: 150px; padding: 11px 24px; font-size: 15px; letter-spacing: 3px;
+        }
+        .vs-gate-E .vs-ready-btn, .vs-sel-half-e .vs-ready-btn { background: #0a50a0; }
+        .vs-sub-btn {
+            background: transparent; border: 1px solid rgba(255,255,255,0.55); color: #eee;
+            padding: 8px 14px; font-size: 11px; letter-spacing: 1px; border-radius: 6px;
+        }
+        .vs-result-btns { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px; padding: 0 8px; }
+
+        /* 決着: 各自のcanvasの上にYOU WIN/YOU LOSE(同時K.O.はDRAW)と通算勝利数を出す */
+        .vs-result.show {
+            display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+            position: absolute; inset: 0; z-index: 25; background: rgba(0,0,0,0.5); pointer-events: none;
+        }
+        .vs-result-text { font-size: 38px; font-weight: 900; letter-spacing: 3px; white-space: nowrap; }
+        .vs-result.win .vs-result-text { color: #fff; text-shadow: 0 0 14px rgba(255,210,60,0.9); animation: vsResultIn 0.35s ease-out; }
+        .vs-result.lose .vs-result-text { color: #888; text-shadow: none; }
+        .vs-result.draw .vs-result-text { color: #ddd; }
+        .vs-result-score { font-size: 12px; font-weight: 700; color: #ccc; letter-spacing: 2px; }
+        @keyframes vsResultIn { from { transform: scale(1.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+        /* ------- キャラ選択画面 ------- */
+        #sceneVersusSelect.active { display: flex; flex-direction: column; background: #000; }
+        .vs-sel-half {
+            flex: 1 1 0; min-height: 0;
+            display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
+            padding: 12px 14px;
+            padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+            background: linear-gradient(to top, #2a0808, #000 75%);
+            transition: filter 0.2s;
+        }
+        .vs-sel-half-e {
+            transform: rotate(180deg);
+            padding-bottom: calc(12px + var(--safe-top));
+            background: linear-gradient(to top, #081a33, #000 75%);
+        }
+        .vs-sel-head { display: flex; align-items: baseline; gap: 10px; }
+        .vs-sel-badge { font-size: 13px; font-weight: 900; padding: 2px 8px; border-radius: 4px; background: #c22; letter-spacing: 1px; }
+        .vs-sel-half-e .vs-sel-badge { background: #1d6fd1; }
+        .vs-sel-name { font-size: 22px; font-weight: 900; letter-spacing: 3px; }
+        .vs-sel-deck { font-size: 10px; color: #aaa; letter-spacing: 1px; margin-top: -6px; }
+        .vs-sel-grid { display: grid; grid-template-columns: repeat(3, 72px); gap: 8px; }
+        .vs-sel-tile {
+            display: flex; flex-direction: column; align-items: center; gap: 2px;
+            padding: 4px 0 3px; border: 2px solid #333; border-radius: 6px; background: #111; cursor: pointer;
+        }
+        .vs-sel-thumb { width: 48px; height: 48px; image-rendering: pixelated; }
+        .vs-sel-tile-name { font-size: 10px; font-weight: bold; letter-spacing: 1px; color: #ccc; }
+        .vs-sel-tile.selected { border-color: #ff5a5a; background: #2a0d0d; box-shadow: 0 0 10px rgba(255,90,90,0.6); }
+        .vs-sel-half-e .vs-sel-tile.selected { border-color: #4fa8ff; background: #0b1d33; box-shadow: 0 0 10px rgba(79,168,255,0.6); }
+        .vs-sel-tile.selected .vs-sel-tile-name { color: #fff; }
+        .vs-sel-tile.locked { cursor: default; opacity: 0.55; }
+        .vs-sel-tile.locked .vs-sel-thumb { filter: brightness(0); }
+        .vs-sel-half.ready .vs-sel-grid { opacity: 0.45; }
+        .vs-ready-btn.is-ready { background: #333 !important; }
+        .vs-sel-center {
+            position: relative; flex: none; height: 40px;
+            display: flex; align-items: center; justify-content: center; gap: 18px;
+            border-top: 2px solid #444; border-bottom: 2px solid #444; background: #111;
+        }
+        .vs-sel-vs { font-size: 20px; font-weight: 900; font-style: italic; letter-spacing: 2px; color: #ffd23c; }
+        .vs-sel-back {
+            position: absolute; left: 10px; top: 50%; transform: translateY(-50%);
+            width: 28px; height: 28px; padding: 0; border-radius: 50%; background: #333; font-size: 13px;
+        }
+        .vs-sel-back:active { transform: translateY(-50%) scale(0.9) !important; }
+        #vsSelFight {
+            position: absolute; inset: 0; z-index: 40; display: none;
+            align-items: center; justify-content: center;
+            font-size: 54px; font-weight: 900; font-style: italic; letter-spacing: 4px; color: #fff;
+            text-shadow: 0 0 18px rgba(255,210,60,0.9); background: rgba(0,0,0,0.55);
+        }
+        #vsSelFight.show { display: flex; animation: vsResultIn 0.3s ease-out; }
