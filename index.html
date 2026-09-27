@@ -6,6 +6,13 @@
     <title>CLASH5 - CROSS DIMENSION</title>
     <link rel="stylesheet" href="css/style.css?v=115">
 
+    <!-- 技名ポップ(2026-09-27追加)用の手書き風フォント。Google FontsのCDNから読み込む(ファイル同梱はせず、
+         プレイ時のネット接続を前提とする。GitHub Pages/itch.ioでの公開自体が既にネット接続前提のため問題ない)。
+         preconnectで事前に接続を張っておくことで、実際のフォント取得(次のlink)の待ち時間を短縮する。 -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Permanent+Marker&display=swap">
+
     <!-- ホーム画面追加時のアイコン・見た目設定。実際のアイコン画像(下記パス)は別途用意が必要(ASSETS.md参照)。
          画像が未配置でも404になるだけでエラーにはならず、通常のブラウザ表示には一切影響しない。 -->
     <link rel="apple-touch-icon" href="assets/images/icons/apple-touch-icon.png"> <!-- iOSのホーム画面アイコン(180×180推奨) -->
