@@ -93,7 +93,8 @@ let state = {
     pHitComboBigMilestoneAt: 0, eHitComboBigMilestoneAt: 0, // 直近で15/20/25…(5の倍数、15以上)に到達した時刻。大型の赤い強調演出用
     lastExchangeResult: null, // 直近の攻防結果 { P: 'win'|'lose'|'draw', E: 'win'|'lose'|'draw' }。resolveExchange/runFinisherが設定し、resolveTurnがコンボ判定に使う
     finisherAlreadyDown: false, // 必殺技でK.O.した場合、画面端でdown.PNGのまま倒れる(通常のホーム帰還演出をスキップする合図)
-    gameMode: 'story', pendingMode: 'story', // 'story' | 'training' | 'substoryBattle' | 'versus'(ローカル対戦。詳細は「ローカル対戦(VERSUS)」節)
+    gameMode: 'story', pendingMode: 'story', // 'story' | 'training' | 'substoryBattle' | 'versus'(ローカル対戦。詳細は「ローカル対戦(VERSUS)」節) | 'rush'(100 BATTLE RUSH。詳細は「100 BATTLE RUSH」節)
+    hpMaxE: 100, // 敵HPの最大値(HPバーの割合計算用)。通常は100固定。100 BATTLE RUSHのみ敵ごとに変わる
     storyEnemyIndex: 0, // STORY MODE: ENEMY_ORDER内の現在の敵の位置(連戦で進んでいく想定。セーブデータから復元される)
     // サブストーリーバトル(検討中の新機能): プレイヤーがENEMY_PRESETSのいずれかのキャラとして戦う時に使う。
     // いずれもnull/未設定なら通常のSTORY MODE/TRAINING MODEと完全に同じ挙動になる(既存動作に影響しない)。
@@ -199,6 +200,8 @@ let gameClearedOnce = false; // STORY MODEを一度でも最後(5人目)まで�
 let costumeUnlockAnnounced = false; // タイトル画面でCOSTUME解放のポップアップを既に一度見せたか(繰り返し表示しないため)
 let bonusContentsAnnounced = false; // タイトル画面でBONUS CONTENTS解放のポップアップを既に一度見せたか
 let versusUnlocked = false; // 対戦モード(VERSUS)が解放済みか。専用のGIFT CODEでのみ解放する(2026-09-27追加。それまでは常時解放だった)
+let rushUnlocked = false; // 100 BATTLE RUSHが解放済みか。専用のGIFT CODEでのみ解放する(2026-09-28追加)
+let rushBest = { kills: 0, clearTimeMs: null, maxCombo: 0 }; // 100 BATTLE RUSHの自己ベスト(撃破数・100人撃破時の最速タイム・最大COMBO)。セーブデータに永続化する
 
 // 各敵のストーリーシーン内に仕込む隠しタップで解除するサブストーリー(本文は完成済み。画像は今後配置予定、未配置ならプレースホルダー表示)
 // 隠しタップの対象画面(ストーリーシーン3画面のうち何枚目か、0始まり)。敵ごとにバラバラの画面に仕込む。
@@ -535,6 +538,9 @@ function currentBgName() {
     let name;
     if (state.gameMode === 'training') {
         name = 'bg_training.PNG';
+    } else if (state.gameMode === 'rush') {
+        const n = rushStageNum(); // 100 BATTLE RUSH: 次に控える中ボスのステージ(中ボスを倒すたびに切り替わる)
+        name = n === 1 ? 'bg.PNG' : `bg_${n}.PNG`;
     } else if (state.substoryStageNum) {
         // サブストーリーバトルでステージ番号を直接指定する場合(対戦相手の敵番号とは独立して背景を選べる)
         name = state.substoryStageNum === 1 ? 'bg.PNG' : `bg_${state.substoryStageNum}.PNG`;
@@ -592,6 +598,7 @@ function loadEnemySet(setName) {
 }
 // 現在の状況(TRAINING MODE、またはSTORY MODEの現在の敵)に応じた敵グラフィックセット名を返す('enemy_1'〜'enemy_5'または'training')
 function currentEnemySetName() {
+    if (state.gameMode === 'rush') return rushCurrentEnemySetName(); // 100 BATTLE RUSH: 雑魚はtraining(MIFUNE)、中ボスはenemy_N
     if (state.ePresetKey) {
         // サブストーリーバトルで対戦相手を直接指定する場合。'ENEMY_03'→'enemy_3'のように変換する。
         // 対応するグラフィックセットが無いキー(例: 'VAL')は、存在しないフォルダ名を返すことで、
@@ -918,6 +925,7 @@ const STAGE_ORDINALS = ['1ST', '2ND', '3RD', '4TH', '5TH']; // ENEMY_ORDERのイ
 function currentStageLabel() {
     if (state.gameMode === 'training') return 'TRAINING';
     if (state.gameMode === 'substoryBattle') return 'EXTRA';
+    if (state.gameMode === 'rush') return '100 BATTLE RUSH';
     if (state.gameMode === 'versus') return 'LOCAL V.S.'; // ローカル対戦(2026-09-27、モード表示名を「VERSUS」から変更)
     if (state.gameMode !== 'story') return '';
     if (state.storyEnemyIndex === ENEMY_ORDER.length - 1) return 'FINAL STAGE'; // 5人目(最終)のみ特別表記
@@ -1064,6 +1072,14 @@ function applySaveDataOnBoot() {
     if (typeof save.costumeUnlockAnnounced === 'boolean') costumeUnlockAnnounced = save.costumeUnlockAnnounced;
     if (typeof save.bonusContentsAnnounced === 'boolean') bonusContentsAnnounced = save.bonusContentsAnnounced;
     if (typeof save.versusUnlocked === 'boolean') versusUnlocked = save.versusUnlocked;
+    if (typeof save.rushUnlocked === 'boolean') rushUnlocked = save.rushUnlocked;
+    if (save.rushBest && typeof save.rushBest === 'object') {
+        rushBest = {
+            kills: typeof save.rushBest.kills === 'number' ? save.rushBest.kills : 0,
+            clearTimeMs: typeof save.rushBest.clearTimeMs === 'number' ? save.rushBest.clearTimeMs : null,
+            maxCombo: typeof save.rushBest.maxCombo === 'number' ? save.rushBest.maxCombo : 0,
+        };
+    }
 }
 
 // サブストーリーを解除する(ストーリーシーン内の隠しタップから呼ばれる)。既に解除済みなら何もしない。
@@ -1503,15 +1519,18 @@ async function boot() {
         unlockedSubStories = [0, 1, 2, 3, 4]; // 5体分すべてのサブストーリーを解放
         unlockedSkins = ['enemy_1', 'enemy_2', 'enemy_3', 'enemy_4', 'enemy_5']; // 5体分すべてのコスチュームを解放
         versusUnlocked = true; // 対戦モード(VERSUS)もGIFT CODEなしで確認できるようにしておく
+        rushUnlocked = true; // 100 BATTLE RUSHもGIFT CODEなしで確認できるようにしておく
         // ▲▲▲ 動作確認用の一時デバッグ設定 ▲▲▲
 
         preloadSE(); // SEは軽量なので先読みしておく(起動をブロックしない非同期処理)
         document.getElementById('startBtn').disabled = false;
         document.getElementById('trainingBtn').disabled = false;
         document.getElementById('versusBtn').disabled = false;
+        document.getElementById('rushBtn').disabled = false;
         document.getElementById('optionBtn').disabled = false;
         updateTitleContinueVisibility();
         updateVersusButtonVisibility(); // GIFT CODEでのみ解放するVERSUSボタンの表示を、復元済みのversusUnlockedに合わせる
+        updateRushButtonVisibility(); // 100 BATTLE RUSHボタンも同様
         updateSpeedUI(); // セーブデータから復元したbattleSpeedX2をボタン表示に反映する
     } catch (e) {
         console.error('boot()の初期化処理でエラーが発生しましたが、NOW LOADINGは解除して起動を続行します:', e);
@@ -1557,6 +1576,11 @@ function updateVersusButtonVisibility() {
     const btn = document.getElementById('versusBtn');
     if (btn) btn.style.display = versusUnlocked ? '' : 'none';
 }
+// 100 BATTLE RUSHボタンの表示を、専用GIFT CODEでの解放状態(rushUnlocked)に合わせる(VERSUSと同じパターン)
+function updateRushButtonVisibility() {
+    const btn = document.getElementById('rushBtn');
+    if (btn) btn.style.display = rushUnlocked ? '' : 'none';
+}
 
 async function playLogo() {
     const myToken = ++logoTokenCounter;
@@ -1594,6 +1618,7 @@ function goLogo() {
     // いるため、endSubstoryBattle()は必ず呼ぶ(サブストーリーバトル中でない場合は何もしない安全な処理)。
     endSubstoryBattle();
     exitVersusLayout(); // ローカル対戦(VERSUS)の上下分割レイアウトも必ず解除する(対戦中でない場合は何もしない)
+    endRush(); // 100 BATTLE RUSHのタイマー・進行中の演出も必ず止める(RUSH中でない場合は何もしない)
     hideResult();
     showScene('logo');
     playLogo();
@@ -3207,6 +3232,7 @@ function rollRequiredHandSize() {
 }
 
 function currentEnemyPreset() {
+    if (state.gameMode === 'rush') return rushCurrentPreset(); // 100 BATTLE RUSH: 雑魚(MIFUNE)か中ボス(既存5人)
     if (state.ePresetKey) return ENEMY_PRESETS[state.ePresetKey]; // サブストーリーバトルで対戦相手を直接指定する場合はこちらを優先
     const id = ENEMY_ORDER[state.storyEnemyIndex % ENEMY_ORDER.length];
     return ENEMY_PRESETS[id];
@@ -3230,6 +3256,7 @@ function updateCharNames() {
         state.pPresetKey ? ENEMY_PRESETS[state.pPresetKey].name.toUpperCase() : 'VAL'; // サブストーリーバトルは借りているキャラの名前を表示
     document.getElementById('enemyName').innerText =
         state.gameMode === 'training' ? 'MIFUNE' :
+        state.gameMode === 'rush' ? rushCurrentPreset().name :
         state.ePresetKey ? substoryBattleOpponentName(state.ePresetKey).toUpperCase() : // サブストーリーバトルは？？？マスキングを経由する
         currentEnemyPreset().name;
 }
@@ -3403,6 +3430,10 @@ function resetBattleState() {
     state.lastExchangeResult = null;
     state.finisherAlreadyDown = false;
     state.gameMode = state.pendingMode || 'story'; // デッキ編成画面へ来た時に選んだモードを確定
+    // 敵の最大HP。100 BATTLE RUSHのみ1人目の最大HPで始め、以後は敵が入れ替わるたびにrushSpawnNextEnemyで設定し直す
+    state.hpMaxE = state.gameMode === 'rush' ? rushEnemyMaxHp() : 100;
+    state.hpE = state.hpMaxE;
+    updateSpeedUI(); // gameModeの確定後にもう一度同期する(100 BATTLE RUSHではSPEEDボタンを隠すため)
     updateCharNames(); // 味方=VAL(固定)、敵=STORY MODEなら現在の敵プリセット名、TRAINING MODEならENEMY
     state.introCharAlpha = 0; // 開始演出でふわっと表示するため、まずは透明から
     state.introEnemyAlpha = 0; // 敵も同様、まずは透明から(ステージ固有演出の場合は別タイミングで表示する)
@@ -3422,7 +3453,8 @@ function resetBattleState() {
         state.playerDiscard = [];
         state.playerHand = ['PUNCH', 'UPPER', 'GUARD'];
     } else {
-        const deckSource = state.pPresetKey ? ENEMY_PRESETS[state.pPresetKey].deck : deckCounts;
+        // 100 BATTLE RUSHはデッキ編成を経由せず、VALの固定デッキ(7/7/7)を使う(能力は通常のプレイヤーのまま)
+        const deckSource = state.gameMode === 'rush' ? RUSH_PLAYER_DECK : state.pPresetKey ? ENEMY_PRESETS[state.pPresetKey].deck : deckCounts;
         state.playerDeck = buildDeckArray(deckSource);
         state.playerDiscard = [];
         state.playerHand = new Array(5).fill(null);
@@ -3436,6 +3468,7 @@ function resetBattleState() {
     document.getElementById('hpE').style.width = '100%';
     document.getElementById('hpE_y').style.width = '100%';
     document.getElementById('turnDisplay').innerHTML = `TURN<br>0<br><span id="turnStageLabel">${currentStageLabel()}</span>`;
+    if (state.gameMode === 'rush') rushUpdateHud(); // 100 BATTLE RUSHはTURN表示の位置を撃破数/経過タイムにする
     document.querySelectorAll('.controls button').forEach(b => b.disabled = true); // 演出完了までは操作不可
     document.getElementById('howToBtn').disabled = false; // HOW TOは常に押せる
     document.getElementById('optionBattleBtn').disabled = false; // OPTIONも同様
@@ -3516,11 +3549,89 @@ async function playEnemySignaturePose() {
     // idx === 4 (Alv): 何もしない(あえて手の内を見せない、というラスボスらしさの演出)
 }
 
+// ------- 敵の登場演出(ステージ固有) -------
+// 以前はplayBattleIntro内に直接書いていたが、100 BATTLE RUSHの中ボス登場でも同じ演出を使うため関数に切り出した(挙動は同一)。
+// 2ND STAGE: 画面右外からdash.PNGの姿勢で定位置へ(残像付き、通常のdash移動よりゆっくり)
+async function enemyEntryDash() {
+    state.eY = DB.POS.GROUND_Y;
+    state.eX = cvs.width + DB.IMG_SIZE; // 画面右外
+    state.introEnemyAlpha = 1; // dash移動なのでフェードではなく最初から見えている
+    setAct('E', 'dash.PNG');
+    const steps = 22, stepMs = 40;
+    const fromX = state.eX, toX = DB.POS.E_HOME_X;
+    for (let s = 1; s <= steps; s++) {
+        setX('E', fromX + (toX - fromX) * (s / steps));
+        trails.push({ side: 'E', x: state.eX, y: state.eY, born: performance.now() });
+        await wait(stepMs);
+    }
+    setX('E', toX);
+    setAct('E', 'IDLE'); // dash完了後は通常の待機姿勢に戻す
+    await wait(200);
+}
+// 4TH STAGE: 空中コンボで打ち上げられたくらいの高さ(FLOAT_Y)から、フェードインしながら等速でゆっくり降りてくる(重力による加速はさせない)
+async function enemyEntryDescend() {
+    state.eX = DB.POS.E_HOME_X;
+    state.eY = DB.POS.FLOAT_Y;
+    state.introEnemyAlpha = 0; // ふわっと現れるようフェードインさせる
+    const steps = 20, stepMs = 45;
+    const fromY = state.eY, toY = DB.POS.GROUND_Y;
+    for (let s = 1; s <= steps; s++) {
+        const dt = s / steps;
+        setY('E', fromY + (toY - fromY) * dt); // 等速(線形)でゆっくり降りてくる。加速させない
+        state.introEnemyAlpha = dt; // 降りてくると同時にフェードインする
+        await wait(stepMs);
+    }
+    setY('E', toY);
+    state.introEnemyAlpha = 1;
+    await wait(200);
+}
+// 5TH STAGE: 画面が白く4回明滅→0.5秒待機→もう一度4回明滅→明滅が終わった直後、定位置へじわっとフェードイン
+async function enemyEntryFlash() {
+    state.eX = DB.POS.E_HOME_X;
+    state.eY = DB.POS.GROUND_Y;
+    state.introEnemyAlpha = 0; // フェードインするまでは見せない
+    for (let i = 0; i < 4; i++) {
+        state.screenFlashAlpha = 0.9;
+        await wait(70);
+        state.screenFlashAlpha = 0;
+        await wait(70);
+    }
+    await wait(500);
+    for (let i = 0; i < 4; i++) {
+        state.screenFlashAlpha = 0.9;
+        await wait(70);
+        state.screenFlashAlpha = 0;
+        await wait(70);
+    }
+    // 2度目の明滅が終わった直後、じわっと定位置にフェードインする
+    const fadeSteps = 14, fadeStepMs = 40;
+    for (let s = 1; s <= fadeSteps; s++) {
+        state.introEnemyAlpha = s / fadeSteps;
+        await wait(fadeStepMs);
+    }
+    state.introEnemyAlpha = 1;
+    await wait(200);
+}
+// 1ST/3RD STAGE(固有演出なし)相当: 定位置にふわっとフェードインする(通常は味方と同時だが、100 BATTLE RUSHの中ボス交代時は敵だけで行う)
+async function enemyEntryFade() {
+    state.eX = DB.POS.E_HOME_X;
+    state.eY = DB.POS.GROUND_Y;
+    state.introEnemyAlpha = 0;
+    const fadeSteps = 10;
+    for (let s = 1; s <= fadeSteps; s++) {
+        state.introEnemyAlpha = s / fadeSteps;
+        await wait(50);
+    }
+    state.introEnemyAlpha = 1;
+    await wait(200);
+}
+
 async function playBattleIntro() {
     await wait(300); // 真っ暗な状態を一瞬見せる
 
     // ステージ固有の敵登場演出(STORY MODEの2ND/4TH/5THステージのみ)。該当する場合、敵は背景表示後に個別の演出で登場する。
-    const specialStage = state.gameMode === 'story' ? state.storyEnemyIndex : -1; // 0=1st,1=2nd,2=3rd,3=4th,4=5th
+    // 100 BATTLE RUSHの1人目は雑魚(MIFUNE)のため、2ND STAGEと同じdashで右から登場させる
+    const specialStage = state.gameMode === 'story' ? state.storyEnemyIndex : state.gameMode === 'rush' ? 1 : -1; // 0=1st,1=2nd,2=3rd,3=4th,4=5th
     const enemyEntersWithPlayer = !(specialStage === 1 || specialStage === 3 || specialStage === 4);
 
     // 味方は常にふわっとフェードイン。敵は、ステージ固有演出が無い場合のみ味方と同時にフェードインする。
@@ -3544,65 +3655,9 @@ async function playBattleIntro() {
     state.bgRevealRadius = maxRadius;
 
     // ステージ固有の敵登場演出: 背景が表示された後、敵だけを個別の方法で定位置へ登場させる
-    if (specialStage === 1) {
-        // 2ND STAGE: 画面右外からdash.PNGの姿勢で定位置へ(残像付き、通常のdash移動よりゆっくり)
-        state.eY = DB.POS.GROUND_Y;
-        state.eX = cvs.width + DB.IMG_SIZE; // 画面右外
-        state.introEnemyAlpha = 1; // dash移動なのでフェードではなく最初から見えている
-        setAct('E', 'dash.PNG');
-        const steps = 22, stepMs = 40;
-        const fromX = state.eX, toX = DB.POS.E_HOME_X;
-        for (let s = 1; s <= steps; s++) {
-            setX('E', fromX + (toX - fromX) * (s / steps));
-            trails.push({ side: 'E', x: state.eX, y: state.eY, born: performance.now() });
-            await wait(stepMs);
-        }
-        setX('E', toX);
-        setAct('E', 'IDLE'); // dash完了後は通常の待機姿勢に戻す
-        await wait(200);
-    } else if (specialStage === 3) {
-        // 4TH STAGE: 空中コンボで打ち上げられたくらいの高さ(FLOAT_Y)から、フェードインしながら等速でゆっくり降りてくる(重力による加速はさせない)
-        state.eX = DB.POS.E_HOME_X;
-        state.eY = DB.POS.FLOAT_Y;
-        state.introEnemyAlpha = 0; // ふわっと現れるようフェードインさせる
-        const steps = 20, stepMs = 45;
-        const fromY = state.eY, toY = DB.POS.GROUND_Y;
-        for (let s = 1; s <= steps; s++) {
-            const dt = s / steps;
-            setY('E', fromY + (toY - fromY) * dt); // 等速(線形)でゆっくり降りてくる。加速させない
-            state.introEnemyAlpha = dt; // 降りてくると同時にフェードインする
-            await wait(stepMs);
-        }
-        setY('E', toY);
-        state.introEnemyAlpha = 1;
-        await wait(200);
-    } else if (specialStage === 4) {
-        // 5TH STAGE: 画面が白く4回明滅→0.5秒待機→もう一度4回明滅→明滅が終わった直後、定位置へじわっとフェードイン
-        state.eX = DB.POS.E_HOME_X;
-        state.eY = DB.POS.GROUND_Y;
-        state.introEnemyAlpha = 0; // フェードインするまでは見せない
-        for (let i = 0; i < 4; i++) {
-            state.screenFlashAlpha = 0.9;
-            await wait(70);
-            state.screenFlashAlpha = 0;
-            await wait(70);
-        }
-        await wait(500);
-        for (let i = 0; i < 4; i++) {
-            state.screenFlashAlpha = 0.9;
-            await wait(70);
-            state.screenFlashAlpha = 0;
-            await wait(70);
-        }
-        // 2度目の明滅が終わった直後、じわっと定位置にフェードインする
-        const fadeSteps = 14, fadeStepMs = 40;
-        for (let s = 1; s <= fadeSteps; s++) {
-            state.introEnemyAlpha = s / fadeSteps;
-            await wait(fadeStepMs);
-        }
-        state.introEnemyAlpha = 1;
-        await wait(200);
-    }
+    if (specialStage === 1) await enemyEntryDash();
+    else if (specialStage === 3) await enemyEntryDescend();
+    else if (specialStage === 4) await enemyEntryFlash();
 
     // ステージ固有の登場演出が終わった直後、得意技のデモポーズを一瞬見せる(STORY MODEのみ)
     await playEnemySignaturePose();
@@ -3636,6 +3691,7 @@ async function playBattleIntro() {
 
     state.battleReady = true;
     updateActionButtons();
+    if (state.gameMode === 'rush') rushStartTimer(); // 100 BATTLE RUSH: 手札が配られて操作できるようになった瞬間から計測する
 }
 
 // STORY MODEでenemyIndexの敵を撃破したことを記録する(既に記録済みなら何もしない)。
@@ -3652,6 +3708,7 @@ function isEnemyDefeated(idx) {
 }
 
 function showResult(type) {
+    if (state.gameMode === 'rush') { showRushResult(false); return; } // 100 BATTLE RUSH: 倒れた時点で専用のRESULT(敵撃破はここを通らない)
     if (state.gameMode === 'versus') { vsShowResult(); return; } // ローカル対戦は上下それぞれにYOU WIN/YOU LOSEを出す専用の決着画面
     // STORY MODEでの勝利(K.O.以外)は、その時点で戦っていた敵を撃破履歴に記録する(最終戦に限らず毎回)
     if (type !== 'KO' && state.gameMode === 'story') {
@@ -3742,6 +3799,8 @@ function showResult(type) {
 
 function hideResult() {
     document.getElementById('resultOverlay').classList.remove('show');
+    const rushOv = document.getElementById('rushResultOverlay');
+    if (rushOv) rushOv.classList.remove('show');
 }
 
 function judge(p, e) {
@@ -3763,6 +3822,7 @@ function chargeMultOf(side) {
 // moveを指定すると、ENEMY_PRESETSのatkMultByMove(技ごとの個別倍率、例: { UPPER: 1.1 })があればそちらを優先して使う
 // (例: 全体は少し低めでも、得意技のUPPERだけは通常より少し高くする、といった調整ができる)。指定が無ければ通常のatkMultにフォールバックする。
 function atkMultOf(side, move) {
+    if (state.gameMode === 'rush' && side === 'E') return rushAtkRatio(move); // 100 BATTLE RUSH: 敵の攻撃力は段階的に上がる専用の値
     const preset = presetForSide(side);
     if (!preset) return 1;
     if (move && preset.atkMultByMove && preset.atkMultByMove[move] !== undefined) {
@@ -3798,8 +3858,9 @@ function consumeUpperCharge(side) {
 function applyDamage(target, amount) {
     if (target === 'E') {
         state.hpE = Math.max(0, state.hpE - amount);
-        document.getElementById('hpE').style.width = state.hpE + '%';
-        setTimeout(() => { document.getElementById('hpE_y').style.width = state.hpE + '%'; }, 0); // 第17条
+        const ePct = state.hpE / (state.hpMaxE || 100) * 100; // 通常はhpMaxE=100のため従来通り。100 BATTLE RUSHのみ敵ごとの最大HPに対する割合
+        document.getElementById('hpE').style.width = ePct + '%';
+        setTimeout(() => { document.getElementById('hpE_y').style.width = ePct + '%'; }, 0); // 第17条
     } else {
         state.hpP = Math.max(0, state.hpP - amount);
         document.getElementById('hpP').style.width = state.hpP + '%';
@@ -3809,7 +3870,7 @@ function applyDamage(target, amount) {
 }
 
 function healBothToFull() {
-    state.hpP = 100; state.hpE = 100;
+    state.hpP = 100; state.hpE = 100; state.hpMaxE = 100;
     document.getElementById('hpP').style.width = '100%';
     document.getElementById('hpP_y').style.width = '100%';
     document.getElementById('hpE').style.width = '100%';
@@ -3819,7 +3880,7 @@ function healBothToFull() {
 // バトル中(GO!を押してからターン解決が終わるまで、state.resolvingがtrueの間)のみ、2倍速設定を反映する。
 // プロローグ/ストーリー/タイトル演出等、バトル以外のシーンはこの関数を使っていても速度が変わらない。
 function wait(ms) {
-    const scaledMs = (battleSpeedX2 && state.resolving) ? ms / 2 : ms;
+    const scaledMs = (battleSpeedX2 && state.resolving && state.gameMode !== 'rush') ? ms / 2 : ms; // 100 BATTLE RUSHは2倍速を使えない
     return new Promise(r => setTimeout(r, scaledMs));
 }
 
@@ -3935,6 +3996,7 @@ function hitComboSuccess(side) {
         state[comboKey] = 0;
     }
     state[comboKey]++;
+    if (state.gameMode === 'rush' && side === 'P') rushState.maxCombo = Math.max(rushState.maxCombo, state[comboKey]); // 100 BATTLE RUSHの最大COMBO記録
     state[dispKey] = state[comboKey];
     state[fadeKey] = 0; // フェードアウト中だった場合は打ち切り、表示を継続する
     state[popKey] = performance.now();
@@ -4009,7 +4071,7 @@ async function runMeteor(attacker, defender) {
     await playFinisherBuildup(attacker); // 暗転→一時停止→攻撃側が白く発光→晴れる、のフィニッシュ演出
     setAct(attacker, 'knock.PNG'); // Beat1: 攻撃絵(放つ瞬間のポーズ)
     await wait(DB.HITSTOP.POSE_MS); // ヒットストップ
-    applyDamage(defender, DB.DMG.M * chargeMultOf(attacker) * atkMultOf(attacker) * defMultOf(defender)); // Beat2: ダメージ絵(命中の瞬間)
+    applyDamage(defender, DB.DMG.M * chargeMultOf(attacker) * atkMultOf(attacker, 'METEOR') * defMultOf(defender)); // 'METEOR'はatkMultByMoveに該当が無いため通常時はatkMultのまま(100 BATTLE RUSHでアッパー系として扱うための目印) // Beat2: ダメージ絵(命中の瞬間)
     playSE('se_meteor'); // 未配置ならse_punchで代用される
     spawnHitEffect(attacker, 'METEOR_LAUNCH'); // 放つ瞬間、攻撃側に重ねて光のエフェクトを表示する
     setAct(defender, 'damage.PNG');
@@ -4709,6 +4771,7 @@ async function resolveTurn() {
 
     state.turn++;
     document.getElementById('turnDisplay').innerHTML = `TURN<br>${state.turn}<br><span id="turnStageLabel">${currentStageLabel()}</span>`;
+    if (state.gameMode === 'rush') rushUpdateHud();
 
     const cursor = { i: 0 };
     const total = filledCount();
@@ -4786,7 +4849,8 @@ async function resolveTurn() {
             // TRAINING MODEは練習場のためK.O./YOU WIN判定を行わない(ターン終了時にHPが全回復する)
             if (state.gameMode !== 'training' && (state.hpP <= 0 || state.hpE <= 0)) {
                 gameOverSide = state.hpP <= 0 ? 'P' : 'E';
-                break;
+                if (state.gameMode === 'rush' && gameOverSide === 'P') rushStopTimer(); // 100 BATTLE RUSH: 倒れた瞬間でタイムを止める
+                break; // 100 BATTLE RUSHで敵を倒した場合も、このターンの残りのカードは破棄する
             }
 
             cursor.i++;
@@ -4836,7 +4900,9 @@ async function resolveTurn() {
         }
         if (state.gameMode === 'versus') vsDiscardAndDraw2(total); // ローカル対戦: 2P側も同じく捨札へ送り、使った枚数分だけ補充する
 
-        if (gameOverSide) {
+        // 100 BATTLE RUSHで敵を倒した場合は、決着演出ではなく「点滅して消える→次の敵が登場」の流れにする
+        const rushKilled = state.gameMode === 'rush' && gameOverSide === 'E';
+        if (gameOverSide && !rushKilled) {
             // 体力を0にする最後の一撃: 通常の帰還処理の代わりに専用の決着演出を実行
             state.battleReady = false; // 決着後は手札タップ含め操作不可にする
             await runFinishSequence(gameOverSide);
@@ -4847,11 +4913,28 @@ async function resolveTurn() {
             updateUI();
             state.resolving = false; // バトルは決着済み。ボタンは結果画面から「タイトルへ戻る」でリセットされる
         } else {
+            let rushCleared = false;
+            if (rushKilled) rushCleared = await rushOnEnemyDefeated(); // 撃破数の加算・中ボス突破時の回復。100人目ならtrue
             // 第9条: ターン完了時のみ、残像付きでホームポジションへ確実に帰還する
             state.pY = DB.POS.GROUND_Y;
             state.eY = DB.POS.GROUND_Y;
             await goHome();
             toIdle();
+            if (rushCleared) {
+                // 100人撃破: 次の敵は出さず、場を片付けてRESULT(CLEAR)へ
+                state.battleReady = false;
+                await fadeOutQueueCards();
+                cardOutcomes = { P: new Array(5).fill(null), E: new Array(5).fill(null) };
+                state.hands = new Array(5).fill(null);
+                state.enemyHands = [];
+                state.enemyRevealedUpTo = 0;
+                drawEnemySlots();
+                updateUI();
+                state.resolving = false;
+                await wait(600);
+                if (state.gameMode === 'rush') showRushResult(true);
+                return;
+            }
 
             // 手札・山が共に尽きた場合のみ、Refresh演出(点滅→カウントアップ)を挟んで捨札をリシャッフルする。
             // 両者が元の立ち位置に戻った後に行う。
@@ -4883,7 +4966,9 @@ async function resolveTurn() {
             state.enemyHands = [];
             state.enemyRevealedUpTo = 0;
             drawEnemySlots();
+            if (rushKilled) await rushSpawnNextEnemy(); // 100 BATTLE RUSH: 次の敵が登場し終わってから次のターンの入力を受け付ける
             state.resolving = false;
+            if (rushKilled) updateActionButtons();
             if (state.gameMode === 'versus') vsBeginTurnInput(); // ローカル対戦: 次のターンの入力(1Pから)へ
         }
     }
@@ -4946,7 +5031,7 @@ function updateSpeedUI() {
     const unlocked = gameClearedOnce;
     const battleBtn = document.getElementById('speedToggleBtn');
     if (battleBtn) {
-        battleBtn.style.visibility = unlocked ? 'visible' : 'hidden';
+        battleBtn.style.visibility = (unlocked && state.gameMode !== 'rush') ? 'visible' : 'hidden'; // 100 BATTLE RUSHでは2倍速を使えないためボタンを隠す
         battleBtn.innerText = battleSpeedX2 ? '▶︎▶︎' : '▶︎';
         battleBtn.classList.toggle('speed-active', battleSpeedX2);
     }
@@ -5025,7 +5110,7 @@ function updateOptionUI() {
     // TRAINING MODEはデッキ編成を経由しない(選び放題の固定手札のため)、RETRYボタン自体を隠す
     document.getElementById('optionRetryBtn').style.display = state.gameMode === 'training' ? 'none' : '';
     // RETURN TO TITLEの確認文言: STORY MODEは進行状況の保存に触れるが、TRAINING MODEは進行状況を持たないため短い文言にする
-    document.getElementById('returnConfirmText').innerHTML = (state.gameMode === 'training' || state.gameMode === 'versus')
+    document.getElementById('returnConfirmText').innerHTML = (state.gameMode === 'training' || state.gameMode === 'versus' || state.gameMode === 'rush')
         ? 'タイトルに戻りますか？'
         : 'タイトルに戻りますか？<br>（ストーリーの進行状況は保存されます）';
     closeResetConfirm(); // 開き直したら確認状態はリセット
@@ -5069,8 +5154,10 @@ const GIFT_CODE_REWARD_MOD = 8; // 報酬ID = コード1文字目のcharsetイ�
 // GIFT_CODE_VERSUS_REWARD: コスチュームではなく「対戦モード(VERSUS)の解放」を表す特別な報酬値(2026-09-27追加)。
 // submitGiftCode側でこの値かどうかを見て、コスチューム解放とは別の専用処理に分岐する。
 const GIFT_CODE_VERSUS_REWARD = 'unlock_versus';
+const GIFT_CODE_RUSH_REWARD = 'unlock_rush'; // 100 BATTLE RUSHの解放を表す特別な報酬値(2026-09-28追加。VERSUSと同じ扱い)
 const GIFT_CODE_REWARDS = {
-    0: 'mifune', // 今後コードを増やす場合はここに 1: '...', 3: '...' を追記するだけでよい(2は対戦モード解放で使用済み)
+    0: 'mifune', // 今後コードを増やす場合はここに 3: '...' を追記するだけでよい(1は100 BATTLE RUSH、2は対戦モード解放で使用済み)
+    1: GIFT_CODE_RUSH_REWARD, // 100 BATTLE RUSH解放。例: KP6HK8MJ
     2: GIFT_CODE_VERSUS_REWARD, // 対戦モード(VERSUS)解放。例: CY5GBDQT
 };
 function giftCodeChecksumChar(body7) {
@@ -5123,6 +5210,19 @@ function submitGiftCode() {
     }
     redeemedGiftCodes.push(code);
     writeSaveData({ redeemedGiftCodes });
+    if (reward === GIFT_CODE_RUSH_REWARD) {
+        // 100 BATTLE RUSH解放コード。VERSUSと同じく、コスチューム解放処理には進まずここで完結させる。
+        const alreadyUnlocked = rushUnlocked;
+        rushUnlocked = true;
+        writeSaveData({ rushUnlocked: true });
+        updateRushButtonVisibility();
+        closeGiftCodeInput();
+        updateOptionUI();
+        if (!alreadyUnlocked) {
+            showUnlockToast({ small: '100 BATTLE RUSH', large: '100人組手モード 解放！' });
+        }
+        return;
+    }
     if (reward === GIFT_CODE_VERSUS_REWARD) {
         // 対戦モード(VERSUS)解放コード。コスチュームではないため、以下のコスチューム解放処理には進まずここで完結させる。
         const alreadyUnlocked = versusUnlocked;
@@ -5784,6 +5884,8 @@ function doOptionRetry() {
         retrySubstoryBattle(); // EXTRA BATTLEも同じ対戦カードのまま、デッキ編成・ストーリーシーンを経由せず直接バトルへ
     } else if (state.gameMode === 'versus') {
         vsRematch(); // ローカル対戦も同じキャラ同士のまま最初から
+    } else if (state.gameMode === 'rush') {
+        goRushStart(); // 100 BATTLE RUSHは1人目から最初からやり直す
     } else {
         // STORY MODEは、デッキ編成へ直接ではなく現在の敵のストーリーシーンから再生する。
         // 戦う前の会話が相手の癖を読み取るヒントになるため、RETRY時も見返せるようにする。
@@ -6407,4 +6509,305 @@ function vsAvailableStages() {
 function vsSelectBackToTitle() {
     if (versusState.phase !== 'select') return;
     vsExitToTitle();
+}
+
+// ============================================================
+// 100 BATTLE RUSH(100人組手、2026-09-28追加)
+// ============================================================
+// ・専用GIFT CODEで解放(タイトルのLOCAL V.S.の下にボタンが出現)。デッキ編成なし、VALの固定デッキ(7/7/7)・通常のプレイヤー能力。
+// ・自分のHPは戦闘間で引き継ぐ(中ボス撃破時のみHP20回復)。HP0で終了。100人撃破までのタイムを競う。2倍速は使えない。
+// ・5人目・10人目…(5の倍数)が中ボスで、既存5人(Noah→Rita→Gald→Jack→Alv)を順番に4周する(計20人。100人目は4周目のAlv)。
+//   それ以外は雑魚(TRAINING MODEのMIFUNEの見た目、完全ランダムに手を出す)。
+// ・背景とBGMは「次に控える中ボスのステージ」。中ボスを倒した瞬間に次の中ボスのステージへ切り替わる。
+// ・攻撃力は基本値(パンチ10/アッパー7)に対する割合で、その敵の技全体(コンボ・メテオ・必殺技等)の威力を縮める。
+//   アッパー初撃とメテオをアッパー系、それ以外(パンチ・空中の連打・追撃・必殺技等)をパンチ系として扱う。
+//   相討ち等の固定の微ダメージ(CLASH/TINY/WALL_IMPACT)は、通常時と同じく倍率の対象外。
+//   ・雑魚: パンチ1/アッパー1から、中ボスを倒すたびに両方+1(パンチ10/アッパー7で頭打ち)。HPは雑魚の通し番号(1,2,3…、50で頭打ち)。
+//   ・中ボス(k人目): パンチ2+floor(k/2)、アッパー1+floor((k-1)/2)。そのキャラ固有の攻撃力(基本値×atkMult)で頭打ち。
+//     HPは20+5(k-1)(100で頭打ち)。防御力・その他の個性はそのキャラ固有のまま。
+// ・敵を倒したらそのターンの残りのカードは破棄し、敵は点滅して消える→次の敵が登場してから次のターンへ。
+//   雑魚は右からdashで登場。中ボスはステージ固有の登場演出(得意技ポーズは無し)。
+const RUSH_TOTAL = 100;
+const RUSH_BOSS_EVERY = 5;
+const RUSH_BOSS_HEAL = 20;
+const RUSH_PLAYER_DECK = { PUNCH: 7, UPPER: 7, GUARD: 7 };
+// 雑魚用のプリセット(完全ランダム: 重みを均等にし、行動パターン・個性は持たせない)
+const RUSH_MOB_PRESET = { name: 'MIFUNE', deck: { PUNCH: 1, UPPER: 1, GUARD: 1 } };
+
+let rushState = {
+    enemyNo: 1,      // 今戦っている敵の通し番号(1〜100)
+    kills: 0,        // 撃破数
+    maxCombo: 0,     // 最大COMBO(プレイヤー側)
+    startAt: 0,      // タイマー開始時刻(performance.now)。0なら未開始
+    endAt: 0,        // タイマー停止時刻。0なら計測中
+    timerId: null,   // HUD更新用のsetInterval
+    token: 0,        // 途中でタイトルへ戻る/RETRYした時に、進行中の演出を打ち切るための世代番号
+};
+
+function rushIsBoss(no) { return no % RUSH_BOSS_EVERY === 0; }
+function rushBossOrdinal(no) { return Math.floor(no / RUSH_BOSS_EVERY); } // 中ボスの場合、何人目の中ボスか(1〜20)
+function rushBossesDefeatedBefore(no) { return Math.floor((no - 1) / RUSH_BOSS_EVERY); } // この敵より前に倒した中ボスの数
+function rushMobOrdinal(no) { return no - Math.floor(no / RUSH_BOSS_EVERY); } // 雑魚の場合、何人目の雑魚か
+function rushBossKey(no) { return ENEMY_ORDER[(rushBossOrdinal(no) - 1) % ENEMY_ORDER.length]; }
+// 背景・BGMのステージ番号(1〜5): 次に控える中ボスのステージ
+function rushStageNum(no = rushState.enemyNo) { return (rushBossesDefeatedBefore(no) % ENEMY_ORDER.length) + 1; }
+
+function rushCurrentPreset() {
+    return rushIsBoss(rushState.enemyNo) ? ENEMY_PRESETS[rushBossKey(rushState.enemyNo)] : RUSH_MOB_PRESET;
+}
+function rushCurrentEnemySetName() {
+    return rushIsBoss(rushState.enemyNo) ? 'enemy_' + (ENEMY_ORDER.indexOf(rushBossKey(rushState.enemyNo)) + 1) : 'training';
+}
+function rushEnemyMaxHp(no = rushState.enemyNo) {
+    if (rushIsBoss(no)) return Math.min(100, 20 + 5 * (rushBossOrdinal(no) - 1));
+    return Math.min(50, rushMobOrdinal(no));
+}
+// 現在の敵の攻撃力 { P: パンチ系, U: アッパー系 }(基本値はパンチ10/アッパー7)
+function rushEnemyAtk(no = rushState.enemyNo) {
+    if (rushIsBoss(no)) {
+        const k = rushBossOrdinal(no);
+        const preset = ENEMY_PRESETS[rushBossKey(no)];
+        const byMove = preset.atkMultByMove || {};
+        const base = preset.atkMult || 1;
+        const capP = DB.DMG.P * (byMove.PUNCH !== undefined ? byMove.PUNCH : base);
+        const capU = DB.DMG.U * (byMove.UPPER !== undefined ? byMove.UPPER : base);
+        return { P: Math.min(capP, 2 + Math.floor(k / 2)), U: Math.min(capU, 1 + Math.floor((k - 1) / 2)) };
+    }
+    const b = rushBossesDefeatedBefore(no);
+    return { P: Math.min(DB.DMG.P, 1 + b), U: Math.min(DB.DMG.U, 1 + b) };
+}
+// atkMultOfから呼ばれる。基本値に対する割合を倍率として返す
+function rushAtkRatio(move) {
+    const atk = rushEnemyAtk();
+    if (move === 'UPPER' || move === 'METEOR') return atk.U / DB.DMG.U;
+    return atk.P / DB.DMG.P;
+}
+
+// ------- タイマー・HUD(TURN表示の位置に撃破数/経過タイム) -------
+function rushElapsedMs() {
+    if (!rushState.startAt) return 0;
+    return (rushState.endAt || performance.now()) - rushState.startAt;
+}
+function formatRushTime(ms) {
+    const totalTenths = Math.floor(ms / 100);
+    const m = Math.floor(totalTenths / 600);
+    const sec = Math.floor(totalTenths / 10) % 60;
+    const t = totalTenths % 10;
+    return `${m}:${String(sec).padStart(2, '0')}.${t}`;
+}
+function rushUpdateHud() {
+    if (state.gameMode !== 'rush') return;
+    const el = document.getElementById('turnDisplay');
+    if (!el) return;
+    el.innerHTML = `<span class="rush-hud-label">KILLS</span><br>${rushState.kills}<br><span class="rush-hud-time">${formatRushTime(rushElapsedMs())}</span>`;
+}
+function rushStartTimer() {
+    if (rushState.startAt) return; // 既に計測中(念のため二重開始しない)
+    rushState.startAt = performance.now();
+    rushState.endAt = 0;
+    if (rushState.timerId) clearInterval(rushState.timerId);
+    rushState.timerId = setInterval(rushUpdateHud, 100);
+    rushUpdateHud();
+}
+function rushStopTimer() {
+    if (rushState.startAt && !rushState.endAt) rushState.endAt = performance.now();
+    if (rushState.timerId) { clearInterval(rushState.timerId); rushState.timerId = null; }
+    rushUpdateHud();
+}
+// タイトルへ戻る時などの後始末(RUSH中でなければ何もしない安全な処理)
+function endRush() {
+    rushState.token++;
+    if (rushState.timerId) { clearInterval(rushState.timerId); rushState.timerId = null; }
+    if (state.gameMode === 'rush') state.pendingMode = 'story';
+}
+
+// 次のステージ(中ボス)の素材を裏で先読みしておく(awaitしない。中ボス交代時のローディング表示をなるべく出さないため)
+function rushPrefetchStage(stageNum) {
+    loadEnemySet('enemy_' + stageNum);
+    loadStageBackground(stageNum === 1 ? 'bg.PNG' : `bg_${stageNum}.PNG`);
+    preloadBgm('bgm_battle_' + stageNum, 'bgm_battle');
+}
+function rushStageAssetsPromise(stageNum) {
+    return Promise.all([
+        loadEnemySet('enemy_' + stageNum),
+        loadStageBackground(stageNum === 1 ? 'bg.PNG' : `bg_${stageNum}.PNG`),
+        preloadBgm('bgm_battle_' + stageNum, 'bgm_battle'),
+    ]);
+}
+
+// タイトルの「100 BATTLE RUSH」ボタン、RESULT/OPTIONのRETRYから呼ばれる。1人目から始める
+async function goRushStart() {
+    endRush(); // 前回分のタイマー・演出を確実に止める
+    endSubstoryBattle(); // EXTRA BATTLE等の借りキャラ状態が残らないようにする(該当しなければ何もしない)
+    state.pPresetKey = null;
+    state.ePresetKey = null;
+    rushState.enemyNo = 1;
+    rushState.kills = 0;
+    rushState.maxCombo = 0;
+    rushState.startAt = 0;
+    rushState.endAt = 0;
+    state.pendingMode = 'rush';
+    state.gameMode = 'rush'; // 素材の読み込み判定(currentBgName等)をRUSH基準にするため、ここで先に確定させる
+    hideResult();
+    await ensureReadyWithLoading(Promise.all([
+        loadEnemySet('training'),
+        rushStageAssetsPromise(1),
+    ]));
+    rushPrefetchStage(2);
+    resetBattleState();
+    showScene('battle');
+    playBattleIntro();
+    playBGM('bgm_battle_1', 'bgm_battle');
+}
+
+// 敵のHPが0になった時(resolveTurnから呼ばれる)。敵は点滅して消える。100人目ならtrueを返す
+async function rushOnEnemyDefeated() {
+    const tk = rushState.token;
+    const wasBoss = rushIsBoss(rushState.enemyNo);
+    rushState.kills++;
+    if (rushState.kills >= RUSH_TOTAL) rushStopTimer(); // 100人目を倒した瞬間でタイムを止める
+    rushUpdateHud();
+    state.eNumbed = false;
+    if (state.piyoSide === 'E') stopPiyo();
+    if (!state.finisherAlreadyDown) setAct('E', 'down.PNG');
+    setY('E', DB.POS.GROUND_Y);
+    playSE('se_kabe');
+    triggerBlink('E', 700);
+    await wait(700);
+    if (tk !== rushState.token) return false;
+    state.introEnemyAlpha = 0; // 点滅の後、消える
+    state.eBlinkUntil = 0;
+    if (wasBoss) rushHealPlayer(RUSH_BOSS_HEAL);
+    if (rushState.kills >= RUSH_TOTAL) return true;
+    await wait(250);
+    return false;
+}
+function rushHealPlayer(amount) {
+    state.hpP = Math.min(100, state.hpP + amount);
+    document.getElementById('hpP').style.width = state.hpP + '%';
+    document.getElementById('hpP_y').style.width = state.hpP + '%';
+    playSE('se_refresh');
+    spawnTechNamePop('P', `HP +${amount}`);
+}
+
+// 敵の個別状態(チャージ・しびれ・COMBO等)を、新しい敵のために初期化する(プレイヤー側の状態は引き継ぐ)
+function rushResetEnemySide() {
+    state.eAct = 'IDLE';
+    state.eShakeUntil = 0; state.eBlinkUntil = 0;
+    state.eLastAtk = null;
+    state.eNumbed = false;
+    if (state.piyoSide === 'E') stopPiyo();
+    state.ePunchStreak = 0; state.eGuardStreak = 0;
+    state.eChargeValue = 0; state.eChargeIsMax = false;
+    state.eUpperChargeReady = false; state.eLastWinWasUpper = false;
+    state.eComboType = null; state.eComboStart = -1; state.eComboAlive = false;
+    state.eHitCombo = 0; state.eHitComboEverBroken = false; state.eHitComboDisplayValue = 0;
+    state.eHitComboFadeStartAt = 0; state.eHitComboPopAt = 0;
+    state.eHitComboMilestoneAt = 0; state.eHitComboBigMilestoneAt = 0;
+    state.finisherAlreadyDown = false;
+}
+
+// 中ボスを倒した直後: 背景を一度暗転させ、次の中ボスのステージの背景・BGMに切り替える
+async function rushChangeStage() {
+    const tk = rushState.token;
+    const maxRadius = Math.hypot(cvs.width / 2, cvs.height / 2) + 20;
+    const steps = 10;
+    for (let s = steps - 1; s >= 0; s--) {
+        state.bgRevealRadius = maxRadius * (s / steps);
+        await wait(40);
+    }
+    state.bgRevealRadius = 0;
+    const n = rushStageNum();
+    await ensureReadyWithLoading(rushStageAssetsPromise(n)); // 通常は先読み済みのため、ここでローディングが出ることは稀
+    if (tk !== rushState.token) return;
+    playBGM('bgm_battle_' + n, 'bgm_battle');
+    const revealSteps = 16;
+    for (let s = 1; s <= revealSteps; s++) {
+        state.bgRevealRadius = maxRadius * (s / revealSteps);
+        await wait(900 / revealSteps);
+    }
+    state.bgRevealRadius = maxRadius;
+    rushPrefetchStage((n % ENEMY_ORDER.length) + 1); // さらに次のステージを裏で先読みしておく
+}
+
+// 次の敵を登場させる(resolveTurnのターン終了処理から呼ばれる)
+async function rushSpawnNextEnemy() {
+    if (state.gameMode !== 'rush') return; // 演出中にタイトルへ戻った場合など
+    const tk = rushState.token;
+    const prevWasBoss = rushIsBoss(rushState.enemyNo);
+    rushState.enemyNo++;
+    rushResetEnemySide();
+    state.introEnemyAlpha = 0;
+    state.hpMaxE = rushEnemyMaxHp();
+    state.hpE = state.hpMaxE;
+    // 新しい敵のHPバーは満タンから(黄色の遅延バーも即座に満タンへ)
+    const hpE = document.getElementById('hpE');
+    const hpEy = document.getElementById('hpE_y');
+    hpEy.style.transition = 'none';
+    hpE.style.width = '100%';
+    hpEy.style.width = '100%';
+    void hpEy.offsetWidth;
+    hpEy.style.transition = '';
+    updateCharNames();
+    if (prevWasBoss) {
+        await rushChangeStage();
+        if (tk !== rushState.token) return;
+    }
+    if (rushIsBoss(rushState.enemyNo)) {
+        await ensureReadyWithLoading(loadEnemySet(rushCurrentEnemySetName()));
+        if (tk !== rushState.token) return;
+        // 中ボスはステージ固有の登場演出(得意技ポーズは無し)
+        const idx = ENEMY_ORDER.indexOf(rushBossKey(rushState.enemyNo)); // 0=1st…4=5th
+        if (idx === 1) await enemyEntryDash();
+        else if (idx === 3) await enemyEntryDescend();
+        else if (idx === 4) await enemyEntryFlash();
+        else await enemyEntryFade();
+    } else {
+        await enemyEntryDash(); // 雑魚は右からdashで登場
+    }
+    toIdle();
+}
+
+// ------- RESULT -------
+function showRushResult(cleared) {
+    if (state.gameMode !== 'rush') return;
+    rushStopTimer();
+    const ms = rushElapsedMs();
+    const kills = rushState.kills;
+    const combo = rushState.maxCombo;
+    const newKills = kills > (rushBest.kills || 0);
+    const newTime = cleared && (rushBest.clearTimeMs === null || ms < rushBest.clearTimeMs);
+    const newCombo = combo > (rushBest.maxCombo || 0);
+    if (newKills) rushBest.kills = kills;
+    if (newTime) rushBest.clearTimeMs = ms;
+    if (newCombo) rushBest.maxCombo = combo;
+    if (newKills || newTime || newCombo) writeSaveData({ rushBest });
+
+    document.getElementById('rushResultClear').style.display = cleared ? '' : 'none';
+    document.getElementById('rushResultKills').innerText = `${kills} / ${RUSH_TOTAL}`;
+    document.getElementById('rushResultTime').innerText = formatRushTime(ms);
+    document.getElementById('rushResultCombo').innerText = String(combo);
+    document.getElementById('rushBestKills').innerText = `BEST ${rushBest.kills}`;
+    document.getElementById('rushBestTime').innerText = `BEST ${rushBest.clearTimeMs === null ? '--:--.-' : formatRushTime(rushBest.clearTimeMs)}`;
+    document.getElementById('rushBestCombo').innerText = `BEST ${rushBest.maxCombo}`;
+    document.getElementById('rushNewKills').classList.toggle('show', newKills);
+    document.getElementById('rushNewTime').classList.toggle('show', newTime);
+    document.getElementById('rushNewCombo').classList.toggle('show', newCombo);
+
+    if (cleared) {
+        playSE('se_win');
+        playBGM('bgm_victory');
+    } else {
+        playSE('se_ko');
+        stopBGM();
+    }
+    document.getElementById('rushResultOverlay').classList.add('show');
+}
+function rushRetry() {
+    hideResult();
+    goRushStart();
+}
+function rushBackToTitle() {
+    hideResult();
+    goLogo();
 }
