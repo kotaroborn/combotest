@@ -118,22 +118,55 @@ localStorage(キー: `commandbattle_save_v1`)に以下の値が保存され、�
 - `storyEnemyIndex`(STORY MODEの進行状況)
 - `deckCounts`(デッキ編成の内訳)
 - `soundOn`(サウンド設定値。BGM/SEの実際の再生処理はWeb Audio APIで実装済み。※2026-09-27訂正: 以前は「値の保存のみで再生は未実装」と記載していたが誤りだった。COSTUME/SOUND TEST/GIFT CODE等、他にもドキュメント未整備の実装済み機能があり、`TODO.md`の「保留: IMPLEMENTATION.mdの大規模更新」を参照)
-- `unlockedItems`(取得済みアイテムの配列。読み込み処理はあるが、値を追加する処理は未実装)
 
 ---
 
 ## 7. UI機能(実装済み)
 
-- **HOW TOポップアップ**: どのシーンからでも開ける画面内オーバーレイ。現時点では仮のテキストのみを表示する。
+- **HOW TOポップアップ**: どのシーンからでも開ける画面内オーバーレイ。デッキビルド・3すくみ・カードの出し方・コンボや必殺技のヒントを実際の文章で解説する(2026-09-27訂正: 以前は「仮のテキストのみ」と記載していたが、既に本文が入っている)。挿絵(`assets/images/ui/howto.PNG`)は任意アセット。TRAINING MODE/EXTRA BATTLE/VERSUSに特化した説明は無く、現状は共通で1種類のみ(それぞれ専用のHOW TOを用意する構想がある。`TODO.md`参照)。
 - **OPTIONポップアップ**:
   - SOUND ON/OFFの切り替え(設定値の保存のみ)
   - 進行状況(`storyEnemyIndex`)のリセット(確認ダイアログ付き)
-  - 図鑑ボタン(取得済みアイテムが1つ以上ある場合のみ表示。押すと「準備中です」というアラートが出る)
   - バトル画面から開いた場合のみ RETRY(直前のデッキ編成へ戻る)/ RETURN TO TITLE(ロゴシーンへ戻る)ボタンを表示する
+  - (隠しアイテム図鑑は2026-09-27に機能自体を廃止した。骨組みのみで中身が決まっておらず、今後も実装予定が無いための判断)
 
 ---
 
-## 8. ローカル対戦(VERSUS)(実装済み)
+## 8. BONUS CONTENTS(実装済み、2026-09-27ドキュメント化)
+
+タイトル画面専用のボタン。以下のいずれか1つでも解除されていれば表示される(`bonusContentsAvailable`)。初めて条件を満たしてタイトルへ戻った瞬間に「BONUS CONTENTS 解放！」のトーストを1回だけ表示する(`bonusContentsAnnounced`で二重表示を防止)。開くと専用のポップアップ(OPTIONとは別)になり、中の行(SUB STORY/SOUND TEST/COSTUME/SPEED)はそれぞれの解放条件を満たしたものだけが表示される。
+
+- **SUB STORY**: 各敵のストーリーシーンに仕込まれた隠しタップ(5人目まで座標設定済み。`TODO.md`参照)で1つずつ解除する、5体分の裏設定的な短編(`SUBSTORY_BY_ENEMY`)。解除済みの一覧から選んで読める(`openSubStoryList`/`readSubStory`)。本編と同じく1文字ずつ表示されるテキストを複数画面再生する。
+- **SOUND TEST**: `gameClearedOnce`(STORY MODEクリア)または`soundTestUnlocked`(旧セーブデータ互換用の解放フラグ)で解放。BGM/SEをカテゴリ・ページ送りで選んでプレビュー再生できる(`openSoundTest`/`renderSoundTestScreen`/`selectSoundTestCategory`)。BONUS CONTENTSを閉じると自動的に再生停止する。
+- **COSTUME**: `costumeSelectionAvailable()`で解放判定(`gameClearedOnce`で敵1〜5の見た目`enemy_1`〜`enemy_5`が全解放、またはGIFT CODE等の追加コスチュームを1つでも持っていれば表示される)。選ぶとプレイヤーキャラの見た目が対応する敵のグラフィックセットに変わる(`selectCostume`)。`enemy_N`形式でない追加コスチューム(例: GIFT CODEで解放する`mifune`)は`EXTRA_COSTUME_LABELS`で表示名を、`COSTUME_ASSET_FOLDER`で流用する画像フォルダを指定する(`mifune`は`training`セットの画像を流用)。EXTRA BATTLE・VERSUS中はCOSTUME変更不可(借りているキャラの見た目を上書きしないため)。
+- **SPEED(バトル2倍速)**: `gameClearedOnce`で解放。BONUS CONTENTS内のSPEED行、およびバトル画面操作列のボタン、どちらからでも切り替えられ、常に両方の表示が同期する(`setBattleSpeed`/`toggleBattleSpeed`/`updateSpeedUI`)。実際の速度反映は演出の`wait()`側で行う(ダメージ計算等のゲームルールには影響しない、演出専用の設定)。
+
+## 9. GIFT CODE(実装済み、2026-09-27ドキュメント化)
+
+タイトル画面のOPTIONから入力できる8桁の英数字コード(バトル中は非表示)。
+
+- 使用可能な文字は31種(`GIFT_CHARSET`。`0/1/I/L/O`は誤読しやすいため除外)。
+- 先頭7文字(本体)から多項式ハッシュ(隠し鍵`GIFT_CODE_KEY`と連結してハッシュ化)でチェックサム文字を導出し、8文字目と一致するかで正当性を検証する(`giftCodeChecksumChar`/`isValidGiftCode`)。コード自体は事前に固定リストとして持たず、この検証式を満たす文字列であれば有効なコードとして扱う方式。
+- 報酬IDは1文字目の`GIFT_CHARSET`内インデックス を8で割った余り(`GIFT_CODE_REWARD_MOD`)で決まり、`GIFT_CODE_REWARDS`(現状はID:0→`'mifune'`のみ)で報酬(コスチューム)に変換する。報酬を増やす場合はこのテーブルに追記するだけでよい設計。
+- 同じコードは`redeemedGiftCodes`に記録され、二度使用できない。正当なコードを入力すると対応するコスチュームが`unlockedSkins`に追加され、COSTUME選択・BONUS CONTENTS解放トースト(初回のみ)につながる。
+
+## 10. EXTRA BATTLE(実装済み、コード内では「サブストーリーバトル」/`substoryBattle`、2026-09-27ドキュメント化)
+
+SUB STORYを読むと出現する、隠しボスのような追加バトル。`gameMode: 'substoryBattle'`として通常のSTORY MODEバトルロジックをそのまま流用する(3すくみ・空中コンボ・メテオ・しびれ・チャージ・追撃・必殺技・COMBOカウンター等、判定は完全に同一)。
+
+- プレイヤーは自分のデッキではなく、そのサブストーリーの主役の敵キャラ(例: ENEMY_01=Noah)を借りて戦う(デッキ編成は経由せず、借りたキャラの`ENEMY_PRESETS`のデッキ配分をそのまま使用)。
+- 対戦カード・使用ステージ背景・使用曲は`SUBSTORY_BATTLE_CONFIG`で固定(例: Noah(ENEMY_01) vs Jack(ENEMY_04)、2ndステージ背景、4thステージの曲)。VALが対戦相手になるケースもある(Alv(ENEMY_05) vs VAL)。
+- 対戦相手がSTORY MODEでまだ未撃破の場合、ネタバレ防止のため名前を「？？？」に隠す(`substoryBattleOpponentName`/`isEnemyDefeated`/`markEnemyDefeated`)。VALのみ常に実名表示される例外。
+- 敗北時は同じ対戦カードのまま再戦できる(`retrySubstoryBattle`、デッキ編成を経由しない点は初回開始と同じ)。
+- 勝利後はエピローグ(1画面のみの短い後日談)を再生し、「SUB STORY / [キャラ名] / END」の専用終了画面(`playSubStoryEndScreen`、通常のFIN演出と同系統)を表示する。
+
+## 11. サウンド再生(実装済み、2026-09-27ドキュメント化)
+
+BGM/SEはWeb Audio API(`AudioContext`)で実装されている。`state.soundOn`がfalseの場合は再生をスキップするが、読み込み自体はON/OFFに関わらず先読みしておく(ONに戻した瞬間すぐ再生できるようにするため)。BGM/SEそれぞれ独立した音量設定(`state.bgmVolume`/`state.seVolume`、スライダーで調整、セーブ対象)を持つ。タブが非表示になった(バックグラウンドに回った)瞬間、自動的にサウンドをOFFにする挙動がある。SOUND TESTでのプレビュー再生は、通常のBGM再生とは別枠の専用ノードで行われ、画面遷移をまたいでも鳴り続ける。
+
+---
+
+## 12. ローカル対戦(VERSUS)(実装済み)
 
 - **入口**: タイトルのVERSUS(TRAINING MODEとOPTIONの間)。
 - **画面構成**: 画面の高さいっぱいを使い、下半分=1P(通常の向き)、上半分=2P(180°回転)。中央にHPゲージを共有する(1PのHPが左・2PのHPが右の点対称配置で、どちらから見ても自分のHPが左に来る)。名前・TURNは両方の向きで表示する。2P側のcanvasはメインのcanvasを毎フレーム左右反転コピーしたもので、技名・COMBO表示だけは鏡文字にならないよう後から描き足す。

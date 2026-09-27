@@ -68,7 +68,7 @@ localStorageへの保存・復元を担当。
 画像アセットの読み込み完了判定、敵グラフィックのフォールバック解決、カード画像の表示切り替え、起動処理を担当。
 
 ### 4. シーン遷移
-`updateTitleContinueVisibility`, `playLogo`, `skipLogo`, `goLogo`, `goProloguePlay`, `skipPrologue`, `playPrologue`, `goStoryThenDeck`, `skipStorySequence`, `playStorySequence`, `showScene`, `goPrologue`, `goTitle`, `goNewGame`, `goContinueGame`, `goDeckBuild`, `tapFlickerThen`
+`updateTitleContinueVisibility`, `playLogo`, `skipLogo`, `goLogo`, `goProloguePlay`, `skipPrologue`, `playPrologue`, `goStoryThenDeck`, `skipStorySequence`, `playStorySequence`, `showScene`, `goPrologue`, `goTitle`, `goNewGame`, `goContinueGame`, `goDeckBuild`, `tapFlickerThen`, `goSubstoryBattle`(EXTRA BATTLE開始。IMPLEMENTATION.md「EXTRA BATTLE」参照), `retrySubstoryBattle`
 
 ロゴ→プロローグ→タイトル→ストーリー→デッキ編成の画面遷移全般と、共通のタップ演出(`tapFlickerThen`)を担当。
 
@@ -83,14 +83,14 @@ canvas描画ループ本体と、キャラクターの座標・表示スプラ�
 手札の表示・カード操作と、STORY MODE/TRAINING MODEの敵の手札生成・表示を担当。
 
 ### 7. バトル進行
-`goBattleStart`, `resetBattleState`, `playBattleIntro`, `showResult`, `hideResult`, `judge`(3すくみ判定), `applyDamage`, `healBothToFull`, `wait`, `moveBothX`, `approachCenter`, `retreatSlightly`, `goHome`, `waitBothLanded`, `runFinishSequence`, `nextQueuedMove`, `runNormalHit`, `runMeteor`(メテオ!), `runUpperCombo`(内部で`isSuperUpper`判定=ライジング!), `runGuardSuccess`, `runPiyoEffect`, `runNumbFail`, `runFollowUpFlurry`(ラッシュ!), `runGuardPunchUpperWallStrike`(ブレイク!), `runFinisher`(クラッシュ!), `flashAttackerWhite`(追撃・追加打系の白い発光。CONSTITUTION.md第28条), `chargeMultOf`, `consumeCharge`, `consumeUpperCharge`, `atkMultOf`, `defMultOf`, `markCardOutcome`, `resolveExchange`(1回の攻防を解決する中心関数), `resolveTurn`(GO!ボタン押下時のエントリーポイント)
+`goBattleStart`, `resetBattleState`, `playBattleIntro`, `showResult`, `hideResult`, `judge`(3すくみ判定), `applyDamage`, `healBothToFull`, `wait`, `moveBothX`, `approachCenter`, `retreatSlightly`, `goHome`, `waitBothLanded`, `runFinishSequence`, `nextQueuedMove`, `runNormalHit`, `runMeteor`(メテオ!), `runUpperCombo`(内部で`isSuperUpper`判定=ライジング!), `runGuardSuccess`, `runPiyoEffect`, `runNumbFail`, `runFollowUpFlurry`(ラッシュ!), `runGuardPunchUpperWallStrike`(ブレイク!), `runFinisher`(クラッシュ!), `flashAttackerWhite`(追撃・追加打系の白い発光。CONSTITUTION.md第28条), `chargeMultOf`, `consumeCharge`, `consumeUpperCharge`, `atkMultOf`, `defMultOf`, `markCardOutcome`, `markEnemyDefeated`(STORY MODEでの撃破記録。EXTRA BATTLEの「？？？」マスキング判定に使う), `isEnemyDefeated`, `resolveExchange`(1回の攻防を解決する中心関数), `resolveTurn`(GO!ボタン押下時のエントリーポイント)
 
 バトル開始演出から、1回の攻防の解決、ターン全体の進行、決着演出までを担当する最大のモジュール。これらの関数群は互いに密結合しているため、あえて分割していない。
 
 ### 8. UIポップアップ
-`openHowTo`, `closeHowTo`, `closeHowToBackdrop`, `openOption`, `closeOption`, `closeOptionBackdrop`, `updateOptionUI`, `setSound`, `openResetConfirm`, `closeResetConfirm`, `doResetProgress`, `openItemGallery`, `optionRetry`, `optionReturnToTitle`
+`openHowTo`, `closeHowTo`, `closeHowToBackdrop`, `openOption`, `closeOption`, `closeOptionBackdrop`, `updateOptionUI`, `setSound`, `openResetConfirm`, `closeResetConfirm`, `doResetProgress`, `optionRetry`, `optionReturnToTitle`, `bonusContentsAvailable`, `updateBonusContentsUI`, `openBonusContents`, `closeBonusContents`, `closeBonusContentsBackdrop`, `setBattleSpeed`, `toggleBattleSpeed`, `updateSpeedUI`(SPEED機能), `costumeSelectionAvailable`, `unlockSkin`, `openCostumeSelect`, `selectCostume`, `costumeAssetFolder`(COSTUME), `openSoundTest`, `renderSoundTestScreen`, `selectSoundTestCategory`, `stopSoundTestPlayback`等(SOUND TEST), `giftCodeChecksumChar`, `normalizeGiftCode`, `isValidGiftCode`, `giftCodeRewardSkin`, `openGiftCodeInput`, `closeGiftCodeInput`, `showGiftCodeError`, `submitGiftCode`(GIFT CODE), `openSubStoryList`, `readSubStory`, `onSubStoryTap`, `subStoryDisplayTitle`, `playSubStoryEndScreen`(SUB STORY)
 
-HOW TO/OPTIONポップアップの開閉と、OPTION画面内の各操作を担当。
+HOW TO/OPTIONポップアップの開閉と、OPTION画面内の各操作、およびBONUS CONTENTS(COSTUME/SOUND TEST/SPEED/GIFT CODE/SUB STORY一覧)関連の画面を担当。いずれも2026-09-27時点でIMPLEMENTATION.mdへのドキュメント化が追いついていなかった実装済み機能群(詳細はIMPLEMENTATION.md「8. BONUS CONTENTS」以降を参照)。
 
 ### 9. ローカル対戦(VERSUS)
 `enterVersusLayout`, `exitVersusLayout`, `getVersusMirrorCtx`, `isVersusMirrorActive`, `vsRenderMirror`, `vsPlayerSetName`, `setCardBackVisual`, `versusSlotsHidden`, `vsHandHidden`, `vsCountFilled`, `vsResetBattleSide2`, `vsDrawCard2`, `vsDiscardAndDraw2`, `vsRefreshDecksIfNeeded`, `vsRunDeckRefresh2`, `vsRenderHand2`, `vsFlipRevealHand`, `vsPlayCard2`, `vsResetHands2`, `vsBeginTurnInput`, `vsOnReady`, `vsSubmitP`, `vsGo2`, `vsSetGates`, `vsRenderTop`, `vsMirrorCardOutcome`, `vsUpdateNames`, `vsShowResult`, `vsHideResults`, `vsStartBattle`, `vsRematch`, `vsBackToSelect`, `vsExitToTitle`, `goVersusSelect`, `vsCharByKey`, `vsCharUnlocked`, `vsThumbSrc`, `vsRenderSelect`, `vsSelectChar`, `vsToggleSelectReady`, `vsStartFromSelect`, `vsAvailableStages`, `vsSelectBackToTitle`, `playerCharacterSetName`

@@ -3,6 +3,27 @@
 このプロジェクトの変更履歴。日付は新しいものを上に追記する。
 コード(`index.html` / `css/style.css` / `js/script.js`)や仕様に変更を加えた場合は、このファイルに追記すること(詳細は `AI_GUIDE.md` を参照)。
 
+## 2026-09-27(9)
+
+- ドキュメントのみ: 利用者からの一連の指示・訂正を受けて`IMPLEMENTATION.md`/`ARCHITECTURE.md`/`CONSTITUTION.md`/`TODO.md`を更新した。
+  - `specialsUsed`(必殺技使用実績)の`upperGuardUpper`/`guardPunchUpper`は「カウントだけして保留」との指示により、対応不要な保留事項として`TODO.md`に明記(いつか使うかもしれないため記録は残す)。
+  - 画像アセットは実際はGitHub上に既にアップロード済みで動作している(ローカル作業ディレクトリに`assets/`が無いのは、この環境にバイナリアセットを同期していないだけ)ことが判明したため、`TODO.md`の「画像アセット未整備」という誤った記載を訂正。
+  - VERSUSのキャラ間バランス調整は「とりあえずおいておく」との指示により保留として明記。
+  - HOW TOは現状の1種類のみに加えて、EXTRA BATTLE/TRAINING MODE/VERSUSそれぞれに専用の解説を用意する構想があるとの方針を`TODO.md`に記録。
+  - 前回「保留」としていた`IMPLEMENTATION.md`の大規模更新に着手し、これまで未文書化だった実装済み機能(BONUS CONTENTS、COSTUME、SOUND TEST、SPEED、GIFT CODE、SUB STORY、EXTRA BATTLE、実際のBGM/SE再生システム)を新設の第8〜11節として追記(ローカル対戦(VERSUS)は第12節へ繰り下げ)。あわせて`ARCHITECTURE.md`のモジュール4・8の関数一覧を更新。
+    - ドキュメント化にあたり、利用者の指示により、このセッション用に蓄積されているプロジェクトメモ(overview/technical-notes等)を実コードの裏付けとして参照した。
+  - `CONSTITUTION.md`第15条の「サウンドは今後実装予定」という古い誤った記載も訂正。
+  - コード自体(`index.html` / `css/style.css` / `js/script.js`)への変更なし。
+
+## 2026-09-27(8)
+
+- 隠しアイテム図鑑の機能自体を廃止した(「隠しアイテム図鑑については消して」との指示による。骨組みのみで中身が未定のまま、実装予定も無かったため)。
+  - `index.html`: OPTIONポップアップの図鑑行(`#optionItemsRow`)を削除。
+  - `js/script.js`: `unlockedItems`配列とそのセーブデータ読み込み、`openItemGallery()`(「準備中です」アラート)、`updateOptionUI`内の図鑑行の表示切り替えを削除。
+  - `CONSTITUTION.md`(第15条)・`IMPLEMENTATION.md`(第6・7節)・`ARCHITECTURE.md`(モジュール8の関数一覧)・`TESTING.md`・`TODO.md`から図鑑関連の記述を削除・訂正。
+  - `index.html`を変更したため、カウンター運用に従い保留中の更新回数(1)+1=2を加算し、`.title-version`を`ver. 0.9.116`→`ver. 0.9.118`に更新(`css/style.css?v=`も118に合わせて更新)。保留中の更新回数は0に戻した。
+  - 検証: `node --check`通過。
+
 ## 2026-09-27(7)
 
 - 5人目(ENEMY_05)のストーリー隠しタップの座標を設定した(「ENEMY_05の隠しタップは、1画面目のx: 26%, y: 36〜71%のあたりに。※他より広い」との指定による)。
