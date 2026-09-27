@@ -1,5 +1,5 @@
 /**
- * 【憲法二十六条】
+ * 【憲法三十条】
  * 全文は CONSTITUTION.md を参照。このファイルには埋め込まない
  * (理由: 本文が長く、js/script.js自体のファイルサイズ・初回ダウンロード時間に影響していたため、2026-08-06(67)で分離した)。
  * コードに変更を加える際は、CONSTITUTION.md の該当条文と矛盾しないか必ず確認すること。
@@ -200,9 +200,9 @@ let gameClearedOnce = false; // STORY MODEを一度でも最後(5人目)まで�
 let costumeUnlockAnnounced = false; // タイトル画面でCOSTUME解放のポップアップを既に一度見せたか(繰り返し表示しないため)
 let bonusContentsAnnounced = false; // タイトル画面でBONUS CONTENTS解放のポップアップを既に一度見せたか
 
-// 各敵のストーリーシーン内に仕込む隠しタップで解除する、サブストーリーの仮テキスト(画像は今後配置予定、未配置ならプレースホルダー表示)
+// 各敵のストーリーシーン内に仕込む隠しタップで解除するサブストーリー(本文は完成済み。画像は今後配置予定、未配置ならプレースホルダー表示)
 // 隠しタップの対象画面(ストーリーシーン3画面のうち何枚目か、0始まり)。敵ごとにバラバラの画面に仕込む。
-// 3枚すべてではなく、対応する1枚の時だけ#storyHiddenTapを有効にする。仮の割り当てで、正確な位置・対象画面は画像が揃い次第調整する。
+// 3枚すべてではなく、対応する1枚の時だけ#storyHiddenTapを有効にする。位置は投入予定の絵の想定位置に合わせて設定(2026-09-27、5人目まで設定完了。実際の絵が来たら微調整の可能性あり)。
 const STORY_HIDDEN_TAP_SCREEN_BY_ENEMY = {
     ENEMY_01: 1, // 2枚目
     ENEMY_02: 2, // 3枚目(2-3)
@@ -211,16 +211,18 @@ const STORY_HIDDEN_TAP_SCREEN_BY_ENEMY = {
     ENEMY_05: 0, // 1枚目
 };
 // 隠しタップの対象位置(画像内での中心座標、%指定)。指定が無い敵は仮の位置(左上寄り)のままにする。
+// w/hを指定すると判定矩形の幅/高さ(%)を既定の20%から変更できる(未指定は20%)。
 // ENEMY_01は「ノアの大事な形見」が写っている位置(画像内 x:61%, y:56%あたり)に合わせてある。
 const STORY_HIDDEN_TAP_POS_BY_ENEMY = {
     ENEMY_01: { x: 61, y: 56 },
     ENEMY_02: { x: 88, y: 46 }, // リタのぬいぐるみ
     ENEMY_03: { x: 53, y: 27 }, // ガルドが護ったイノチ
     ENEMY_04: { x: 52, y: 35 }, // ジャックの義眼
+    ENEMY_05: { x: 26, y: 53.5, h: 35 }, // 指定範囲(x:26%, y:36〜71%あたり)の中心に合わせ、縦方向のみ他より広い判定矩形(高さ35%)にする
 };
 const STORY_HIDDEN_TAP_DEFAULT_POS = { x: 10, y: 10 }; // 位置未指定の敵はこれまで通り左上寄り(仮)のまま
 
-// 各敵のストーリーシーン内に仕込む隠しタップで解除する、サブストーリーの仮テキスト(画像は今後配置予定、未配置ならプレースホルダー表示)。
+// 各敵のストーリーシーン内に仕込む隠しタップで解除するサブストーリー(本文は完成済み。画像は今後配置予定、未配置ならプレースホルダー表示)。
 // 本編のストーリーシーンと同じく、3枚の画像+テキストで展開する。
 const SUBSTORY_BY_ENEMY = {
     ENEMY_01: {
@@ -1861,10 +1863,14 @@ async function playStorySequence() {
         const hiddenTapEl = document.getElementById('storyHiddenTap');
         hiddenTapEl.style.display = (i === hiddenTapScreenIdx) ? '' : 'none';
         if (i === hiddenTapScreenIdx) {
-            // 敵ごとに指定された中心座標(%)に、判定用の矩形(幅20%×高さ20%)の中心を合わせる
+            // 敵ごとに指定された中心座標(%)に、判定用の矩形(既定は幅20%×高さ20%。pos.w/pos.hがあればそちらを使う)の中心を合わせる
             const pos = STORY_HIDDEN_TAP_POS_BY_ENEMY[ENEMY_ORDER[state.storyEnemyIndex]] || STORY_HIDDEN_TAP_DEFAULT_POS;
-            hiddenTapEl.style.left = (pos.x - 10) + '%';
-            hiddenTapEl.style.top = (pos.y - 10) + '%';
+            const tapW = pos.w || 20;
+            const tapH = pos.h || 20;
+            hiddenTapEl.style.width = tapW + '%';
+            hiddenTapEl.style.height = tapH + '%';
+            hiddenTapEl.style.left = (pos.x - tapW / 2) + '%';
+            hiddenTapEl.style.top = (pos.y - tapH / 2) + '%';
         }
 
         if (i === 0) {
