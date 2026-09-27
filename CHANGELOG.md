@@ -3,6 +3,35 @@
 このプロジェクトの変更履歴。日付は新しいものを上に追記する。
 コード(`index.html` / `css/style.css` / `js/script.js`)や仕様に変更を加えた場合は、このファイルに追記すること(詳細は `AI_GUIDE.md` を参照)。
 
+## 2026-09-27(12)
+
+- 対戦モードの表示名を「VERSUS」から「LOCAL V.S.」に変更(ver. 0.9.120)。あわせて解放トーストの文言を指定通りに変更した。
+  - `index.html`: タイトルボタンの表示テキストを「VERSUS」→「LOCAL V.S.」。
+  - `js/script.js`: `currentStageLabel()`のバトル中ステージ表記も「LOCAL V.S.」に統一。解放トーストを`{ small: 'LOCAL V.S. MODE', large: 'ローカル対戦モード 解放！' }`に変更(常時表示される先頭の「UNLOCKED」はそのまま)。
+  - 内部の識別子(`versusUnlocked`/`state.gameMode === 'versus'`/`vsXxx`系関数名等)は変更していない(表示文言のみの変更のため)。
+  - `IMPLEMENTATION.md`のVERSUS節冒頭を新しい表示名に更新。
+  - 検証: Playwrightでボタン表示・ステージ表記・トーストの3箇所すべてが指定の文言になることを確認済み。`node --check`も通過。
+  - `index.html`を変更したため、カウンター運用に従い保留中の更新回数(0)+1を加算し、`.title-version`を`ver. 0.9.119`→`ver. 0.9.120`に更新(`css/style.css?v=`も120に合わせて更新)。
+
+## 2026-09-27(11)
+
+- 対戦モード解放用GIFT CODEを、意味の読み取れる`VERSUS4C`から完全ランダムな`CY5GBDQT`へ差し替えた。「ギフトコードの命名規則が読み取りやすい」との指摘による(コードは検証アルゴリズムを満たす文字列であれば有効になる方式のため、"VERSUS"と読める文字列は第三者に推測・拡散されやすい)。
+  - コードは`js/script.js`内に一切保存されていない(検証はハッシュ式の一致判定のみで行う設計のため)方式なので、コード自体の変更は不要で、docs内の記載(`TODO.md`/`IMPLEMENTATION.md`)とコード内コメントの例示のみを差し替えた。
+  - 検証: Playwrightで新コード`CY5GBDQT`が正しく対戦モードを解放することを確認済み。`node --check`も通過。
+  - コードの実質的な変更(`js/script.js`)は例示コメント1箇所のみで、`index.html`は変更していないためバージョン表記は据え置き(0.9.119のまま)。
+
+## 2026-09-27(10)
+
+- 対戦モード(VERSUS)を、専用のGIFT CODEでのみ解放されるように変更した(ver. 0.9.119)。「対戦モードは新たなギフトコードで解放したい」との指示による。
+  - 追加: `versusUnlocked`(セーブ対象の状態フラグ)。タイトルのVERSUSボタンは、これがtrueになるまで非表示(`updateVersusButtonVisibility`。`titleContinueBtn`/`bonusContentsBtn`と同じ、隠し要素の表示パターン)。
+  - 追加: `GIFT_CODE_REWARDS`の報酬ID:2に`GIFT_CODE_VERSUS_REWARD`(コスチュームではなく「対戦モード解放」を表す特別な報酬値)を割り当て。`submitGiftCode`内でコスチューム系とは別の専用処理に分岐する。
+  - 発行したコード: `VERSUS4C`(既存の検証アルゴリズムに沿って生成。報酬ID:2に対応)。
+  - 起動時のデバッグ全解放ブロックにも`versusUnlocked = true`を追加(他の隠し要素と同様、友人テスト時はGIFT CODE無しで確認できるようにするため。本番リリース前に削除が必要な点は`TODO.md`に既存)。
+  - `index.html`: `versusBtn`に`style="display:none;"`を追加(デフォルト非表示)。
+  - 検証: Playwrightで(1)未解放時にVERSUSボタンが非表示であること、(2)`VERSUS4C`を入力するとボタンが表示されること、(3)同じコードの再入力が「使用済みです」で拒否されることを確認済み。`node --check`も通過。
+  - `IMPLEMENTATION.md`(GIFT CODE節)・`ARCHITECTURE.md`(モジュール4の関数一覧)・`TODO.md`(デバッグブロックの説明)を更新。
+  - `index.html`を変更したため、カウンター運用に従い保留中の更新回数(0)+1を加算し、`.title-version`を`ver. 0.9.118`→`ver. 0.9.119`に更新(`css/style.css?v=`も119に合わせて更新)。
+
 ## 2026-09-27(9)
 
 - ドキュメントのみ: 利用者からの一連の指示・訂正を受けて`IMPLEMENTATION.md`/`ARCHITECTURE.md`/`CONSTITUTION.md`/`TODO.md`を更新した。

@@ -147,8 +147,11 @@ localStorage(キー: `commandbattle_save_v1`)に以下の値が保存され、�
 
 - 使用可能な文字は31種(`GIFT_CHARSET`。`0/1/I/L/O`は誤読しやすいため除外)。
 - 先頭7文字(本体)から多項式ハッシュ(隠し鍵`GIFT_CODE_KEY`と連結してハッシュ化)でチェックサム文字を導出し、8文字目と一致するかで正当性を検証する(`giftCodeChecksumChar`/`isValidGiftCode`)。コード自体は事前に固定リストとして持たず、この検証式を満たす文字列であれば有効なコードとして扱う方式。
-- 報酬IDは1文字目の`GIFT_CHARSET`内インデックス を8で割った余り(`GIFT_CODE_REWARD_MOD`)で決まり、`GIFT_CODE_REWARDS`(現状はID:0→`'mifune'`のみ)で報酬(コスチューム)に変換する。報酬を増やす場合はこのテーブルに追記するだけでよい設計。
-- 同じコードは`redeemedGiftCodes`に記録され、二度使用できない。正当なコードを入力すると対応するコスチュームが`unlockedSkins`に追加され、COSTUME選択・BONUS CONTENTS解放トースト(初回のみ)につながる。
+- 報酬IDは1文字目の`GIFT_CHARSET`内インデックス を8で割った余り(`GIFT_CODE_REWARD_MOD`)で決まり、`GIFT_CODE_REWARDS`で報酬に変換する。報酬を増やす場合はこのテーブルに追記するだけでよい設計。
+  - ID:0→`'mifune'`(コスチューム解放)
+  - ID:2→`GIFT_CODE_VERSUS_REWARD`(**対戦モード(VERSUS)自体の解放**。2026-09-27追加。コスチュームではない特別な報酬値で、`submitGiftCode`内でコスチューム系とは別の専用処理に分岐する。タイトルのVERSUSボタンは`versusUnlocked`がtrueになるまで非表示)
+- 同じコードは`redeemedGiftCodes`に記録され、二度使用できない。コスチューム系のコードを入力すると対応するコスチュームが`unlockedSkins`に追加され、COSTUME選択・BONUS CONTENTS解放トースト(初回のみ)につながる。VERSUS解放コードの場合は`versusUnlocked`を保存し、VERSUSボタンを即座に表示する。
+- 現在発行済みのコード: `CY5GBDQT`(対戦モード解放用)。
 
 ## 10. EXTRA BATTLE(実装済み、コード内では「サブストーリーバトル」/`substoryBattle`、2026-09-27ドキュメント化)
 
@@ -168,7 +171,7 @@ BGM/SEはWeb Audio API(`AudioContext`)で実装されている。`state.soundOn`
 
 ## 12. ローカル対戦(VERSUS)(実装済み)
 
-- **入口**: タイトルのVERSUS(TRAINING MODEとOPTIONの間)。
+- **入口**: タイトルの「LOCAL V.S.」ボタン(TRAINING MODEとOPTIONの間。2026-09-27、表示名を「VERSUS」から変更。GIFT CODEで解放。下記「9. GIFT CODE」参照)。バトル画面のステージ表記(`currentStageLabel`)も同じ表示名に合わせて「LOCAL V.S.」になる。
 - **画面構成**: 画面の高さいっぱいを使い、下半分=1P(通常の向き)、上半分=2P(180°回転)。中央にHPゲージを共有する(1PのHPが左・2PのHPが右の点対称配置で、どちらから見ても自分のHPが左に来る)。名前・TURNは両方の向きで表示する。2P側のcanvasはメインのcanvasを毎フレーム左右反転コピーしたもので、技名・COMBO表示だけは鏡文字にならないよう後から描き足す。
 - **キャラ選択**: 上下それぞれでVAL/Noah/Rita/Gald/Jack/Alvから選び、両者がREADYを押すとFIGHT!→バトル。VAL以外は「STORY MODEで撃破済み、またはクリア済み」の場合のみ選べる(未解放は？？？)。デッキ編成は無く、選んだキャラのENEMY_PRESETSのデッキ配分・攻撃力/防御力等の個性をそのまま使う。背景・BGMは、STORY MODEでクリア済みのステージからランダム(クリア済みなら全5ステージ、1人も撃破していなければ1ST STAGE。REMATCHでは同じ)。入力は常に1Pが先(両者とも公開は同時のため、先後による有利不利は無い)。
 - **ターンの流れ**: 出す枚数はEXTRA BATTLEと同じく毎ターン1〜5のランダム(両者の手札枚数の少ない方が上限)。1PのREADY→カードを選んでGO!→2PのREADY→カードを選んでGO!→通常のターン解決(攻防の直前に1枚ずつ公開)。自分の番以外は、手札・場のカードを裏向きにし、UI部分を目隠し(「◯P IS CHOOSING... DON'T PEEK!」)で覆う。READY後、手札は左から順にめくれる。
