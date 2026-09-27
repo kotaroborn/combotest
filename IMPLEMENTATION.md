@@ -117,7 +117,7 @@ localStorage(キー: `commandbattle_save_v1`)に以下の値が保存され、�
 
 - `storyEnemyIndex`(STORY MODEの進行状況)
 - `deckCounts`(デッキ編成の内訳)
-- `soundOn`(サウンド設定値。値の保存のみで、音の再生自体は未実装)
+- `soundOn`(サウンド設定値。BGM/SEの実際の再生処理はWeb Audio APIで実装済み。※2026-09-27訂正: 以前は「値の保存のみで再生は未実装」と記載していたが誤りだった。COSTUME/SOUND TEST/GIFT CODE等、他にもドキュメント未整備の実装済み機能があり、`TODO.md`の「保留: IMPLEMENTATION.mdの大規模更新」を参照)
 - `unlockedItems`(取得済みアイテムの配列。読み込み処理はあるが、値を追加する処理は未実装)
 
 ---
