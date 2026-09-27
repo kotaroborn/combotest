@@ -95,12 +95,13 @@
                 <div class="title-logo-fallback-sub">CROSS DIMENSION</div>
             </div>
         </div>
-        <div class="title-version">ver. 0.9.120</div>
+        <div class="title-version">ver. 0.9.121</div>
     </div>
     <button id="titleContinueBtn" class="text-btn" onclick="tapFlickerThen(this, () => goContinueGame())" style="display:none;">CONTINUE</button>
     <button id="startBtn" class="text-btn" onclick="tapFlickerThen(this, () => goNewGame())" disabled>NEW GAME</button>
     <button id="trainingBtn" class="text-btn" onclick="tapFlickerThen(this, () => goTrainingBattle())" disabled>TRAINING MODE</button>
     <button id="versusBtn" class="text-btn" onclick="tapFlickerThen(this, () => goVersusSelect())" disabled style="display:none;">LOCAL V.S.</button>
+    <button id="rushBtn" class="text-btn" onclick="tapFlickerThen(this, () => goRushStart())" disabled style="display:none;">100 BATTLE RUSH</button>
     <button id="optionBtn" class="text-btn" onclick="openOption()" disabled>OPTION</button>
     <button id="bonusContentsBtn" class="text-btn" onclick="openBonusContents()" style="display:none;">BONUS</button>
     <button class="howto-btn howto-corner" onclick="openHowTo()">HOW<br>TO</button>
@@ -246,6 +247,32 @@
     <div id="resultText"></div>
     <button id="continueBtn" onclick="goDeckBuild()">CONTINUE</button>
     <button id="backTitleBtn" onclick="goLogo()">タイトルへ戻る</button>
+</div>
+<!-- 100 BATTLE RUSHのRESULT: 倒れた時点(または100人撃破時)に表示。ボタンは最下部に固定し、項目が多くてもはみ出さないようにする -->
+<div id="rushResultOverlay">
+    <div class="rush-result-body">
+        <div id="rushResultClear" style="display:none;">CLEAR!!</div>
+        <div class="rush-result-title">RESULT</div>
+        <div class="rush-result-row">
+            <div class="rush-result-label">KILLS</div>
+            <div class="rush-result-value" id="rushResultKills">0 / 100</div>
+            <div class="rush-result-sub"><span id="rushBestKills">BEST 0</span><span class="rush-new" id="rushNewKills">NEW RECORD!</span></div>
+        </div>
+        <div class="rush-result-row">
+            <div class="rush-result-label">TIME</div>
+            <div class="rush-result-value" id="rushResultTime">0:00.0</div>
+            <div class="rush-result-sub"><span id="rushBestTime">BEST --:--.-</span><span class="rush-new" id="rushNewTime">NEW RECORD!</span></div>
+        </div>
+        <div class="rush-result-row">
+            <div class="rush-result-label">MAX COMBO</div>
+            <div class="rush-result-value" id="rushResultCombo">0</div>
+            <div class="rush-result-sub"><span id="rushBestCombo">BEST 0</span><span class="rush-new" id="rushNewCombo">NEW RECORD!</span></div>
+        </div>
+    </div>
+    <div class="rush-result-btns">
+        <button id="rushRetryBtn" onclick="rushRetry()">RETRY</button>
+        <button id="rushTitleBtn" onclick="rushBackToTitle()">TITLE</button>
+    </div>
 </div>
 </div>
 

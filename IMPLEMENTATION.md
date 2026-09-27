@@ -181,3 +181,15 @@ BGM/SEはWeb Audio API(`AudioContext`)で実装されている。`state.soundOn`
 - **OPTION**: 1P側のボタン列から開ける。RETRYは同じキャラで最初から、RETURN TO TITLEはタイトルへ。COSTUMEはVERSUS中は表示しない。
 
 未実装・予定の内容は [`TODO.md`](./TODO.md) を参照。
+
+## 13. 100 BATTLE RUSH(実装済み、2026-09-28追加。コード内では`state.gameMode === 'rush'`、`rushXxx`系関数)
+
+- **入口**: タイトルの「100 BATTLE RUSH」ボタン(LOCAL V.S.の下)。専用GIFT CODE(報酬ID 1)で解放(`rushUnlocked`)。
+- **ルール**: デッキ編成なしでVALの固定デッキ(7/7/7、能力は通常のプレイヤー)。出す枚数は自由。HPは戦闘間で引き継ぎ、中ボス撃破でHP20回復(上限100)。HP0で終了。100人撃破までのタイムを競う。2倍速は使用不可。
+- **敵の並び**: 5の倍数が中ボス(`ENEMY_ORDER`を順番に4周、100人目は4周目のAlv)、それ以外は雑魚(`RUSH_MOB_PRESET`、MIFUNE=trainingの見た目、手は完全ランダム)。
+- **強さ**: `rushEnemyAtk`/`rushEnemyMaxHp`参照。攻撃力は基本値(パンチ10/アッパー7)に対する割合として`atkMultOf`(E側)に反映し、技全体を同じ割合で縮める(アッパー初撃とメテオがアッパー系、それ以外はパンチ系。CLASH/TINY/WALL_IMPACTの固定値は対象外)。防御力等の個性は中ボス固有のまま。
+- **背景・BGM**: 次に控える中ボスのステージ(`rushStageNum`)。中ボス撃破直後に暗転して切り替わる(`rushChangeStage`)。次のステージの素材は裏で先読みする。
+- **流れ**: 敵撃破→そのターンの残りカードを破棄→敵が点滅して消える(`rushOnEnemyDefeated`)→ホームへ戻る→次の敵が登場(`rushSpawnNextEnemy`: 雑魚は右からdash、中ボスはステージ固有の登場演出、得意技ポーズなし)→次のターン。
+- **表示**: TURN表示の位置に撃破数と経過タイム(手札が配られた瞬間から計測、倒れた瞬間/100人目撃破の瞬間に停止)。RESULTは`#rushResultOverlay`(撃破数・タイム・最大COMBO・自己ベスト`rushBest`とNEW RECORD、100人撃破時はCLEAR!!)。
+- **OPTION**: RETRYは1人目から再開、RETURN TO TITLEは進行状況に触れない短い確認文言。
+
