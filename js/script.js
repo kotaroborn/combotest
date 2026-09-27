@@ -162,6 +162,16 @@ function spawnHitEffect(side, moveType, tier, xOverride, yOverride) {
         born: performance.now(),
     });
 }
+
+// 技名ポップ(2026-09-27追加): 各技(ラッシュ/ブレイク/クラッシュ/メテオ/ライジング。第36条参照)が発動した瞬間に、
+// その英語名を手書き風フォント(Permanent Marker、CDN経由)でキャラの頭上に表示する。「発生時に技名も入れたいが
+// 英語で」との要望を受けたもの。技が発動した側(attacker)を渡して呼ぶ。
+let techNamePops = [];
+const TECH_NAME_POP_LIFE = 1000; // 表示開始から消えるまでの時間(ms)
+const TECH_NAME_FONT_FAMILY = "'Permanent Marker', cursive"; // 読み込み前・失敗時はcursiveの汎用フォントにフォールバック
+function spawnTechNamePop(side, text) {
+    techNamePops.push({ side, text, x: getX(side), y: getY(side), born: performance.now() });
+}
 let cardOutcomes = { P: new Array(5).fill(null), E: new Array(5).fill(null) }; // ターン中の各カードの勝敗表現(card-lose/card-shatter)。ターン終了(両者が定位置へ戻り、場のカードが消えた後)にリセットする
 let deckCounts = { PUNCH: 7, UPPER: 7, GUARD: 7 }; // デッキ編成(合計21枚、内訳は自由)
 let unlockedItems = []; // 隠しアイテム(今後実装予定)。取得済みアイテムIDを貯めていく想定
@@ -2783,6 +2793,46 @@ function draw(tRaw) {
         drawOne(alpha, 0);
     });
 
+    // 技名ポップ(2026-09-27追加): 技が発動した瞬間、その英語名をキャラの頭上に表示し、右斜め上へ上がっていき
+    // ながらフェードアウトさせる(「右斜め上にあがっていく文字にしたい」との要望による)。開始直後から常に
+    // 上昇を続け(止まっている時間を作らない)、最初の15%だけ「パッと飛び出す」ポップイン(0.4倍→1.15倍で
+    // 現れ、続く20%で1.0倍へ落ち着く)を挟み、40%地点から少しずつフェードアウトする。
+    techNamePops = techNamePops.filter(p => (t - p.born) < TECH_NAME_POP_LIFE);
+    techNamePops.forEach(p => {
+        const age = t - p.born;
+        const life = TECH_NAME_POP_LIFE;
+        const popInDur = life * 0.15;
+        const fadeStart = life * 0.4;
+        let scale, alpha;
+        if (age < popInDur) {
+            const ip = age / popInDur;
+            scale = 0.4 + ip * 0.75; // 0.4倍→1.15倍
+            alpha = ip;
+        } else {
+            const settleP = Math.min(1, (age - popInDur) / (life * 0.2));
+            scale = 1.15 - settleP * 0.15; // 1.15倍→1.0倍へ落ち着く
+            alpha = age < fadeStart ? 1 : Math.max(0, 1 - (age - fadeStart) / (life - fadeStart));
+        }
+        if (alpha <= 0) return;
+        const riseP = Math.min(1, age / life); // 0→1、開始直後から常に上がり続ける
+        const anchorX = p.x + DB.IMG_SIZE / 2 + riseP * 60; // 右へ最大60px
+        const anchorY = p.y - 10 - riseP * 90; // 上へ最大90px
+        ctx.save();
+        ctx.globalAlpha = alpha;
+        ctx.translate(anchorX, anchorY);
+        ctx.scale(scale, scale);
+        ctx.font = `32px ${TECH_NAME_FONT_FAMILY}`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'alphabetic';
+        ctx.lineJoin = 'round';
+        ctx.lineWidth = 4;
+        ctx.strokeStyle = 'rgba(0,0,0,0.8)'; // 背景を選ばず読めるよう、黒い縁取りを先に描いてから白抜きにする
+        ctx.strokeText(p.text, 0, 0);
+        ctx.fillStyle = '#fff';
+        ctx.fillText(p.text, 0, 0);
+        ctx.restore();
+    });
+
     // ピヨり演出: しびれている側の頭上にpiyo.PNGを表示(反転を交互に切り替える)。
     // state.piyoSideがtruthyな間はずっと表示し続ける(開始/終了は startPiyo/stopPiyo が担う)。反転は経過時間から計算する。
     // piyo.PNGは実ファイルが32x32pxで、実際に使う絵柄は左上を基準にした横21px×縦9pxの範囲のみ。
@@ -3878,6 +3928,7 @@ async function runMeteor(attacker, defender) {
     hitComboBreak(defender);
     await playFinisherBuildup(attacker); // 暗転→一時停止→攻撃側が白く発光→晴れる、のフィニッシュ演出
     setAct(attacker, 'knock.PNG'); // Beat1: 攻撃絵(放つ瞬間のポーズ)
+    spawnTechNamePop(attacker, 'METEOR'); // 技名ポップ(第36条: メテオ)
     await wait(DB.HITSTOP.POSE_MS); // ヒットストップ
     applyDamage(defender, DB.DMG.M * chargeMultOf(attacker) * atkMultOf(attacker) * defMultOf(defender)); // Beat2: ダメージ絵(命中の瞬間)
     playSE('se_meteor'); // 未配置ならse_punchで代用される
@@ -3943,6 +3994,7 @@ async function runUpperCombo(attacker, defender, cursor) {
     if (isSuperUpper) await playFinisherBuildup(attacker); // スーパーアッパー(ダメージ2倍)成立時のみ、暗転→一時停止→発光の演出を挟む
     setAct(attacker, 'upper.PNG'); // Beat1: 攻撃絵
     if (isSuperUpper) flashAttackerWhite(attacker); // awaitしない(命中の瞬間にもう一度白く発光させる。playFinisherBuildupの発光は命中前の演出のため別枠)
+    if (isSuperUpper) spawnTechNamePop(attacker, 'RISING'); // 技名ポップ(第36条: 2倍アッパー=ライジング)
     if (isSuperUpper) await wait(DB.HITSTOP.POSE_MS); // スーパーアッパーのみヒットストップを挟む(通常のUPPERは従来通り)
     setAct(defender, 'damage.PNG'); // Beat2: ダメージ絵(命中の瞬間)
     applyDamage(defender, DB.DMG.U * chargeMultOf(attacker) * (isSuperUpper ? 2 : 1) * atkMultOf(attacker, 'UPPER') * defMultOf(defender, 'UPPER'));
@@ -4304,6 +4356,7 @@ function detectComboType(hand, total) {
 async function runFollowUpFlurry(attacker, defender) {
     hitComboBreak(defender);
     await playFinisherBuildup(attacker); // 暗転→一時停止→攻撃側が白く発光→晴れる、のフィニッシュ演出(3連打全体の前に1回だけ)
+    spawnTechNamePop(attacker, 'RUSH'); // 技名ポップ(第36条: 追撃=ラッシュ)。3連打全体で1回だけ表示する
     for (let i = 0; i < 3; i++) {
         hitComboSuccess(attacker); // 追撃は3連打それぞれをCOMBOとして数える
         if (i >= 1) await flashDashBetweenPunches(attacker); // 2発目以降のみ、パンチ同士の切り替えなのでdashを挟む
@@ -4335,6 +4388,7 @@ async function runGuardPunchUpperWallStrike(attacker, defender) {
     hitComboSuccess(attacker);
     hitComboBreak(defender);
     setAct(attacker, nextPunchSprite(attacker)); // 第21条。Beat1: 攻撃絵
+    spawnTechNamePop(attacker, 'BREAK'); // 技名ポップ(第36条: GUARD+PUNCH+UPPERの壁のめり込み=ブレイク)
     const wallStrikeMult = atkMultOf(attacker) * defMultOf(defender);
     if (wallStrikeMult !== 1) flashAttackerWhite(attacker); // awaitしない(敵の個性(atkMult/defMult)でダメージが通常と異なる場合のみ光らせる)
     await wait(DB.HITSTOP.POSE_MS); // ヒットストップ(被弾側は既にUPPERでdamage.PNGのまま浮いている)
@@ -4383,6 +4437,7 @@ async function runFinisher(attacker, defender, cursor) {
     await playFinisherBuildup(attacker); // 暗転→一時停止→攻撃側が白く発光→晴れる、のフィニッシュ演出
     setAct(attacker, nextPunchSprite(attacker)); // 第21条。Beat1: 攻撃絵
     flashAttackerWhite(attacker); // awaitしない(命中の瞬間にもう一度白く発光させる。playFinisherBuildupの発光は命中前の演出のため別枠)
+    spawnTechNamePop(attacker, 'CRASH'); // 技名ポップ(第36条: 必殺技=クラッシュ)
     await wait(DB.HITSTOP.POSE_MS); // ヒットストップ
     setAct(defender, 'damage.PNG'); // Beat2: ダメージ絵(命中の瞬間)
     markCardOutcome(defender, cursor.i, 'card-shatter'); // 3すくみ無視のヒットなのでヒビ割れ表現にする
