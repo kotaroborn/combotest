@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>CLASH5 - CROSS DIMENSION</title>
-    <link rel="stylesheet" href="css/style.css?v=116">
+    <link rel="stylesheet" href="css/style.css?v=120">
 
     <!-- 技名ポップ(2026-09-27追加)用の手書き風フォント。Google FontsのCDNから読み込む(ファイル同梱はせず、
          プレイ時のネット接続を前提とする。GitHub Pages/itch.ioでの公開自体が既にネット接続前提のため問題ない)。
@@ -95,12 +95,12 @@
                 <div class="title-logo-fallback-sub">CROSS DIMENSION</div>
             </div>
         </div>
-        <div class="title-version">ver. 0.9.116</div>
+        <div class="title-version">ver. 0.9.120</div>
     </div>
     <button id="titleContinueBtn" class="text-btn" onclick="tapFlickerThen(this, () => goContinueGame())" style="display:none;">CONTINUE</button>
     <button id="startBtn" class="text-btn" onclick="tapFlickerThen(this, () => goNewGame())" disabled>NEW GAME</button>
     <button id="trainingBtn" class="text-btn" onclick="tapFlickerThen(this, () => goTrainingBattle())" disabled>TRAINING MODE</button>
-    <button id="versusBtn" class="text-btn" onclick="tapFlickerThen(this, () => goVersusSelect())" disabled>VERSUS</button>
+    <button id="versusBtn" class="text-btn" onclick="tapFlickerThen(this, () => goVersusSelect())" disabled style="display:none;">LOCAL V.S.</button>
     <button id="optionBtn" class="text-btn" onclick="openOption()" disabled>OPTION</button>
     <button id="bonusContentsBtn" class="text-btn" onclick="openBonusContents()" style="display:none;">BONUS</button>
     <button class="howto-btn howto-corner" onclick="openHowTo()">HOW<br>TO</button>
@@ -369,10 +369,6 @@
                         <span class="tick tick-long" style="left:100%;"></span>
                     </div>
                 </div>
-            </div>
-            <div class="option-row" id="optionItemsRow">
-                <span class="option-label">図鑑(取得アイテム)</span>
-                <button onclick="openItemGallery()">見る</button>
             </div>
             <div class="option-row" id="optionCostumeRow" style="display:none;">
                 <span class="option-label">COSTUME</span>
