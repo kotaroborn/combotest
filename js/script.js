@@ -200,6 +200,7 @@ let gameClearedOnce = false; // STORY MODEを一度でも最後(5人目)まで�
 let costumeUnlockAnnounced = false; // タイトル画面でCOSTUME解放のポップアップを既に一度見せたか(繰り返し表示しないため)
 let bonusContentsAnnounced = false; // タイトル画面でBONUS CONTENTS解放のポップアップを既に一度見せたか
 let versusUnlocked = false; // 対戦モード(VERSUS)が解放済みか。専用のGIFT CODEでのみ解放する(2026-09-27追加。それまでは常時解放だった)
+let recordsHintAnnounced = false; // クリア後の「まだ見つけていない秘密がある…」トーストを既に出したか(2026-09-28追加)
 let storyMaxCombo = 0; // STORY MODEのバトルでの最大COMBO(プレイヤー側)。RECORDSで表示する。セーブデータに永続化する(2026-09-28追加)
 let rushUnlocked = false; // 100 BATTLE RUSHが解放済みか。専用のGIFT CODEでのみ解放する(2026-09-28追加)
 let rushBest = { kills: 0, clearTimeMs: null, maxCombo: 0 }; // 100 BATTLE RUSHの自己ベスト(撃破数・100人撃破時の最速タイム・最大COMBO)。セーブデータに永続化する
@@ -1083,6 +1084,7 @@ function applySaveDataOnBoot() {
     if (typeof save.versusUnlocked === 'boolean') versusUnlocked = save.versusUnlocked;
     if (typeof save.rushUnlocked === 'boolean') rushUnlocked = save.rushUnlocked;
     if (typeof save.storyMaxCombo === 'number') storyMaxCombo = save.storyMaxCombo;
+    if (typeof save.recordsHintAnnounced === 'boolean') recordsHintAnnounced = save.recordsHintAnnounced;
     if (save.rushBest && typeof save.rushBest === 'object') {
         rushBest = {
             kills: typeof save.rushBest.kills === 'number' ? save.rushBest.kills : 0,
@@ -1835,7 +1837,8 @@ async function processUnlockToastQueue() {
     const accentColor = typeof message === 'string' ? '#ffffff' : '#ffd23c';
     toast.style.color = accentColor;
     toast.style.borderColor = accentColor;
-    toast.innerHTML = '<span style="font-size:10px; letter-spacing:3px; color:#888; display:block;">UNLOCKED</span>'
+    const header = (typeof message === 'object' && message.header) || 'UNLOCKED'; // 見出しは通常UNLOCKED。RECORDSへの誘導はHINT
+    toast.innerHTML = `<span style="font-size:10px; letter-spacing:3px; color:#888; display:block;">${header}</span>`
         + (typeof message === 'string'
             ? message // 従来通りの単一行表示(BONUS CONTENTS解放！等)
             : `<span style="font-size:12px; display:block;">${message.small}</span><span style="font-size:19px; display:block; margin-top:2px;">${message.large}</span>`) // SUB STORY解放時: 番号(小)+タイトル(大)の2段階表示
@@ -2114,6 +2117,12 @@ function checkUnlockAnnouncements() {
         costumeUnlockAnnounced = true;
         writeSaveData({ costumeUnlockAnnounced: true });
         showUnlockToast('COSTUME 解放！');
+    }
+    // ゲームクリア後、未発見の要素が残っていれば一度だけRECORDSへ誘導する
+    if (gameClearedOnce && !recordsHintAnnounced && recordsHasUndiscovered()) {
+        recordsHintAnnounced = true;
+        writeSaveData({ recordsHintAnnounced: true });
+        showUnlockToast({ header: 'HINT', small: 'OPTION › RECORDS で確認', large: '未発見の秘密がある…' });
     }
 }
 
@@ -5056,8 +5065,7 @@ function bonusContentsAvailable() {
     const soundTestAvailable = gameClearedOnce || soundTestUnlocked; // 新条件(エンディングを迎えてタイトルへ戻る)。旧セーブデータのsoundTestUnlockedも引き続き有効
     const costumeAvailable = costumeSelectionAvailable(); // OPTION画面のCOSTUME行と同じ解放条件
     const speedAvailable = gameClearedOnce; // SPEED機能自体の解放条件(クリア後に出現)
-    // LOCAL V.S./100 BATTLE RUSHをGIFT CODEで解放しただけの場合も、RECORDSを見られるようBONUSを出す(2026-09-28追加)
-    return unlockedSubStories.length > 0 || soundTestAvailable || costumeAvailable || speedAvailable || versusUnlocked || rushUnlocked;
+    return unlockedSubStories.length > 0 || soundTestAvailable || costumeAvailable || speedAvailable;
 }
 function updateBonusContentsUI() {
     const soundTestAvailable = gameClearedOnce || soundTestUnlocked;
@@ -5123,7 +5131,6 @@ function closeAllBonus() {
     document.getElementById('soundTestOverlay').classList.remove('show');
     stopCostumeThumbAnim();
     document.getElementById('costumeOverlay').classList.remove('show'); // BONUS経由でCOSTUMEが開いたまま残っている場合の安全策
-    document.getElementById('recordsOverlay').classList.remove('show');
     playBGM('bgm_title'); // SOUND TESTでタイトルBGMを止めていた場合でも、×で一括で閉じた時に確実に再開させる(既に流れていれば何もしない)
 }
 
@@ -5165,6 +5172,8 @@ function updateOptionUI() {
         (costumeSelectionAvailable() && state.gameMode !== 'substoryBattle' && state.gameMode !== 'versus') ? 'flex' : 'none'; // サブストーリーバトル中は借りているキャラの見た目を変更できないようにする
     // GIFT CODEはタイトル画面のOPTIONからのみ入力できるようにする(バトル中は表示しない)
     document.getElementById('optionGiftCodeRow').style.display = isTitle ? 'flex' : 'none';
+    document.getElementById('optionRecordsRow').style.display = isTitle ? 'flex' : 'none'; // RECORDSもタイトルのOPTIONからのみ(誰でも最初から見られる)
+    document.getElementById('optionResetRow').style.display = isTitle ? 'flex' : 'none'; // 進行状況リセットもタイトルのOPTIONからのみ(バトル中の誤操作防止、2026-09-28)
     document.getElementById('optionFooter').style.display = isTitle ? 'none' : 'flex';
     // TRAINING MODEはデッキ編成を経由しない(選び放題の固定手札のため)、RETRYボタン自体を隠す
     document.getElementById('optionRetryBtn').style.display = state.gameMode === 'training' ? 'none' : '';
@@ -6934,6 +6943,8 @@ function rushBackToTitle() {
 // GIFT CODEでしか手に入らないもの(MIFUNE/LOCAL V.S./100 BATTLE RUSH)は、解放した人にだけ項目として追加する
 // (コードを持っていない人でも100%にできるようにするため)。
 // ヒントの文面はRECORDS_HINTSにまとめてあり、ここだけ書き換えれば差し替えられる。
+// 置き場所はタイトル画面のOPTION(最初から誰でも開けるため、隠し要素の存在自体を知らない人にもヒントが届く)。
+// ゲームクリア後にタイトルへ戻った時、未発見の項目が残っていれば一度だけトーストでRECORDSへ誘導する(checkUnlockAnnouncements)。
 const RECORDS_HINTS = {
     subStoryHow: (n) => `ストーリー${n}人目の会話中に隠しタップで発見`,
     subStoryHint: 'ストーリーの会話シーンのどこかに隠されている',
@@ -6995,4 +7006,8 @@ function openRecords() {
     document.getElementById('recordsOverlay').classList.add('show');
 }
 function closeRecords() { document.getElementById('recordsOverlay').classList.remove('show'); }
-function closeRecordsBackdrop(e) { if (e.target.id === 'recordsOverlay') closeAllBonus(); }
+function closeRecordsBackdrop(e) { if (e.target.id === 'recordsOverlay') closeRecords(); }
+// 基本項目(GIFT CODE限定を除く)でまだ見つけていないものがあるか
+function recordsHasUndiscovered() {
+    return buildRecordsItems().some(it => !it.gift && !it.got);
+}
