@@ -200,6 +200,7 @@ let gameClearedOnce = false; // STORY MODEを一度でも最後(5人目)まで�
 let costumeUnlockAnnounced = false; // タイトル画面でCOSTUME解放のポップアップを既に一度見せたか(繰り返し表示しないため)
 let bonusContentsAnnounced = false; // タイトル画面でBONUS CONTENTS解放のポップアップを既に一度見せたか
 let versusUnlocked = false; // 対戦モード(VERSUS)が解放済みか。専用のGIFT CODEでのみ解放する(2026-09-27追加。それまでは常時解放だった)
+let storyMaxCombo = 0; // STORY MODEのバトルでの最大COMBO(プレイヤー側)。RECORDSで表示する。セーブデータに永続化する(2026-09-28追加)
 let rushUnlocked = false; // 100 BATTLE RUSHが解放済みか。専用のGIFT CODEでのみ解放する(2026-09-28追加)
 let rushBest = { kills: 0, clearTimeMs: null, maxCombo: 0 }; // 100 BATTLE RUSHの自己ベスト(撃破数・100人撃破時の最速タイム・最大COMBO)。セーブデータに永続化する
 
@@ -577,8 +578,16 @@ function costumeAssetFolder(skinName) {
 // EXTRA_COSTUME_LABELSに登録された追加コスチューム(GIFT CODE等、ストーリー進行と無関係に解放されるもの)を
 // 1つでも持っていれば、gameClearedOnceを問わずCOSTUME自体(延いてはBONUS CONTENTSボタン自体)を解放する。
 // これが無いと、ゲーム開始直後にGIFT CODEでMIFUNEを解放しても、BONUS CONTENTS自体が出現せず選べない不具合になる。
+// 2026-09-28変更: COSTUMEの行(BONUS/OPTION)は、コスチュームを1つでも手に入れた時点で表示する。
+// ただしenemy_N形式(敵1〜5)のコスチュームは、ゲームクリア前は一覧に出るだけで選べない(canChangeCostume参照)。
+// 以前はクリア前にEXTRA BATTLEでコスチュームを手に入れても、トーストが出るだけでCOSTUME自体が現れなかった。
 function costumeSelectionAvailable() {
-    return unlockedSkins.length > 0 && (gameClearedOnce || unlockedSkins.some(s => EXTRA_COSTUME_LABELS[s]));
+    return unlockedSkins.length > 0;
+}
+function isEnemyCostume(skinName) { return /^enemy_\d+$/.test(skinName); }
+// そのコスチュームを今選べるか。GIFT CODE等の追加コスチューム(MIFUNE等)はクリアを問わず選べる
+function canChangeCostume(skinName) {
+    return !skinName || !isEnemyCostume(skinName) || gameClearedOnce;
 }
 // 以前は6セット×11ポーズ=66枚を起動時にまとめて読み込んでいたが、実際に使うのは今の対戦相手の1セットだけのため、
 // 遅延読み込みに変更した(バトルで使うキャラ画像・背景と同様、実際にそのセットが必要になる直前だけ読み込みを開始する)。
@@ -1073,6 +1082,7 @@ function applySaveDataOnBoot() {
     if (typeof save.bonusContentsAnnounced === 'boolean') bonusContentsAnnounced = save.bonusContentsAnnounced;
     if (typeof save.versusUnlocked === 'boolean') versusUnlocked = save.versusUnlocked;
     if (typeof save.rushUnlocked === 'boolean') rushUnlocked = save.rushUnlocked;
+    if (typeof save.storyMaxCombo === 'number') storyMaxCombo = save.storyMaxCombo;
     if (save.rushBest && typeof save.rushBest === 'object') {
         rushBest = {
             kills: typeof save.rushBest.kills === 'number' ? save.rushBest.kills : 0,
@@ -1568,6 +1578,7 @@ function updateTitleContinueVisibility() {
     const save = loadSaveData();
     const hasStoryProgress = !!save && typeof save.storyEnemyIndex === 'number' && save.storyEnemyIndex >= 1;
     document.getElementById('titleContinueBtn').style.display = hasStoryProgress ? 'block' : 'none';
+    layoutTitleMenu();
 }
 
 // 対戦モード(VERSUS)ボタンの表示を、専用GIFT CODEでの解放状態(versusUnlocked)に合わせる。
@@ -1575,11 +1586,23 @@ function updateTitleContinueVisibility() {
 function updateVersusButtonVisibility() {
     const btn = document.getElementById('versusBtn');
     if (btn) btn.style.display = versusUnlocked ? '' : 'none';
+    layoutTitleMenu();
 }
 // 100 BATTLE RUSHボタンの表示を、専用GIFT CODEでの解放状態(rushUnlocked)に合わせる(VERSUSと同じパターン)
 function updateRushButtonVisibility() {
     const btn = document.getElementById('rushBtn');
     if (btn) btn.style.display = rushUnlocked ? '' : 'none';
+    layoutTitleMenu();
+}
+// タイトルのメニューを、表示中のボタンだけで下から詰めて並べる(2026-09-28追加)。OPTIONは常に最下部。
+// 未解放で隠れているボタンの分の隙間は作らない。表示/非表示を切り替える各関数の最後で呼ぶ。
+const TITLE_MENU_ORDER = ['titleContinueBtn', 'startBtn', 'trainingBtn', 'versusBtn', 'rushBtn', 'bonusContentsBtn', 'optionBtn']; // 上から順
+const TITLE_MENU_BOTTOM = 12;  // 最下段(OPTION)の位置(bottom %)
+const TITLE_MENU_STEP = 5.2;   // ボタン同士の間隔(%)
+function layoutTitleMenu() {
+    const visible = TITLE_MENU_ORDER.map(id => document.getElementById(id))
+        .filter(el => el && getComputedStyle(el).display !== 'none');
+    visible.reverse().forEach((el, i) => { el.style.bottom = (TITLE_MENU_BOTTOM + i * TITLE_MENU_STEP) + '%'; });
 }
 
 async function playLogo() {
@@ -1773,14 +1796,21 @@ function playHiddenTapSparkle() {
 // 複数の通知が同時に発生してもキューに積んで順番に表示する(上書きしない)。
 let unlockToastQueue = [];
 let unlockToastBusy = false;
+// 解放トースト。2026-09-28変更: 読み逃し防止のため、自動では消えずトースト自体をタップした時だけ閉じる。
+// 閉じた後は画面外(セーフエリアの上)まで完全に退避させてから非表示にする(以前は-120%だけ上げていたため、
+// ホーム画面から起動した時に時計の部分へ一部が残って見えていた)。
+// 戻り値のPromiseは、そのトーストが閉じられた時に解決する(閉じられるまで次の処理を待ちたい場合に使う)。
 function showUnlockToast(message) {
-    unlockToastQueue.push(message);
-    processUnlockToastQueue();
+    return new Promise(resolve => {
+        unlockToastQueue.push({ message, resolve });
+        processUnlockToastQueue();
+    });
 }
+const UNLOCK_TOAST_HIDDEN_TRANSFORM = 'translateX(-50%) translateY(calc(-100% - var(--safe-top) - 24px))'; // 上端のセーフエリアごと完全に画面外
 async function processUnlockToastQueue() {
     if (unlockToastBusy || unlockToastQueue.length === 0) return;
     unlockToastBusy = true;
-    const message = unlockToastQueue.shift();
+    const { message, resolve } = unlockToastQueue.shift();
     playSE('se_select'); // 実績解除トースト表示時の共通音(隠しタップ経由・それ以外のBONUS/COSTUME解放通知いずれも含む)
 
     let toast = document.getElementById('unlockToast');
@@ -1792,11 +1822,12 @@ async function processUnlockToastQueue() {
         // 通常のSafari表示では気にならなくても、ウェブアプリ表示だとこの余白を入れないとDynamic Islandと重なってしまう。
         // env(safe-area-inset-top)の値だけでは実機で不足するケースがあるため、CSS側の共通変数--safe-top
         // (standalone起動時は59pxを下限として保証する、css/style.css参照)を使う。
-        toast.style.cssText = 'position:fixed; left:50%; top:var(--safe-top); transform:translateX(-50%) translateY(-120%);'
+        toast.style.cssText = 'position:fixed; left:50%; top:var(--safe-top); display:none;'
             + 'background:linear-gradient(135deg, #1a1a1a, #2a2a2a);'
             + 'border:2px solid; border-top:none; border-radius:0 0 10px 10px;'
-            + 'padding:12px 28px; font-size:14px; font-weight:900; letter-spacing:1px; text-align:center;'
-            + 'z-index:9999; pointer-events:none; box-shadow:0 4px 20px rgba(0,0,0,0.6); white-space:nowrap;';
+            + 'padding:12px 28px 10px; font-size:14px; font-weight:900; letter-spacing:1px; text-align:center;'
+            + 'z-index:9999; cursor:pointer; box-shadow:0 4px 20px rgba(0,0,0,0.6); white-space:nowrap;'
+            + '-webkit-tap-highlight-color:transparent;';
         document.body.appendChild(toast);
     }
     // SUB STORY解放(隠しタップ経由、messageがオブジェクト)は従来通り金色。
@@ -1807,18 +1838,32 @@ async function processUnlockToastQueue() {
     toast.innerHTML = '<span style="font-size:10px; letter-spacing:3px; color:#888; display:block;">UNLOCKED</span>'
         + (typeof message === 'string'
             ? message // 従来通りの単一行表示(BONUS CONTENTS解放！等)
-            : `<span style="font-size:12px; display:block;">${message.small}</span><span style="font-size:19px; display:block; margin-top:2px;">${message.large}</span>`); // SUB STORY解放時: 番号(小)+タイトル(大)の2段階表示
+            : `<span style="font-size:12px; display:block;">${message.small}</span><span style="font-size:19px; display:block; margin-top:2px;">${message.large}</span>`) // SUB STORY解放時: 番号(小)+タイトル(大)の2段階表示
+        + '<span class="unlock-toast-tap">TAP TO CLOSE</span>';
 
     toast.style.transition = 'none';
-    toast.style.transform = 'translateX(-50%) translateY(-120%)';
+    toast.style.transform = UNLOCK_TOAST_HIDDEN_TRANSFORM;
+    toast.style.display = 'block';
     await wait(30); // 直前のtransform:noneが確実に描画されてからアニメーションを開始させる
     toast.style.transition = 'transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)'; // 少し弾むスライドイン(コンシューマーゲームの実績解除風)
     toast.style.transform = 'translateX(-50%) translateY(0)';
-    await wait(2200);
+    // トースト自体をタップするまで表示し続ける(背後の画面へタップが伝わらないようにする)
+    await new Promise(done => {
+        const onTap = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            toast.removeEventListener('click', onTap);
+            done();
+        };
+        setTimeout(() => toast.addEventListener('click', onTap), 350); // 出現直後の誤タップで即閉じないよう、スライドインの途中からタップを受け付ける
+    });
+    playSE('se_select');
     toast.style.transition = 'transform 0.4s ease-in';
-    toast.style.transform = 'translateX(-50%) translateY(-120%)';
+    toast.style.transform = UNLOCK_TOAST_HIDDEN_TRANSFORM;
     await wait(450);
+    toast.style.display = 'none'; // 完全に非表示にする
 
+    resolve();
     unlockToastBusy = false;
     processUnlockToastQueue(); // 次に積まれた通知があれば続けて表示する
 }
@@ -4000,6 +4045,10 @@ function hitComboSuccess(side) {
     }
     state[comboKey]++;
     if (state.gameMode === 'rush' && side === 'P') rushState.maxCombo = Math.max(rushState.maxCombo, state[comboKey]); // 100 BATTLE RUSHの最大COMBO記録
+    if (state.gameMode === 'story' && side === 'P' && state[comboKey] > storyMaxCombo) { // STORY MODEの最大COMBO記録(RECORDS用)
+        storyMaxCombo = state[comboKey];
+        writeSaveData({ storyMaxCombo });
+    }
     state[dispKey] = state[comboKey];
     state[fadeKey] = 0; // フェードアウト中だった場合は打ち切り、表示を継続する
     state[popKey] = performance.now();
@@ -5007,13 +5056,15 @@ function bonusContentsAvailable() {
     const soundTestAvailable = gameClearedOnce || soundTestUnlocked; // 新条件(エンディングを迎えてタイトルへ戻る)。旧セーブデータのsoundTestUnlockedも引き続き有効
     const costumeAvailable = costumeSelectionAvailable(); // OPTION画面のCOSTUME行と同じ解放条件
     const speedAvailable = gameClearedOnce; // SPEED機能自体の解放条件(クリア後に出現)
-    return unlockedSubStories.length > 0 || soundTestAvailable || costumeAvailable || speedAvailable;
+    // LOCAL V.S./100 BATTLE RUSHをGIFT CODEで解放しただけの場合も、RECORDSを見られるようBONUSを出す(2026-09-28追加)
+    return unlockedSubStories.length > 0 || soundTestAvailable || costumeAvailable || speedAvailable || versusUnlocked || rushUnlocked;
 }
 function updateBonusContentsUI() {
     const soundTestAvailable = gameClearedOnce || soundTestUnlocked;
     const costumeAvailable = costumeSelectionAvailable(); // OPTION画面のCOSTUME行と同じ解放条件
     const btn = document.getElementById('bonusContentsBtn');
     if (btn) btn.style.display = bonusContentsAvailable() ? '' : 'none';
+    layoutTitleMenu();
     const subRow = document.getElementById('bonusSubStoryRow');
     const soundRow = document.getElementById('bonusSoundTestRow');
     const costumeRow = document.getElementById('bonusCostumeRow');
@@ -5072,6 +5123,7 @@ function closeAllBonus() {
     document.getElementById('soundTestOverlay').classList.remove('show');
     stopCostumeThumbAnim();
     document.getElementById('costumeOverlay').classList.remove('show'); // BONUS経由でCOSTUMEが開いたまま残っている場合の安全策
+    document.getElementById('recordsOverlay').classList.remove('show');
     playBGM('bgm_title'); // SOUND TESTでタイトルBGMを止めていた場合でも、×で一括で閉じた時に確実に再開させる(既に流れていれば何もしない)
 }
 
@@ -5235,6 +5287,8 @@ async function submitGiftCode() {
         rushUnlocked = true;
         writeSaveData({ rushUnlocked: true });
         updateRushButtonVisibility();
+        updateBonusContentsUI();
+        checkUnlockAnnouncements(); // 初回のBONUS CONTENTS解放であれば、ここで案内する
         closeGiftCodeInput();
         updateOptionUI();
         if (!alreadyUnlocked) {
@@ -5248,6 +5302,8 @@ async function submitGiftCode() {
         versusUnlocked = true;
         writeSaveData({ versusUnlocked: true });
         updateVersusButtonVisibility();
+        updateBonusContentsUI();
+        checkUnlockAnnouncements(); // 初回のBONUS CONTENTS解放であれば、ここで案内する
         closeGiftCodeInput();
         updateOptionUI();
         if (!alreadyUnlocked) {
@@ -5457,19 +5513,17 @@ async function playSubstoryBattleEpilogue(playerPresetKey) {
         const skinName = 'enemy_' + (idx + 1);
         const alreadyUnlocked = unlockedSkins.includes(skinName);
         unlockSkin(skinName);
-        if (gameClearedOnce) updateOptionUI(); // 既にクリア済みなら、背後で開いたままのOPTION画面のCOSTUME行を即座に表示させる
+        updateOptionUI(); // 背後で開いたままのOPTION画面のCOSTUME行を即座に表示させる(クリア前でも行自体は出る)
         if (!alreadyUnlocked) {
-            let toastCount = 0;
+            let lastToast = null;
             if (!costumeUnlockAnnounced) {
                 // 以後、他の経路(タイトル復帰時のcheckUnlockAnnouncements等)で重複して案内されないようにする
                 costumeUnlockAnnounced = true;
                 writeSaveData({ costumeUnlockAnnounced: true });
                 showUnlockToast('COSTUME 解放！'); // モード自体が増えたことの案内(初回のみ)
-                toastCount++;
             }
-            showUnlockToast({ small: 'COSTUME', large: `${ENEMY_PRESETS[playerPresetKey].name} 解放！` }); // このキャラ個別の案内
-            toastCount++;
-            await wait(3200 * toastCount); // トースト1件あたり約3.2秒(スライドイン+表示+スライドアウト)。キューで順番に流れるため件数分待つ
+            lastToast = showUnlockToast({ small: 'COSTUME', large: `${ENEMY_PRESETS[playerPresetKey].name} 解放！` }); // このキャラ個別の案内
+            await lastToast; // トーストはタップで閉じる方式のため、最後の1件が閉じられるまで待つ(キューで順番に流れる)
         }
     }
     endSubstoryBattle();
@@ -5866,16 +5920,27 @@ function openCostumeSelect(fromBonus) {
         }
         const row = document.createElement('div');
         row.className = 'option-row';
-        row.innerHTML = `<span class="option-label costume-label-group"><img class="costume-thumb" data-skin="${skinName}"><span>${label}</span></span><button onclick="selectCostume('${skinName}')">${selectedSkin === skinName ? '選択中' : '選ぶ'}</button>`;
+        const selectable = canChangeCostume(skinName);
+        const btnHtml = selectable
+            ? `<button onclick="selectCostume('${skinName}')">${selectedSkin === skinName ? '選択中' : '選ぶ'}</button>`
+            : '<button disabled>クリア後</button>'; // ゲームクリア前は一覧に出るだけで選べない
+        // 選べない行にだけ、名前の下へ小さく理由を添える(画面下に共通の注記を出すと、MIFUNE等の選べるコスチュームまで
+        // ロックされているように読めてしまうため)
+        const nameHtml = selectable ? `<span>${label}</span>`
+            : `<span class="costume-name-stack"><span>${label}</span><span class="costume-locked-caption">ゲームクリアで使用可能</span></span>`;
+        row.innerHTML = `<span class="option-label costume-label-group"><img class="costume-thumb" data-skin="${skinName}">${nameHtml}</span>${btnHtml}`;
         rows.appendChild(row);
     });
     // BONUS CONTENTS経由で開いた場合のみ、OPTIONからもいつでも変更できる旨の注記と「戻る」ボタンを表示する(OPTION自身から開いた時は不要なため)
-    document.getElementById('costumeFromBonusNote').style.display = costumeOpenedFromBonus ? 'block' : 'none';
+    // 選べるコスチュームがVal以外に1つも無い間は「OPTIONからいつでも変更できます」の注記は出さない
+    const hasSelectableCostume = unlockedSkins.some(n => canChangeCostume(n));
+    document.getElementById('costumeFromBonusNote').style.display = (costumeOpenedFromBonus && hasSelectableCostume) ? 'block' : 'none';
     document.getElementById('costumeBackBtn').style.display = costumeOpenedFromBonus ? 'block' : 'none';
     document.getElementById('costumeOverlay').classList.add('show');
     startCostumeThumbAnim();
 }
 function selectCostume(skinName) {
+    if (!canChangeCostume(skinName)) return; // 念のため(ボタン自体も無効化している)
     selectedSkin = skinName;
     writeSaveData({ selectedSkin });
     if (skinName) loadEnemySet(costumeAssetFolder(skinName)); // まだ対戦していない敵のコスチュームを選んだ場合でも、その場でグラフィックセットを読み込む
@@ -6860,3 +6925,74 @@ function rushBackToTitle() {
     hideResult();
     goLogo();
 }
+
+// ============================================================
+// RECORDS(BONUS内、2026-09-28追加)
+// ============================================================
+// 何を解放したか・どうやって手に入れたか・各種記録を1画面で見返せる一覧。
+// 達成率は誰でも達成できる項目(SUB STORY/敵コスチューム/SOUND TEST/SPEED)が基本。
+// GIFT CODEでしか手に入らないもの(MIFUNE/LOCAL V.S./100 BATTLE RUSH)は、解放した人にだけ項目として追加する
+// (コードを持っていない人でも100%にできるようにするため)。
+// ヒントの文面はRECORDS_HINTSにまとめてあり、ここだけ書き換えれば差し替えられる。
+const RECORDS_HINTS = {
+    subStoryHow: (n) => `ストーリー${n}人目の会話中に隠しタップで発見`,
+    subStoryHint: 'ストーリーの会話シーンのどこかに隠されている',
+    costumeHow: (name) => `EXTRA BATTLEで${name}として勝利`,
+    costumeHint: 'SUB STORYの先にある戦いで手に入る',
+    clearHow: 'ゲームクリアで解放',
+    clearHint: 'ゲームクリアで解放',
+    giftHow: 'GIFT CODEで解放',
+};
+function buildRecordsItems() {
+    const items = [];
+    for (let i = 0; i < ENEMY_ORDER.length; i++) {
+        const got = unlockedSubStories.includes(i);
+        items.push({ got, name: got ? `SUB STORY ${i + 1}` : '？？？', how: got ? RECORDS_HINTS.subStoryHow(i + 1) : RECORDS_HINTS.subStoryHint });
+    }
+    for (let i = 0; i < ENEMY_ORDER.length; i++) {
+        const got = unlockedSkins.includes('enemy_' + (i + 1));
+        const name = ENEMY_PRESETS[ENEMY_ORDER[i]].name;
+        items.push({ got, name: got ? `COSTUME: ${name}` : 'COSTUME: ？？？', how: got ? RECORDS_HINTS.costumeHow(name) : RECORDS_HINTS.costumeHint });
+    }
+    const soundGot = gameClearedOnce || soundTestUnlocked;
+    items.push({ got: soundGot, name: soundGot ? 'SOUND TEST' : '？？？', how: soundGot ? RECORDS_HINTS.clearHow : RECORDS_HINTS.clearHint });
+    items.push({ got: gameClearedOnce, name: gameClearedOnce ? 'BATTLE SPEED' : '？？？', how: gameClearedOnce ? RECORDS_HINTS.clearHow : RECORDS_HINTS.clearHint });
+    // GIFT CODE限定: 解放した人にだけ追加する
+    Object.keys(EXTRA_COSTUME_LABELS).forEach(skin => {
+        if (unlockedSkins.includes(skin)) items.push({ got: true, name: `COSTUME: ${EXTRA_COSTUME_LABELS[skin]}`, how: RECORDS_HINTS.giftHow, gift: true });
+    });
+    if (versusUnlocked) items.push({ got: true, name: 'LOCAL V.S.', how: RECORDS_HINTS.giftHow, gift: true });
+    if (rushUnlocked) items.push({ got: true, name: '100 BATTLE RUSH', how: RECORDS_HINTS.giftHow, gift: true });
+    return items;
+}
+function escapeRecordsText(t) { return String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+function renderRecords() {
+    const items = buildRecordsItems();
+    const got = items.filter(it => it.got).length;
+    const pct = Math.floor(got / items.length * 100);
+    const storyCleared = gameClearedOnce;
+    const defeated = defeatedEnemyIndices.length;
+    let html = `<div class="records-rate"><span class="records-rate-num">${got} / ${items.length}</span><span class="records-rate-pct">${pct}%</span></div>`;
+    html += '<div class="records-section-title">STORY MODE</div>';
+    html += `<div class="records-stat"><span>進行</span><span>${storyCleared ? 'CLEAR' : `${defeated} / ${ENEMY_ORDER.length} 撃破`}</span></div>`;
+    html += `<div class="records-stat"><span>最大COMBO</span><span>${storyMaxCombo}</span></div>`;
+    if (rushUnlocked) {
+        html += '<div class="records-section-title">100 BATTLE RUSH</div>';
+        html += `<div class="records-stat"><span>最多撃破</span><span>${rushBest.kills} / ${RUSH_TOTAL}</span></div>`;
+        html += `<div class="records-stat"><span>ベストタイム</span><span>${rushBest.clearTimeMs === null ? '--:--.-' : formatRushTime(rushBest.clearTimeMs)}</span></div>`;
+        html += `<div class="records-stat"><span>最大COMBO</span><span>${rushBest.maxCombo}</span></div>`;
+    }
+    html += '<div class="records-section-title">UNLOCKS</div>';
+    items.forEach(it => {
+        html += `<div class="records-item${it.got ? ' got' : ''}"><span class="records-item-name">${it.got ? '★' : '☆'} ${escapeRecordsText(it.name)}</span>`
+            + `<span class="records-item-how">${escapeRecordsText(it.how)}</span></div>`;
+    });
+    document.getElementById('recordsBody').innerHTML = html;
+}
+function openRecords() {
+    renderRecords();
+    document.getElementById('recordsBody').scrollTop = 0;
+    document.getElementById('recordsOverlay').classList.add('show');
+}
+function closeRecords() { document.getElementById('recordsOverlay').classList.remove('show'); }
+function closeRecordsBackdrop(e) { if (e.target.id === 'recordsOverlay') closeAllBonus(); }
