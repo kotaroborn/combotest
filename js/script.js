@@ -1986,8 +1986,19 @@ async function playStorySequence() {
 }
 
 // エンディング5画面を再生する(スキップ不可。5人目撃破後の専用演出のため)
+// 2026-09-28変更:
+// ・エンディング画像はassets/images/cutscenes/story/に置かれているが、以前はending/フォルダを読みに行っていたため
+//   一枚も表示されていなかった(通信状況とは無関係)。読み込み先をstory/に修正した。
+// ・画像5枚とエンディング曲の読み込みが終わるまでローディングを表示し、揃ってから曲と画像を出す。
+// ・エンドロールの長さは曲の実際の長さから逆算し、FINが出る頃にちょうど曲が終わるようにする(playCredits参照)。
+const ENDING_IMAGE_FOLDER = 'story';
+const ENDING_FIN_LEAD_MS = 5000; // 曲が終わる何ms前にFINのフェードインを始めるか
+let endingBgmStartedAt = 0;      // エンディング曲を鳴らし始めた時刻(performance.now)。エンドロールの長さの計算に使う
+function endingBgmDurationMs() {
+    const buf = bgmBufferCache['bgm_ending'];
+    return buf ? buf.duration * 1000 : 0;
+}
 async function playEndingSequence() {
-    playBGM('bgm_ending');
     const content = document.getElementById('endingContent');
     const imgArea = document.getElementById('endingImgArea');
     const fallback = document.getElementById('endingImgFallback');
@@ -1999,13 +2010,19 @@ async function playEndingSequence() {
     imgArea.classList.remove('placeholder');
     imgArea.style.backgroundImage = 'none';
 
-    await loadCutsceneScreens(ENDING_SCREENS, 'ending'); // 表示を始める前に5画面分の読み込み完了を待つ(未配置ならnullで解決されすぐ進む)
+    // 画像5枚とエンディング曲が揃うまでローディングを表示して待つ(通信が遅くても、揃ってから始める)
+    await ensureReadyWithLoading(Promise.all([
+        loadCutsceneScreens(ENDING_SCREENS, ENDING_IMAGE_FOLDER),
+        preloadBgm('bgm_ending'),
+    ]), 150, 30000);
+    playBGM('bgm_ending');
+    endingBgmStartedAt = performance.now();
 
     for (let i = 0; i < ENDING_SCREENS.length; i++) {
         const screen = ENDING_SCREENS[i];
 
         if (imgs[screen.img]) {
-            imgArea.style.backgroundImage = `url('assets/images/cutscenes/ending/${screen.img}')`;
+            imgArea.style.backgroundImage = `url('assets/images/cutscenes/${ENDING_IMAGE_FOLDER}/${screen.img}')`;
             imgArea.classList.remove('placeholder');
         } else {
             imgArea.style.backgroundImage = 'none';
@@ -2034,22 +2051,30 @@ async function playEndingSequence() {
         }
     }
 
-    // 5画面すべて表示し終えたら、フェードアウトして暗転する
-    content.style.transition = 'opacity 1.5s ease-out';
+    // 5画面目の最後のテキストを読み終えたら、ゆっくり黒へフェードアウトし、真っ暗な状態を少し保ってからエンドロールへ
+    content.style.transition = 'opacity 2.5s ease-out';
     content.style.opacity = '0';
-    await wait(1500);
+    await wait(2500);
+    await wait(1000);
 }
 
 // エンドロール(下から上へスクロールするクレジット表示)を再生する。CSS側のtransition時間(14s)と合わせて待機する
+// 2026-09-28変更: 長さは固定の14秒ではなく、「エンディング曲の残り時間 − ENDING_FIN_LEAD_MS」にする
+// (FINが出る頃に曲が終わる)。曲が読み込めなかった等で計算できない場合は従来の14秒、短すぎる場合も最低14秒。
 async function playCredits() {
-    const CREDITS_SCROLL_MS = 14000;
+    const MIN_CREDITS_MS = 14000;
+    const songMs = endingBgmDurationMs();
+    const elapsed = endingBgmStartedAt ? performance.now() - endingBgmStartedAt : 0;
+    const creditsMs = songMs ? Math.max(MIN_CREDITS_MS, songMs - elapsed - ENDING_FIN_LEAD_MS) : MIN_CREDITS_MS;
     showScene('credits');
     const scroll = document.getElementById('creditsScroll');
     scroll.classList.remove('roll');
+    scroll.style.transition = 'none';
     void scroll.offsetWidth; // 強制リフロー(アニメーションを確実に最初から再生させるため)
     await wait(30);
+    scroll.style.transition = `top ${Math.round(creditsMs)}ms linear`;
     scroll.classList.add('roll');
-    await wait(CREDITS_SCROLL_MS);
+    await wait(creditsMs);
 }
 
 // FIN画面(真っ黒な背景の中央に白文字)をフェードインで表示し、10秒間表示した後、ゆっくりフェードアウトする
@@ -2095,6 +2120,12 @@ async function runFinalVictorySequence() {
     showScene('ending');
     await playEndingSequence();
     await playCredits();
+    // エンディング曲はループ再生のため、曲の終わりで止めてFINの表示中に頭から鳴り直さないようにする
+    const songMs = endingBgmDurationMs();
+    if (songMs && endingBgmStartedAt) {
+        const remain = Math.max(0, songMs - (performance.now() - endingBgmStartedAt));
+        setTimeout(() => { if (currentBgmName === 'bgm_ending') stopBGM(); }, remain);
+    }
     await playFinScreen();
     goTitle();
 }
