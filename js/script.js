@@ -2694,7 +2694,10 @@ function draw(tRaw) {
         const life = tr.life || 220;
         const maxAlpha = tr.maxAlpha != null ? tr.maxAlpha : 0.35;
         const age = t - tr.born;
-        const alpha = maxAlpha * (1 - age / life);
+        // 本体が透明な間(100 BATTLE RUSHで倒した敵が消えた後、登場演出前など)は、その側の残像も出さない
+        // (2026-09-28修正: 敵が消えた後のホーム帰還でdashの残像だけが現れていた)
+        const ownerAlpha = tr.side === 'E' ? state.introEnemyAlpha : state.introCharAlpha;
+        const alpha = maxAlpha * (1 - age / life) * ownerAlpha;
         const spriteName = tr.sprite || 'dash.PNG';
         const img = imgs[tr.side === 'E' ? enemySpriteName(spriteName) : playerSpriteName(spriteName)];
         if (!img || alpha <= 0) return;
@@ -6639,7 +6642,7 @@ function vsSelectBackToTitle() {
 // 100 BATTLE RUSH(100人組手、2026-09-28追加)
 // ============================================================
 // ・専用GIFT CODEで解放(タイトルのLOCAL V.S.の下にボタンが出現)。デッキ編成なし、VALの固定デッキ(7/7/7)・通常のプレイヤー能力。
-// ・自分のHPは戦闘間で引き継ぐ(中ボス撃破時のみHP20回復)。HP0で終了。100人撃破までのタイムを競う。2倍速は使えない。
+// ・自分のHPは戦闘間で引き継ぐ(雑魚撃破でHP5、中ボス撃破でHP30回復。上限100)。HP0で終了。100人撃破までのタイムを競う。2倍速は使えない。
 // ・5人目・10人目…(5の倍数)が中ボスで、既存5人(Noah→Rita→Gald→Jack→Alv)を順番に4周する(計20人。100人目は4周目のAlv)。
 //   それ以外は雑魚(TRAINING MODEのMIFUNEの見た目、完全ランダムに手を出す)。
 // ・背景とBGMは「次に控える中ボスのステージ」。中ボスを倒した瞬間に次の中ボスのステージへ切り替わる。
@@ -6653,7 +6656,8 @@ function vsSelectBackToTitle() {
 //   雑魚は右からdashで登場。中ボスはステージ固有の登場演出(得意技ポーズは無し)。
 const RUSH_TOTAL = 100;
 const RUSH_BOSS_EVERY = 5;
-const RUSH_BOSS_HEAL = 20;
+const RUSH_BOSS_HEAL = 30; // 中ボス撃破時の回復量(2026-09-28、20→30)
+const RUSH_MOB_HEAL = 5;   // 雑魚撃破時の回復量(2026-09-28追加)
 const RUSH_PLAYER_DECK = { PUNCH: 7, UPPER: 7, GUARD: 7 };
 // 雑魚用のプリセット(完全ランダム: 重みを均等にし、行動パターン・個性は持たせない)
 const RUSH_MOB_PRESET = { name: 'MIFUNE', deck: { PUNCH: 1, UPPER: 1, GUARD: 1 } };
@@ -6831,12 +6835,14 @@ async function rushOnEnemyDefeated() {
     if (tk !== rushState.token) return false;
     state.introEnemyAlpha = 0; // 点滅の後、消える
     state.eBlinkUntil = 0;
-    if (wasBoss) rushHealPlayer(RUSH_BOSS_HEAL);
+    trails = trails.filter(tr => tr.side !== 'E'); // 消えた敵の残像も残さない
+    rushHealPlayer(wasBoss ? RUSH_BOSS_HEAL : RUSH_MOB_HEAL);
     if (rushState.kills >= RUSH_TOTAL) return true;
     await wait(250);
     return false;
 }
 function rushHealPlayer(amount) {
+    if (state.hpP >= 100) return; // 満タンなら何もしない(表示も出さない)
     state.hpP = Math.min(100, state.hpP + amount);
     document.getElementById('hpP').style.width = state.hpP + '%';
     document.getElementById('hpP_y').style.width = state.hpP + '%';
