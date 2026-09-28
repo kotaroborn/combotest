@@ -95,7 +95,7 @@
                 <div class="title-logo-fallback-sub">CROSS DIMENSION</div>
             </div>
         </div>
-        <div class="title-version">ver. 0.9.126</div>
+        <div class="title-version">ver. 0.9.128</div>
     </div>
     <button id="titleContinueBtn" class="text-btn" onclick="tapFlickerThen(this, () => goContinueGame())" style="display:none;">CONTINUE</button>
     <button id="startBtn" class="text-btn" onclick="tapFlickerThen(this, () => goNewGame())" disabled>NEW GAME</button>
@@ -405,7 +405,11 @@
                 <span class="option-label">GIFT CODE</span>
                 <button onclick="openGiftCodeInput()">入力する</button>
             </div>
-            <div class="option-row">
+            <div class="option-row" id="optionRecordsRow">
+                <span class="option-label">RECORDS</span>
+                <button onclick="openRecords()">見る</button>
+            </div>
+            <div class="option-row" id="optionResetRow">
                 <span class="option-label">進行状況(セーブデータ)</span>
                 <button id="resetProgressBtn" onclick="openResetConfirm()">リセット</button>
             </div>
@@ -473,10 +477,6 @@
                 </div>
             </div>
             <p id="bonusSpeedNote" class="bonus-note" style="display:none;">※BATTLE SPEEDはバトル中にも変更可能です。</p>
-            <div class="option-row" id="bonusRecordsRow">
-                <span class="option-label">RECORDS</span>
-                <button onclick="openRecords()">見る</button>
-            </div>
             <div class="bonus-reset-row">
                 <button id="bonusResetAllBtn" onclick="openBonusResetConfirm()">BONUS ALL リセット</button>
             </div>
@@ -543,7 +543,7 @@
 <!-- RECORDS(BONUS内): 解放状況・入手方法・各種記録の一覧 -->
 <div id="recordsOverlay" class="popup-overlay" onclick="closeRecordsBackdrop(event)">
     <div class="popup-panel">
-        <button class="popup-close" onclick="closeAllBonus()">×</button>
+        <button class="popup-close" onclick="closeRecords()">×</button>
         <div class="howto-content">
             <h2>RECORDS</h2>
             <button class="sound-test-back-btn" onclick="closeRecords()">◀︎戻る</button>

@@ -3,6 +3,18 @@
 このプロジェクトの変更履歴。日付は新しいものを上に追記する。
 コード(`index.html` / `css/style.css` / `js/script.js`)や仕様に変更を加えた場合は、このファイルに追記すること(詳細は `AI_GUIDE.md` を参照)。
 
+## 2026-09-28(8)
+
+- ver. 0.9.128
+- OPTIONの「進行状況(セーブデータ) リセット」をタイトル画面のOPTIONからのみ表示するように変更(バトル中の誤操作防止)。バトル中のOPTIONは、サウンド・COSTUME・RETRY/タイトルへ戻るのみになる。
+
+## 2026-09-28(7)
+
+- ver. 0.9.127
+- RECORDSの置き場所をBONUSからタイトル画面のOPTIONへ移動(最初から誰でも開けるため、隠し要素の存在自体を知らない人にもヒントが届く)。バトル中のOPTIONには出さない(GIFT CODEと同じ扱い)。RECORDSの×・背景タップはRECORDSだけを閉じ、OPTIONに戻る。
+- (6)で追加した「GIFT CODEでLOCAL V.S./RUSHを解放した場合もBONUSを出す」条件は、RECORDSがBONUSから出たため元に戻した。
+- ゲームクリア後にタイトルへ戻った時、基本項目に未発見のものが残っていれば、一度だけ「HINT / OPTION › RECORDS で確認 / 未発見の秘密がある…」のトーストを出す(`recordsHintAnnounced`、セーブデータに保存)。トーストの見出しを差し替えられるよう`showUnlockToast`に`header`を追加(既定はUNLOCKED)。
+
 ## 2026-09-28(6)
 
 - ver. 0.9.126
