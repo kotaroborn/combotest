@@ -141,17 +141,15 @@ localStorage(キー: `commandbattle_save_v1`)に以下の値が保存され、�
 - **COSTUME**: `costumeSelectionAvailable()`で解放判定(`gameClearedOnce`で敵1〜5の見た目`enemy_1`〜`enemy_5`が全解放、またはGIFT CODE等の追加コスチュームを1つでも持っていれば表示される)。選ぶとプレイヤーキャラの見た目が対応する敵のグラフィックセットに変わる(`selectCostume`)。`enemy_N`形式でない追加コスチューム(例: GIFT CODEで解放する`mifune`)は`EXTRA_COSTUME_LABELS`で表示名を、`COSTUME_ASSET_FOLDER`で流用する画像フォルダを指定する(`mifune`は`training`セットの画像を流用)。EXTRA BATTLE・VERSUS中はCOSTUME変更不可(借りているキャラの見た目を上書きしないため)。
 - **SPEED(バトル2倍速)**: `gameClearedOnce`で解放。BONUS CONTENTS内のSPEED行、およびバトル画面操作列のボタン、どちらからでも切り替えられ、常に両方の表示が同期する(`setBattleSpeed`/`toggleBattleSpeed`/`updateSpeedUI`)。実際の速度反映は演出の`wait()`側で行う(ダメージ計算等のゲームルールには影響しない、演出専用の設定)。
 
-## 9. GIFT CODE(実装済み、2026-09-27ドキュメント化)
+## 9. GIFT CODE(実装済み、2026-09-27ドキュメント化、2026-09-28照合方式を変更)
 
 タイトル画面のOPTIONから入力できる8桁の英数字コード(バトル中は非表示)。
 
-- 使用可能な文字は31種(`GIFT_CHARSET`。`0/1/I/L/O`は誤読しやすいため除外)。
-- 先頭7文字(本体)から多項式ハッシュ(隠し鍵`GIFT_CODE_KEY`と連結してハッシュ化)でチェックサム文字を導出し、8文字目と一致するかで正当性を検証する(`giftCodeChecksumChar`/`isValidGiftCode`)。コード自体は事前に固定リストとして持たず、この検証式を満たす文字列であれば有効なコードとして扱う方式。
-- 報酬IDは1文字目の`GIFT_CHARSET`内インデックス を8で割った余り(`GIFT_CODE_REWARD_MOD`)で決まり、`GIFT_CODE_REWARDS`で報酬に変換する。報酬を増やす場合はこのテーブルに追記するだけでよい設計。
-  - ID:0→`'mifune'`(コスチューム解放)
-  - ID:2→`GIFT_CODE_VERSUS_REWARD`(**対戦モード(VERSUS)自体の解放**。2026-09-27追加。コスチュームではない特別な報酬値で、`submitGiftCode`内でコスチューム系とは別の専用処理に分岐する。タイトルのVERSUSボタンは`versusUnlocked`がtrueになるまで非表示)
-- 同じコードは`redeemedGiftCodes`に記録され、二度使用できない。コスチューム系のコードを入力すると対応するコスチュームが`unlockedSkins`に追加され、COSTUME選択・BONUS CONTENTS解放トースト(初回のみ)につながる。VERSUS解放コードの場合は`versusUnlocked`を保存し、VERSUSボタンを即座に表示する。
-- 現在発行済みのコード: `CY5GBDQT`(対戦モード解放用)。
+- **照合方式(2026-09-28〜)**: 発行済みのコードそのものはソースに置かず、PBKDF2(SHA-256、ソルト`GIFT_CODE_PBKDF2_SALT`、`GIFT_CODE_PBKDF2_ITER`回)で変換した値だけを`GIFT_CODE_HASHES`に持つ。入力されたコードを同じ方法で変換し、一致したものだけ有効(`giftCodeReward`)。通信不要でオフライン完結。ブラウザ標準の`crypto.subtle`を使うため、https(itch.io/GitHub Pages)やlocalhostで動作し、使えない環境では「この環境ではコードを確認できません」と表示する。
+- 以前の「計算式(チェックサム)に合う文字列ならどれでも有効」方式はソースから有効コードを作れてしまうため廃止した。登録済みの3コード以外は無効。
+- 登録済みの報酬: MIFUNEコスチューム(`'mifune'`)、LOCAL V.S.解放(`GIFT_CODE_VERSUS_REWARD`)、100 BATTLE RUSH解放(`GIFT_CODE_RUSH_REWARD`)。コードの平文はリポジトリ・ドキュメントに書かない。
+- コードの追加手順: コードを決める → 同じソルト・回数でPBKDF2値を計算(例: Node.jsで`crypto.pbkdf2Sync(code, 'CLASH5-GIFT-2026', 150000, 32, 'sha256').toString('hex')`) → `GIFT_CODE_HASHES`に1行追加。
+- 同じコードは`redeemedGiftCodes`に記録され、二度使用できない。コスチューム系のコードを入力すると対応するコスチュームが`unlockedSkins`に追加され、COSTUME選択・BONUS CONTENTS解放トースト(初回のみ)につながる。モード解放コードの場合は`versusUnlocked`/`rushUnlocked`を保存し、タイトルのボタンを即座に表示する。
 
 ## 10. EXTRA BATTLE(実装済み、コード内では「サブストーリーバトル」/`substoryBattle`、2026-09-27ドキュメント化)
 
@@ -184,7 +182,7 @@ BGM/SEはWeb Audio API(`AudioContext`)で実装されている。`state.soundOn`
 
 ## 13. 100 BATTLE RUSH(実装済み、2026-09-28追加。コード内では`state.gameMode === 'rush'`、`rushXxx`系関数)
 
-- **入口**: タイトルの「100 BATTLE RUSH」ボタン(LOCAL V.S.の下)。専用GIFT CODE(報酬ID 1)で解放(`rushUnlocked`)。
+- **入口**: タイトルの「100 BATTLE RUSH」ボタン(LOCAL V.S.の下)。専用GIFT CODEで解放(`rushUnlocked`)。
 - **ルール**: デッキ編成なしでVALの固定デッキ(7/7/7、能力は通常のプレイヤー)。出す枚数は自由。HPは戦闘間で引き継ぎ、中ボス撃破でHP20回復(上限100)。HP0で終了。100人撃破までのタイムを競う。2倍速は使用不可。
 - **敵の並び**: 5の倍数が中ボス(`ENEMY_ORDER`を順番に4周、100人目は4周目のAlv)、それ以外は雑魚(`RUSH_MOB_PRESET`、MIFUNE=trainingの見た目、手は完全ランダム)。
 - **強さ**: `rushEnemyAtk`/`rushEnemyMaxHp`参照。攻撃力は基本値(パンチ10/アッパー7)に対する割合として`atkMultOf`(E側)に反映し、技全体を同じ割合で縮める(アッパー初撃とメテオがアッパー系、それ以外はパンチ系。CLASH/TINY/WALL_IMPACTの固定値は対象外)。防御力等の個性は中ボス固有のまま。
