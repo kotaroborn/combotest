@@ -95,15 +95,15 @@
                 <div class="title-logo-fallback-sub">CROSS DIMENSION</div>
             </div>
         </div>
-        <div class="title-version">ver. 0.9.124</div>
+        <div class="title-version">ver. 0.9.126</div>
     </div>
     <button id="titleContinueBtn" class="text-btn" onclick="tapFlickerThen(this, () => goContinueGame())" style="display:none;">CONTINUE</button>
     <button id="startBtn" class="text-btn" onclick="tapFlickerThen(this, () => goNewGame())" disabled>NEW GAME</button>
     <button id="trainingBtn" class="text-btn" onclick="tapFlickerThen(this, () => goTrainingBattle())" disabled>TRAINING MODE</button>
     <button id="versusBtn" class="text-btn" onclick="tapFlickerThen(this, () => goVersusSelect())" disabled style="display:none;">LOCAL V.S.</button>
     <button id="rushBtn" class="text-btn" onclick="tapFlickerThen(this, () => goRushStart())" disabled style="display:none;">100 BATTLE RUSH</button>
-    <button id="optionBtn" class="text-btn" onclick="openOption()" disabled>OPTION</button>
     <button id="bonusContentsBtn" class="text-btn" onclick="openBonusContents()" style="display:none;">BONUS</button>
+    <button id="optionBtn" class="text-btn" onclick="openOption()" disabled>OPTION</button>
     <button class="howto-btn howto-corner" onclick="openHowTo()">HOW<br>TO</button>
     <div class="title-copyright">©BORN MAGAZINE 2026</div>
 </div>
@@ -473,6 +473,10 @@
                 </div>
             </div>
             <p id="bonusSpeedNote" class="bonus-note" style="display:none;">※BATTLE SPEEDはバトル中にも変更可能です。</p>
+            <div class="option-row" id="bonusRecordsRow">
+                <span class="option-label">RECORDS</span>
+                <button onclick="openRecords()">見る</button>
+            </div>
             <div class="bonus-reset-row">
                 <button id="bonusResetAllBtn" onclick="openBonusResetConfirm()">BONUS ALL リセット</button>
             </div>
@@ -536,6 +540,17 @@
 </div>
 
 <!-- COSTUME選択ポップアップ -->
+<!-- RECORDS(BONUS内): 解放状況・入手方法・各種記録の一覧 -->
+<div id="recordsOverlay" class="popup-overlay" onclick="closeRecordsBackdrop(event)">
+    <div class="popup-panel">
+        <button class="popup-close" onclick="closeAllBonus()">×</button>
+        <div class="howto-content">
+            <h2>RECORDS</h2>
+            <button class="sound-test-back-btn" onclick="closeRecords()">◀︎戻る</button>
+            <div id="recordsBody"></div>
+        </div>
+    </div>
+</div>
 <div id="costumeOverlay" class="popup-overlay" onclick="closeCostumeBackdrop(event)">
     <div class="popup-panel">
         <button class="popup-close" onclick="closeCostumeX()">×</button>
