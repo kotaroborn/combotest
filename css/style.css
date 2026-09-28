@@ -676,7 +676,7 @@
             color: #fff; text-align: center; padding: 0 20px;
         }
         #creditsScroll.roll {
-            transition: top 14s linear;
+            transition: top 14s linear; /* 実際の長さはplayCreditsが曲の残り時間から計算してstyleで上書きする */
             top: -150%;
         }
         .credits-line { margin: 6px 0; font-size: 14px; letter-spacing: 1px; }
