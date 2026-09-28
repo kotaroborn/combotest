@@ -965,3 +965,31 @@
     background: transparent; border: 1px solid rgba(255,255,255,0.55); color: #eee;
     padding: 11px 26px; font-size: 13px; letter-spacing: 1px; border-radius: 8px; cursor: pointer;
 }
+
+/* 解放トーストの「TAP TO CLOSE」(2026-09-28追加。トーストはタップしないと消えない) */
+.unlock-toast-tap {
+    display: block; margin-top: 6px; font-size: 9px; letter-spacing: 2px; color: #888;
+    animation: unlockToastTapBlink 1.2s ease-in-out infinite;
+}
+@keyframes unlockToastTapBlink { 50% { opacity: 0.35; } }
+
+/* COSTUME: クリア前に選べない行だけ、名前の下に理由を添える(2026-09-28) */
+.costume-name-stack { display: inline-flex; flex-direction: column; line-height: 1.25; }
+.costume-locked-caption { font-size: 9px; color: #888; letter-spacing: 0.5px; }
+
+/* RECORDS(2026-09-28追加) */
+#recordsOverlay .popup-panel { height: 92%; }
+#recordsBody { flex: 1 1 auto; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; padding-right: 2px; }
+.records-rate { display: flex; align-items: baseline; justify-content: center; gap: 10px; margin: 2px 0 6px; }
+.records-rate-num { font-size: 24px; font-weight: 900; color: #fff; letter-spacing: 1px; font-variant-numeric: tabular-nums; }
+.records-rate-pct { font-size: 13px; font-weight: 700; color: #ffd23c; }
+.records-section-title {
+    margin: 12px 0 4px; padding-bottom: 2px; border-bottom: 1px solid #444;
+    font-size: 11px; font-weight: 900; letter-spacing: 2px; color: #aaa;
+}
+.records-stat { display: flex; justify-content: space-between; font-size: 12px; line-height: 1.9; }
+.records-stat span:last-child { font-weight: 700; color: #fff; font-variant-numeric: tabular-nums; }
+.records-item { display: flex; flex-direction: column; padding: 5px 0; border-bottom: 1px solid #262626; line-height: 1.35; }
+.records-item-name { font-size: 12px; font-weight: 700; color: #777; }
+.records-item.got .records-item-name { color: #ffd23c; }
+.records-item-how { font-size: 10px; color: #888; padding-left: 16px; }
