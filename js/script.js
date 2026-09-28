@@ -4982,10 +4982,12 @@ async function resolveTurn() {
 // ============================================================
 function openHowTo() {
     document.getElementById('howToOverlay').classList.add('show');
+    rushPauseTimer('howto'); // 100 BATTLE RUSH: HOW TOを開いている間はタイマーを止める(RUSH中でなければ何もしない)
 }
 
 function closeHowTo() {
     document.getElementById('howToOverlay').classList.remove('show');
+    rushResumeTimer('howto');
 }
 
 function closeHowToBackdrop(e) {
@@ -4995,6 +4997,7 @@ function closeHowToBackdrop(e) {
 function openOption() {
     updateOptionUI();
     document.getElementById('optionOverlay').classList.add('show');
+    rushPauseTimer('option'); // 100 BATTLE RUSH: OPTIONを開いている間はタイマーを止める(RUSH中でなければ何もしない)
 }
 
 // BONUS CONTENTS(タイトル画面専用): SUB STORY/SOUND TEST/COSTUME/SPEEDのいずれかが1つでも解除されていればボタン自体を表示する。
@@ -5091,6 +5094,7 @@ function doResetAllBonus() {
 
 function closeOption() {
     document.getElementById('optionOverlay').classList.remove('show');
+    rushResumeTimer('option');
 }
 
 function closeOptionBackdrop(e) {
@@ -5148,41 +5152,46 @@ function doResetProgress() {
 }
 
 // ------- GIFT CODE(シリアルコード) -------
-// 8桁の英数字コード。仕組みの詳細(検証方式・報酬IDの決め方・制約)はARCHITECTURE.mdを参照。
-const GIFT_CHARSET = '23456789ABCDEFGHJKMNPQRSTUVWXYZ'; // 31文字(0,1,I,L,Oを除く)
-// ソースをざっと流し読みしただけでは値が読み取れないよう、文字コード配列で保持する(実行時にfromCharCodeで復元)。
-const GIFT_CODE_KEY = [67, 76, 65, 83, 72, 53, 45, 88, 68, 73, 77, 45, 71, 73, 70, 84, 45, 83, 65, 76, 84, 45, 50, 48, 50, 54]
-    .map(n => String.fromCharCode(n)).join('');
-const GIFT_CODE_REWARD_MOD = 8; // 報酬ID = コード1文字目のcharsetインデックス % この値。追加報酬があってもこの値は変えない
-// GIFT_CODE_VERSUS_REWARD: コスチュームではなく「対戦モード(VERSUS)の解放」を表す特別な報酬値(2026-09-27追加)。
+// 2026-09-28、照合方式を変更: 以前は「計算式(チェックサム)に合う文字列ならどれでも有効」だったため、
+// ソースを読めば誰でも有効なコードを作れてしまっていた。現在は、発行済みのコードそのものは一切ソースに置かず、
+// PBKDF2(SHA-256を多数回繰り返す、ブラウザ標準のcrypto.subtle)で変換した値だけを持ち、入力されたコードを
+// 同じ方法で変換して一致したものだけを有効にする(通信不要、オフラインで完結)。
+// 繰り返し回数を多くしているのは、8桁のコードを総当たりで探し当てられにくくするため(1回の照合が意図的に重い)。
+// 新しいコードを追加する手順: コードを決める → 下記と同じソルト・回数でPBKDF2値を計算 → GIFT_CODE_HASHESに1行追加。
+// コードの平文はリポジトリ・ドキュメントに書かないこと(配布先にだけ伝える)。
+const GIFT_CODE_PBKDF2_SALT = 'CLASH5-GIFT-2026';
+const GIFT_CODE_PBKDF2_ITER = 150000;
+// GIFT_CODE_VERSUS_REWARD / GIFT_CODE_RUSH_REWARD: コスチュームではなくモード解放を表す特別な報酬値。
 // submitGiftCode側でこの値かどうかを見て、コスチューム解放とは別の専用処理に分岐する。
 const GIFT_CODE_VERSUS_REWARD = 'unlock_versus';
-const GIFT_CODE_RUSH_REWARD = 'unlock_rush'; // 100 BATTLE RUSHの解放を表す特別な報酬値(2026-09-28追加。VERSUSと同じ扱い)
-const GIFT_CODE_REWARDS = {
-    0: 'mifune', // 今後コードを増やす場合はここに 3: '...' を追記するだけでよい(1は100 BATTLE RUSH、2は対戦モード解放で使用済み)
-    1: GIFT_CODE_RUSH_REWARD, // 100 BATTLE RUSH解放。例: KP6HK8MJ
-    2: GIFT_CODE_VERSUS_REWARD, // 対戦モード(VERSUS)解放。例: CY5GBDQT
+const GIFT_CODE_RUSH_REWARD = 'unlock_rush';
+// PBKDF2値(16進) → 報酬
+const GIFT_CODE_HASHES = {
+    '8a1cc7fe3be521332e30b87dd716f2b23ce952dc15df2bb46ae93fd19dcf775c': 'mifune',               // MIFUNEコスチューム
+    '0ed3577057a45b7eca95cb92ffd8de9e86661241827f4a676c57215ca77ade3c': GIFT_CODE_VERSUS_REWARD, // LOCAL V.S.解放
+    '75c11927e586db4af6e3352382cde7af57d49676fdad0b1787b3d9993fdf3c51': GIFT_CODE_RUSH_REWARD,   // 100 BATTLE RUSH解放
 };
-function giftCodeChecksumChar(body7) {
-    let h = 0;
-    const mixed = GIFT_CODE_KEY + body7;
-    for (let i = 0; i < mixed.length; i++) {
-        h = (h * 31 + mixed.charCodeAt(i)) >>> 0; // >>>0で符号なし32bit整数に丸める(単純な多項式ハッシュ)
-    }
-    return GIFT_CHARSET[h % GIFT_CHARSET.length];
-}
 function normalizeGiftCode(raw) {
     return (raw || '').trim().toUpperCase();
 }
-function isValidGiftCode(code) {
-    if (code.length !== 8) return false;
-    for (const ch of code) { if (!GIFT_CHARSET.includes(ch)) return false; }
-    return giftCodeChecksumChar(code.slice(0, 7)) === code.slice(7, 8);
+async function giftCodeHash(code) {
+    const enc = new TextEncoder();
+    const key = await crypto.subtle.importKey('raw', enc.encode(code), 'PBKDF2', false, ['deriveBits']);
+    const bits = await crypto.subtle.deriveBits(
+        { name: 'PBKDF2', salt: enc.encode(GIFT_CODE_PBKDF2_SALT), iterations: GIFT_CODE_PBKDF2_ITER, hash: 'SHA-256' }, key, 256);
+    return Array.from(new Uint8Array(bits)).map(b => b.toString(16).padStart(2, '0')).join('');
 }
-function giftCodeRewardSkin(code) {
-    const rewardId = GIFT_CHARSET.indexOf(code[0]) % GIFT_CODE_REWARD_MOD;
-    return GIFT_CODE_REWARDS[rewardId] || null;
+// 入力されたコードの報酬を返す(該当なしはnull)。crypto.subtleが使えない環境(https以外で開いた場合など)は'unsupported'
+async function giftCodeReward(code) {
+    if (!/^[0-9A-Z]{8}$/.test(code)) return null; // 形式が違うものは重い変換をせずに弾く
+    if (!(window.crypto && crypto.subtle)) return 'unsupported';
+    try {
+        return GIFT_CODE_HASHES[await giftCodeHash(code)] || null;
+    } catch (e) {
+        return 'unsupported';
+    }
 }
+let giftCodeChecking = false; // 照合中の連打で二重に処理しないためのフラグ
 function openGiftCodeInput() {
     document.getElementById('giftCodeInput').value = '';
     document.getElementById('giftCodeError').style.display = 'none';
@@ -5196,13 +5205,20 @@ function showGiftCodeError(text) {
     errorEl.textContent = text;
     errorEl.style.display = 'block';
 }
-function submitGiftCode() {
+async function submitGiftCode() {
+    if (giftCodeChecking) return;
     const code = normalizeGiftCode(document.getElementById('giftCodeInput').value);
-    if (!isValidGiftCode(code)) {
-        showGiftCodeError('コードが正しくありません');
+    giftCodeChecking = true;
+    let reward;
+    try {
+        reward = await giftCodeReward(code);
+    } finally {
+        giftCodeChecking = false;
+    }
+    if (reward === 'unsupported') {
+        showGiftCodeError('この環境ではコードを確認できません');
         return;
     }
-    const reward = giftCodeRewardSkin(code);
     if (!reward) {
         showGiftCodeError('コードが正しくありません');
         return;
@@ -6545,6 +6561,9 @@ let rushState = {
     endAt: 0,        // タイマー停止時刻。0なら計測中
     timerId: null,   // HUD更新用のsetInterval
     token: 0,        // 途中でタイトルへ戻る/RETRYした時に、進行中の演出を打ち切るための世代番号
+    pausedTotal: 0,  // OPTION/HOW TOを開いていて止めていた時間の合計(ms)。経過タイムから差し引く
+    pausedAt: 0,     // 現在止めている場合、止め始めた時刻。0なら計測中
+    pauseReasons: new Set(), // 止めている理由('option'/'howto')。両方開いている場合も、すべて閉じるまで再開しない
 };
 
 function rushIsBoss(no) { return no % RUSH_BOSS_EVERY === 0; }
@@ -6589,7 +6608,23 @@ function rushAtkRatio(move) {
 // ------- タイマー・HUD(TURN表示の位置に撃破数/経過タイム) -------
 function rushElapsedMs() {
     if (!rushState.startAt) return 0;
-    return (rushState.endAt || performance.now()) - rushState.startAt;
+    const now = rushState.endAt || performance.now();
+    const pausingNow = rushState.pausedAt ? (now - rushState.pausedAt) : 0;
+    return now - rushState.startAt - rushState.pausedTotal - pausingNow;
+}
+// OPTION/HOW TOを開いた時にタイマーを一時停止する(計測中のRUSHでなければ何もしない)
+function rushPauseTimer(reason) {
+    if (state.gameMode !== 'rush' || !rushState.startAt || rushState.endAt) return;
+    rushState.pauseReasons.add(reason);
+    if (!rushState.pausedAt) rushState.pausedAt = performance.now();
+    rushUpdateHud();
+}
+function rushResumeTimer(reason) {
+    rushState.pauseReasons.delete(reason);
+    if (rushState.pauseReasons.size > 0 || !rushState.pausedAt) return;
+    rushState.pausedTotal += performance.now() - rushState.pausedAt;
+    rushState.pausedAt = 0;
+    rushUpdateHud();
 }
 function formatRushTime(ms) {
     const totalTenths = Math.floor(ms / 100);
@@ -6610,10 +6645,18 @@ function rushStartTimer() {
     rushState.endAt = 0;
     if (rushState.timerId) clearInterval(rushState.timerId);
     rushState.timerId = setInterval(rushUpdateHud, 100);
+    // 開始演出中にOPTION/HOW TOを開いたままだった場合は、止めた状態から始める
+    if (document.getElementById('optionOverlay').classList.contains('show')) rushPauseTimer('option');
+    if (document.getElementById('howToOverlay').classList.contains('show')) rushPauseTimer('howto');
     rushUpdateHud();
 }
 function rushStopTimer() {
-    if (rushState.startAt && !rushState.endAt) rushState.endAt = performance.now();
+    if (rushState.startAt && !rushState.endAt) {
+        const now = performance.now();
+        if (rushState.pausedAt) { rushState.pausedTotal += now - rushState.pausedAt; rushState.pausedAt = 0; }
+        rushState.pauseReasons.clear();
+        rushState.endAt = now;
+    }
     if (rushState.timerId) { clearInterval(rushState.timerId); rushState.timerId = null; }
     rushUpdateHud();
 }
@@ -6649,6 +6692,9 @@ async function goRushStart() {
     rushState.maxCombo = 0;
     rushState.startAt = 0;
     rushState.endAt = 0;
+    rushState.pausedTotal = 0;
+    rushState.pausedAt = 0;
+    rushState.pauseReasons.clear();
     state.pendingMode = 'rush';
     state.gameMode = 'rush'; // 素材の読み込み判定(currentBgName等)をRUSH基準にするため、ここで先に確定させる
     hideResult();
