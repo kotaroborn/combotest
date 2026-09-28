@@ -3663,7 +3663,10 @@ async function playBattleIntro() {
     await playEnemySignaturePose();
 
     // BATTLE START: 左からディゾルブして中央で停止(STORY MODEのみ、上の行にステージ表記を添える)
-    document.getElementById('battleStageLabel').innerText = currentStageLabel();
+    // 100 BATTLE RUSHのみ、「100 BATTLE RUSH」+「BATTLE START」では画面に入り切らないため「BATTLE RUSH」+「START」の2行にする
+    const isRushStart = state.gameMode === 'rush';
+    document.getElementById('battleStageLabel').innerText = isRushStart ? 'BATTLE RUSH' : currentStageLabel();
+    document.getElementById('battleStartLabel').innerText = isRushStart ? 'START' : 'BATTLE START';
     const bst = document.getElementById('battleStartText');
     // ローカル対戦(VERSUS)では、2P側(上半分)の同じ表示にも同じクラスを付け外しして同時に演出する
     const bstMirror = state.gameMode === 'versus' ? document.getElementById('vsBattleStartText2') : null;
