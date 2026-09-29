@@ -654,11 +654,26 @@ let logoTokenCounter = 0;
 
 
 // ------- プロローグ: op_1.PNG〜op_4.PNG(任意アセット)。未用意でもエラー扱いにせずプレースホルダー表示にする -------
+// 2026-09-29、テキストと演出を改訂。enter/exitで画面ごとの入り方・終わり方を指定する(playPrologue参照)。
+//   enter: 'fade'(黒からフェードイン) / 'flash'(白フラッシュ+画面の揺れ) / 省略(そのまま切り替え)
+//   exit:  'fade'(黒へフェードアウト) / 'swirl'(渦を巻くようにフェードアウト) / 省略(そのまま次へ)
 const OPENING_SCREENS = [
-    { img: 'op_1.PNG', text: '2026年、東京……。\nむかしも今も、ねむらない都市。\n夢を見つづける都市。\n……そして……' },
-    { img: 'op_2.PNG', text: 'おのれの夢をかなえる都市……！！！！' },
-    { img: 'op_3.PNG', text: 'ケンカに明けくれていた主人公ヴァルも、\n父を探すという夢があった……' },
-    { img: 'op_4.PNG', text: 'しかし、突如として現れた異空の渦に吸い込まれ、\n見知らぬ世界でたたかうことになるのだった…！' }
+    { img: 'op_1.PNG', enter: 'fade', text: [
+        '2026年、東京……。',
+        'むかしも今も、ねむらない都市。\n夢を見つづける都市。',
+        '……そして……'
+    ] },
+    { img: 'op_2.PNG', enter: 'flash', exit: 'fade', text: [
+        'おのれの夢をかなえる都市……！！！'
+    ] },
+    { img: 'op_3.PNG', enter: 'fade', text: [
+        'ケンカに明けくれていた主人公ヴァルも、\n父を探すという夢があった……'
+    ] },
+    { img: 'op_4.PNG', exit: 'swirl', text: [
+        'そんなヴァルの目の前に\n突如としてナゾの渦があらわれ、',
+        'ヴァルは異世界へと吸い込まれてしまう……',
+        'しかし、これが偶然ではないことは\nヴァルはまだ、知るよしもなかった……'
+    ] }
 ];
 // オープニング(プロローグ)の画像は、以前はplayPrologue()が呼ばれた時点(ロゴ演出の後)で初めて読み込みを開始していたため、
 // 頭出しの猶予が無く表示までの待ちが目立っていた。DB.ASSETSと同様、ページ読み込み直後から先読みを始めることで、
@@ -1671,6 +1686,8 @@ async function playPrologue() {
     content.style.transition = 'none';
     content.style.opacity = '0';
     content.style.filter = 'none'; // 前回再生時の暗転(ぼかし)が残らないようにリセットする
+    content.style.transform = 'none'; // 前回再生時の渦(回転・縮小)も残らないようにリセットする
+    content.classList.remove('cine-shake');
     textEl.innerText = '';
     imgArea.classList.remove('placeholder');
     imgArea.style.backgroundImage = 'none';
@@ -1682,16 +1699,20 @@ async function playPrologue() {
         const screen = OPENING_SCREENS[i];
         if (prologueToken !== myToken) return; // SKIPされていたら中断
 
-        if (i === 1) {
-            // 2枚目は、白フラッシュ+se_meteorの後に画像を見せる演出。
+        if (screen.enter === 'flash') {
+            // 白フラッシュ+se_meteor+画面の一時的な揺れの後に画像を見せる演出。
             // フラッシュが白一色になっている間(cineFlashのkeyframe参照)に裏で画像を差し替えることで、
             // フラッシュが引いた瞬間に新しい画像が既に見えている、という自然な見え方になる。
             playSE('se_meteor');
             triggerCineFlash('prologueFlash');
+            content.classList.remove('cine-shake');
+            void content.offsetWidth;
+            content.classList.add('cine-shake');
             await wait(250);
             if (prologueToken !== myToken) return;
         }
 
+        textEl.innerText = '';
         if (imgs[screen.img]) {
             imgArea.style.backgroundImage = `url('assets/images/cutscenes/opening/${screen.img}')`;
             imgArea.classList.remove('placeholder');
@@ -1701,12 +1722,15 @@ async function playPrologue() {
             fallback.innerText = screen.img + ' (未配置)';
         }
 
-        if (i === 0) {
-            // 一番はじめの画面だけフェードインで始める
+        if (screen.enter === 'fade') {
+            // 黒からフェードインで始める
+            content.style.transition = 'none';
+            content.style.opacity = '0';
             await wait(30); // 直前のopacity:0が確実に描画されてから遷移を開始させる
-            content.style.transition = 'opacity 2s ease-in'; // 0.5倍速: 1s→2s
+            content.style.transition = 'opacity 2s ease-in';
             content.style.opacity = '1';
-            await wait(2000); // 0.5倍速: 1000ms→2000ms
+            await wait(2000);
+            if (prologueToken !== myToken) return;
         }
 
         // textは通常は1画面1ページの文字列だが、同じ画像のまま複数ページ分のテキストを送りたい場合は配列にできる
@@ -1717,21 +1741,29 @@ async function playPrologue() {
             for (let c = 0; c < pages[p].length; c++) {
                 if (prologueToken !== myToken) return;
                 textEl.innerText += pages[p][c];
-                await wait(90); // 1文字ずつ表示するスピード(0.5倍速: 45ms→90ms)
+                await wait(90); // 1文字ずつ表示するスピード
             }
 
             if (prologueToken !== myToken) return;
-            await wait(4000); // 1ページ読み終えてから次へ、もう少し長めに読ませる(0.5倍速: 2000ms→4000ms)
+            await wait(4000); // 1ページ読み終えてから次へ
         }
 
-        if (i === OPENING_SCREENS.length - 1) {
-            // 最後の画面(4枚目)は、読み終えたら画像・テキストごとだんだんぼやけながら暗転する演出を追加する
-            // (真のモザイク/ドット化ではなく、ぼかし+減光の組み合わせで近い質感を出している)
-            if (prologueToken !== myToken) return;
-            content.style.transition = 'filter 2s ease-in';
-            content.style.filter = 'blur(18px) brightness(0)';
-            await wait(2000);
+        if (prologueToken !== myToken) return;
+        if (screen.exit === 'fade') {
+            // 黒へフェードアウトし、少し暗転を保つ
+            content.style.transition = 'opacity 1.5s ease-out';
+            content.style.opacity = '0';
+            await wait(1500);
+            await wait(400);
+        } else if (screen.exit === 'swirl') {
+            // 渦を巻くように、回転しながら縮み・ぼやけつつ暗転する
+            content.style.transition = 'transform 2.6s ease-in, filter 2.6s ease-in, opacity 2.6s ease-in';
+            content.style.transform = 'rotate(540deg) scale(0.05)';
+            content.style.filter = 'blur(10px) brightness(0.3)';
+            content.style.opacity = '0';
+            await wait(2600);
         }
+        content.classList.remove('cine-shake');
     }
 
     if (prologueToken !== myToken) return;
