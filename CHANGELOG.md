@@ -3,6 +3,11 @@
 このプロジェクトの変更履歴。日付は新しいものを上に追記する。
 コード(`index.html` / `css/style.css` / `js/script.js`)や仕様に変更を加えた場合は、このファイルに追記すること(詳細は `AI_GUIDE.md` を参照)。
 
+## 2026-10-01(2)
+
+- ver. 0.9.153
+- RECORDSの各項目(STORY MODE / BATTLE RUSH / TECHNIQUES / UNLOCKS)を、見出しをタップすると開閉する形にした。最初は全部閉じた状態で、見出しの右に進行度(CLEAR・撃破数・解放数)を表示する。開閉状態は、アプリを開いている間だけ覚えておく(`recordsOpenSections` / `toggleRecordsSection`)。
+
 ## 2026-10-01(1)
 
 - ver. 0.9.152

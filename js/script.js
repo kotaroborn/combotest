@@ -7438,29 +7438,45 @@ function renderRecords() {
     const storyCleared = gameClearedOnce;
     const defeated = defeatedEnemyIndices.length;
     let html = `<div class="records-rate"><span class="records-rate-num">${got} / ${items.length}</span><span class="records-rate-pct">${pct}%</span></div>`;
-    html += '<div class="records-section-title">STORY MODE</div>';
-    html += `<div class="records-stat"><span>進行</span><span>${storyCleared ? 'CLEAR' : `${defeated} / ${ENEMY_ORDER.length} 撃破`}</span></div>`;
-    html += `<div class="records-stat"><span>最大COMBO</span><span>${storyMaxCombo}</span></div>`;
-    html += `<div class="records-stat"><span>PERFECT勝利</span><span>${perfectWins}回</span></div>`;
-    if (rushUnlocked) {
-        html += '<div class="records-section-title">BATTLE RUSH</div>';
-        html += `<div class="records-stat"><span>最多撃破</span><span>${rushBest.kills} / ${RUSH_TOTAL}</span></div>`;
-        html += `<div class="records-stat"><span>ベストタイム</span><span>${rushBest.clearTimeMs === null ? '--:--.-' : formatRushTime(rushBest.clearTimeMs)}</span></div>`;
-        html += `<div class="records-stat"><span>最大COMBO</span><span>${rushBest.maxCombo}</span></div>`;
-    }
-    const renderItem = (it) => {
-        html += `<div class="records-item${it.got ? ' got' : ''}"><span class="records-item-name">${it.got ? '★' : '☆'} ${escapeRecordsText(it.name)}</span>`
-            + `<span class="records-item-how">${escapeRecordsText(it.how)}</span></div>`;
+    // 各項目は見出しをタップすると開閉する(2026-10-01、項目が増えて長くなったため)。開閉状態はアプリを開いている間だけ覚えておく
+    const section = (key, title, sub, inner) => {
+        const open = recordsOpenSections.has(key);
+        html += `<div class="records-section${open ? ' open' : ''}" data-key="${key}">`
+            + `<button class="records-section-title" onclick="toggleRecordsSection('${key}')">`
+            + `<span class="records-section-arrow">${open ? '▼' : '▶'}</span><span class="records-section-name">${title}</span>`
+            + `<span class="records-section-sub">${sub}</span></button>`
+            + `<div class="records-section-body">${inner}</div></div>`;
     };
-    html += '<div class="records-section-title">TECHNIQUES</div>';
-    items.filter(it => it.tech).forEach(renderItem);
-    html += '<div class="records-section-title">UNLOCKS</div>';
-    items.filter(it => !it.tech).forEach(it => {
-        html += `<div class="records-item${it.got ? ' got' : ''}"><span class="records-item-name">${it.got ? '★' : '☆'} ${escapeRecordsText(it.name)}</span>`
-            + `<span class="records-item-how">${escapeRecordsText(it.how)}</span></div>`;
-    });
+    const stat = (label, value) => `<div class="records-stat"><span>${label}</span><span>${value}</span></div>`;
+    const itemHtml = (it) => `<div class="records-item${it.got ? ' got' : ''}"><span class="records-item-name">${it.got ? '★' : '☆'} ${escapeRecordsText(it.name)}</span>`
+        + `<span class="records-item-how">${escapeRecordsText(it.how)}</span></div>`;
+    const countSub = (list) => `${list.filter(it => it.got).length} / ${list.length}`;
+    section('story', 'STORY MODE', storyCleared ? 'CLEAR' : `${defeated} / ${ENEMY_ORDER.length}`,
+        stat('進行', storyCleared ? 'CLEAR' : `${defeated} / ${ENEMY_ORDER.length} 撃破`)
+        + stat('最大COMBO', storyMaxCombo)
+        + stat('PERFECT勝利', `${perfectWins}回`));
+    if (rushUnlocked) {
+        section('rush', 'BATTLE RUSH', `${rushBest.kills} / ${RUSH_TOTAL}`,
+            stat('最多撃破', `${rushBest.kills} / ${RUSH_TOTAL}`)
+            + stat('ベストタイム', rushBest.clearTimeMs === null ? '--:--.-' : formatRushTime(rushBest.clearTimeMs))
+            + stat('最大COMBO', rushBest.maxCombo));
+    }
+    const techs = items.filter(it => it.tech);
+    const unlocks = items.filter(it => !it.tech);
+    section('tech', 'TECHNIQUES', countSub(techs), techs.map(itemHtml).join(''));
+    section('unlocks', 'UNLOCKS', countSub(unlocks), unlocks.map(itemHtml).join(''));
     document.getElementById('recordsBody').innerHTML = html;
     applyHowToCardIcons(document.getElementById('recordsBody')); // 技のコマンドの（パンチ）等をカードのアイコンにする
+}
+const recordsOpenSections = new Set(); // RECORDSで開いている見出し(アプリを開いている間だけ保持)
+function toggleRecordsSection(key) {
+    if (recordsOpenSections.has(key)) recordsOpenSections.delete(key); else recordsOpenSections.add(key);
+    const el = document.querySelector(`#recordsBody .records-section[data-key="${key}"]`);
+    if (!el) return;
+    const open = recordsOpenSections.has(key);
+    el.classList.toggle('open', open);
+    el.querySelector('.records-section-arrow').textContent = open ? '▼' : '▶';
+    playSE('se_select');
 }
 function openRecords() {
     renderRecords();

@@ -988,10 +988,19 @@
 .records-rate { display: flex; align-items: baseline; justify-content: center; gap: 10px; margin: 2px 0 6px; }
 .records-rate-num { font-size: 24px; font-weight: 900; color: #fff; letter-spacing: 1px; font-variant-numeric: tabular-nums; }
 .records-rate-pct { font-size: 13px; font-weight: 700; color: #ffd23c; }
+.records-section { margin-top: 8px; }
 .records-section-title {
-    margin: 12px 0 4px; padding-bottom: 2px; border-bottom: 1px solid #444;
-    font-size: 11px; font-weight: 900; letter-spacing: 2px; color: #aaa;
+    display: flex; align-items: center; gap: 6px; width: 100%;
+    padding: 7px 4px; border: none; border-radius: 0; border-bottom: 1px solid #444; background: none; box-shadow: none;
+    font-family: inherit; font-size: 11px; font-weight: 900; letter-spacing: 2px; color: #aaa;
+    text-align: left; cursor: pointer; -webkit-tap-highlight-color: transparent;
 }
+.records-section-title:active { background: rgba(255,255,255,0.06); }
+.records-section-arrow { width: 12px; font-size: 9px; color: #ffd23c; letter-spacing: 0; }
+.records-section-name { flex: 1 1 auto; }
+.records-section-sub { font-size: 11px; font-weight: 700; color: #fff; letter-spacing: 0; font-variant-numeric: tabular-nums; }
+.records-section-body { display: none; padding: 2px 2px 4px; }
+.records-section.open .records-section-body { display: block; }
 .records-stat { display: flex; justify-content: space-between; font-size: 12px; line-height: 1.9; }
 .records-stat span:last-child { font-weight: 700; color: #fff; font-variant-numeric: tabular-nums; }
 .records-item { display: flex; flex-direction: column; padding: 5px 0; border-bottom: 1px solid #262626; line-height: 1.35; }
