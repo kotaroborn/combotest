@@ -3,6 +3,25 @@
 このプロジェクトの変更履歴。日付は新しいものを上に追記する。
 コード(`index.html` / `css/style.css` / `js/script.js`)や仕様に変更を加えた場合は、このファイルに追記すること(詳細は `AI_GUIDE.md` を参照)。
 
+## 2026-09-30(11)
+
+- ver. 0.9.142
+- Gald(ENEMY_03)の防御力を強化。`defMult` 0.8→0.6(被弾ダメージ40%減)、`defMultByMove.UPPER` 1.15→1.0。アッパーの初撃は通常どおり入るが、その後の空中コンボ〜メテオは通りにくくなる。アッパー→空中パンチ2発→メテオの一連のダメージは約56→約43(STORY/EXTRA BATTLE/LOCAL V.S./100 BATTLE RUSHの中ボス共通)。
+
+## 2026-09-30(10)
+
+- ver. 0.9.141
+- LOCAL V.S.にMIFUNEを追加(`ENEMY_PRESETS.MIFUNE`)。GIFT CODEでMIFUNEコスチュームを持っている人だけ選べる。デッキはP7/U7/G7、攻撃力1.3倍(`atkMult`)、被弾ダメージ1.3倍(`defMult`=防御力が約3割低い)。見た目はTRAINING MODEのMIFUNE(trainingセット)。
+- LOCAL V.S.のキャラ選択を4列×2段に変更(`VS_SELECT_LAYOUT`)。右上がMIFUNE(未入手なら枠ごと空欄)、右下が常に「？(RANDOM)」。
+  - RANDOMをタップすると、選べるキャラの間を選択枠が飛び回り、だんだん遅くなって1人で止まる(約2〜3秒)。止まった瞬間にそのキャラが一度光る。ルーレット中はキャラ選択・READYは押せない。
+- デバッグ解放ブロックにMIFUNEコスチュームを追加(`unlockedSkins`に'mifune')。本番前にブロックごと削除すること。
+
+## 2026-09-30(9)
+
+- ver. 0.9.140
+- カットシーンの話し手の金色表示を、決められた話し手の名前(`CINE_SPEAKER_NAMES`)で始まる行だけに限定。地の文の「」(例: エンディングの「魔王」)は色を付けない。
+- キャラクター名の表記を「VAL / Noah / Rita / Gald / Jack / Alv / MIFUNE」に統一。HPバー下の名前(EXTRA BATTLE・LOCAL V.S.で大文字化していた処理を削除)、LOCAL V.S.のキャラ選択、COSTUME一覧(Val→VAL)、SOUND TEST(Mifune→MIFUNE)、SUB STORY終了画面(Val→VAL)。
+
 ## 2026-09-30(8)
 
 - ver. 0.9.139
