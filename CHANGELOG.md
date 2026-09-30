@@ -3,6 +3,12 @@
 このプロジェクトの変更履歴。日付は新しいものを上に追記する。
 コード(`index.html` / `css/style.css` / `js/script.js`)や仕様に変更を加えた場合は、このファイルに追記すること(詳細は `AI_GUIDE.md` を参照)。
 
+## 2026-09-30(20)
+
+- ver. 0.9.151
+- BATTLE RUSHの雑魚DOLLの立ち絵(`characters_enemy/rush/player.PNG`・`player2.PNG`、32×32)を配置。見た目と名前がDOLLに切り替わった。
+- 敵の絵で未配置のポーズがある場合、主人公の絵ではなく、そのキャラの立ち絵(player.PNG)で代用するようにした(`enemySpriteName`)。制作途中のDOLLで、攻撃やダメージのポーズだけVALの絵になるのを防ぐ。
+
 ## 2026-09-30(19)
 
 - ver. 0.9.150

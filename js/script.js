@@ -1360,8 +1360,13 @@ function checkAllSettled() {
 
 function enemySpriteName(baseName) {
     const key = baseName.replace('.PNG', '');
-    const enemyName = currentEnemySetName() + '_' + key + '.PNG';
-    return imgs[enemyName] ? enemyName : baseName;
+    const setName = currentEnemySetName();
+    const enemyName = setName + '_' + key + '.PNG';
+    if (imgs[enemyName]) return enemyName;
+    // そのポーズの絵が未配置なら、同じキャラの立ち絵(player.PNG)で代用する(2026-09-30: 制作途中のDOLL等で、
+    // 未配置のポーズだけ主人公の絵に入れ替わってしまうのを防ぐ)。立ち絵も無い場合は従来通り主人公の絵
+    const ownIdle = setName + '_player.PNG';
+    return imgs[ownIdle] ? ownIdle : baseName;
 }
 
 // プレイヤー側の描画名を解決する。サブストーリーバトル中(state.pPresetKey)は、選択中のコスチュームより優先して
