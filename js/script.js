@@ -937,7 +937,12 @@ const ENEMY_PRESETS = {
             ['PUNCH', 'PUNCH', 'PUNCH'], // P+P+P
             ['PUNCH', 'PUNCH', 'UPPER'], // P+P+U(強化UPPER)
         ],
+        noFiveOfAKind: true, // 同じカード5枚(MIRACLE)は出さない(パンチ中心のため偶然そろいやすく、最初の相手として強すぎたため、2026-09-30)
         firstMoveBias: { PUNCH: 10 }, // 一手目はPUNCHが出やすい
+        // 最初の相手(チュートリアル役)として、RitaやGaldより強く感じられていたため弱めに調整(2026-09-30)。
+        // パンチ中心で読みやすい、という個性はそのまま。
+        atkMult: 0.8, // 攻撃力は低め
+        defMult: 1.1, // 防御力も少し低め(被弾ダメージ1.1倍)
     },
     ENEMY_02: {
         name: 'Rita', deck: { PUNCH: 8, UPPER: 10, GUARD: 3 },
@@ -3607,6 +3612,10 @@ function generateEnemyTurnHand(count) {
             for (const key in preset.smallHandBias) {
                 w[key] = (w[key] || 0) + preset.smallHandBias[key];
             }
+        }
+        if (i === 4 && preset.noFiveOfAKind && arr.slice(0, 4).every(m => m === arr[0])) {
+            w = Object.assign({}, w);
+            w[arr[0]] = 0; // 5枚目で同じカードが5枚そろわないようにする
         }
         arr.push(weightedRandomMove(w));
     }
