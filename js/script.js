@@ -195,7 +195,7 @@ let soundTestBgmSource = null; // SOUND TEST専用のBGMプレビュー再生ノ
 let soundTestBgmPlayingName = null; // 現在プレビュー再生中のBGMトラック名(null=何も再生していない)
 let soundTestSeSource = null; // SOUND TEST専用のSEプレビュー再生ノード。BGMプレビューとは独立に、単発で重ねて鳴らせる
 let soundTestSePlayingName = null; // 現在プレビュー再生中のSEトラック名(null=何も再生していない)
-let specialsUsed = { superUpper: false, charge: false, followUp: false, finisher: false, upperGuardUpper: false, guardPunchUpper: false }; // 各種必殺技を、これまでの対戦を通じて1回でも使ったか(バトルをまたいで積み上げ)。SOUND TESTの解放条件は当初の4種のまま(upperGuardUpper/guardPunchUpperは将来の実績拡張用に記録のみ)
+let specialsUsed = { superUpper: false, charge: false, followUp: false, finisher: false, upperGuardUpper: false, guardPunchUpper: false, miracle: false }; // 各種必殺技を、これまでの対戦を通じて1回でも使ったか(バトルをまたいで積み上げ)。SOUND TESTの解放条件は当初の4種のまま(upperGuardUpper/guardPunchUpperは将来の実績拡張用に記録のみ)
 let selectedSkin = null; // 現在選択中のコスチューム('enemy_1'等、nullはデフォルトのプレイヤー見た目)
 let gameClearedOnce = false; // STORY MODEを一度でも最後(5人目)までクリアしたか。COSTUMEの解放条件の一部
 let costumeUnlockAnnounced = false; // タイトル画面でCOSTUME解放のポップアップを既に一度見せたか(繰り返し表示しないため)
@@ -1206,6 +1206,7 @@ function applySaveDataOnBoot() {
             finisher: !!save.specialsUsed.finisher,
             upperGuardUpper: !!save.specialsUsed.upperGuardUpper,
             guardPunchUpper: !!save.specialsUsed.guardPunchUpper,
+            miracle: !!save.specialsUsed.miracle,
         };
     }
     if (typeof save.selectedSkin === 'string' || save.selectedSkin === null) selectedSkin = save.selectedSkin;
@@ -4462,6 +4463,12 @@ async function runUpperCombo(attacker, defender, cursor) {
     const gpuComboType = attacker === 'P' ? state.pComboType : state.eComboType;
     const gpuComboStart = attacker === 'P' ? state.pComboStart : state.eComboStart;
     const gpuComboAlive = attacker === 'P' ? state.pComboAlive : state.eComboAlive;
+    if (gpuComboType === 'miracle' && cursor.i === 4 && gpuComboAlive) {
+        // MIRACLE(UPPER×5): 5枚目のUPPERで打ち上げた相手を、空中のまま壁までめり込ませる(1〜4枚目の成否は判定済み、ここに来た=5枚目は勝ち)
+        markSpecialUsed('miracle');
+        await runGuardPunchUpperWallStrike(attacker, defender, 'MIRACLE!');
+        return;
+    }
     if (gpuComboType === 'guardPunchUpper' && cursor.i === gpuComboStart + 2 && gpuComboAlive) {
         markSpecialUsed('guardPunchUpper');
         if (nextQueuedMove(attacker, cursor) === 'PUNCH') {
@@ -4757,6 +4764,10 @@ const FINISHER_PATTERNS = [
 // 手札の1〜2枚目が常にU,Gになるため、GUARD+PUNCH+UPPERのように先頭2枚がG,Pの並びであれば、
 // アッパーチャージを狙った手(1〜2枚目がU,G)とは先頭からして一致せず、意図せず同時発動することがない。
 function detectComboType(hand, total) {
+    // MIRACLE(2026-09-30追加): 同じカードを5枚(PUNCH×5 / UPPER×5 / GUARD×5)。1〜4枚目は負けなければOK、5枚目で勝てば壁めり込みの追撃
+    if (total >= 5 && hand[0] && [1, 2, 3, 4].every(i => hand[i] === hand[0])) {
+        return { type: 'miracle', start: 0 };
+    }
     if (total >= 5) {
         for (const pattern of FINISHER_PATTERNS) {
             if (pattern.every((move, i) => hand[i] === move)) {
@@ -4810,11 +4821,13 @@ async function runFollowUpFlurry(attacker, defender) {
 // ダメージは通常パンチ1発分(チャージ等の影響は受けない)。必殺技と異なりこのターンの最後のカードとは
 // 限らないため(このUPPERが手札の3枚目で、4・5枚目が残っている場合がある)、壁への激突後は
 // 必殺技のようにターン終了処理任せにはせず、この関数自身で両者を地面まで着地させてから返す。
-async function runGuardPunchUpperWallStrike(attacker, defender) {
+// label: 技名ポップの文字(既定はBREAK!。同じカード5枚のMIRACLEでも、この壁めり込み演出を流用する)
+async function runGuardPunchUpperWallStrike(attacker, defender, label = 'BREAK!') {
     hitComboSuccess(attacker);
     hitComboBreak(defender);
     setAct(attacker, nextPunchSprite(attacker)); // 第21条。Beat1: 攻撃絵
-    spawnTechNamePop(attacker, 'BREAK!'); // 技名ポップ(第36条: GUARD+PUNCH+UPPERの壁のめり込み=ブレイク)
+    spawnTechNamePop(attacker, label); // 技名ポップ(第36条: GUARD+PUNCH+UPPERの壁のめり込み=ブレイク / 同じカード5枚=MIRACLE!)
+    if (label === 'MIRACLE!') flashAttackerWhite(attacker); // MIRACLEは攻撃側を白く光らせて特別感を出す
     const wallStrikeMult = atkMultOf(attacker) * defMultOf(defender);
     if (wallStrikeMult !== 1) flashAttackerWhite(attacker); // awaitしない(敵の個性(atkMult/defMult)でダメージが通常と異なる場合のみ光らせる)
     await wait(DB.HITSTOP.POSE_MS); // ヒットストップ(被弾側は既にUPPERでdamage.PNGのまま浮いている)
@@ -5140,10 +5153,16 @@ async function resolveTurn() {
                 if (state.eComboType === 'followup' && iAtStart >= state.eComboStart && iAtStart <= state.eComboStart + 2 && (iAtStart === state.eComboStart + 2 ? res.E !== 'win' : res.E === 'lose')) state.eComboAlive = false; // 途中は負けなければOK、最後は勝ちが必要
                 if (state.eComboType === 'guardPunchUpper' && iAtStart >= state.eComboStart && iAtStart <= state.eComboStart + 2 && (iAtStart === state.eComboStart + 2 ? res.E !== 'win' : res.E === 'lose')) state.eComboAlive = false; // 途中は負けなければOK、最後は勝ちが必要
                 if (state.eComboType === 'finisher' && iAtStart <= 3 && res.E === 'lose') state.eComboAlive = false;
+                // MIRACLE: 1〜4枚目は負けなければOK、5枚目は勝ちが必要
+                if (state.pComboType === 'miracle' && (iAtStart <= 3 ? res.P === 'lose' : res.P !== 'win')) state.pComboAlive = false;
+                if (state.eComboType === 'miracle' && (iAtStart <= 3 ? res.E === 'lose' : res.E !== 'win')) state.eComboAlive = false;
             }
             // PUNCH+GUARD+PUNCHの3枚目(start+2枚目)が成立した直後に追撃を発生させる
             if (state.pComboType === 'followup' && iAtStart === state.pComboStart + 2 && state.pComboAlive) { await runFollowUpFlurry('P', 'E'); markSpecialUsed('followUp'); }
             if (state.eComboType === 'followup' && iAtStart === state.eComboStart + 2 && state.eComboAlive) { await runFollowUpFlurry('E', 'P'); markSpecialUsed('followUp'); }
+            // MIRACLE(PUNCH×5 / GUARD×5): 5枚目で勝った直後に壁めり込みの追撃。UPPER×5はrunUpperCombo内で空中から発動済み
+            if (state.pComboType === 'miracle' && iAtStart === 4 && state.pComboAlive && state.hands[0] !== 'UPPER') { markSpecialUsed('miracle'); await runGuardPunchUpperWallStrike('P', 'E', 'MIRACLE!'); }
+            if (state.eComboType === 'miracle' && iAtStart === 4 && state.eComboAlive && state.enemyHands[0] !== 'UPPER') { markSpecialUsed('miracle'); await runGuardPunchUpperWallStrike('E', 'P', 'MIRACLE!'); }
 
             // TRAINING MODEは練習場のためK.O./YOU WIN判定を行わない(ターン終了時にHPが全回復する)
             if (state.gameMode !== 'training' && (state.hpP <= 0 || state.hpE <= 0)) {
