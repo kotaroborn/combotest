@@ -240,6 +240,11 @@
             content: '▌'; margin-left: 2px; color: #fff;
             animation: prologueCursorBlink 0.8s steps(1) infinite;
         }
+        /* 文末の表示(2026-09-30): 文字送り中は▌、タップ待ちは▼、自動送りは■ */
+        .cine-text[data-cine="tap"]::after { content: '▼'; font-size: 11px; margin-left: 6px; animation-duration: 0.9s; }
+        .cine-text[data-cine="auto"]::after { content: '■'; font-size: 11px; margin-left: 6px; animation-duration: 0.9s; }
+        /* 話し手の名前(「名前「」の部分)は金色 */
+        .cine-speaker { color: #ffd23c; }
         @keyframes prologueCursorBlink { 50% { opacity: 0; } }
         .title-logo-wrap { max-width: 80%; position: relative; }
         #titleLogoImg { max-width: 100%; display: block; image-rendering: pixelated; }
@@ -995,12 +1000,26 @@
 .records-item-how { font-size: 10px; color: #888; padding-left: 16px; }
 
 /* プロローグ2画面目の登場時、白フラッシュと同時に画面を一時的に揺らす(2026-09-29) */
-.cine-shake { animation: cineShake 0.55s linear; }
-@keyframes cineShake {
+.cine-shake { animation: cineShakeHeavy 0.55s linear; }
+/* 名前をcineShakeHeavyにする(2026-09-30修正: 以前は既存のcineShakeと同名で、Jackのストーリーの揺れまで上書きしていた) */
+@keyframes cineShakeHeavy {
     0%, 100% { translate: 0 0; }
     10% { translate: -9px 5px; }  20% { translate: 8px -6px; }
     30% { translate: -7px -4px; } 40% { translate: 6px 6px; }
     50% { translate: -5px 3px; }  60% { translate: 4px -4px; }
     70% { translate: -3px 2px; }  80% { translate: 2px -2px; }
     90% { translate: -1px 1px; }
+}
+
+/* ストーリー: 周りが暗く中心だけ明るいスポットライト(2026-09-30、ストーリー2の教会) */
+.cine-spotlight {
+    position: absolute; inset: 0; pointer-events: none; z-index: 1;
+    background: radial-gradient(ellipse 38% 55% at 50% 50%, rgba(0,0,0,0) 0%, rgba(0,0,0,0.25) 45%, rgba(0,0,0,0.88) 100%);
+    opacity: 0;
+}
+
+/* HOW TO内のカードアイコン(2026-09-30) */
+.howto-card-icon {
+    height: 1.7em; width: auto; vertical-align: -0.55em; margin: 0 2px;
+    image-rendering: pixelated; border-radius: 2px;
 }
