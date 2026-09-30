@@ -890,7 +890,7 @@
         .vs-sel-half-e .vs-sel-badge { background: #1d6fd1; }
         .vs-sel-name { font-size: 22px; font-weight: 900; letter-spacing: 3px; }
         .vs-sel-deck { font-size: 10px; color: #aaa; letter-spacing: 1px; margin-top: -6px; }
-        .vs-sel-grid { display: grid; grid-template-columns: repeat(3, 72px); gap: 8px; }
+        .vs-sel-grid { display: grid; grid-template-columns: repeat(4, 64px); gap: 7px; } /* 2026-09-30: MIFUNEと？(ランダム)の列を追加して4列に */
         .vs-sel-tile {
             display: flex; flex-direction: column; align-items: center; gap: 2px;
             padding: 4px 0 3px; border: 2px solid #333; border-radius: 6px; background: #111; cursor: pointer;
@@ -1023,3 +1023,15 @@
     height: 1.7em; width: auto; vertical-align: -0.55em; margin: 0 2px;
     image-rendering: pixelated; border-radius: 2px;
 }
+
+/* LOCAL V.S.キャラ選択: MIFUNE未入手時の空欄、？(ランダム) (2026-09-30) */
+.vs-sel-empty { border: none; background: none; }
+.vs-sel-random { justify-content: center; }
+.vs-sel-random-mark {
+    width: 48px; height: 48px; display: flex; align-items: center; justify-content: center;
+    font-size: 30px; font-weight: 900; color: #ffd23c; text-shadow: 0 0 8px rgba(255,210,60,0.6);
+}
+.vs-sel-random.rolling .vs-sel-random-mark { animation: vsRandomSpin 0.35s linear infinite; }
+@keyframes vsRandomSpin { 50% { opacity: 0.35; transform: scale(0.85); } }
+.vs-sel-tile.decided { animation: vsDecided 0.5s ease-out; }
+@keyframes vsDecided { 0% { filter: brightness(2.6); transform: scale(1.12); } 100% { filter: brightness(1); transform: scale(1); } }
