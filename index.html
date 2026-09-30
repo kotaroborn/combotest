@@ -95,7 +95,7 @@
                 <div class="title-logo-fallback-sub">CROSS DIMENSION</div>
             </div>
         </div>
-        <div class="title-version">ver. 0.9.151</div>
+        <div class="title-version">ver. 0.9.152</div>
     </div>
     <button id="titleContinueBtn" class="text-btn" onclick="tapFlickerThen(this, () => goContinueGame())" style="display:none;">CONTINUE</button>
     <button id="startBtn" class="text-btn" onclick="tapFlickerThen(this, () => goNewGame())" disabled>NEW GAME</button>
@@ -323,18 +323,33 @@
 <div id="howToOverlay" class="popup-overlay" onclick="closeHowToBackdrop(event)">
     <div class="popup-panel">
         <button class="popup-close" onclick="closeHowTo()">×</button>
-        <div class="howto-content howto-scroll">
+        <!-- メニュー(モード別のHOW TOがある場面だけ表示。BONUSと同じ一覧から選ぶ形) -->
+        <div class="howto-content" id="howToMenu" style="display:none;">
+            <h2>HOW TO</h2>
+            <div class="option-row" id="howToMenuModeRow">
+                <span class="option-label" id="howToMenuModeLabel">HOW TO TRAINING</span>
+                <button onclick="openHowToPage(howToCurrentModePage)">見る</button>
+            </div>
+            <div class="option-row">
+                <span class="option-label">HOW TO BATTLE</span>
+                <button onclick="openHowToPage('battle')">見る</button>
+            </div>
+        </div>
+        <!-- HOW TO BATTLE(基本) -->
+        <div class="howto-content howto-scroll howto-page" id="howToPageBattle" style="display:none;">
             <h2>HOW TO BATTLE</h2>
+            <button class="sound-test-back-btn howto-back" onclick="backToHowToMenu()">◀︎戻る</button>
             <p><b>Ⅰ.デッキビルドでカードの枚数を選ぼう！</b><br>
-            PUNCH、UPPER、GUARDの3種類のカードで合計21枚になるようにデッキを作ろう。</p>
+            PUNCH、UPPER、GUARDの3種類のカードで、<br>合計21枚になるようにデッキを作ろう。</p>
 
             <p><b>Ⅱ.バトルは3つの相性で決まる！</b><br>
-            PUNCHはUPPERに勝ち、UPPERはGUARDに勝ち、GUARDはPUNCHに勝つ。</p>
+            PUNCHはUPPERに勝ち、UPPERはGUARDに勝ち、<br>GUARDはPUNCHに勝つ。</p>
 
             <img class="howto-img" src="assets/images/ui/howto.PNG" alt="" onerror="this.style.display='none';">
 
             <p><b>Ⅲ.手札からカードを1〜5枚えらんでバトル！</b><br>
-            相手と1枚ずつカードを出し合って対決！</p>
+            相手と1枚ずつカードを出し合って対決！<br>
+            カードの勝敗で攻撃が決まるぞ！</p>
 
             <p>山札が全て無くなったら自動で補充される。</p>
 
@@ -342,7 +357,45 @@
             それぞれのカードの特性と相手のクセを見極めて、連続コンボや必殺技で勝利しよう！</p>
 
             <p><b>HINT〜どうしても勝てないときは？〜</b><br>
-            対戦相手の何気ない会話や仕草からクセがわかる。クセがわかったら、デッキビルドをして再挑戦だ！</p>
+            対戦相手の何気ない会話や仕草からクセがわかる。クセがわかったら、デッキビルドをして再挑戦だ！<br>
+            タイトル画面のオプションからワザのヒントも見られるぞ！</p>
+        </div>
+        <!-- HOW TO TRAINING -->
+        <div class="howto-content howto-scroll howto-page" id="howToPageTraining" style="display:none;">
+            <h2>HOW TO TRAINING</h2>
+            <button class="sound-test-back-btn howto-back" onclick="backToHowToMenu()">◀︎戻る</button>
+            <p>トレーニングモードでは<br>
+            カードを1〜5枚すきなように出して<br>
+            ワザやコンボを確かめることができる。<br>
+            実践に備えて、自分だけのコンボを<br>
+            見つけよう！</p>
+            <p class="howto-note">※1ターンごとに相手の体力は回復します。<br>
+            ※つかったワザやコンボ数はRECORDには記録されません。</p>
+        </div>
+        <!-- HOW TO BATTLE RUSH -->
+        <div class="howto-content howto-scroll howto-page" id="howToPageRush" style="display:none;">
+            <h2>HOW TO BATTLE RUSH</h2>
+            <button class="sound-test-back-btn howto-back" onclick="backToHowToMenu()">◀︎戻る</button>
+            <p>バトルラッシュモードでは、<br>
+            25人の敵と連続で戦っていく特殊なモード。<br>
+            VALを操作して最速で敵を倒し、<br>
+            クリアタイムを更新しよう！</p>
+            <p>・VALのデッキは固定（（P）7枚・（G）7枚・（U）7枚）<br>
+            ・5人目、10人目、15人目、20人目、25人目にボスが出現します。<br>
+            ・体力はザコキャラを倒すと5回復、ボスを倒すと30回復します。<br>
+            ・25人倒すとクリアタイムが記録されます。</p>
+        </div>
+        <!-- HOW TO EXTRA(本文は準備中) -->
+        <div class="howto-content howto-scroll howto-page" id="howToPageExtra" style="display:none;">
+            <h2>HOW TO EXTRA</h2>
+            <button class="sound-test-back-btn howto-back" onclick="backToHowToMenu()">◀︎戻る</button>
+            <p class="howto-note">（準備中）</p>
+        </div>
+        <!-- HOW TO LOCAL V.S.(本文は準備中) -->
+        <div class="howto-content howto-scroll howto-page" id="howToPageVersus" style="display:none;">
+            <h2>HOW TO LOCAL V.S.</h2>
+            <button class="sound-test-back-btn howto-back" onclick="backToHowToMenu()">◀︎戻る</button>
+            <p class="howto-note">（準備中）</p>
         </div>
     </div>
 </div>

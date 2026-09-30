@@ -1253,6 +1253,7 @@ function unlockSkin(skinName) {
 // (以前は敵が技を出してもプレイヤーの実績として記録されていた)。LOCAL V.S.は2Pも人間なので両者とも記録する。
 function markSpecialUsed(key, side) {
     if (side === 'E' && state.gameMode !== 'versus') return;
+    if (state.gameMode === 'training') return; // TRAINING MODEで使った技はRECORDSに記録しない(HOW TO TRAININGの説明どおり、2026-10-01)
     if (specialsUsed[key]) return; // 既に記録済みなら何もしない
     specialsUsed[key] = true;
     writeSaveData({ specialsUsed });
@@ -5320,7 +5321,41 @@ async function resolveTurn() {
 // ============================================================
 // UIポップアップ
 // ============================================================
+// HOW TOはモード別(2026-10-01): バトル中にTRAINING/BATTLE RUSH/EXTRA/LOCAL V.S.で開くと、そのモードの説明と
+// HOW TO BATTLE(基本)の2つから選ぶメニューを出す。それ以外(タイトル・デッキ編成・STORY MODE)は基本のHOW TO BATTLEを直接開く。
+const HOWTO_MODE_PAGES = {
+    training:       { page: 'training', label: 'HOW TO TRAINING' },
+    rush:           { page: 'rush',     label: 'HOW TO BATTLE RUSH' },
+    substoryBattle: { page: 'extra',    label: 'HOW TO EXTRA' },
+    versus:         { page: 'versus',   label: 'HOW TO LOCAL V.S.' },
+};
+const HOWTO_PAGE_IDS = { battle: 'howToPageBattle', training: 'howToPageTraining', rush: 'howToPageRush', extra: 'howToPageExtra', versus: 'howToPageVersus' };
+let howToCurrentModePage = null;
+function openHowToPage(page) {
+    document.getElementById('howToMenu').style.display = 'none';
+    Object.entries(HOWTO_PAGE_IDS).forEach(([k, id]) => {
+        const el = document.getElementById(id);
+        el.style.display = k === page ? '' : 'none';
+        if (k === page) el.scrollTop = 0;
+        // メニューから開いた時だけ「戻る」を出す
+        const back = el.querySelector('.howto-back');
+        if (back) back.style.display = howToCurrentModePage ? '' : 'none';
+    });
+}
+function backToHowToMenu() {
+    Object.values(HOWTO_PAGE_IDS).forEach(id => { document.getElementById(id).style.display = 'none'; });
+    document.getElementById('howToMenu').style.display = '';
+}
 function openHowTo() {
+    const inBattle = document.getElementById('sceneBattle').classList.contains('active');
+    const mode = inBattle ? HOWTO_MODE_PAGES[state.gameMode] : null;
+    howToCurrentModePage = mode ? mode.page : null;
+    if (mode) {
+        document.getElementById('howToMenuModeLabel').innerText = mode.label;
+        backToHowToMenu();
+    } else {
+        openHowToPage('battle');
+    }
     document.getElementById('howToOverlay').classList.add('show');
     rushPauseTimer('howto'); // BATTLE RUSH: HOW TOを開いている間はタイマーを止める(RUSH中でなければ何もしない)
 }
@@ -7446,16 +7481,16 @@ function recordsHasUndiscovered() {
 // (今後HOW TOの文面を書き換える時は（ガード）のように書けばアイコンになる)。見出しの<b>内も対象。
 // ============================================================
 const HOWTO_CARD_ICON_PATTERNS = [
-    { re: /（パンチ）|\(パンチ\)|PUNCH/g, img: 'card_P.PNG', label: 'PUNCH' },
-    { re: /（アッパー）|\(アッパー\)|UPPER/g, img: 'card_U.PNG', label: 'UPPER' },
-    { re: /（ガード）|\(ガード\)|GUARD/g, img: 'card_G.PNG', label: 'GUARD' },
+    { re: /（パンチ）|\(パンチ\)|（P）|\(P\)|PUNCH/g, img: 'card_P.PNG', label: 'PUNCH' },
+    { re: /（アッパー）|\(アッパー\)|（U）|\(U\)|UPPER/g, img: 'card_U.PNG', label: 'UPPER' },
+    { re: /（ガード）|\(ガード\)|（G）|\(G\)|GUARD/g, img: 'card_G.PNG', label: 'GUARD' },
 ];
 function applyHowToCardIcons(root) {
     if (!root) return;
     const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
     const nodes = [];
     while (walker.nextNode()) nodes.push(walker.currentNode);
-    const anyRe = /（パンチ）|\(パンチ\)|PUNCH|（アッパー）|\(アッパー\)|UPPER|（ガード）|\(ガード\)|GUARD/g;
+    const anyRe = /（パンチ）|\(パンチ\)|（P）|\(P\)|PUNCH|（アッパー）|\(アッパー\)|（U）|\(U\)|UPPER|（ガード）|\(ガード\)|（G）|\(G\)|GUARD/g;
     nodes.forEach(node => {
         const text = node.nodeValue;
         if (!anyRe.test(text)) return;
@@ -7477,4 +7512,4 @@ function applyHowToCardIcons(root) {
         node.parentNode.replaceChild(frag, node);
     });
 }
-applyHowToCardIcons(document.querySelector('#howToOverlay .howto-content'));
+document.querySelectorAll('#howToOverlay .howto-page').forEach(el => applyHowToCardIcons(el));

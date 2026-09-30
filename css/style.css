@@ -587,7 +587,7 @@
         .howto-content.howto-scroll p { margin: 0 0 14px; }
         .howto-content.howto-scroll b { color: #fff; }
         .howto-img {
-            display: block; width: 70%; max-width: 182px; /* 2026-09-30、以前の100%(最大260px)から70%に縮小。左右autoで中央揃え */
+            display: block; width: 55%; max-width: 143px; /* 2026-10-01、70%→55%に縮小。左右autoで中央揃え */
             margin: 4px auto 16px; border-radius: 6px;
         }
         .howto-footer { flex: none; display: flex; gap: 10px; padding-top: 10px; }
@@ -1043,3 +1043,6 @@
     margin-bottom: -14px; animation: resultNoDamagePulse 1s ease-in-out infinite;
 }
 @keyframes resultNoDamagePulse { 50% { transform: scale(1.06); filter: brightness(1.3); } }
+
+/* HOW TO: ※注記(2026-10-01) */
+.howto-note { font-size: 11px; color: #aaa; }

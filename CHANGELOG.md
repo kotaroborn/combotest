@@ -3,6 +3,16 @@
 このプロジェクトの変更履歴。日付は新しいものを上に追記する。
 コード(`index.html` / `css/style.css` / `js/script.js`)や仕様に変更を加えた場合は、このファイルに追記すること(詳細は `AI_GUIDE.md` を参照)。
 
+## 2026-10-01(1)
+
+- ver. 0.9.152
+- HOW TOを整理。TRAINING / BATTLE RUSH / EXTRA / LOCAL V.S.の対戦中に開くと、「HOW TO(モード名)」と「HOW TO BATTLE」を選ぶメニューを表示するようにした。各ページには「◀︎戻る」ボタンがある。タイトル画面とSTORYでは、これまでどおりHOW TO BATTLEを直接開く(`openHowTo` / `openHowToPage` / `backToHowToMenu`)。
+- HOW TO TRAINING / HOW TO BATTLE RUSHの説明文を追加。HOW TO EXTRA / HOW TO LOCAL V.S.は、文章が届くまで「（準備中）」と表示する。
+- HOW TO BATTLEの文章を修正。改行位置を調整し、「カードの勝敗で攻撃が決まるぞ！」と「タイトル画面のオプションからワザのヒントも見られるぞ！」を追加した。
+- HOW TOの画像(howto.PNG)の幅を70%から55%に縮小。
+- 説明文の（P）（G）（U）も、カードのアイコンで表示するようにした。
+- TRAININGで出した技は、RECORDSの技の記録に残らないようにした(HOW TO TRAININGの説明に合わせた)。
+
 ## 2026-09-30(20)
 
 - ver. 0.9.151
