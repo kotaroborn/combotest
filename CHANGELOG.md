@@ -3,6 +3,13 @@
 このプロジェクトの変更履歴。日付は新しいものを上に追記する。
 コード(`index.html` / `css/style.css` / `js/script.js`)や仕様に変更を加えた場合は、このファイルに追記すること(詳細は `AI_GUIDE.md` を参照)。
 
+## 2026-09-30(14)
+
+- ver. 0.9.145
+- 「100 BATTLE RUSH」を「BATTLE RUSH」に改名し、目標を100人→25人に変更(`RUSH_TOTAL`)。中ボスはNoah→Rita→Gald→Jack→Alvが1回ずつ登場し、25人目のAlvを倒すとCLEAR。解放トーストは「BATTLE RUSH / バトルラッシュモード 解放！」。
+- 自己ベストの保存先を`rushBest25`に変更(100人制時代の記録は引き継がない)。
+- 雑魚の専用グラフィックに対応(`assets/images/characters_enemy/rush/`、他の敵と同じ11ポーズ・32×32)。未配置の間はMIFUNE(training)で代用。専用名は`RUSH_MOB_NAME`(未定の間はMIFUNE表記)。
+
 ## 2026-09-30(13)
 
 - ver. 0.9.144

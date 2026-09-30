@@ -95,13 +95,13 @@
                 <div class="title-logo-fallback-sub">CROSS DIMENSION</div>
             </div>
         </div>
-        <div class="title-version">ver. 0.9.144</div>
+        <div class="title-version">ver. 0.9.145</div>
     </div>
     <button id="titleContinueBtn" class="text-btn" onclick="tapFlickerThen(this, () => goContinueGame())" style="display:none;">CONTINUE</button>
     <button id="startBtn" class="text-btn" onclick="tapFlickerThen(this, () => goNewGame())" disabled>NEW GAME</button>
     <button id="trainingBtn" class="text-btn" onclick="tapFlickerThen(this, () => goTrainingBattle())" disabled>TRAINING MODE</button>
     <button id="versusBtn" class="text-btn" onclick="tapFlickerThen(this, () => goVersusSelect())" disabled style="display:none;">LOCAL V.S.</button>
-    <button id="rushBtn" class="text-btn" onclick="tapFlickerThen(this, () => goRushStart())" disabled style="display:none;">100 BATTLE RUSH</button>
+    <button id="rushBtn" class="text-btn" onclick="tapFlickerThen(this, () => goRushStart())" disabled style="display:none;">BATTLE RUSH</button>
     <button id="bonusContentsBtn" class="text-btn" onclick="openBonusContents()" style="display:none;">BONUS</button>
     <button id="optionBtn" class="text-btn" onclick="openOption()" disabled>OPTION</button>
     <button class="howto-btn howto-corner" onclick="openHowTo()">HOW<br>TO</button>
@@ -249,7 +249,7 @@
     <button id="continueBtn" onclick="goDeckBuild()">CONTINUE</button>
     <button id="backTitleBtn" onclick="goLogo()">タイトルへ戻る</button>
 </div>
-<!-- 100 BATTLE RUSHのRESULT: 倒れた時点(または100人撃破時)に表示。ボタンは最下部に固定し、項目が多くてもはみ出さないようにする -->
+<!-- BATTLE RUSHのRESULT: 倒れた時点(または最後の25人目撃破時)に表示。ボタンは最下部に固定し、項目が多くてもはみ出さないようにする -->
 <div id="rushResultOverlay">
     <div class="rush-result-body">
         <div id="rushResultClear" style="display:none;">CLEAR!!</div>
