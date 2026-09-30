@@ -74,6 +74,7 @@ let state = {
     piyoBreakUntil: 0, // ピヨりが割れて分裂する演出の終了時刻(performance.now()基準)。しびれた側の判定が決着した時に使う
     piyoBroken: false, // 割れる演出を開始済みかどうか。trueの間はdraw()側が通常のバウンド表示に戻らないようにする(下記参照)
     pPunchStreak: 0, ePunchStreak: 0, // 地上パンチの連続ヒット数(コンボではなく、単発同士の連続成功を記録)
+    pPunchChain: 0, ePunchChain: 0, // 技(PUNCH+PUNCH+UPPER)判定用: 「負けなかった」PUNCHの連続数(あいこも数える。ダメージ周期のpPunchStreakとは別、2026-09-30)
     pGuardStreak: 0, eGuardStreak: 0, // ガード成功の連続回数(同一ターン内のみ。2回で2倍・3回以降は4倍が上限。ターン終了時にリセット)
     pChargeValue: 0, eChargeValue: 0, // チャージの倍率(0=無し、2以上の数値)。ガード成功以外の次のカードで勝敗に関わらず消費される。ターンをまたいで持ち越す
     pChargeIsMax: false, eChargeIsMax: false, // 3連続以降(上位段階)かどうかを表すフラグ。演出の二重オーラ判定に使う(敵ごとにchargeValueの実数値が異なりうるため、実数値ではなくこのフラグで判定する)
@@ -3667,8 +3668,8 @@ function resetBattleState() {
     state.eNumbed = false;
     state.piyoSide = null;
     state.piyoBroken = false;
-    state.pPunchStreak = 0;
-    state.ePunchStreak = 0;
+    state.pPunchStreak = 0; state.pPunchChain = 0;
+    state.ePunchStreak = 0; state.ePunchChain = 0;
     state.pGuardStreak = 0;
     state.eGuardStreak = 0;
     state.pChargeValue = 0;
@@ -4302,6 +4303,10 @@ async function runNormalHit(winner, loser, move) {
     const dmg = (DB.DMG.P + cyclePos * DB.DMG.P_COMBO_STEP) * chargeMultOf(winner) * atkMultOf(winner) * defMultOf(loser); // 3発周期で増加、チャージ中は2倍/4倍
     state[winnerStreakKey]++; // 命中したので連続記録を伸ばす
     state[loserStreakKey] = 0; // 負けた側の連続記録は途切れる
+    // 技判定用のPUNCH連続(あいこも含む)。PUNCHで勝てば伸び、PUNCH以外の勝ち・負けで途切れる
+    const winnerChainKey = winner === 'P' ? 'pPunchChain' : 'ePunchChain';
+    state[winnerChainKey] = move === 'PUNCH' ? state[winnerChainKey] + 1 : 0;
+    state[loser === 'P' ? 'pPunchChain' : 'ePunchChain'] = 0;
     state.pGuardStreak = 0; state.eGuardStreak = 0; // ガード以外で勝敗が決したのでガード連続記録は途切れる
     consumeCharge(winner); consumeCharge(loser); // ガード勝利以外なので、双方のチャージをここで消費する
     consumeUpperCharge(winner); consumeUpperCharge(loser); // UPPER+GUARD+UPPER用のチャージも同様に消費する
@@ -4384,9 +4389,11 @@ async function runUpperCombo(attacker, defender, cursor) {
     // PUNCH+PUNCH+UPPER: 直前2連続の地上PUNCH勝利(pPunchStreak/ePunchStreak >= 2)に続けてUPPERで勝った場合、
     // このアッパーは2倍の高さ・2倍の速度で打ち上げ、ダメージも2倍になる。ストリークをリセットする前に判定する。
     // UPPER+GUARD+UPPER: 直前にUPPER→GUARDと連続成功した場合のチャージ(pUpperChargeReady)が有効な場合も同様の扱いになる。
-    const winnerStreakKey = attacker === 'P' ? 'pPunchStreak' : 'ePunchStreak';
+    // 2026-09-30: 技は「途中は負けなければ(あいこでも)OK、最後だけ勝てば発動」に変更。
+    // PUNCH+PUNCH+UPPERは、負けなかったPUNCHが2回続いた後(pPunchChain、あいこも数える)にUPPERで勝てば成立する。
+    const winnerChainKey = attacker === 'P' ? 'pPunchChain' : 'ePunchChain';
     const upperChargeKey = attacker === 'P' ? 'pUpperChargeReady' : 'eUpperChargeReady';
-    const viaPunchPunch = state[winnerStreakKey] >= 2;
+    const viaPunchPunch = state[winnerChainKey] >= 2;
     const viaUpperGuard = state[upperChargeKey];
     const isSuperUpper = viaPunchPunch || viaUpperGuard; // ダメージ2倍の判定(コンボ成立時のみ)
     // 演出(高さ・速度・残像)は、ダメージ2倍の条件に加えて、敵ごとのalwaysSuperUpperVisual(ENEMY_PRESETS)でも有効にできる。
@@ -4399,8 +4406,8 @@ async function runUpperCombo(attacker, defender, cursor) {
     else { state.eLastWinWasUpper = true; state.pLastWinWasUpper = false; }
 
     // UPPERが決まった時点で地上パンチの連続記録は途切れる(コンボ中の空中パンチとは別カウント)
-    state.pPunchStreak = 0;
-    state.ePunchStreak = 0;
+    state.pPunchStreak = 0; state.pPunchChain = 0;
+    state.ePunchStreak = 0; state.ePunchChain = 0;
     state.pGuardStreak = 0; state.eGuardStreak = 0; // ガード以外で勝敗が決したのでガード連続記録は途切れる
 
     if (isSuperUpper) spawnTechNamePop(attacker, 'RISING!'); // 技名ポップ(第36条: 2倍アッパー=ライジング)。暗転が始まるタイミングで表示する
@@ -4571,8 +4578,8 @@ async function runUpperCombo(attacker, defender, cursor) {
 async function runGuardSuccess(winner, loser, loserPoseOverride) {
     hitComboSuccess(winner);
     hitComboBreak(loser);
-    state.pPunchStreak = 0; // ガードでパンチが止まった場合も連続記録は途切れる
-    state.ePunchStreak = 0;
+    state.pPunchStreak = 0; state.pPunchChain = 0; // ガードでパンチが止まった場合も連続記録は途切れる
+    state.ePunchStreak = 0; state.ePunchChain = 0;
     setAct(winner, 'guard.PNG');
     setAct(loser, loserPoseOverride || 'punch.PNG'); // ブロックされた瞬間の姿勢(通常はパンチのまま)
     applyDamage(winner, DB.DMG.TINY); // 自己反動の微ダメージのため、チャージ倍率は適用しない
@@ -4983,13 +4990,24 @@ async function resolveExchange(pAct, eAct, cursor) {
     if (result === 'draw') {
         // 相討ち: 同じ手同士がぶつかる場合、双方が微ダメージを受けて振動し、反動で一歩下がる
         hitComboBreak('P'); hitComboBreak('E'); // 相討ちはどちらも「成功」ではないため、双方のCOMBOが途切れる
-        state.pPunchStreak = 0; // 相討ちでは連続記録が途切れる
+        // 2026-09-30: 技は「途中は負けなければ(あいこでも)OK、最後だけ勝てば発動」。あいこは技の途中の手としては
+        // 成功扱いで連続を途切れさせないが、技そのもの(チャージや強化アッパー等)はあいこでは発動しない(最後は勝ちが必要)。
+        state.pPunchStreak = 0; // ダメージ周期用の連続ヒット数は、あいこでは途切れる(命中していないため)
         state.ePunchStreak = 0;
-        state.pGuardStreak = 0; // 相討ちではガードの連続記録も途切れる
-        state.eGuardStreak = 0;
+        if (pAct === 'PUNCH') { state.pPunchChain++; state.ePunchChain++; } // PUNCH同士のあいこ: P+P+UPPERの途中として数える
+        else { state.pPunchChain = 0; state.ePunchChain = 0; }
+        if (pAct === 'GUARD') { state.pGuardStreak++; state.eGuardStreak++; } // GUARD同士のあいこ: G+Gの途中として数える(チャージは次のガード勝利で付く)
+        else { state.pGuardStreak = 0; state.eGuardStreak = 0; }
         consumeCharge('P'); consumeCharge('E'); // 相討ちはどちらもガード勝利ではないため、双方のチャージを消費する
         consumeUpperCharge('P'); consumeUpperCharge('E'); // UPPER+GUARD+UPPER用のチャージも同様に消費する
-        state.pLastWinWasUpper = false; state.eLastWinWasUpper = false; // 相討ちはどちらもUPPER勝利ではないため、連続検知用フラグをリセットする
+        if (pAct === 'GUARD') {
+            // UPPER(負けず)→GUARD(あいこ)でも、U+G+Uの途中として次のUPPER用チャージ(水色)を用意する
+            if (state.pLastWinWasUpper) state.pUpperChargeReady = true;
+            if (state.eLastWinWasUpper) state.eUpperChargeReady = true;
+        }
+        // UPPER同士のあいこはU+G+Uの1枚目として数える(フラグ名はLastWinだが「負けなかったUPPER」の意味で使う)。それ以外はリセット
+        const upperDraw = pAct === 'UPPER';
+        state.pLastWinWasUpper = upperDraw; state.eLastWinWasUpper = upperDraw;
         state.lastExchangeResult = { P: 'draw', E: 'draw' };
         state.pAct = moveSprite(pAct);
         state.eAct = moveSprite(eAct);
@@ -5097,6 +5115,7 @@ async function resolveTurn() {
             // (index: start〜start+2)がすべて勝ちである必要がある。
             // finisher(`FINISHER_PATTERNS`のいずれか、2026-09-26に3種追加)は1〜4枚目(index0-3)が
             // 勝ちまたは相打ちである必要がある(=負けなければ良い)。
+            // 2026-09-30: followup/guardPunchUpperも同じ考え方に変更。1・2枚目は負けなければ(あいこでも)OK、3枚目だけ勝ちが必要。
             // 判定には`cursor.i`ではなく上で保持した`iAtStart`(resolveExchange呼び出し前のインデックス)を使う。
             // `resolveExchange`はUPPER勝利+次カードがPUNCHの場合、空中コンボとして内部で`cursor.i`を
             // 追加でインクリメントすることがあるため(3発目は自動でメテオに変換)、呼び出し後の`cursor.i`を
@@ -5106,11 +5125,11 @@ async function resolveTurn() {
             // 「直後の手がPUNCHかどうか」を空中コンボ開始前に判定できないため。詳細は`runUpperCombo`を参照)。
             const res = state.lastExchangeResult;
             if (res) {
-                if (state.pComboType === 'followup' && iAtStart >= state.pComboStart && iAtStart <= state.pComboStart + 2 && res.P !== 'win') state.pComboAlive = false;
-                if (state.pComboType === 'guardPunchUpper' && iAtStart >= state.pComboStart && iAtStart <= state.pComboStart + 2 && res.P !== 'win') state.pComboAlive = false;
+                if (state.pComboType === 'followup' && iAtStart >= state.pComboStart && iAtStart <= state.pComboStart + 2 && (iAtStart === state.pComboStart + 2 ? res.P !== 'win' : res.P === 'lose')) state.pComboAlive = false; // 途中は負けなければOK、最後は勝ちが必要
+                if (state.pComboType === 'guardPunchUpper' && iAtStart >= state.pComboStart && iAtStart <= state.pComboStart + 2 && (iAtStart === state.pComboStart + 2 ? res.P !== 'win' : res.P === 'lose')) state.pComboAlive = false; // 途中は負けなければOK、最後は勝ちが必要
                 if (state.pComboType === 'finisher' && iAtStart <= 3 && res.P === 'lose') state.pComboAlive = false;
-                if (state.eComboType === 'followup' && iAtStart >= state.eComboStart && iAtStart <= state.eComboStart + 2 && res.E !== 'win') state.eComboAlive = false;
-                if (state.eComboType === 'guardPunchUpper' && iAtStart >= state.eComboStart && iAtStart <= state.eComboStart + 2 && res.E !== 'win') state.eComboAlive = false;
+                if (state.eComboType === 'followup' && iAtStart >= state.eComboStart && iAtStart <= state.eComboStart + 2 && (iAtStart === state.eComboStart + 2 ? res.E !== 'win' : res.E === 'lose')) state.eComboAlive = false; // 途中は負けなければOK、最後は勝ちが必要
+                if (state.eComboType === 'guardPunchUpper' && iAtStart >= state.eComboStart && iAtStart <= state.eComboStart + 2 && (iAtStart === state.eComboStart + 2 ? res.E !== 'win' : res.E === 'lose')) state.eComboAlive = false; // 途中は負けなければOK、最後は勝ちが必要
                 if (state.eComboType === 'finisher' && iAtStart <= 3 && res.E === 'lose') state.eComboAlive = false;
             }
             // PUNCH+GUARD+PUNCHの3枚目(start+2枚目)が成立した直後に追撃を発生させる
@@ -5140,8 +5159,8 @@ async function resolveTurn() {
         state.pGuardStreak = 0;
         state.eGuardStreak = 0;
         // 地上パンチの連続ヒット数(ダメージ周期)も同一ターン内のみ有効。ターンをまたいで持ち越さない
-        state.pPunchStreak = 0;
-        state.ePunchStreak = 0;
+        state.pPunchStreak = 0; state.pPunchChain = 0;
+        state.ePunchStreak = 0; state.ePunchChain = 0;
         // UPPER+GUARD+UPPER用のチャージ(水色)は、ガード+ガードの金色チャージと異なりターンをまたいで持ち越さない。
         // ターン内で使われなかった場合は、ここで無駄に終わる(消える)。
         state.pUpperChargeReady = false;
@@ -7143,7 +7162,7 @@ function rushResetEnemySide() {
     state.eLastAtk = null;
     state.eNumbed = false;
     if (state.piyoSide === 'E') stopPiyo();
-    state.ePunchStreak = 0; state.eGuardStreak = 0;
+    state.ePunchStreak = 0; state.ePunchChain = 0; state.eGuardStreak = 0;
     state.eChargeValue = 0; state.eChargeIsMax = false;
     state.eUpperChargeReady = false; state.eLastWinWasUpper = false;
     state.eComboType = null; state.eComboStart = -1; state.eComboAlive = false;
