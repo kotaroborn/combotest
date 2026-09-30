@@ -3,6 +3,11 @@
 このプロジェクトの変更履歴。日付は新しいものを上に追記する。
 コード(`index.html` / `css/style.css` / `js/script.js`)や仕様に変更を加えた場合は、このファイルに追記すること(詳細は `AI_GUIDE.md` を参照)。
 
+## 2026-09-30(15)
+
+- ver. 0.9.146
+- BATTLE RUSHの雑魚の名前を「DOLL」に決定(`RUSH_MOB_NAME`)。専用グラフィック(`characters_enemy/rush/`)が配置されると、見た目と名前がDOLLに切り替わる。
+
 ## 2026-09-30(14)
 
 - ver. 0.9.145

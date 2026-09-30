@@ -6974,7 +6974,7 @@ const RUSH_BOSS_HEAL = 30; // 中ボス撃破時の回復量(2026-09-28、20→3
 const RUSH_MOB_HEAL = 5;   // 雑魚撃破時の回復量(2026-09-28追加)
 const RUSH_PLAYER_DECK = { PUNCH: 7, UPPER: 7, GUARD: 7 };
 // 雑魚用のプリセット(完全ランダム: 重みを均等にし、行動パターン・個性は持たせない)
-const RUSH_MOB_NAME = null; // 雑魚の専用グラフィックの名前(未定。決まったらここに入れる。専用グラフィックが無い/名前が未定の間はMIFUNE表記)
+const RUSH_MOB_NAME = 'DOLL'; // 雑魚の専用グラフィックの名前(2026-09-30決定)。専用グラフィックが未配置の間は見た目に合わせてMIFUNE表記
 const RUSH_MOB_PRESET = {
     get name() { return (rushMobSetName() === RUSH_MOB_SET && RUSH_MOB_NAME) ? RUSH_MOB_NAME : 'MIFUNE'; },
     deck: { PUNCH: 1, UPPER: 1, GUARD: 1 },
