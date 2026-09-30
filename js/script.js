@@ -22,7 +22,7 @@ const DB = {
         RETREAT_HALF: 200,  // 攻防のあと軽く距離を取る位置（ホームまでは戻らない）
         GROUND_MARGIN_PX: 3 // 地面バンドの高さ(ソースpx換算。キャラ下部3px想定)
     },
-    DMG: { P: 10, U: 7, M: 35, CLASH: 3, TINY: 1, P_COMBO_STEP: 5, FINISHER: 50, WALL_LAUNCH_BONUS: 2, WALL_IMPACT: 3 }, // P:パンチ勝利 / U:アッパー初撃(2026-09-20、初見のプレイヤーがコンボを知らずに単発で出した時に弱く見えすぎる問題を受け、5→7に引き上げ。コンボ・メテオ側の追撃ダメージ(P_COMBO_STEP等)には触れていないため、メテオまで通した場合の合計は65→67に微増するのみ) / M:メテオ(初撃7+追撃10+追撃15+メテオ35=合計67) / CLASH:相討ち微ダメージ / TINY:ガードされたパンチの反撃 / P_COMBO_STEP:空中パンチ連続ヒットの増加量 / FINISHER:GUARD+PUNCH+GUARD+PUNCH+PUNCH成立時の必殺技(チャージ等の影響を受けない固定値) / WALL_LAUNCH_BONUS・WALL_IMPACT:壁に叩きつける技(必殺技の壁激突・GUARD+PUNCH+UPPERの壁のめり込み)専用(2026-09-26追加)。「壁まで飛ばす力が強いので初撃に微量ダメージ増加、壁に当たること自体にも別枠のダメージ」という要望を受けたもの。WALL_LAUNCH_BONUSは初撃(パンチ/必殺技)のダメージに上乗せする微量ボーナス(他の倍率と一緒に乗算される)。WALL_IMPACTは壁に当たった瞬間の固定ダメージで、TINY/CLASHと同様チャージ・敵の個性(atkMult/defMult)いずれの倍率も適用しない(壁への激突という物理的な衝撃そのもののダメージのため)
+    DMG: { P: 10, U: 7, M: 35, CLASH: 3, TINY: 1, P_COMBO_STEP: 5, FINISHER: 50, WALL_LAUNCH_BONUS: 2, WALL_IMPACT: 3, MIRACLE: 20 }, // MIRACLE: 同じカード5枚の技の追撃ダメージ(壁激突込みの合計、2026-09-30) / // P:パンチ勝利 / U:アッパー初撃(2026-09-20、初見のプレイヤーがコンボを知らずに単発で出した時に弱く見えすぎる問題を受け、5→7に引き上げ。コンボ・メテオ側の追撃ダメージ(P_COMBO_STEP等)には触れていないため、メテオまで通した場合の合計は65→67に微増するのみ) / M:メテオ(初撃7+追撃10+追撃15+メテオ35=合計67) / CLASH:相討ち微ダメージ / TINY:ガードされたパンチの反撃 / P_COMBO_STEP:空中パンチ連続ヒットの増加量 / FINISHER:GUARD+PUNCH+GUARD+PUNCH+PUNCH成立時の必殺技(チャージ等の影響を受けない固定値) / WALL_LAUNCH_BONUS・WALL_IMPACT:壁に叩きつける技(必殺技の壁激突・GUARD+PUNCH+UPPERの壁のめり込み)専用(2026-09-26追加)。「壁まで飛ばす力が強いので初撃に微量ダメージ増加、壁に当たること自体にも別枠のダメージ」という要望を受けたもの。WALL_LAUNCH_BONUSは初撃(パンチ/必殺技)のダメージに上乗せする微量ボーナス(他の倍率と一緒に乗算される)。WALL_IMPACTは壁に当たった瞬間の固定ダメージで、TINY/CLASHと同様チャージ・敵の個性(atkMult/defMult)いずれの倍率も適用しない(壁への激突という物理的な衝撃そのもののダメージのため)
     MAX_AIR_PUNCH: 3,
     BREATH_MS: 500, // player.PNG / player2.PNG の呼吸切替間隔
     DECK_TOTAL: 21, // デッキ合計枚数(内訳は編成画面で自由配分)
@@ -4831,7 +4831,10 @@ async function runGuardPunchUpperWallStrike(attacker, defender, label = 'BREAK!'
     const wallStrikeMult = atkMultOf(attacker) * defMultOf(defender);
     if (wallStrikeMult !== 1) flashAttackerWhite(attacker); // awaitしない(敵の個性(atkMult/defMult)でダメージが通常と異なる場合のみ光らせる)
     await wait(DB.HITSTOP.POSE_MS); // ヒットストップ(被弾側は既にUPPERでdamage.PNGのまま浮いている)
-    applyDamage(defender, (DB.DMG.P + DB.DMG.WALL_LAUNCH_BONUS) * wallStrikeMult); // Beat2: ダメージ絵(命中の瞬間。壁まで飛ばす力が強いので通常のパンチより微量ダメージ増加)
+    // Beat2: ダメージ絵(命中の瞬間。壁まで飛ばす力が強いので通常のパンチより微量ダメージ増加)。
+    // MIRACLEは壁激突(WALL_IMPACT)と合わせて合計20になるよう、初撃を17にする(2026-09-30)
+    const launchBase = label === 'MIRACLE!' ? DB.DMG.MIRACLE - DB.DMG.WALL_IMPACT : DB.DMG.P + DB.DMG.WALL_LAUNCH_BONUS;
+    applyDamage(defender, launchBase * wallStrikeMult);
     playSE('se_punch');
     spawnHitEffect(attacker, 'PUNCH', 1);
     await wait(DB.HITSTOP.IMPACT_MS);
