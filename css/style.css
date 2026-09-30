@@ -1035,3 +1035,11 @@
 @keyframes vsRandomSpin { 50% { opacity: 0.35; transform: scale(0.85); } }
 .vs-sel-tile.decided { animation: vsDecided 0.5s ease-out; }
 @keyframes vsDecided { 0% { filter: brightness(2.6); transform: scale(1.12); } 100% { filter: brightness(1); transform: scale(1); } }
+
+/* ノーダメージ勝利(2026-09-30) */
+#resultNoDamageText {
+    font-size: 34px; font-weight: 900; letter-spacing: 4px; color: #fff;
+    text-shadow: 0 0 10px #ffd23c, 0 0 22px rgba(255,120,40,0.9); white-space: nowrap;
+    margin-bottom: -14px; animation: resultNoDamagePulse 1s ease-in-out infinite;
+}
+@keyframes resultNoDamagePulse { 50% { transform: scale(1.06); filter: brightness(1.3); } }

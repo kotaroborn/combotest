@@ -95,7 +95,7 @@
                 <div class="title-logo-fallback-sub">CROSS DIMENSION</div>
             </div>
         </div>
-        <div class="title-version">ver. 0.9.143</div>
+        <div class="title-version">ver. 0.9.144</div>
     </div>
     <button id="titleContinueBtn" class="text-btn" onclick="tapFlickerThen(this, () => goContinueGame())" style="display:none;">CONTINUE</button>
     <button id="startBtn" class="text-btn" onclick="tapFlickerThen(this, () => goNewGame())" disabled>NEW GAME</button>
@@ -243,6 +243,7 @@
 </div>
 <!-- 決着オーバーレイ: ヘッダー・場・手札すべてを含む画面全体を覆う -->
 <div id="resultOverlay">
+    <div id="resultNoDamageText" style="display:none;">PERFECT!!</div>
     <div id="resultPerfectText" style="display:none;">COMBO PERFECT!!</div>
     <div id="resultText"></div>
     <button id="continueBtn" onclick="goDeckBuild()">CONTINUE</button>

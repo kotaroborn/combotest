@@ -3656,6 +3656,7 @@ async function goBattleStart() {
 function resetBattleState() {
     // 第13条: state自体は再定義せず、プロパティのみ初期値に戻す
     state.hpP = 100; state.hpE = 100;
+    state.pTookDamage = false; // このバトルでプレイヤーが一度でもダメージを受けたか(PERFECT!!判定用、2026-09-30)
     state.turn = 0;
     state.hands = new Array(5).fill(null);
     state.pX = DB.POS.P_HOME_X; state.eX = DB.POS.E_HOME_X;
@@ -4004,6 +4005,9 @@ function showResult(type) {
     // 最初から最後まで一度もCOMBOが途切れずに勝利した場合、YOU WINの上に「COMBO PERFECT!!」を表示する(実績の解除自体はここでは行わない)
     const isPerfect = type !== 'KO' && state.gameMode === 'story' && !state.pHitComboEverBroken;
     document.getElementById('resultPerfectText').style.display = isPerfect ? '' : 'none';
+    // 一度もダメージを受けずに勝利した場合は「PERFECT!!」を表示する(STORY MODE・EXTRA BATTLE。COMBO PERFECTと両方達成なら両方出る)
+    const isNoDamage = type !== 'KO' && (state.gameMode === 'story' || state.gameMode === 'substoryBattle') && !state.pTookDamage;
+    document.getElementById('resultNoDamageText').style.display = isNoDamage ? '' : 'none';
 
     const continueBtn = document.getElementById('continueBtn');
     const backTitleBtn = document.getElementById('backTitleBtn');
@@ -4124,6 +4128,7 @@ function consumeUpperCharge(side) {
 }
 
 function applyDamage(target, amount) {
+    if (target === 'P' && amount > 0) state.pTookDamage = true; // ノーダメージ勝利(PERFECT!!)判定用
     if (target === 'E') {
         state.hpE = Math.max(0, state.hpE - amount);
         const ePct = state.hpE / (state.hpMaxE || 100) * 100; // 通常はhpMaxE=100のため従来通り。100 BATTLE RUSHのみ敵ごとの最大HPに対する割合
@@ -4582,7 +4587,8 @@ async function runGuardSuccess(winner, loser, loserPoseOverride) {
     state.ePunchStreak = 0; state.ePunchChain = 0;
     setAct(winner, 'guard.PNG');
     setAct(loser, loserPoseOverride || 'punch.PNG'); // ブロックされた瞬間の姿勢(通常はパンチのまま)
-    applyDamage(winner, DB.DMG.TINY); // 自己反動の微ダメージのため、チャージ倍率は適用しない
+    // (2026-09-30: 以前はここでガードした側にも反動の微ダメージ(DB.DMG.TINY)を与えていたが、守りきった側が削られるのは
+    // 不自然でノーダメージ勝利もできなかったため廃止。ガード成功は無傷)
     triggerShake(winner, 250);
     triggerShake(loser, 400); // しびれによる振動(ダメージなし)
     // ピヨり発動判定(DB.GUARD_PIYO_CHANCE、既定50%)。外れた場合はしびれフラグを立てず、
@@ -5011,8 +5017,11 @@ async function resolveExchange(pAct, eAct, cursor) {
         state.lastExchangeResult = { P: 'draw', E: 'draw' };
         state.pAct = moveSprite(pAct);
         state.eAct = moveSprite(eAct);
-        applyDamage('P', DB.DMG.CLASH);
-        applyDamage('E', DB.DMG.CLASH);
+        if (pAct !== 'GUARD') {
+            // PUNCH同士・UPPER同士はぶつかり合うので双方に微ダメージ。GUARD同士は攻撃していないので無傷(2026-09-30)
+            applyDamage('P', DB.DMG.CLASH);
+            applyDamage('E', DB.DMG.CLASH);
+        }
         // あいこ専用のSE。出した手の種類に応じて鳴らす(いずれも未配置ならse_punchで代用される)
         playSE(pAct === 'PUNCH' ? 'se_clash_punch' : pAct === 'UPPER' ? 'se_clash_upper' : 'se_clash_guard');
         triggerShake('P', 300);
