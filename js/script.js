@@ -234,20 +234,23 @@ const SUBSTORY_BY_ENEMY = {
         title: 'ノアの大事な形見',
         screens: [
             { img: 'substory_1_1.PNG', entranceEffect: 'blurIn', text: [
-                '3年前。村の教会。\nこの日は孫娘の結婚式だった。\n祝いの声と笑顔の中で、\nノアも静かに笑っていた。',
-                'ノア「幸せにな。\n孫娘「ありがとう、おじいちゃん。\nその指には銀の婚約指輪が輝いていた。'
+                '3年前。村の教会。\nこの日は孫娘の結婚式だった。',
+                '祝いの声と笑顔の中で、\nノアも静かに笑っていた。',
+                'ノア「幸せにな。\n孫娘「ありがとう、おじいちゃん。',
+                '孫娘のその指には銀の婚約指輪が輝いていた。'
             ] },
             { img: 'substory_1_2.PNG', pageSE: { 4: 'se_deck_minus' }, text: [
                 'すると突然、教会の扉が開き、\n人形のような兵を連れた道化師が\n笑って立っていた。',
                 '道化師「おめでとう〜。ボクにも祝わせてよ。',
                 '突然の襲来にノアや孫娘も傷を負い、\n神聖な教会も、理由もなく破壊されていった。',
-                '道化師「これで大体終わり……ん？\nまだキミ、生きてるの？',
-                'うずくまるノアをめがけて\n鋭利なナイフが飛んできた。'
+                '道化師「これで大体終わり……ん？\nそこのじいさん、まだ、生きてるの？',
+                'うずくまるノアをめがけて\n鋭利なナイフが投げられた！'
             ] },
-            { img: 'substory_1_3.PNG', entranceEffect: 'blackRedFlash', text: [
+            { img: 'substory_1_3.PNG', entranceSE: 'se_deck_minus', entranceEffect: 'blackRedFlash', text: [
                 '孫娘「おじいちゃん！！！！',
-                'ノア「なぜかばったのじゃ……。\n孫娘「無事で、よかった……。',
-                '孫娘はノアをかばい、静かに目を閉じた。\nノアは傷ついた体で道化師に立ち向かう。\nノア「……許さんぞぉ……貴様……！！'
+                'ノア「……！！！　なぜかばったのじゃ……。\n孫娘「……無事で、よかった……。',
+                '孫娘はノアをかばい、しずかに目を閉じた。\nノアは傷ついた体で道化師に立ち向かう。',
+                'ノア「……絶対に許さんぞぉ！……貴様ぁぁ……！！'
             ] },
         ],
     },
@@ -265,7 +268,7 @@ const SUBSTORY_BY_ENEMY = {
             { img: 'substory_2_3.PNG', text: [
                 'ノア「この村の教会を守るには、\n強さが必要じゃ。',
                 'リタはぬいぐるみを置き、\nノアの前に立った。',
-                'リタ「なら、証明してあげる……。'
+                'リタ「わかった。\nなら、証明してあげる……！！'
             ] },
         ],
     },
@@ -273,16 +276,19 @@ const SUBSTORY_BY_ENEMY = {
         title: 'ガルドが護ったイノチ',
         screens: [
             { img: 'substory_3_1.PNG', text: [
-                'かつて、魔王城の奥に\n封じられた巨大人形があった。\n若き少年は好奇心から、\nその操り糸へ手を伸ばした。',
-                'すると糸が身体に絡みつき、\n巨大人形が目を覚ました。\n少年「なに……これ……？'
+                'かつて、魔王城の奥に\n封じられた巨大人形があった。',
+                '迷い込んだある若き少年は、好奇心から、\nその人形へ手を伸ばしてしまった。',
+                'するととつぜん糸が身体に絡みつき、\n巨大人形が目を覚ました。',
+                '少年「なに……これ……？'
             ] },
             { img: 'substory_3_2.PNG', text: [
-                '異変を聞き駆けつけた門番ガルドの前に、\n糸に操られた少年が立っていた。',
-                '少年は自らの意志に逆らい、ガルドへ襲いかかる。'
+                '異変を聞き駆けつけた門番ガルドの前には、\n糸にあやつられた少年が立っていた。',
+                '少年は自らの意志に逆らい、ガルドへ向かってくる。'
             ] },
             { img: 'substory_3_3.PNG', text: [
-                '少年「逃げて……！身体が動かない！\nガルド「そうはいかん。おまえを助ける。',
-                '人形の支配を弱めるには、\n操られた少年をたおすしかない。\nガルドは拳をかまえた。'
+                '少年「逃げて……！身体が動かない！',
+                'ガルド「そうはいかん……おまえを助ける！！',
+                '人形の支配を弱めるには、\nあやつられた少年をたおすしかない。\nガルドは拳をかまえた。'
             ] },
         ],
     },
@@ -291,17 +297,19 @@ const SUBSTORY_BY_ENEMY = {
         screens: [
             { img: 'substory_4_1.PNG', text: [
                 '昔、ある教会に\n司祭の息子がいた。',
-                'ある日、少年は\n教会の外ではぐれ……\nそのまま行方不明になった。'
+                'ある日、その息子は\n教会の外ではぐれ……\nそのまま行方不明になった。'
             ] },
-            { img: 'substory_4_2.PNG', text: [
+            // exitFade: 最後のページを読み終えたら、画像を黒へフェードアウトする
+            { img: 'substory_4_2.PNG', exitFade: true, text: [
                 'それから数年後……\n義眼を持つ道化師が現れた。\n名は、ジャック。',
                 'ジャックの身体は、\n時おり勝手に動きだし、\n各地の教会を襲った。',
                 '司祭もその手にかかり、\n命を落とした。'
             ] },
-            { img: 'substory_4_3.PNG', text: [
-                'ジャックを追って、\nリタは魔王城へたどり着いた。',
-                'リタ「やっと見つけた！\n司祭様のカタキ……ここで倒す！',
-                'ジャック「……ボクが？\nそんなの覚えてないなぁ。'
+            // darkUntilPage: 指定ページ(0始まり)までは画像を暗いままにし、そのページでフェードインする
+            { img: 'substory_4_3.PNG', darkUntilPage: 1, text: [
+                'そこからさらに数年。\nひとりの聖職者がジャックのもとへ現れた。',
+                'リタ「はぁ、はぁ……その義眼…！\nやっと見つけた……！\n司祭様のカタキ……ここで倒す！',
+                'ジャック「……ボクが？\nふふふ。やられるワケないじゃん…'
             ] },
         ],
     },
@@ -310,18 +318,18 @@ const SUBSTORY_BY_ENEMY = {
         screens: [
             { img: 'substory_5_1.PNG', text: [
                 'かつて二つの世界は、\n互いの存在を知らずにいた。',
-                'だが近年の生成AIの登場が\n世界の痕跡を結び、誰かがその存在に気づきはじめる。',
+                'だが近年の生成AIの登場が\n世界の痕跡を結び、\n誰かがその存在に気づきはじめる。',
                 'アルヴ「……境界が揺らいでいる。\nお前が来る日も近いということか……。'
             ] },
             { img: 'substory_5_2.PNG', text: [
-                'アルヴが感じ取った存在。\nその名は、ヴァル。',
+                'アルヴが感じ取った存在。\nそれは、ヴァルだった。',
                 '二人は表裏一体。\n同じ世界に二人が存在することは\n世界の仕組みで許されない。',
                 'アルヴ「ならば備えるまでだ。\n私は消えるわけにはいかない。'
             ] },
             { img: 'substory_5_3.PNG', text: [
-                'アルヴは義眼を通じて\nジャックを操り、人々の魂を集めていく。',
-                'そしてアルヴは、集めた魂を器にして、\n仮想ヴァルというべき存在を造り出した。',
-                'アルヴ「来い、ヴァルよ。\nお前を討つ。'
+                'アルヴは、ジャックの義眼を通じて\nジャックを操り、人々の魂を集めていく。',
+                'そしてアルヴは、ジャックの集めた魂を器にして、\n仮想ヴァルというべき存在を造り出した。',
+                'アルヴ「来い、ヴァルよ。\nお前を討つ……！'
             ] },
         ],
     },
@@ -654,6 +662,52 @@ let logoTokenCounter = 0;
 
 
 // ------- プロローグ: op_1.PNG〜op_4.PNG(任意アセット)。未用意でもエラー扱いにせずプレースホルダー表示にする -------
+// ============================================================
+// カットシーンの文字送り(2026-09-30追加、プロローグ/ストーリー/エンディング/サブストーリー/エピローグ共通)
+// ・「名前「」で始まる行は、名前と「を金色にする(.cine-speaker)
+// ・文字送り中は▌、読み終えてタップ待ちの時は▼、自動送りの時は■を文末に点滅表示する(data-cine属性でCSSが切り替える)
+// ・タップで進む場面では、文字送りの途中でタップすると全文を一気に表示する(cineSkipRequested)
+// ============================================================
+let cineSkipRequested = false;
+function escapeCineHtml(t) { return t.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+// 全文から話し手の名前部分(各行頭の「名前「」)の範囲を求める
+function cineSpeakerRanges(text) {
+    const ranges = [];
+    let lineStart = 0;
+    for (const line of text.split('\n')) {
+        const m = line.match(/^([^「」\s、。…！？!?]{1,10}「)/);
+        if (m) ranges.push([lineStart, lineStart + m[1].length]);
+        lineStart += line.length + 1;
+    }
+    return ranges;
+}
+function renderCineText(text, n, ranges) {
+    let html = '', pos = 0;
+    for (const [a, b] of ranges) {
+        if (a >= n) break;
+        html += escapeCineHtml(text.slice(pos, a)) + '<span class="cine-speaker">' + escapeCineHtml(text.slice(a, Math.min(b, n))) + '</span>';
+        pos = Math.min(b, n);
+    }
+    return html + escapeCineHtml(text.slice(pos, n));
+}
+// 1文字ずつ表示する。isCancelled()がtrueになったら中断してfalseを返す。canSkipがtrueなら途中のタップで全文表示
+async function typeCineText(el, text, ms, isCancelled, canSkip) {
+    const ranges = cineSpeakerRanges(text);
+    el.dataset.cine = 'typing';
+    cineSkipRequested = false;
+    for (let n = 1; n <= text.length; n++) {
+        if (isCancelled()) return false;
+        if (canSkip && cineSkipRequested) n = text.length;
+        el.innerHTML = renderCineText(text, n, ranges);
+        if (n < text.length) await wait(ms);
+    }
+    cineSkipRequested = false;
+    return !isCancelled();
+}
+// 読み終えた後の表示: 'tap'=▼(タップ待ち) / 'auto'=■(自動送り)
+function setCineTextEnd(el, mode) { el.dataset.cine = mode; }
+function clearCineText(el) { el.innerHTML = ''; el.dataset.cine = 'typing'; }
+
 // 2026-09-29、テキストと演出を改訂。enter/exitで画面ごとの入り方・終わり方を指定する(playPrologue参照)。
 //   enter: 'fade'(黒からフェードイン) / 'flash'(白フラッシュ+画面の揺れ) / 省略(そのまま切り替え)
 //   exit:  'fade'(黒へフェードアウト) / 'swirl'(渦を巻くようにフェードアウト) / 省略(そのまま次へ)
@@ -705,25 +759,40 @@ const STORY_SCREENS_BY_ENEMY = {
         ] }
     ],
     ENEMY_02: [
-        { img: 'story_2_1.PNG', text: 'ノアに勝って話を聞くと、\n教会で妙な渦を見たという。\nヴァルは村の教会を訪ねた。' },
-        { img: 'story_2_2.PNG', text: [
-            '教会は古びていて、すでに廃墟になっていた。\nそこにいたのは、修道女のリタだった。',
-            'リタ「ちょっとーー！ なによ、勝手に入ってきて……\nアンタみたいなの、\n神聖な教会には入れないんだから！'
+        { img: 'story_2_1.PNG', text: [
+            'ノアに勝ち、話を聞くと、\n村の教会のあたりで妙な渦を見かけたという。',
+            'ヴァルは吸い込まれた渦とのつながりを\n確かめるため、村の教会を訪ねた。'
         ] },
-        { img: 'story_2_3.PNG', text: 'リタ「……まだ出てかない気？\nじゃ、“ウイングアッパー”で\nK.O.して追い出すからっ！' }
+        // enter:'fade'で黒からフェードイン、spotlightで数秒間だけ周りを暗く中心を明るくする。
+        // ページを{ text, shake:true }にすると、その文を表示し終えた瞬間に画面をどかっと揺らす
+        { img: 'story_2_2.PNG', enter: 'fade', spotlight: true, text: [
+            '教会は古びていて、すでに廃墟になっていた。',
+            'そしてそこに立っていたのは、聖職者のリタだった。',
+            'リタ「ちょっとーー！ なによ、勝手に入ってきて……',
+            'リタ「……っ！',
+            { text: 'リタ「アンタみたいなのは\n神聖な教会には入れないんだから！早く出てけ！', shake: true }
+        ] },
+        { img: 'story_2_3.PNG', text: [
+            'リタ「……まだ出てかない気？\nじゃあ、ここの住人として遠慮なく……',
+            'リタ「必殺！！“えんじぇるアッパー”で\n追い出してやるよっ！！'
+        ] }
     ],
     ENEMY_03: [
         { img: 'story_3_1.PNG', text: [
-            'リタとの戦いの最中、\n大きな渦が上空を包み込む。',
-            'リタ「なっ…なんなのよ、あのトリみたいな\nバカでかい魔物…\nあの渦から出てきた…？',
-            'リタ「えっ…あなた、あれを追うって言うの？',
-            'ヴァルは、大きな渦から現れた魔物を追うため、\n教会を後にした。'
+            'リタとの戦いの最中、\n突然、大きな渦が上空を包み込む。',
+            'リタ「なっ…なんなのよ、あの渦……\nもしかしてアンタ、あれを探してたの？',
+            'ヴァル「あぁ。あの渦から出てきた魔物を追えば\n何か分かるかもしれないな……',
+            'ヴァルは、大きな渦から現れた謎の生物を追うため、\n教会を後にした。'
         ] },
-        { img: 'story_3_2.PNG', text: '魔物を追い、大きな門にたどり着いたヴァル。' },
+        { img: 'story_3_2.PNG', text: [
+            '大きな門にたどり着いたヴァル。',
+            '謎の生物はその先の城に向かって飛び去っていった。',
+            'ヴァル「アイツは……あの城に何かあるのか？'
+        ] },
         { img: 'story_3_3.PNG', text: [
             'ガルド「…やっと。やっと来たか……。\nこの門の先を目指す者よ。',
             'ガルド「この先へは……\n通すわけにはいかん。',
-            'ガルド「なぜならオレは、“守り通す”ことが\n宿命だからな……！！！'
+            { text: 'ガルド「なぜならオレは、ここで“守り通す”ことが\n宿命だからな……！！！', shakeBefore: true }
         ] }
     ],
     ENEMY_04: [
@@ -733,11 +802,12 @@ const STORY_SCREENS_BY_ENEMY = {
         ] },
         { img: 'story_4_2.PNG', text: [
             'ヴァルが見上げると、\n大きな操り人形の上に道化師の姿があった。',
-            'ジャック「ボクはジャックっていうよ。\n…ヴァル。',
+            'ジャック「ボクはジャック。\nよろしくね…ヴァル。',
+            'ヴァル「おい、なんでオレのことを……！',
             'ジャック「…ナルホドね…。\nたしかに魔王様と同じニオイだ。\nだから来たんだね…。'
         ] },
         { img: 'story_4_3.PNG', text: [
-            'ジャック「でもその前に\n遊んでいこうよ？！',
+            { text: 'ジャック「でもその前に\n遊んでいこうよ？！', shakeBefore: true }, // 画像が出た瞬間に画面をどかっと揺らす
             'ジャック「ボクの“天才的なワザの数々”を\nキミにお見せしたいんだ！！！！'
         ] }
     ],
@@ -748,11 +818,15 @@ const STORY_SCREENS_BY_ENEMY = {
         ] },
         { img: 'story_5_2.PNG', text: [
             'アルヴ「つまり、この世界のヴァル。\nそれが私ということだ。',
-            'ヴァル「お前が…この世界のオレ…だと…？',
-            'アルヴ「そうだ。この世界は、\nキサマの世界と対を成す世界。\nもっとも、今は何の因果か、つながりが\n曖昧になってしまっているがな。',
-            'アルヴ「この世界に同じ魂は永く存在できない。\n私はキサマを排除せねばならん。\nそれはキサマにとっても同じこと。'
+            'ヴァル「お前が、この世界のオレ…だと……？',
+            'アルヴ「そうだ。\nこの世界は、キサマの世界と対を成す世界。\nもっとも今は、何の因果か、\n境界が曖昧になってしまっているがな……。',
+            'アルヴ「この世界に、同じ魂は永く存在できない。\n私が存在するために、\n私はキサマを排除せねばならん。'
         ] },
-        { img: 'story_5_3.PNG', text: 'アルヴ「さあ、ヴァルよ。\nキサマの最後だ。死ぬ気で\n“全てを出し尽くしてみせろ” …。\n私の野望のための血肉となるがいい！' }
+        // flash:'pulse': 画像が出た瞬間にピカピカと数回フラッシュし、その後もこの画面の間は3秒ごとにフラッシュし続ける
+        { img: 'story_5_3.PNG', flash: 'pulse', text: [
+            'アルヴ「……さあ、ヴァルよ。\nキサマの最後だ。',
+            'アルヴ「死ぬ気で\n“全てを出し尽くしてみせろ” ……！\nそして、私の野望のための血肉となるがいい！'
+        ] }
     ]
 };
 // 現在対戦中の敵(state.storyEnemyIndex)に対応する3画面分のストーリーを返す
@@ -762,6 +836,26 @@ function currentStoryScreens() {
 }
 
 let storyToken = 0; // SKIP時に進行中のタイプライター処理を打ち切るためのトークン
+let storyFlashTimer = null; // flash:'pulse'の画面で、3秒ごとのフラッシュを繰り返すためのタイマー
+function stopStoryFlashPulse() {
+    if (storyFlashTimer) { clearInterval(storyFlashTimer); storyFlashTimer = null; }
+    const el = document.getElementById('storyFlash');
+    if (el) { el.style.transition = 'none'; el.style.opacity = '0'; }
+}
+// 画像部分を短く白く光らせる(times回、ピカピカと)
+async function storyFlashBurst(times, token) {
+    const el = document.getElementById('storyFlash');
+    if (!el) return;
+    for (let k = 0; k < times; k++) {
+        if (storyToken !== token) return;
+        el.style.transition = 'none';
+        el.style.opacity = '0.9';
+        await wait(70);
+        el.style.transition = 'opacity 0.12s ease-out';
+        el.style.opacity = '0';
+        await wait(110);
+    }
+}
 
 // ------- エンディングシーン(5人目撃破後のみ再生): ending_1.PNG〜ending_5.PNG(任意アセット)。プロローグ/ストーリーと同じ仕組みを流用 -------
 const ENDING_SCREENS = [
@@ -1746,14 +1840,9 @@ async function playPrologue() {
         const pages = Array.isArray(screen.text) ? screen.text : [screen.text];
         for (let p = 0; p < pages.length; p++) {
             if (prologueToken !== myToken) return;
-            textEl.innerText = '';
-            for (let c = 0; c < pages[p].length; c++) {
-                if (prologueToken !== myToken) return;
-                textEl.innerText += pages[p][c];
-                await wait(90); // 1文字ずつ表示するスピード
-            }
-
-            if (prologueToken !== myToken) return;
+            clearCineText(textEl);
+            if (!await typeCineText(textEl, pages[p], 90, () => prologueToken !== myToken, false)) return; // 1文字ずつ(自動送りなので途中タップでの全文表示はしない)
+            setCineTextEnd(textEl, 'auto'); // 自動送り: 文末に■
             await wait(4000); // 1ページ読み終えてから次へ
         }
 
@@ -1784,6 +1873,7 @@ let storyTapResolve = null; // タップ待ち中のPromiseのresolve関数(待�
 // storyContentタップ時に呼ばれる。タップ待ち中なら、待機しているplayStorySequence()を1つだけ先に進める
 function onStoryTap() {
     if (storyTapResolve) { storyTapResolve(); storyTapResolve = null; }
+    else cineSkipRequested = true; // 文字送りの途中なら全文を一気に表示する
 }
 
 // ストーリーシーン内の隠しタップゾーンをタップした時に呼ばれる。現在再生中の敵に対応するサブストーリーを解除する。
@@ -1924,6 +2014,7 @@ function goStoryThenDeck() {
 
 function skipStorySequence() {
     storyToken++; // 進行中のawaitループを無効化する
+    stopStoryFlashPulse(); // 繰り返しフラッシュも止める
     if (storyTapResolve) { storyTapResolve(); storyTapResolve = null; } // タップ待ちで止まっていれば解除する(でないとトークン確認まで到達できない)
     goDeckBuild('story');
 }
@@ -1975,10 +2066,7 @@ async function playStorySequence() {
             imgArea.classList.add('placeholder');
             fallback.innerText = screen.img + ' (未配置)';
         }
-        if (state.storyEnemyIndex === 3 && i === 2) {
-            // 4人目(Jack)の3枚目の画像が出てくる瞬間、画像を揺らす
-            triggerCineShake('storyImgArea');
-        }
+        // (以前はここで4人目(Jack)の3枚目だけ画像を軽く揺らしていたが、2026-09-30からページ指定のshakeBefore(画面ごとどかっと揺らす)に置き換えた)
         // 隠しタップは3画面のうち対象の1枚だけで有効にする(敵ごとに違う画面。それ以外の画面では押せないようにする)
         const hiddenTapScreenIdx = STORY_HIDDEN_TAP_SCREEN_BY_ENEMY[ENEMY_ORDER[state.storyEnemyIndex]] ?? 1;
         const hiddenTapEl = document.getElementById('storyHiddenTap');
@@ -1994,25 +2082,62 @@ async function playStorySequence() {
             hiddenTapEl.style.top = (pos.y - tapH / 2) + '%';
         }
 
-        if (i === 0) {
-            // 一番はじめの画面だけフェードインで始める
+        content.classList.remove('cine-shake'); // 前の画面の揺れ演出のクラスを外しておく
+        stopStoryFlashPulse(); // 前の画面の繰り返しフラッシュを止める
+        if (screen.flash === 'pulse') {
+            // 画像が出た瞬間にピカピカと光らせ、その後もこの画面の間は3秒ごとに光らせ続ける(awaitせずテキスト送りと並行)
+            playSE('se_meteor');
+            storyFlashBurst(3, myToken);
+            storyFlashTimer = setInterval(() => {
+                if (storyToken !== myToken) { stopStoryFlashPulse(); return; }
+                storyFlashBurst(1, myToken);
+            }, 3000);
+        }
+        const spotlight = document.getElementById('storySpotlight');
+        if (screen.spotlight) {
+            // 周りが暗く中心が明るい状態から始め、数秒後にゆっくり晴れる(フェードインと並行して進み、テキスト送りは止めない)
+            spotlight.style.transition = 'none';
+            spotlight.style.opacity = '1';
+            setTimeout(() => {
+                if (storyToken !== myToken) return;
+                spotlight.style.transition = 'opacity 2s ease-out';
+                spotlight.style.opacity = '0';
+            }, 4000);
+        } else {
+            spotlight.style.transition = 'none';
+            spotlight.style.opacity = '0';
+        }
+
+        if (i === 0 || screen.enter === 'fade') {
+            // 一番はじめの画面、およびenter:'fade'の画面はフェードインで始める
+            textEl.innerText = '';
+            content.style.transition = 'none';
+            content.style.opacity = '0';
             await wait(30); // 直前のopacity:0が確実に描画されてから遷移を開始させる
             content.style.transition = 'opacity 1s ease-in';
             content.style.opacity = '1';
             await wait(1000);
+            if (storyToken !== myToken) return;
         }
 
         // textは通常は1画面1ページの文字列だが、同じ画像のまま複数ページ分のセリフを送りたい場合は配列にできる
         // (例: 教会の場面のように、1枚の絵の中で会話が続く場合)。配列でなければ1ページ扱いにする。
+        // 各ページは文字列、または{ text, shake, shakeBefore }(shake:trueなら表示し終えた瞬間、shakeBefore:trueならページの始まりに画面をどかっと揺らす)
         const pages = Array.isArray(screen.text) ? screen.text : [screen.text];
         for (let p = 0; p < pages.length; p++) {
             if (storyToken !== myToken) return;
+            const page = typeof pages[p] === 'string' ? { text: pages[p] } : pages[p];
             textEl.innerText = '';
-            for (let c = 0; c < pages[p].length; c++) {
-                if (storyToken !== myToken) return;
-                textEl.innerText += pages[p][c];
-                await wait(45); // 1文字ずつ表示するスピード
-            }
+            const doShake = () => {
+                playSE('se_kabe');
+                content.classList.remove('cine-shake');
+                void content.offsetWidth;
+                content.classList.add('cine-shake');
+            };
+            if (page.shakeBefore) doShake(); // shakeBefore:trueなら、そのページが始まる瞬間に揺らす
+            if (!await typeCineText(textEl, page.text, 45, () => storyToken !== myToken, true)) return; // 途中タップで全文表示
+            setCineTextEnd(textEl, 'tap'); // タップ待ち: 文末に▼
+            if (page.shake) doShake(); // shake:trueなら、その文を表示し終えた瞬間に揺らす
 
             if (storyToken !== myToken) return;
             // オープニング(プロローグ)とは異なり、ストーリーシーンは自動送りにしない。
@@ -2022,6 +2147,7 @@ async function playStorySequence() {
         }
     }
 
+    stopStoryFlashPulse();
     if (storyToken !== myToken) return;
     goDeckBuild('story'); // 3画面すべて終わったらデッキ編成へ
 }
@@ -2082,12 +2208,9 @@ async function playEndingSequence() {
         // textは通常は1画面1ページの文字列だが、同じ画像のまま複数ページ分のテキストを送りたい場合は配列にできる
         const pages = Array.isArray(screen.text) ? screen.text : [screen.text];
         for (let p = 0; p < pages.length; p++) {
-            textEl.innerText = '';
-            for (let c = 0; c < pages[p].length; c++) {
-                textEl.innerText += pages[p][c];
-                await wait(90); // 0.5倍速: 45ms→90ms
-            }
-
+            clearCineText(textEl);
+            await typeCineText(textEl, pages[p], 90, () => false, false); // 0.5倍速: 45ms→90ms(スキップ不可の自動送り)
+            setCineTextEnd(textEl, 'auto'); // 自動送り: 文末に■
             await wait(4000); // 0.5倍速: 2000ms→4000ms
         }
     }
@@ -5441,6 +5564,7 @@ let subStoryReadIdx = null; // readSubStoryで現在読んでいるサブスト�
 
 function onSubStoryTap() {
     if (subStoryTapResolve) { subStoryTapResolve(); subStoryTapResolve = null; }
+    else cineSkipRequested = true; // 文字送りの途中なら全文を一気に表示する
 }
 function waitForSubStoryTap() {
     return new Promise(resolve => { subStoryTapResolve = resolve; });
@@ -5451,26 +5575,33 @@ function waitForSubStoryTap() {
 // サブストーリーバトル(検討中の新機能)勝利後のエピローグ。1枚の画像+複数ページのテキストで構成する
 // (通常のサブストーリー=3画面とは異なり1画面のみ)。表示にはreadSubStoryと同じDOM要素を流用する。
 const SUBSTORY_BATTLE_EPILOGUE = {
-    ENEMY_01: { img: 'substory_battle_1.PNG', text: [
+    // darkUntilPage: 指定ページ(0始まり)までは画面を暗いままにし、そのページでフェードインする
+    ENEMY_01: { img: 'substory_battle_1.PNG', darkUntilPage: 1, text: [
         '戦いの末、ノアは道化師を逃がしてしまった。\nそれを3年の間ずっと悔やんでいた。',
-        'そして今、そのとき無くなったはずの\n婚約指輪が偶然見つかる。\nノアは形見を強く握り、誓った。',
-        'ノア「……今度こそ守ってみせる。'
+        'そして今、そのとき無くなったはずの\n婚約指輪が偶然見つかる。',
+        'ノアは形見を強く握り、誓った。',
+        'ノア「……今度こそ、この村を守ってみせる。'
     ] },
+    // whiteFadeAtPage: 画面を出す前に白くフラッシュして白のまま始め、指定ページで白からフェードインする
     ENEMY_02: { img: 'substory_battle_2.PNG', whiteFadeAtPage: 1, text: [
         '戦いのさなか、\nぬいぐるみが宙へ投げ出された。',
-        'リタはノアに背を向け、\nとっさにぬいぐるみを抱き止めた。\nノアの拳が、\nその背中の寸前で止まる。',
-        'ノア「……託されたものを守り抜く。\nそれも大事なことじゃ。',
-        'ノアはリタに教会の鍵を託し、\n村の聖職者として教会で暮らすことになった。'
+        'リタは、とっさにぬいぐるみを抱き止めた。\nノアの拳が、リタの背中の寸前で止まる。',
+        'ノア「……託されたものを守り抜く。\n……大事なことじゃ。',
+        'かくして、ノアはリタに教会の鍵を渡し、\n村の聖職者として教会で暮らすことになった。'
     ] },
-    ENEMY_03: { img: 'substory_battle_3.PNG', shake: true, darkenAtPage: 2, text: [
-        '少年が倒れると操り糸は切れるが、\n戦いの衝撃によって壁が崩れ、二人を襲う。',
-        'ガルドは少年を覆い被さって護るが、\n少年の息は止まっていた。',
-        '……ガルドは今も、そのときについた額のキズを\n自らの過ちとして刻みながら生き続ける。'
+    // shakeAtPage/shakeMs: 指定ページで指定時間だけ画面を揺らす。darkenAtPage: 指定ページから画像が徐々に暗くなる
+    ENEMY_03: { img: 'substory_battle_3.PNG', darkUntilPage: 1, shakeAtPage: 1, shakeMs: 2000, darkenAtPage: 3, text: [
+        '少年が倒れると、あやつられていた糸は切れた。',
+        'だが、戦いの衝撃によって壁が崩れ、二人を襲った。',
+        'ガルドは少年を覆い被さって護るが、\n少年の息は、止まってしまっていた。',
+        '……ガルドは、そのときについた額のキズを\n自らの過ちとして刻みながら生き続けている。'
     ] },
     ENEMY_04: { img: 'substory_battle_4.PNG', text: [
-        '道化師はその場を去り、\n敗れたリタのそばに、\n古いぬいぐるみが転がる。',
-        'リタ「…くっ…\n司祭様の子どもが大事にしてた\nぬいぐるみ……',
-        'リタ「その子の名は……ジャック……'
+        'ジャック「……じゃあね。\nこの“目”が呼んでるんだ。',
+        '敗れたリタのそばに、\n古いぬいぐるみが転がる。',
+        'リタ「…くっ…\n司祭様の大事にしていたぬいぐるみ……',
+        'リタ「……司祭様の息子の名は……“ジャック”……',
+        'リタ「あなた、なんでしょ……！？'
     ] },
     ENEMY_05: { img: 'substory_battle_5.PNG', text: [
         '仮想ヴァルは倒れた。\nだが本物が現れる日は、確実に近づいていた。',
@@ -5509,7 +5640,15 @@ async function playSubstoryBattleEpilogue(playerPresetKey) {
     block.style.transition = 'none';
     block.style.opacity = '0';
     await wait(30);
-    block.style.transition = 'opacity 0.6s ease-in';
+    if (epilogue && epilogue.whiteFadeAtPage !== undefined) {
+        // 白から始まるエピローグは、黒から一瞬でパッと白くフラッシュさせる(フェードで徐々に白くしない)
+        flashEl.style.transition = 'none';
+        flashEl.style.background = '#fff';
+        flashEl.style.opacity = '1';
+        block.style.transition = 'none';
+    } else {
+        block.style.transition = 'opacity 0.6s ease-in';
+    }
     block.style.opacity = '1';
 
     if (epilogue) {
@@ -5545,6 +5684,11 @@ async function playSubstoryBattleEpilogue(playerPresetKey) {
                 flashEl.style.transition = 'none';
                 flashEl.style.background = '#fff';
                 flashEl.style.opacity = '1';
+            } else if (epilogue.darkUntilPage !== undefined) {
+                // 画面は暗いまま(黒で覆い隠す)始め、指定ページでフェードインする
+                flashEl.style.transition = 'none';
+                flashEl.style.background = '#000';
+                flashEl.style.opacity = '1';
             } else {
                 flashEl.style.opacity = '0';
             }
@@ -5556,17 +5700,21 @@ async function playSubstoryBattleEpilogue(playerPresetKey) {
                     imgArea.style.transition = 'filter 1.8s ease-out';
                     imgArea.style.filter = 'brightness(0.15)';
                 }
-                if (epilogue.whiteFadeAtPage === p) {
+                if (epilogue.whiteFadeAtPage === p || epilogue.darkUntilPage === p) {
                     flashEl.style.transition = 'opacity 1.8s ease-out';
                     flashEl.style.opacity = '0';
                 }
-                textEl.innerText = '';
-                for (let c = 0; c < pages[p].length; c++) {
-                    if (subStoryToken !== myToken) break;
-                    textEl.innerText += pages[p][c];
-                    await wait(45);
+                if (epilogue.shakeAtPage === p) {
+                    imgArea.classList.remove('shaking-loop');
+                    void imgArea.offsetWidth;
+                    imgArea.classList.add('shaking-loop');
+                    setTimeout(() => {
+                        if (subStoryToken === myToken) imgArea.classList.remove('shaking-loop');
+                    }, epilogue.shakeMs || 1000);
                 }
-                if (subStoryToken !== myToken) break;
+                clearCineText(textEl);
+                if (!await typeCineText(textEl, pages[p], 45, () => subStoryToken !== myToken, true)) break; // 途中タップで全文表示
+                setCineTextEnd(textEl, 'tap'); // タップ待ち: 文末に▼
                 await waitForSubStoryTap();
             }
             imgArea.classList.remove('shaking-loop'); // 次に別のサブストーリー等を開いた時に揺れが残らないよう、必ずリセットする
@@ -5649,6 +5797,7 @@ async function readSubStory(idx) {
     block.style.opacity = '1';
     flashEl.style.transition = 'none';
     flashEl.style.opacity = '0'; // 他の機能(エピローグのwhiteFadeAtPage等)がこの要素を使った直後でも、必ず非表示から始める
+    subStoryPrevExitFade = false;
 
     // 表示を始める前に3画面分の画像・BGM両方の読み込み完了を待つ(未配置ならnullで解決されすぐ進む)。読み込みが
     // 間に合っていない場合は#sceneLoadingScreenで明示的にローディングを見せる(以前はここでも画面が一時的に空白のままだった)。
@@ -5663,6 +5812,13 @@ async function readSubStory(idx) {
         const screen = sub.screens[i];
         if (subStoryToken !== myToken) return; // 戻る/閉じるで中断されていたら止める
 
+        if (screen.darkUntilPage !== undefined) {
+            // 画像を見せる前に黒で覆っておく(指定ページでフェードインする)
+            flashEl.style.transition = 'none';
+            flashEl.style.background = '#000';
+            flashEl.style.opacity = '1';
+        }
+        if (screen.entranceSE) playSE(screen.entranceSE); // 画面が切り替わる瞬間の効果音(2026-09-30追加)
         // 画面切り替え時の特殊演出(screen.entranceEffect)。無指定なら従来通り即座に切り替える。
         if (screen.entranceEffect === 'blackRedFlash') {
             // 黒画面を保持→赤く一瞬フラッシュ→裏で画像を差し替えてから消す、という2段階の演出
@@ -5712,6 +5868,14 @@ async function readSubStory(idx) {
             imgArea.style.filter = 'none'; // 前の画面でぼかしが残っていないよう、毎回明示的にリセットする
         }
         if (subStoryToken !== myToken) return;
+        if (screen.darkUntilPage === undefined && screen.entranceEffect !== 'blackRedFlash' && subStoryPrevExitFade) {
+            // 前の画面がexitFadeで暗転していた場合は、黒からフェードインして見せる
+            flashEl.style.transition = 'opacity 1s ease-in';
+            flashEl.style.opacity = '0';
+            await wait(1000);
+            if (subStoryToken !== myToken) return;
+        }
+        subStoryPrevExitFade = false;
 
         // textは通常は1画面1ページの文字列だが、同じ画像のまま複数ページ分のテキストを送りたい場合は配列にできる
         const pages = Array.isArray(screen.text) ? screen.text : [screen.text];
@@ -5720,17 +5884,26 @@ async function readSubStory(idx) {
 
             // ページ単位で効果音を鳴らしたい場合(screen.pageSE、キーはページ番号=0始まり)
             if (screen.pageSE && screen.pageSE[p]) playSE(screen.pageSE[p]);
-
-            textEl.innerText = '';
-            for (let c = 0; c < pages[p].length; c++) {
-                if (subStoryToken !== myToken) return;
-                textEl.innerText += pages[p][c];
-                await wait(45);
+            if (screen.darkUntilPage === p) {
+                flashEl.style.transition = 'opacity 1.8s ease-out';
+                flashEl.style.opacity = '0';
             }
 
-            if (subStoryToken !== myToken) return;
+            clearCineText(textEl);
+            if (!await typeCineText(textEl, pages[p], 45, () => subStoryToken !== myToken, true)) return; // 途中タップで全文表示
+            setCineTextEnd(textEl, 'tap'); // タップ待ち: 文末に▼
             await waitForSubStoryTap(); // 本編と同じくタップで次へ(自動送りしない)
             if (subStoryToken !== myToken) return;
+        }
+        if (screen.exitFade) {
+            // 読み終えたら画像を黒へフェードアウトする(テキストも消す)
+            textEl.innerText = '';
+            flashEl.style.transition = 'opacity 1.5s ease-out';
+            flashEl.style.background = '#000';
+            flashEl.style.opacity = '1';
+            await wait(1500);
+            if (subStoryToken !== myToken) return;
+            subStoryPrevExitFade = true;
         }
     }
 
@@ -5757,6 +5930,7 @@ function skipSubStoryToBattle() {
 }
 
 // 「このキャラでバトルをしますか？」確認パネルの制御。解放済みのサブストーリーを読み終えた直後にのみ表示する。
+let subStoryPrevExitFade = false; // 直前の画面がexitFadeで暗転したままか(次の画面をフェードインで見せるため)
 let pendingSubstoryBattleIdx = null; // 確認パネル表示中、対象のサブストーリー番号(0〜4)を覚えておく
 function openSubstoryBattleConfirm(idx) {
     pendingSubstoryBattleIdx = idx;
@@ -7089,3 +7263,43 @@ function closeRecordsBackdrop(e) { if (e.target.id === 'recordsOverlay') closeRe
 function recordsHasUndiscovered() {
     return buildRecordsItems().some(it => !it.gift && !it.got);
 }
+
+
+// ============================================================
+// HOW TO内のカード名をカードのアイコン画像に置き換える(2026-09-30追加)
+// 「PUNCH」「UPPER」「GUARD」、および「（パンチ）」「（アッパー）」「（ガード）」の書き方を対象にする
+// (今後HOW TOの文面を書き換える時は（ガード）のように書けばアイコンになる)。見出しの<b>内も対象。
+// ============================================================
+const HOWTO_CARD_ICON_PATTERNS = [
+    { re: /（パンチ）|\(パンチ\)|PUNCH/g, img: 'card_P.PNG', label: 'PUNCH' },
+    { re: /（アッパー）|\(アッパー\)|UPPER/g, img: 'card_U.PNG', label: 'UPPER' },
+    { re: /（ガード）|\(ガード\)|GUARD/g, img: 'card_G.PNG', label: 'GUARD' },
+];
+function applyHowToCardIcons(root) {
+    if (!root) return;
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    const nodes = [];
+    while (walker.nextNode()) nodes.push(walker.currentNode);
+    const anyRe = /（パンチ）|\(パンチ\)|PUNCH|（アッパー）|\(アッパー\)|UPPER|（ガード）|\(ガード\)|GUARD/g;
+    nodes.forEach(node => {
+        const text = node.nodeValue;
+        if (!anyRe.test(text)) return;
+        anyRe.lastIndex = 0;
+        const frag = document.createDocumentFragment();
+        let pos = 0, m;
+        while ((m = anyRe.exec(text))) {
+            frag.appendChild(document.createTextNode(text.slice(pos, m.index)));
+            const def = HOWTO_CARD_ICON_PATTERNS.find(d => { d.re.lastIndex = 0; return d.re.test(m[0]); });
+            const img = document.createElement('img');
+            img.className = 'howto-card-icon';
+            img.src = 'assets/images/cards/' + def.img;
+            img.alt = def.label;
+            img.onerror = () => { img.replaceWith(document.createTextNode(def.label)); }; // 画像が無ければ文字に戻す
+            frag.appendChild(img);
+            pos = m.index + m[0].length;
+        }
+        frag.appendChild(document.createTextNode(text.slice(pos)));
+        node.parentNode.replaceChild(frag, node);
+    });
+}
+applyHowToCardIcons(document.querySelector('#howToOverlay .howto-content'));
