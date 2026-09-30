@@ -70,7 +70,7 @@
 <!-- ストーリーシーン(STORY MODE専用): デッキ編成の前に挟む導入。プロローグと同じ仕組みを流用、3画面 -->
 <div id="sceneStory" class="scene">
     <div id="storyContent" class="cine-block" onclick="onStoryTap()">
-        <div id="storyImgArea" class="cine-img"><div id="storyImgFallback" class="cine-img-fallback"></div><div id="storyHiddenTap" onclick="event.stopPropagation(); onStoryHiddenTap();" style="position:absolute; top:0; left:0; width:20%; height:20%;"></div><img id="storyHiddenTapSparkle" src="assets/images/effects/sparkle.PNG" alt="" onerror="this.dataset.missing='1';"></div>
+        <div id="storyImgArea" class="cine-img"><div id="storyImgFallback" class="cine-img-fallback"></div><div id="storySpotlight" class="cine-spotlight"></div><div id="storyFlash" class="cine-flash" style="z-index:2;"></div><div id="storyHiddenTap" onclick="event.stopPropagation(); onStoryHiddenTap();" style="position:absolute; top:0; left:0; width:20%; height:20%;"></div><img id="storyHiddenTapSparkle" src="assets/images/effects/sparkle.PNG" alt="" onerror="this.dataset.missing='1';"></div>
         <div id="storyTextBox" class="cine-textbox">
             <p id="storyText" class="cine-text"></p>
         </div>
@@ -95,7 +95,7 @@
                 <div class="title-logo-fallback-sub">CROSS DIMENSION</div>
             </div>
         </div>
-        <div class="title-version">ver. 0.9.132</div>
+        <div class="title-version">ver. 0.9.138</div>
     </div>
     <button id="titleContinueBtn" class="text-btn" onclick="tapFlickerThen(this, () => goContinueGame())" style="display:none;">CONTINUE</button>
     <button id="startBtn" class="text-btn" onclick="tapFlickerThen(this, () => goNewGame())" disabled>NEW GAME</button>
