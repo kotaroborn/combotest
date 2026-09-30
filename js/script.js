@@ -195,12 +195,13 @@ let soundTestBgmSource = null; // SOUND TEST専用のBGMプレビュー再生ノ
 let soundTestBgmPlayingName = null; // 現在プレビュー再生中のBGMトラック名(null=何も再生していない)
 let soundTestSeSource = null; // SOUND TEST専用のSEプレビュー再生ノード。BGMプレビューとは独立に、単発で重ねて鳴らせる
 let soundTestSePlayingName = null; // 現在プレビュー再生中のSEトラック名(null=何も再生していない)
-let specialsUsed = { superUpper: false, charge: false, followUp: false, finisher: false, upperGuardUpper: false, guardPunchUpper: false, miracle: false }; // 各種必殺技を、これまでの対戦を通じて1回でも使ったか(バトルをまたいで積み上げ)。SOUND TESTの解放条件は当初の4種のまま(upperGuardUpper/guardPunchUpperは将来の実績拡張用に記録のみ)
+let specialsUsed = { superUpper: false, charge: false, followUp: false, finisher: false, upperGuardUpper: false, guardPunchUpper: false, miracle: false, meteor: false }; // 各種必殺技を、これまでの対戦を通じて1回でも使ったか(バトルをまたいで積み上げ)。SOUND TESTの解放条件は当初の4種のまま(upperGuardUpper/guardPunchUpperは将来の実績拡張用に記録のみ)
 let selectedSkin = null; // 現在選択中のコスチューム('enemy_1'等、nullはデフォルトのプレイヤー見た目)
 let gameClearedOnce = false; // STORY MODEを一度でも最後(5人目)までクリアしたか。COSTUMEの解放条件の一部
 let costumeUnlockAnnounced = false; // タイトル画面でCOSTUME解放のポップアップを既に一度見せたか(繰り返し表示しないため)
 let bonusContentsAnnounced = false; // タイトル画面でBONUS CONTENTS解放のポップアップを既に一度見せたか
 let versusUnlocked = false; // 対戦モード(VERSUS)が解放済みか。専用のGIFT CODEでのみ解放する(2026-09-27追加。それまでは常時解放だった)
+let perfectWins = 0; // ノーダメージ勝利(PERFECT!!)の回数。RECORDSで表示する(2026-09-30追加)
 let recordsHintAnnounced = false; // クリア後の「まだ見つけていない秘密がある…」トーストを既に出したか(2026-09-28追加)
 let storyMaxCombo = 0; // STORY MODEのバトルでの最大COMBO(プレイヤー側)。RECORDSで表示する。セーブデータに永続化する(2026-09-28追加)
 let rushUnlocked = false; // BATTLE RUSHが解放済みか。専用のGIFT CODEでのみ解放する(2026-09-28追加)
@@ -1212,6 +1213,7 @@ function applySaveDataOnBoot() {
             upperGuardUpper: !!save.specialsUsed.upperGuardUpper,
             guardPunchUpper: !!save.specialsUsed.guardPunchUpper,
             miracle: !!save.specialsUsed.miracle,
+            meteor: !!save.specialsUsed.meteor,
         };
     }
     if (typeof save.selectedSkin === 'string' || save.selectedSkin === null) selectedSkin = save.selectedSkin;
@@ -1222,6 +1224,7 @@ function applySaveDataOnBoot() {
     if (typeof save.rushUnlocked === 'boolean') rushUnlocked = save.rushUnlocked;
     if (typeof save.storyMaxCombo === 'number') storyMaxCombo = save.storyMaxCombo;
     if (typeof save.recordsHintAnnounced === 'boolean') recordsHintAnnounced = save.recordsHintAnnounced;
+    if (typeof save.perfectWins === 'number') perfectWins = save.perfectWins;
     if (save.rushBest25 && typeof save.rushBest25 === 'object') { // 2026-09-30: 25人制に変わったため、100人制時代の記録(rushBest)は引き継がない
         rushBest = {
             kills: typeof save.rushBest25.kills === 'number' ? save.rushBest25.kills : 0,
@@ -1246,7 +1249,10 @@ function unlockSkin(skinName) {
 }
 
 // 必殺技の使用履歴を記録する(バトルをまたいで積み上げる)。4種類すべて使用済みになった時点でSOUND TESTを解除する。
-function markSpecialUsed(key) {
+// side: 技を出した側('P'/'E')。2026-09-30、RECORDSの「TECHNIQUES」に使うため、敵(E)が出した技は記録しないようにした
+// (以前は敵が技を出してもプレイヤーの実績として記録されていた)。LOCAL V.S.は2Pも人間なので両者とも記録する。
+function markSpecialUsed(key, side) {
+    if (side === 'E' && state.gameMode !== 'versus') return;
     if (specialsUsed[key]) return; // 既に記録済みなら何もしない
     specialsUsed[key] = true;
     writeSaveData({ specialsUsed });
@@ -4018,6 +4024,7 @@ function showResult(type) {
     // 一度もダメージを受けずに勝利した場合は「PERFECT!!」を表示する(STORY MODE・EXTRA BATTLE。COMBO PERFECTと両方達成なら両方出る)
     const isNoDamage = type !== 'KO' && (state.gameMode === 'story' || state.gameMode === 'substoryBattle') && !state.pTookDamage;
     document.getElementById('resultNoDamageText').style.display = isNoDamage ? '' : 'none';
+    if (isNoDamage) { perfectWins++; writeSaveData({ perfectWins }); }
 
     const continueBtn = document.getElementById('continueBtn');
     const backTitleBtn = document.getElementById('backTitleBtn');
@@ -4358,6 +4365,7 @@ async function runNormalHit(winner, loser, move) {
 async function runMeteor(attacker, defender) {
     hitComboSuccess(attacker);
     hitComboBreak(defender);
+    markSpecialUsed('meteor', attacker); // 実績: メテオの使用を記録(2026-09-30追加)
     spawnTechNamePop(attacker, 'METEOR!'); // 技名ポップ(第36条: メテオ)。暗転が始まるタイミングで表示する
     await playFinisherBuildup(attacker); // 暗転→一時停止→攻撃側が白く発光→晴れる、のフィニッシュ演出
     setAct(attacker, 'knock.PNG'); // Beat1: 攻撃絵(放つ瞬間のポーズ)
@@ -4414,7 +4422,7 @@ async function runUpperCombo(attacker, defender, cursor) {
     // 演出(高さ・速度・残像)は、ダメージ2倍の条件に加えて、敵ごとのalwaysSuperUpperVisual(ENEMY_PRESETS)でも有効にできる。
     // ダメージは変えず見た目の迫力だけを常時アップさせたい場合に使う(例: Ritaは通常のUPPERでもこの高さ・速度で放つ)。
     const isSuperUpperVisual = isSuperUpper || !!(presetForSide(attacker) && presetForSide(attacker).alwaysSuperUpperVisual);
-    if (viaPunchPunch) markSpecialUsed('superUpper'); // 実績: PUNCH+PUNCH+UPPERの使用を記録
+    if (viaPunchPunch) markSpecialUsed('superUpper', attacker); // 実績: PUNCH+PUNCH+UPPERの使用を記録
 
     // このUPPERの勝敗が決まったので、UPPER→GUARDの連続検知用フラグを更新する(次のGUARDが直前の勝敗を正しく参照できるように)
     if (attacker === 'P') { state.pLastWinWasUpper = true; state.eLastWinWasUpper = false; }
@@ -4440,7 +4448,7 @@ async function runUpperCombo(attacker, defender, cursor) {
     // ここで即座に消費する。以降の空中コンボ継続・メテオには適用しない(通常倍率で計算する)。
     consumeCharge(attacker); consumeCharge(defender);
     consumeUpperCharge(attacker); consumeUpperCharge(defender);
-    if (viaUpperGuard) markSpecialUsed('upperGuardUpper'); // 実績: UPPER+GUARD+UPPERの使用を記録
+    if (viaUpperGuard) markSpecialUsed('upperGuardUpper', attacker); // 実績: UPPER+GUARD+UPPERの使用を記録
 
     // 上昇アニメーション: 地面(または現在の高さ)から浮遊高さまで、固定ステップ数・固定所要時間で上昇させる。
     // PUNCH+PUNCH+UPPERの場合は目標の高さが2倍になるため、同じ時間でより長い距離を移動する=体感速度も2倍になる。
@@ -4474,12 +4482,12 @@ async function runUpperCombo(attacker, defender, cursor) {
     const gpuComboAlive = attacker === 'P' ? state.pComboAlive : state.eComboAlive;
     if (gpuComboType === 'miracle' && cursor.i === 4 && gpuComboAlive) {
         // MIRACLE(UPPER×5): 5枚目のUPPERで打ち上げた相手を、空中のまま壁までめり込ませる(1〜4枚目の成否は判定済み、ここに来た=5枚目は勝ち)
-        markSpecialUsed('miracle');
+        markSpecialUsed('miracle', attacker);
         await runGuardPunchUpperWallStrike(attacker, defender, 'MIRACLE!');
         return;
     }
     if (gpuComboType === 'guardPunchUpper' && cursor.i === gpuComboStart + 2 && gpuComboAlive) {
-        markSpecialUsed('guardPunchUpper');
+        markSpecialUsed('guardPunchUpper', attacker);
         if (nextQueuedMove(attacker, cursor) === 'PUNCH') {
             // 通常の空中コンボ1発目と同じ演出(打ち上げられた側が攻撃側の高さまで降りてくる)
             const meetY = getY(attacker);
@@ -4652,14 +4660,14 @@ async function runGuardSuccess(winner, loser, loserPoseOverride) {
         const chargeVal4 = (winnerPresetForCharge4 && winnerPresetForCharge4.chargeValueFour) ? winnerPresetForCharge4.chargeValueFour : 4;
         if (winner === 'P') { state.pChargeValue = chargeVal4; state.pChargeIsMax = true; }
         else { state.eChargeValue = chargeVal4; state.eChargeIsMax = true; }
-        markSpecialUsed('charge'); // 実績: ガード+ガードの使用を記録
+        markSpecialUsed('charge', winner); // 実績: ガード+ガードの使用を記録
     } else if (state[winnerGuardStreakKey] >= 2) {
         // 2連続のチャージ倍率(既定2)。該当プリセットを持つ側は ENEMY_PRESETS の chargeValueTwo があればそちらを優先する
         const winnerPresetForCharge2 = presetForSide(winner);
         const chargeVal2 = (winnerPresetForCharge2 && winnerPresetForCharge2.chargeValueTwo) ? winnerPresetForCharge2.chargeValueTwo : 2;
         if (winner === 'P') { state.pChargeValue = chargeVal2; state.pChargeIsMax = false; }
         else { state.eChargeValue = chargeVal2; state.eChargeIsMax = false; }
-        markSpecialUsed('charge'); // 実績: ガード+ガードの使用を記録
+        markSpecialUsed('charge', winner); // 実績: ガード+ガードの使用を記録
     }
 
     // UPPER+GUARD+UPPERが成立する場合、両者は既にrunUpperCombo側の専用演出でGROUND_Yまで降下済み(このGUARDの前に完了している)。
@@ -4976,7 +4984,7 @@ async function resolveExchange(pAct, eAct, cursor) {
             const defender = attacker === 'P' ? 'E' : 'P';
             markCardOutcome(defender, cursor.i, 'card-shatter');
             await runFinisher(attacker, defender, cursor);
-            markSpecialUsed('finisher'); // 実績: 必殺技の使用を記録
+            markSpecialUsed('finisher', attacker); // 実績: 必殺技の使用を記録
             state.lastExchangeResult = attacker === 'P' ? { P: 'win', E: 'lose' } : { P: 'lose', E: 'win' };
             return;
         }
@@ -5170,11 +5178,11 @@ async function resolveTurn() {
                 if (state.eComboType === 'miracle' && (iAtStart <= 3 ? res.E === 'lose' : res.E !== 'win')) state.eComboAlive = false;
             }
             // PUNCH+GUARD+PUNCHの3枚目(start+2枚目)が成立した直後に追撃を発生させる
-            if (state.pComboType === 'followup' && iAtStart === state.pComboStart + 2 && state.pComboAlive) { await runFollowUpFlurry('P', 'E'); markSpecialUsed('followUp'); }
-            if (state.eComboType === 'followup' && iAtStart === state.eComboStart + 2 && state.eComboAlive) { await runFollowUpFlurry('E', 'P'); markSpecialUsed('followUp'); }
+            if (state.pComboType === 'followup' && iAtStart === state.pComboStart + 2 && state.pComboAlive) { await runFollowUpFlurry('P', 'E'); markSpecialUsed('followUp', 'P'); }
+            if (state.eComboType === 'followup' && iAtStart === state.eComboStart + 2 && state.eComboAlive) { await runFollowUpFlurry('E', 'P'); markSpecialUsed('followUp', 'E'); }
             // MIRACLE(PUNCH×5 / GUARD×5): 5枚目で勝った直後に壁めり込みの追撃。UPPER×5はrunUpperCombo内で空中から発動済み
-            if (state.pComboType === 'miracle' && iAtStart === 4 && state.pComboAlive && state.hands[0] !== 'UPPER') { markSpecialUsed('miracle'); await runGuardPunchUpperWallStrike('P', 'E', 'MIRACLE!'); }
-            if (state.eComboType === 'miracle' && iAtStart === 4 && state.eComboAlive && state.enemyHands[0] !== 'UPPER') { markSpecialUsed('miracle'); await runGuardPunchUpperWallStrike('E', 'P', 'MIRACLE!'); }
+            if (state.pComboType === 'miracle' && iAtStart === 4 && state.pComboAlive && state.hands[0] !== 'UPPER') { markSpecialUsed('miracle', 'P'); await runGuardPunchUpperWallStrike('P', 'E', 'MIRACLE!'); }
+            if (state.eComboType === 'miracle' && iAtStart === 4 && state.eComboAlive && state.enemyHands[0] !== 'UPPER') { markSpecialUsed('miracle', 'E'); await runGuardPunchUpperWallStrike('E', 'P', 'MIRACLE!'); }
 
             // TRAINING MODEは練習場のためK.O./YOU WIN判定を行わない(ターン終了時にHPが全回復する)
             if (state.gameMode !== 'training' && (state.hpP <= 0 || state.hpE <= 0)) {
@@ -7344,6 +7352,18 @@ const RECORDS_HINTS = {
     clearHint: 'ゲームクリアで解放',
     giftHow: 'GIFT CODEで解放',
 };
+// TECHNIQUES(技の記録、2026-09-30追加)。一度でも出した技はコマンドを表示し、未使用の技は「？？？」とヒントを出す。
+// cmdの（パンチ）（アッパー）（ガード）はカードのアイコンに置き換わる(applyHowToCardIcons)。
+const RECORDS_TECHNIQUES = [
+    { key: 'charge',          name: 'CHARGE',        cmd: '（ガード）（ガード）',             hint: 'ガードを続けて決める' },
+    { key: 'meteor',          name: 'METEOR!',       cmd: '（アッパー）（パンチ）（パンチ）（パンチ）', hint: 'アッパーの後、空中で攻め続ける' },
+    { key: 'superUpper',      name: 'RISING!',       cmd: '（パンチ）（パンチ）（アッパー）',     hint: 'パンチを重ねてからアッパー' },
+    { key: 'upperGuardUpper', name: 'RISING!',       cmd: '（アッパー）（ガード）（アッパー）',   hint: 'アッパーとガードの後、もう一度…' },
+    { key: 'followUp',        name: 'RUSH!',         cmd: '（パンチ）（ガード）（パンチ）',       hint: 'パンチの間にガードを挟む' },
+    { key: 'guardPunchUpper', name: 'BREAK!',        cmd: '（ガード）（パンチ）（アッパー）',     hint: '守って、打って、打ち上げる' },
+    { key: 'finisher',        name: 'CRASH!',        cmd: '決まった並びの5枚',                   hint: '5枚を決まった並びで出す' },
+    { key: 'miracle',         name: 'MIRACLE!',      cmd: '同じカードを5枚',                     hint: '5枚すべてを…' },
+];
 function buildRecordsItems() {
     const items = [];
     for (let i = 0; i < ENEMY_ORDER.length; i++) {
@@ -7363,6 +7383,10 @@ function buildRecordsItems() {
         if (unlockedSkins.includes(skin)) items.push({ got: true, name: `COSTUME: ${EXTRA_COSTUME_LABELS[skin]}`, how: RECORDS_HINTS.giftHow, gift: true });
     });
     if (versusUnlocked) items.push({ got: true, name: 'LOCAL V.S.', how: RECORDS_HINTS.giftHow, gift: true });
+    RECORDS_TECHNIQUES.forEach(t => {
+        const got = !!specialsUsed[t.key];
+        items.push({ got, tech: true, name: got ? t.name : '？？？', how: got ? t.cmd : t.hint });
+    });
     if (rushUnlocked) items.push({ got: true, name: 'BATTLE RUSH', how: RECORDS_HINTS.giftHow, gift: true });
     return items;
 }
@@ -7377,18 +7401,26 @@ function renderRecords() {
     html += '<div class="records-section-title">STORY MODE</div>';
     html += `<div class="records-stat"><span>進行</span><span>${storyCleared ? 'CLEAR' : `${defeated} / ${ENEMY_ORDER.length} 撃破`}</span></div>`;
     html += `<div class="records-stat"><span>最大COMBO</span><span>${storyMaxCombo}</span></div>`;
+    html += `<div class="records-stat"><span>PERFECT勝利</span><span>${perfectWins}回</span></div>`;
     if (rushUnlocked) {
         html += '<div class="records-section-title">BATTLE RUSH</div>';
         html += `<div class="records-stat"><span>最多撃破</span><span>${rushBest.kills} / ${RUSH_TOTAL}</span></div>`;
         html += `<div class="records-stat"><span>ベストタイム</span><span>${rushBest.clearTimeMs === null ? '--:--.-' : formatRushTime(rushBest.clearTimeMs)}</span></div>`;
         html += `<div class="records-stat"><span>最大COMBO</span><span>${rushBest.maxCombo}</span></div>`;
     }
+    const renderItem = (it) => {
+        html += `<div class="records-item${it.got ? ' got' : ''}"><span class="records-item-name">${it.got ? '★' : '☆'} ${escapeRecordsText(it.name)}</span>`
+            + `<span class="records-item-how">${escapeRecordsText(it.how)}</span></div>`;
+    };
+    html += '<div class="records-section-title">TECHNIQUES</div>';
+    items.filter(it => it.tech).forEach(renderItem);
     html += '<div class="records-section-title">UNLOCKS</div>';
-    items.forEach(it => {
+    items.filter(it => !it.tech).forEach(it => {
         html += `<div class="records-item${it.got ? ' got' : ''}"><span class="records-item-name">${it.got ? '★' : '☆'} ${escapeRecordsText(it.name)}</span>`
             + `<span class="records-item-how">${escapeRecordsText(it.how)}</span></div>`;
     });
     document.getElementById('recordsBody').innerHTML = html;
+    applyHowToCardIcons(document.getElementById('recordsBody')); // 技のコマンドの（パンチ）等をカードのアイコンにする
 }
 function openRecords() {
     renderRecords();

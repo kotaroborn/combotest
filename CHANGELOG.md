@@ -3,6 +3,14 @@
 このプロジェクトの変更履歴。日付は新しいものを上に追記する。
 コード(`index.html` / `css/style.css` / `js/script.js`)や仕様に変更を加えた場合は、このファイルに追記すること(詳細は `AI_GUIDE.md` を参照)。
 
+## 2026-09-30(19)
+
+- ver. 0.9.150
+- RECORDSに「TECHNIQUES」(技の記録)を追加。CHARGE / METEOR! / RISING!(P+P+U) / RISING!(U+G+U) / RUSH! / BREAK! / CRASH! / MIRACLE! の8種。一度でも出した技はコマンドをカードのアイコンで表示し、未使用の技は「？？？」とヒントを出す(`RECORDS_TECHNIQUES`)。達成率にも含める。
+- RECORDSのSTORY MODE欄に「PERFECT勝利」の回数を追加(`perfectWins`、セーブデータに保存)。
+- 不具合修正: 敵が技を出した時も、プレイヤーの技の使用実績(`specialsUsed`)として記録されていた。`markSpecialUsed`に技を出した側を渡し、敵の分は記録しないようにした(LOCAL V.S.は両者とも人間なので記録する)。
+- メテオの使用実績(`specialsUsed.meteor`)を新たに記録。
+
 ## 2026-09-30(18)
 
 - ver. 0.9.149
