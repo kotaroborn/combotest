@@ -5489,7 +5489,7 @@ function updateOptionUI() {
         (costumeSelectionAvailable() && state.gameMode !== 'substoryBattle' && state.gameMode !== 'versus') ? 'flex' : 'none'; // サブストーリーバトル中は借りているキャラの見た目を変更できないようにする
     // GIFT CODEはタイトル画面のOPTIONからのみ入力できるようにする(バトル中は表示しない)
     document.getElementById('optionGiftCodeRow').style.display = isTitle ? 'flex' : 'none';
-    document.getElementById('optionRecordsRow').style.display = isTitle ? 'flex' : 'none'; // RECORDSもタイトルのOPTIONからのみ(誰でも最初から見られる)
+    document.getElementById('optionRecordsRow').style.display = 'flex'; // RECORDSはどのOPTIONからでも見られる(2026-10-01、バトル中にもワザのヒントを確認できるように)
     document.getElementById('optionResetRow').style.display = isTitle ? 'flex' : 'none'; // 進行状況リセットもタイトルのOPTIONからのみ(バトル中の誤操作防止、2026-09-28)
     document.getElementById('optionFooter').style.display = isTitle ? 'none' : 'flex';
     // TRAINING MODEはデッキ編成を経由しない(選び放題の固定手札のため)、RETRYボタン自体を隠す
