@@ -347,7 +347,7 @@ const SOUND_TEST_TRACKS = [
     { name: 'bgm_story', label: 'story' },
     { name: 'bgm_story_5', label: 'story: Alv' },
     { name: 'bgm_deck', label: 'deck build' },
-    { name: 'bgm_battle', label: 'Mifune' },
+    { name: 'bgm_battle', label: 'MIFUNE' },
     { name: 'bgm_battle_1', label: 'Noah' },
     { name: 'bgm_battle_2', label: 'Rita' },
     { name: 'bgm_battle_3', label: 'Gald' },
@@ -621,6 +621,7 @@ function currentEnemySetName() {
         // サブストーリーバトルで対戦相手を直接指定する場合。'ENEMY_03'→'enemy_3'のように変換する。
         // 対応するグラフィックセットが無いキー(例: 'VAL')は、存在しないフォルダ名を返すことで、
         // 既存のフォールバック(未配置なら自動的にplayer.PNG等を使う仕組み)が自然に働くようにする。
+        if (state.ePresetKey === 'MIFUNE') return 'training'; // LOCAL V.S.のMIFUNEはTRAINING MODEと同じ見た目
         const m = state.ePresetKey.match(/^ENEMY_(\d+)$/);
         return m ? 'enemy_' + parseInt(m[1], 10) : 'val';
     }
@@ -670,13 +671,17 @@ let logoTokenCounter = 0;
 // ============================================================
 let cineSkipRequested = false;
 function escapeCineHtml(t) { return t.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+// 金色にする話し手の名前(セリフを話す人物のみ)。地の文の「」(例: おとぎ話のはずだった「魔王」)は対象外にするため、
+// 行頭がこの一覧の名前+「の場合だけ色を付ける(2026-09-30)。新しい話し手を増やす時はここに追加する。
+const CINE_SPEAKER_NAMES = ['ヴァル', 'ノア', 'リタ', 'ガルド', 'ジャック', 'アルヴ', '魔王アルヴ', '孫娘', '道化師', '少年', '？？？？'];
+const CINE_SPEAKER_RE = new RegExp('^(' + CINE_SPEAKER_NAMES.map(n => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|') + ')「');
 // 全文から話し手の名前部分(各行頭の「名前「」)の範囲を求める
 function cineSpeakerRanges(text) {
     const ranges = [];
     let lineStart = 0;
     for (const line of text.split('\n')) {
-        const m = line.match(/^([^「」\s、。…！？!?]{1,10}「)/);
-        if (m) ranges.push([lineStart, lineStart + m[1].length]);
+        const m = line.match(CINE_SPEAKER_RE);
+        if (m) ranges.push([lineStart, lineStart + m[0].length]); // m[0] = 名前+「
         lineStart += line.length + 1;
     }
     return ranges;
@@ -964,8 +969,8 @@ const ENEMY_PRESETS = {
         ],
         firstMoveBias: { GUARD: 10 }, // 一手目はGUARDが出やすい(様子見でまず固める)
         atkMult: 1.15, // 攻撃力は全体的にやや高め(鎧の重さ・巨体)
-        defMult: 0.8, // 防御力は全体的に高め(被弾ダメージ20%減、鎧で弾く)
-        defMultByMove: { UPPER: 1.15 }, // ただしUPPER(すくい上げ系)には弱い(鎧の隙間を突かれ、通常より多く受ける。以前は1.3で振れ幅が大きすぎたため緩和)
+        defMult: 0.6, // 防御力は高い(被弾ダメージ40%減、鎧で弾く)。2026-09-30、0.8→0.6: アッパーが決まった途端に空中コンボ〜メテオで一気に倒せてしまい弱かったため
+        defMultByMove: { UPPER: 1.0 }, // UPPER(すくい上げ)の初撃だけは鎧の上からでも通常どおり入る(決まりやすいが、その後の追撃は硬くて通りにくい)。以前は1.15
         numbFailMult: 1.25, // 自分のガードで相手をしびれさせた時、無条件敗北の確率が通常の1.25倍(50%→62.5%)
         chargeValueTwo: 4, // 通常なら2倍のところ、Galdは4倍になる(演出上の「2連続時」の閾値は変えず、実際の倍率だけ引き上げる)
         chargeValueFour: 5, // 通常なら4倍のところ、Galdは5倍になる
@@ -1010,7 +1015,7 @@ const ENEMY_PRESETS = {
     // 専用グラフィックセットは用意せず、既存のフォールバックにより自然にplayer.PNG等の絵柄になる
     // (VAL=主人公なので、プレイヤーと同じ見た目になること自体が正しい)。
     VAL: {
-        name: 'Val', deck: { PUNCH: 7, UPPER: 7, GUARD: 7 },
+        name: 'VAL', deck: { PUNCH: 7, UPPER: 7, GUARD: 7 }, // 表示名は大文字のVAL(2026-09-30、表記統一)
         favoritePatterns: [
             ['GUARD', 'GUARD'], ['GUARD', 'GUARD', 'PUNCH'], ['GUARD', 'GUARD', 'UPPER'],
             ['GUARD', 'GUARD', 'GUARD'], ['GUARD', 'GUARD', 'GUARD', 'PUNCH'], ['GUARD', 'GUARD', 'GUARD', 'UPPER'],
@@ -1024,6 +1029,13 @@ const ENEMY_PRESETS = {
         defMult: 0.75,
         numbVulnerableMult: 0.6,
     },
+};
+// MIFUNE: LOCAL V.S.専用(GIFT CODEでMIFUNEコスチュームを持っている人だけ選べる、2026-09-30追加)。見た目はTRAINING MODEのMIFUNE(trainingセット)。
+// 防御力は全体的に低い(被弾ダメージ1.3倍)が、攻撃力は全体的に高い(1.3倍)。ENEMY_ORDERには含めない。
+ENEMY_PRESETS.MIFUNE = {
+    name: 'MIFUNE', deck: { PUNCH: 7, UPPER: 7, GUARD: 7 },
+    atkMult: 1.3,
+    defMult: 1.3,
 };
 const ENEMY_ORDER = ['ENEMY_01', 'ENEMY_02', 'ENEMY_03', 'ENEMY_04', 'ENEMY_05']; // 連戦の順番
 
@@ -1348,7 +1360,7 @@ function playerSpriteName(baseName) {
     // ローカル対戦(VERSUS)も、1Pが選んだキャラ(pPresetKey)の見た目で固定する(コスチュームは反映しない。'VAL'は既定の見た目)
     if ((state.gameMode === 'substoryBattle' || state.gameMode === 'versus') && state.pPresetKey) {
         const m = state.pPresetKey.match(/^ENEMY_(\d+)$/);
-        skin = m ? 'enemy_' + parseInt(m[1], 10) : null;
+        skin = state.pPresetKey === 'MIFUNE' ? 'mifune' : m ? 'enemy_' + parseInt(m[1], 10) : null;
     }
     if (!skin) return baseName;
     const key = baseName.replace('.PNG', '');
@@ -1647,7 +1659,7 @@ async function boot() {
         // 【本番リリース前に必ずこのブロックを削除すること】
         gameClearedOnce = true;
         unlockedSubStories = [0, 1, 2, 3, 4]; // 5体分すべてのサブストーリーを解放
-        unlockedSkins = ['enemy_1', 'enemy_2', 'enemy_3', 'enemy_4', 'enemy_5']; // 5体分すべてのコスチュームを解放
+        unlockedSkins = ['enemy_1', 'enemy_2', 'enemy_3', 'enemy_4', 'enemy_5', 'mifune']; // 5体分すべてのコスチューム+MIFUNE(GIFT CODE限定)を解放
         versusUnlocked = true; // 対戦モード(VERSUS)もGIFT CODEなしで確認できるようにしておく
         rushUnlocked = true; // 100 BATTLE RUSHもGIFT CODEなしで確認できるようにしておく
         // ▲▲▲ 動作確認用の一時デバッグ設定 ▲▲▲
@@ -3505,11 +3517,11 @@ function presetForSide(side) {
 function updateCharNames() {
     if (state.gameMode === 'versus') { vsUpdateNames(); return; } // ローカル対戦は1P/2P表記付きの実名(？？？マスキングなし)
     document.getElementById('playerName').innerText =
-        state.pPresetKey ? ENEMY_PRESETS[state.pPresetKey].name.toUpperCase() : 'VAL'; // サブストーリーバトルは借りているキャラの名前を表示
+        state.pPresetKey ? ENEMY_PRESETS[state.pPresetKey].name : 'VAL'; // 表記はVAL/Noah/Rita/Gald/Jack/Alv/MIFUNEで統一(大文字化しない) // サブストーリーバトルは借りているキャラの名前を表示
     document.getElementById('enemyName').innerText =
         state.gameMode === 'training' ? 'MIFUNE' :
         state.gameMode === 'rush' ? rushCurrentPreset().name :
-        state.ePresetKey ? substoryBattleOpponentName(state.ePresetKey).toUpperCase() : // サブストーリーバトルは？？？マスキングを経由する
+        state.ePresetKey ? substoryBattleOpponentName(state.ePresetKey) : // サブストーリーバトルは？？？マスキングを経由する
         currentEnemyPreset().name;
 }
 
@@ -6160,7 +6172,7 @@ function openCostumeSelect(fromBonus) {
     rows.innerHTML = '';
     const defaultRow = document.createElement('div');
     defaultRow.className = 'option-row';
-    defaultRow.innerHTML = `<span class="option-label costume-label-group"><img class="costume-thumb" data-skin=""><span>Val</span></span><button onclick="selectCostume(null)">${selectedSkin === null ? '選択中' : '選ぶ'}</button>`;
+    defaultRow.innerHTML = `<span class="option-label costume-label-group"><img class="costume-thumb" data-skin=""><span>VAL</span></span><button onclick="selectCostume(null)">${selectedSkin === null ? '選択中' : '選ぶ'}</button>`;
     rows.appendChild(defaultRow);
     // 'enemy_N'形式(敵1〜5、STORY MODEクリアで解放)は番号順に並べ、それ以外(GIFT CODE等で解放する追加コスチューム)は
     // EXTRA_COSTUME_LABELSの表示名を使い、末尾にまとめて並べる
@@ -6269,7 +6281,10 @@ const VERSUS_CHARACTERS = [
     { key: 'ENEMY_03', storyIdx: 2, thumbSet: 'enemy_3' },
     { key: 'ENEMY_04', storyIdx: 3, thumbSet: 'enemy_4' },
     { key: 'ENEMY_05', storyIdx: 4, thumbSet: 'enemy_5' },
+    { key: 'MIFUNE', storyIdx: -1, thumbSet: 'training', gift: true }, // GIFT CODEでMIFUNEコスチュームを持っている人だけ
 ];
+// キャラ選択の並び(4列×2段)。右上はMIFUNE(未入手なら枠ごと空欄)、右下は常に？(ランダム)
+const VS_SELECT_LAYOUT = ['VAL', 'ENEMY_01', 'ENEMY_02', 'MIFUNE', 'ENEMY_03', 'ENEMY_04', 'ENEMY_05', 'RANDOM'];
 const VERSUS_STAGE_COUNT = 5; // 背景・BGMは、STORY MODEでクリア済みのステージ(1〜5)からランダムに選ぶ(再戦時は同じステージのまま)
 
 // ローカル対戦の状態。stateと同様、以後再定義・再初期化せず、プロパティのみ書き換えて使う(第13条に倣う)。
@@ -6335,6 +6350,7 @@ function vsRenderMirror(t) {
 }
 // 1Pが選んだキャラのグラフィックセット名('VAL'はnull=既定の見た目)。表示倍率(CHARACTER_SCALE_BY_SET)の判定に使う
 function vsPlayerSetName() {
+    if (state.pPresetKey === 'MIFUNE') return 'training';
     const m = state.pPresetKey ? state.pPresetKey.match(/^ENEMY_(\d+)$/) : null;
     return m ? 'enemy_' + parseInt(m[1], 10) : null;
 }
@@ -6679,8 +6695,8 @@ function vsMirrorCardOutcome(side, idx, outcomeClass) {
 }
 // HPバーの名前表示。下(1P向き)の名前はHPバーの下、上(2P向き)の名前はHPバーの上に逆さで表示する
 function vsUpdateNames() {
-    const nameP = ENEMY_PRESETS[state.pPresetKey].name.toUpperCase();
-    const nameE = ENEMY_PRESETS[state.ePresetKey].name.toUpperCase();
+    const nameP = ENEMY_PRESETS[state.pPresetKey].name; // 表記統一のため大文字化しない
+    const nameE = ENEMY_PRESETS[state.ePresetKey].name;
     document.getElementById('playerName').innerText = '1P ' + nameP;
     document.getElementById('enemyName').innerText = '2P ' + nameE;
     document.getElementById('vsNameRotP').innerText = '1P ' + nameP;
@@ -6784,6 +6800,7 @@ function vsCharByKey(key) { return VERSUS_CHARACTERS.find(c => c.key === key); }
 // STORY MODEで撃破済み、またはSTORY MODEを一度クリアしていれば選べる。VALは常に選べる。
 function vsCharUnlocked(ch) {
     if (!ch) return false;
+    if (ch.gift) return unlockedSkins.includes('mifune');
     if (ch.storyIdx < 0) return true;
     return gameClearedOnce || isEnemyDefeated(ch.storyIdx);
 }
@@ -6796,9 +6813,28 @@ function vsRenderSelect() {
         const selKey = side === 'P' ? versusState.selP : versusState.selE;
         const ready = side === 'P' ? versusState.readyP : versusState.readyE;
         grid.innerHTML = '';
-        VERSUS_CHARACTERS.forEach(ch => {
+        const rolling = versusState.rolling && versusState.rolling[side];
+        VS_SELECT_LAYOUT.forEach(key => {
+            if (key === 'RANDOM') {
+                // ？(ランダム): タップするとルーレットのように選択枠が動き回り、どれか1人で止まって選択される
+                const tile = document.createElement('div');
+                tile.className = 'vs-sel-tile vs-sel-random' + (rolling ? ' rolling' : '');
+                tile.innerHTML = '<div class="vs-sel-random-mark">?</div><div class="vs-sel-tile-name">RANDOM</div>';
+                tile.onclick = () => vsRandomSelect(side);
+                grid.appendChild(tile);
+                return;
+            }
+            const ch = vsCharByKey(key);
+            if (ch.gift && !vsCharUnlocked(ch)) {
+                // GIFT CODE限定キャラを持っていない場合は、枠を置かず空欄にする
+                const empty = document.createElement('div');
+                empty.className = 'vs-sel-empty';
+                grid.appendChild(empty);
+                return;
+            }
             const unlocked = vsCharUnlocked(ch);
             const tile = document.createElement('div');
+            tile.dataset.key = ch.key;
             tile.className = 'vs-sel-tile' + (unlocked ? '' : ' locked') + (ch.key === selKey ? ' selected' : '');
             const name = unlocked ? ENEMY_PRESETS[ch.key].name : '???';
             tile.innerHTML = `<img class="vs-sel-thumb" src="${vsThumbSrc(ch)}" alt="" onerror="this.onerror=null; this.src='assets/images/characters/player.PNG';"><div class="vs-sel-tile-name">${name}</div>`;
@@ -6806,7 +6842,7 @@ function vsRenderSelect() {
             grid.appendChild(tile);
         });
         const preset = ENEMY_PRESETS[selKey];
-        document.getElementById(side === 'P' ? 'vsSelNameP' : 'vsSelNameE').innerText = preset.name.toUpperCase();
+        document.getElementById(side === 'P' ? 'vsSelNameP' : 'vsSelNameE').innerText = preset.name; // 表記統一のため大文字化しない
         document.getElementById(side === 'P' ? 'vsSelDeckP' : 'vsSelDeckE').innerText =
             `DECK  P${preset.deck.PUNCH} / U${preset.deck.UPPER} / G${preset.deck.GUARD}`;
         const btn = document.getElementById(side === 'P' ? 'vsSelReadyP' : 'vsSelReadyE');
@@ -6817,13 +6853,48 @@ function vsRenderSelect() {
 }
 function vsSelectChar(side, key) {
     if (versusState.phase !== 'select') return;
+    if (versusState.rolling && versusState.rolling[side]) return; // ルーレット中は操作不可
     if (side === 'P' ? versusState.readyP : versusState.readyE) return; // READY中は変更不可(CANCELで解除してから)
     if (side === 'P') versusState.selP = key; else versusState.selE = key;
     playSE('se_deck_plus');
     vsRenderSelect();
 }
+// ？(ランダム)をタップした時: 選べるキャラの間を選択枠がランダムに飛び回り、だんだん遅くなって1人で止まる
+async function vsRandomSelect(side) {
+    if (versusState.phase !== 'select') return;
+    if (side === 'P' ? versusState.readyP : versusState.readyE) return; // READY中は変更不可
+    if (!versusState.rolling) versusState.rolling = { P: false, E: false };
+    if (versusState.rolling[side]) return;
+    const pool = VERSUS_CHARACTERS.filter(ch => vsCharUnlocked(ch)).map(ch => ch.key);
+    if (pool.length === 0) return;
+    versusState.rolling[side] = true;
+    const target = pool[Math.floor(Math.random() * pool.length)];
+    const steps = 14 + Math.floor(Math.random() * 4);
+    let prev = side === 'P' ? versusState.selP : versusState.selE;
+    for (let k = 0; k < steps; k++) {
+        if (versusState.phase !== 'select') { versusState.rolling[side] = false; return; }
+        let key;
+        if (k === steps - 1) key = target;
+        else {
+            const others = pool.filter(x => x !== prev);
+            key = (others.length ? others : pool)[Math.floor(Math.random() * (others.length || pool.length))];
+        }
+        prev = key;
+        if (side === 'P') versusState.selP = key; else versusState.selE = key;
+        playSE('se_deck_plus');
+        vsRenderSelect();
+        await rawWait(60 + k * k * 1.6); // だんだん遅くなる
+    }
+    versusState.rolling[side] = false;
+    playSE('se_select');
+    vsRenderSelect();
+    const grid = document.getElementById(side === 'P' ? 'vsSelGridP' : 'vsSelGridE');
+    const chosen = grid.querySelector(`.vs-sel-tile[data-key="${target}"]`);
+    if (chosen) { chosen.classList.remove('decided'); void chosen.offsetWidth; chosen.classList.add('decided'); } // 決まった瞬間に一度光らせる
+}
 function vsToggleSelectReady(side) {
     if (versusState.phase !== 'select') return;
+    if (versusState.rolling && versusState.rolling[side]) return; // ルーレット中はREADYにできない
     if (side === 'P') versusState.readyP = !versusState.readyP; else versusState.readyE = !versusState.readyE;
     playSE(side === 'P' ? (versusState.readyP ? 'se_select' : 'se_cancel') : (versusState.readyE ? 'se_select' : 'se_cancel'));
     vsRenderSelect();
