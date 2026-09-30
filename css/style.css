@@ -587,7 +587,7 @@
         .howto-content.howto-scroll p { margin: 0 0 14px; }
         .howto-content.howto-scroll b { color: #fff; }
         .howto-img {
-            display: block; width: 55%; max-width: 143px; /* 2026-10-01、70%→55%に縮小。左右autoで中央揃え */
+            display: block; width: 30%; max-width: 78px; /* 2026-10-01、70%→55%→30%に縮小。左右autoで中央揃え */
             margin: 4px auto 16px; border-radius: 6px;
         }
         .howto-footer { flex: none; display: flex; gap: 10px; padding-top: 10px; }
