@@ -95,7 +95,7 @@
                 <div class="title-logo-fallback-sub">CROSS DIMENSION</div>
             </div>
         </div>
-        <div class="title-version">ver. 0.9.157</div>
+        <div class="title-version">ver. 0.9.158</div>
     </div>
     <button id="titleContinueBtn" class="text-btn" onclick="tapFlickerThen(this, () => goContinueGame())" style="display:none;">CONTINUE</button>
     <button id="startBtn" class="text-btn" onclick="tapFlickerThen(this, () => goNewGame())" disabled>NEW GAME</button>
@@ -146,6 +146,7 @@
         <div class="vs-sel-deck" id="vsSelDeckE"></div>
         <div class="vs-sel-grid" id="vsSelGridE"></div>
         <button class="vs-ready-btn" id="vsSelReadyE" onclick="vsToggleSelectReady('E')">READY</button>
+        <button class="howto-btn vs-sel-howto" onclick="openHowToVs('E')">HOW<br>TO</button>
     </div>
     <div class="vs-sel-center">
         <button class="vs-sel-back" onclick="vsSelectBackToTitle()">✕</button>
@@ -156,6 +157,7 @@
         <div class="vs-sel-deck" id="vsSelDeckP"></div>
         <div class="vs-sel-grid" id="vsSelGridP"></div>
         <button class="vs-ready-btn" id="vsSelReadyP" onclick="vsToggleSelectReady('P')">READY</button>
+        <button class="howto-btn vs-sel-howto" onclick="openHowToVs('P')">HOW<br>TO</button>
     </div>
     <div id="vsSelFight">FIGHT!</div>
 </div>
@@ -187,6 +189,7 @@
             <button id="vsGoBtn2" onclick="vsGo2()" disabled>GO!</button>
         </div>
         <div id="vsGate2" class="vs-gate"></div>
+        <button id="vsHowToBtn2" class="howto-btn vs-howto-btn" onclick="openHowToVs('E')">HOW<br>TO</button>
     </div>
 </div>
 <div id="gameHeader">
@@ -240,6 +243,7 @@
         </div>
     </div>
     <div id="vsGate1" class="vs-gate"></div>
+    <button id="vsHowToBtn1" class="howto-btn vs-howto-btn" onclick="openHowToVs('P')">HOW<br>TO</button>
 </div>
 <!-- 決着オーバーレイ: ヘッダー・場・手札すべてを含む画面全体を覆う -->
 <div id="resultOverlay">

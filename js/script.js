@@ -3343,7 +3343,7 @@ async function dealInitialHandAnimation() {
     const s = document.getElementById('handRow'); s.innerHTML = '';
     const n = state.playerHand.length; // STORY MODEは5、TRAINING MODEは3(PUNCH/UPPER/GUARD固定)
     const mid = (n - 1) / 2;
-    const GAP_X = 48; // updateHandUI()と同じ配置計算に合わせる
+    const GAP_X = handGapX(); // updateHandUI()と同じ配置計算に合わせる
     const ARC_K = 4;
     const cardEls = [];
 
@@ -3398,7 +3398,7 @@ function updateHandUI(animateIndices) {
     const hideForVersus = state.gameMode === 'versus' && versusState.phase !== 'inputP';
     const n = state.playerHand.length; // STORY MODEは5、TRAINING MODEは3(PUNCH/UPPER/GUARD固定・選び放題)
     const mid = (n - 1) / 2; // 中央インデックス
-    const GAP_X = 48; // カード中心同士の横間隔(px)
+    const GAP_X = handGapX(); // カード中心同士の横間隔(px)
     const ARC_K = 4;  // 円弧の深さ係数(大きいほど外側が下がる)
     state.playerHand.forEach((card, idx) => {
         const d = document.createElement('div');
@@ -5362,8 +5362,33 @@ function openHowTo() {
 }
 
 function closeHowTo() {
-    document.getElementById('howToOverlay').classList.remove('show');
+    const ov = document.getElementById('howToOverlay');
+    ov.classList.remove('show', 'vs-half-P', 'vs-half-E', 'vs-full-E');
     rushResumeTimer('howto');
+}
+// LOCAL V.S.のHOW TO(2026-10-01): 各プレイヤーの左下のボタンから開き、メニュー(HOW TO LOCAL V.S. / HOW TO BATTLE)を出す。
+// ・キャラ選択: 2人が同時に画面を使うため、押した人の側の半分だけに出す(2P側は180°回転)。
+// ・バトル中: 自分がカードを選んでいる間(inputP/inputE)だけ押せる。その間は相手は画面を使わないので、
+//   通常の1人用と同じ全画面で出す(2Pが押した時は全画面を180°回転させ、2Pから読める向きにする)。
+function openHowToVs(side) {
+    const inBattle = document.getElementById('sceneBattle').classList.contains('active');
+    if (inBattle && versusState.phase !== (side === 'P' ? 'inputP' : 'inputE')) return;
+    playSE('se_menu_open');
+    howToCurrentModePage = 'versus';
+    document.getElementById('howToMenuModeLabel').innerText = HOWTO_MODE_PAGES.versus.label;
+    backToHowToMenu();
+    const ov = document.getElementById('howToOverlay');
+    ov.classList.remove('vs-half-P', 'vs-half-E', 'vs-full-E');
+    if (!inBattle) ov.classList.add('vs-half-' + side);
+    else if (side === 'E') ov.classList.add('vs-full-E');
+    ov.classList.add('show');
+}
+// バトル中のHOW TOボタンは、そのプレイヤーがカードを選んでいる間だけ表示する(vsSetGatesから呼ぶ)
+function vsUpdateHowToBtns() {
+    const ph = versusState.phase;
+    const b1 = document.getElementById('vsHowToBtn1'), b2 = document.getElementById('vsHowToBtn2');
+    if (b1) b1.style.visibility = ph === 'inputP' ? 'visible' : 'hidden';
+    if (b2) b2.style.visibility = ph === 'inputE' ? 'visible' : 'hidden';
 }
 
 function closeHowToBackdrop(e) {
@@ -6419,7 +6444,7 @@ function enterVersusLayout() {
 function exitVersusLayout() {
     if (!document.body.classList.contains('versus-layout')) return;
     document.body.classList.remove('versus-layout');
-    versusState.phase = 'idle';
+    versusState.phase = 'idle'; vsUpdateHowToBtns();
     versusState.revealToken++;
     vsHideResults();
 }
@@ -6502,7 +6527,7 @@ function vsResetBattleSide2() {
     for (let i = 0; i < 5; i++) versusState.hand2[i] = vsDrawCard2();
     versusState.played2 = new Array(5).fill(null);
     versusState.committedP = [];
-    versusState.phase = 'intro';
+    versusState.phase = 'intro'; vsUpdateHowToBtns();
     versusState.revealToken++;
     vsHideResults();
     vsRenderHand2();
@@ -6584,6 +6609,8 @@ async function vsRunDeckRefresh2() {
 
 // ------- 手札の表示(2P) -------
 // updateHandUI(1P用)と同じ円弧配置で、2Pの手札を#vsHandRow2へ描く。2Pの入力番以外は裏向き・タップ不可。
+// 手札のカード中心同士の横間隔(px)。LOCAL V.S.は左下にHOW TOボタンを置く分、手札の幅が狭いので少し詰める(2026-10-01)
+function handGapX() { return state.gameMode === 'versus' ? 44 : 48; }
 function vsRenderHand2() {
     const s = document.getElementById('vsHandRow2');
     if (!s) return;
@@ -6598,7 +6625,7 @@ function vsRenderHand2() {
         else applyCardVisual(d, card);
         const offset = idx - mid;
         d.style.top = (offset * offset * 4) + 'px';
-        d.style.transform = `translateX(calc(-50% + ${offset * 48}px)) rotate(${offset * 9}deg)`;
+        d.style.transform = `translateX(calc(-50% + ${offset * handGapX()}px)) rotate(${offset * 9}deg)`;
         if (card && !hidden) d.onclick = () => vsPlayCard2(idx);
         s.appendChild(d);
     });
@@ -6736,6 +6763,7 @@ function vsSetGates() {
             gate.innerHTML = '';
         }
     });
+    vsUpdateHowToBtns();
 }
 
 // ------- 上半分(2P側)の場・相手カード・ボタン等の同期 -------

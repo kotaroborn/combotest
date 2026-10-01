@@ -553,6 +553,11 @@
             padding: 14px;
         }
         .popup-overlay.show { display: flex; }
+        /* LOCAL V.S.のHOW TO: 押したプレイヤーの側の半分だけを覆う(2Pは逆さ向き) */
+        #howToOverlay.vs-half-P { top: 50%; }
+        #howToOverlay.vs-half-E { bottom: 50%; transform: rotate(180deg); }
+        #howToOverlay.vs-full-E { transform: rotate(180deg); } /* バトル中に2Pが開いた時は全画面を逆さに */
+        #howToOverlay.vs-half-P .popup-panel, #howToOverlay.vs-half-E .popup-panel { width: 88%; height: 92%; }
         .popup-panel {
             position: relative; width: 80%; height: 80%;
             background: #161616; border: 2px solid #555; border-radius: 10px;
@@ -702,7 +707,7 @@
            物理的な並び(上→下): 2Pの手札/ボタン → 2Pのcanvas → 共通のHPゲージ → 1Pのcanvas → 1Pの手札/ボタン。
            上半分(#vsTop)は要素ごと180°回転させるため、2Pから見ると下半分(1P)と全く同じ見た目になる。
            ============================================================ */
-        #vsTop, .vs-name-rot, #vsTurn2, .vs-gate, .vs-result { display: none; }
+        #vsTop, .vs-name-rot, #vsTurn2, .vs-gate, .vs-result, .vs-howto-btn { display: none; }
         .vs-turn-col { display: contents; } /* 通常時はレイアウトに影響させない(中の#turnDisplayがそのまま並ぶ) */
 
         body.versus-layout {
@@ -754,9 +759,9 @@
         /* 手札・ボタン部分(1Pは既存の#ui、2Pは.vs-ui。どちらも同じ並びにする) */
         body.versus-layout #ui, .vs-ui {
             display: grid;
-            grid-template-columns: 1fr 84px;
+            grid-template-columns: 34px 1fr 84px; /* 左端の列はHOW TOボタン用(2026-10-01) */
             grid-template-rows: 14px 50px 1fr;
-            grid-template-areas: "label ctrls" "slots ctrls" "hand ctrls";
+            grid-template-areas: "howto label ctrls" "howto slots ctrls" "howto hand ctrls";
             gap: 4px 8px;
             padding: 6px 10px;
             position: relative;
@@ -800,6 +805,11 @@
             grid-area: ctrls; display: flex; flex-direction: column; gap: 6px; justify-content: flex-end;
         }
         body.versus-layout #howToBtn, body.versus-layout #speedToggleBtn { display: none; }
+        /* 各プレイヤーの左下のHOW TO。自分がカードを選んでいる間だけ表示する(vsUpdateHowToBtns) */
+        body.versus-layout .vs-howto-btn {
+            display: block; grid-area: howto; align-self: end; visibility: hidden;
+            width: 34px; height: 34px; font-size: 8px; border-radius: 6px;
+        }
         body.versus-layout #optionBattleBtn { width: 100%; height: 26px; flex: none; font-size: 10px; line-height: 1; }
         body.versus-layout .fn-group { flex-direction: column; gap: 6px; flex: 1; }
         body.versus-layout #clrBtn, .vs-controls #vsClrBtn2 { flex: 0 0 36px; padding: 0; font-size: 12px; background: #444; }
@@ -880,6 +890,9 @@
             background: linear-gradient(to top, #2a0808, #000 75%);
             transition: filter 0.2s;
         }
+        .vs-sel-half { position: relative; }
+        .vs-sel-howto { position: absolute; left: 14px; bottom: calc(14px + env(safe-area-inset-bottom, 0px)); }
+        .vs-sel-half-e .vs-sel-howto { bottom: calc(14px + var(--safe-top)); }
         .vs-sel-half-e {
             transform: rotate(180deg);
             padding-bottom: calc(12px + var(--safe-top));
