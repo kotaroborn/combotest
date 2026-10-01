@@ -2358,7 +2358,7 @@ function checkUnlockAnnouncements() {
     if (gameClearedOnce && !recordsHintAnnounced && recordsHasUndiscovered()) {
         recordsHintAnnounced = true;
         writeSaveData({ recordsHintAnnounced: true });
-        showUnlockToast({ header: 'HINT', small: 'OPTION › RECORDS で確認', large: 'ストーリーの会話に秘密が隠れている…' });
+        showUnlockToast({ header: 'HINT', small: 'OPTION › RECORDS で確認', large: 'ストーリーの会話に<br>秘密が隠れている…' }); // 1行だと狭い画面で切れるため2行にする
     }
 }
 
