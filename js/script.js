@@ -5382,43 +5382,48 @@ async function resolveTurn() {
 // ============================================================
 // UIポップアップ
 // ============================================================
-// HOW TOはモード別(2026-10-01): バトル中にTRAINING/BATTLE RUSH/EXTRA/LOCAL V.S.で開くと、そのモードの説明と
-// HOW TO BATTLE(基本)の2つから選ぶメニューを出す。それ以外(タイトル・デッキ編成・STORY MODE)は基本のHOW TO BATTLEを直接開く。
-const HOWTO_MODE_PAGES = {
-    training:       { page: 'training', label: 'HOW TO TRAINING' },
-    rush:           { page: 'rush',     label: 'HOW TO BATTLE RUSH' },
-    substoryBattle: { page: 'extra',    label: 'HOW TO EXTRA BATTLE' },
-    versus:         { page: 'versus',   label: 'HOW TO LOCAL V.S.' },
+// HOW TO(2026-10-01): どこから開いても、まず3すくみの図があるHOW TO BATTLEを出す。一番上に、RECORDSと同じく
+// 見出しをタップすると開閉する欄を置く: モード別の説明(TRAINING/BATTLE RUSH/EXTRA BATTLE/LOCAL V.S.の対戦中だけ)と
+// TECHNIQUES(ワザ表)。どちらも最初は閉じていて、開閉状態はアプリを開いている間だけ覚えておく。
+const HOWTO_MODE_TEXTS = {
+    training:       { text: 'howToTextTraining', label: 'HOW TO TRAINING' },
+    rush:           { text: 'howToTextRush',     label: 'HOW TO BATTLE RUSH' },
+    substoryBattle: { text: 'howToTextExtra',    label: 'HOW TO EXTRA BATTLE' },
+    versus:         { text: 'howToTextVersus',   label: 'HOW TO LOCAL V.S.' },
 };
-const HOWTO_PAGE_IDS = { battle: 'howToPageBattle', training: 'howToPageTraining', rush: 'howToPageRush', extra: 'howToPageExtra', versus: 'howToPageVersus' };
-let howToCurrentModePage = null;
-function openHowToPage(page) {
-    if (page === 'battle') renderHowToTechniques();
-    document.getElementById('howToMenu').style.display = 'none';
-    Object.entries(HOWTO_PAGE_IDS).forEach(([k, id]) => {
-        const el = document.getElementById(id);
-        el.style.display = k === page ? '' : 'none';
-        if (k === page) el.scrollTop = 0;
-        // メニューから開いた時だけ「戻る」を出す
-        const back = el.querySelector('.howto-back');
-        if (back) back.style.display = howToCurrentModePage ? '' : 'none';
-    });
+const howToOpenSections = { mode: false, tech: false };
+let howToCurrentMode = null; // 今開いているHOW TOで表示するモード(HOWTO_MODE_TEXTSのキー)。無ければnull
+function renderHowTo() {
+    const mode = howToCurrentMode && HOWTO_MODE_TEXTS[howToCurrentMode];
+    const modeSec = document.getElementById('howToModeSection');
+    modeSec.style.display = mode ? '' : 'none';
+    if (mode) {
+        document.getElementById('howToModeLabel').textContent = mode.label;
+        const body = document.getElementById('howToModeBody');
+        body.innerHTML = document.getElementById(mode.text).innerHTML;
+        applyHowToCardIcons(body);
+    }
+    modeSec.classList.toggle('open', howToOpenSections.mode);
+    document.getElementById('howToModeArrow').textContent = howToOpenSections.mode ? '▼' : '▶\ufe0e';
+    renderHowToTechniques();
 }
-function backToHowToMenu() {
-    Object.values(HOWTO_PAGE_IDS).forEach(id => { document.getElementById(id).style.display = 'none'; });
-    document.getElementById('howToMenu').style.display = '';
+function toggleHowToSection(key) {
+    howToOpenSections[key] = !howToOpenSections[key];
+    playSE('se_select');
+    renderHowTo();
+}
+function showHowToOverlay(extraClass) {
+    renderHowTo();
+    document.getElementById('howToPageBattle').scrollTop = 0;
+    const ov = document.getElementById('howToOverlay');
+    ov.classList.remove('vs-half-P', 'vs-half-E', 'vs-full-E');
+    if (extraClass) ov.classList.add(extraClass);
+    ov.classList.add('show');
 }
 function openHowTo() {
     const inBattle = document.getElementById('sceneBattle').classList.contains('active');
-    const mode = inBattle ? HOWTO_MODE_PAGES[state.gameMode] : null;
-    howToCurrentModePage = mode ? mode.page : null;
-    if (mode) {
-        document.getElementById('howToMenuModeLabel').innerText = mode.label;
-        backToHowToMenu();
-    } else {
-        openHowToPage('battle'); // タイトル・STORY等は、3すくみの図をすぐ見られるようHOW TO BATTLEを直接開く
-    }
-    document.getElementById('howToOverlay').classList.add('show');
+    howToCurrentMode = inBattle && HOWTO_MODE_TEXTS[state.gameMode] ? state.gameMode : null;
+    showHowToOverlay(null);
     rushPauseTimer('howto'); // BATTLE RUSH: HOW TOを開いている間はタイマーを止める(RUSH中でなければ何もしない)
 }
 
@@ -5427,7 +5432,7 @@ function closeHowTo() {
     ov.classList.remove('show', 'vs-half-P', 'vs-half-E', 'vs-full-E');
     rushResumeTimer('howto');
 }
-// LOCAL V.S.のHOW TO(2026-10-01): 各プレイヤーの左下のボタンから開き、メニュー(HOW TO LOCAL V.S. / HOW TO BATTLE)を出す。
+// LOCAL V.S.のHOW TO(2026-10-01): 各プレイヤーの左下のボタンから開く(HOW TO LOCAL V.S.の欄付き)。
 // ・キャラ選択: 2人が同時に画面を使うため、押した人の側の半分だけに出す(2P側は180°回転)。
 // ・バトル中: 自分がカードを選んでいる間(inputP/inputE)だけ押せる。その間は相手は画面を使わないので、
 //   通常の1人用と同じ全画面で出す(2Pが押した時は全画面を180°回転させ、2Pから読める向きにする)。
@@ -5435,14 +5440,8 @@ function openHowToVs(side) {
     const inBattle = document.getElementById('sceneBattle').classList.contains('active');
     if (inBattle && versusState.phase !== (side === 'P' ? 'inputP' : 'inputE')) return;
     playSE('se_menu_open');
-    howToCurrentModePage = 'versus';
-    document.getElementById('howToMenuModeLabel').innerText = HOWTO_MODE_PAGES.versus.label;
-    backToHowToMenu();
-    const ov = document.getElementById('howToOverlay');
-    ov.classList.remove('vs-half-P', 'vs-half-E', 'vs-full-E');
-    if (!inBattle) ov.classList.add('vs-half-' + side);
-    else if (side === 'E') ov.classList.add('vs-full-E');
-    ov.classList.add('show');
+    howToCurrentMode = 'versus';
+    showHowToOverlay(!inBattle ? 'vs-half-' + side : (side === 'E' ? 'vs-full-E' : null));
 }
 // バトル中のHOW TOボタンは、そのプレイヤーがカードを選んでいる間だけ表示する(vsSetGatesから呼ぶ)
 function vsUpdateHowToBtns() {
@@ -7574,20 +7573,14 @@ function toggleRecordsSection(key) {
     playSE('se_select');
 }
 // HOW TO BATTLEの一番上のワザ表(2026-10-01): RECORDSのTECHNIQUESと同じ内容。見出しをタップすると開閉する(最初は閉じている)
-let howToTechOpen = false;
 function renderHowToTechniques() {
     const techs = buildRecordsItems().filter(it => it.tech);
     const body = document.getElementById('howToTechBody');
     body.innerHTML = techs.map(recordsItemHtml).join('');
     applyHowToCardIcons(body);
     document.getElementById('howToTechCount').textContent = `${techs.filter(it => it.got).length} / ${techs.length}`;
-    document.getElementById('howToTechSection').classList.toggle('open', howToTechOpen);
-    document.getElementById('howToTechArrow').textContent = howToTechOpen ? '▼' : '▶\ufe0e';
-}
-function toggleHowToTech() {
-    howToTechOpen = !howToTechOpen;
-    playSE('se_select');
-    renderHowToTechniques();
+    document.getElementById('howToTechSection').classList.toggle('open', howToOpenSections.tech);
+    document.getElementById('howToTechArrow').textContent = howToOpenSections.tech ? '▼' : '▶\ufe0e';
 }
 function openRecords() {
     renderRecords();

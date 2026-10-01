@@ -3,6 +3,12 @@
 このプロジェクトの変更履歴。日付は新しいものを上に追記する。
 コード(`index.html` / `css/style.css` / `js/script.js`)や仕様に変更を加えた場合は、このファイルに追記すること(詳細は `AI_GUIDE.md` を参照)。
 
+## 2026-10-01(12)
+
+- ver. 0.9.163
+- HOW TOのメニュー(HOW TO TRAINING等とHOW TO BATTLEを選ぶ画面)を廃止。どこから開いても、まず3すくみの図があるHOW TO BATTLEを出すようにした。
+- モード別の説明(HOW TO TRAINING / BATTLE RUSH / EXTRA BATTLE / LOCAL V.S.)は、そのモードの対戦中(LOCAL V.S.はキャラ選択中も)だけ、HOW TO BATTLEの一番上に、TECHNIQUESと同じく見出しをタップすると開閉する欄として出す(最初は閉じている)。本文は非表示のテンプレート(`howToTextXxx`)から差し込む(`renderHowTo` / `toggleHowToSection`)。
+
 ## 2026-10-01(11)
 
 - ver. 0.9.162

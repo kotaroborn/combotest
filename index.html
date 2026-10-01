@@ -108,7 +108,7 @@
                 <div class="title-logo-fallback-sub">CROSS DIMENSION</div>
             </div>
         </div>
-        <div class="title-version">ver. 0.9.162</div>
+        <div class="title-version">ver. 0.9.163</div>
     </div>
     <button id="titleContinueBtn" class="text-btn" onclick="tapFlickerThen(this, () => goContinueGame())" style="display:none;">CONTINUE</button>
     <button id="startBtn" class="text-btn" onclick="tapFlickerThen(this, () => goNewGame())" disabled>NEW GAME</button>
@@ -340,25 +340,20 @@
 <div id="howToOverlay" class="popup-overlay" onclick="closeHowToBackdrop(event)">
     <div class="popup-panel">
         <button class="popup-close" onclick="closeHowTo()">×</button>
-        <!-- メニュー(BONUSと同じ一覧から選ぶ形)。モード別のHOW TOの行は、そのモードの対戦中だけ表示する -->
-        <div class="howto-content" id="howToMenu" style="display:none;">
-            <h2>HOW TO</h2>
-            <div class="option-row" id="howToMenuModeRow">
-                <span class="option-label" id="howToMenuModeLabel">HOW TO TRAINING</span>
-                <button onclick="openHowToPage(howToCurrentModePage)">見る</button>
-            </div>
-            <div class="option-row">
-                <span class="option-label">HOW TO BATTLE</span>
-                <button onclick="openHowToPage('battle')">見る</button>
-            </div>
-        </div>
         <!-- HOW TO BATTLE(基本) -->
-        <div class="howto-content howto-scroll howto-page" id="howToPageBattle" style="display:none;">
+        <div class="howto-content howto-scroll howto-page" id="howToPageBattle">
             <h2>HOW TO BATTLE</h2>
-            <button class="sound-test-back-btn howto-back" onclick="backToHowToMenu()">◀︎戻る</button>
+            <!-- モード別の説明(TRAINING/BATTLE RUSH/EXTRA BATTLE/LOCAL V.S.の対戦中だけ表示)。見出しをタップすると開閉する(2026-10-01)。
+                 本文は下の非表示のテンプレート(howToTextXxx)から差し込む -->
+            <div class="records-section howto-tech" id="howToModeSection" style="display:none;">
+                <button class="records-section-title" onclick="toggleHowToSection('mode')">
+                    <span class="records-section-arrow" id="howToModeArrow">▶︎</span><span class="records-section-name" id="howToModeLabel"></span>
+                </button>
+                <div class="records-section-body howto-mode-body" id="howToModeBody"></div>
+            </div>
             <!-- ワザ表(RECORDSのTECHNIQUESと同じ一覧)。RECORDSと同じく見出しをタップすると開閉する(2026-10-01) -->
             <div class="records-section howto-tech" id="howToTechSection">
-                <button class="records-section-title" onclick="toggleHowToTech()">
+                <button class="records-section-title" onclick="toggleHowToSection('tech')">
                     <span class="records-section-arrow" id="howToTechArrow">▶︎</span><span class="records-section-name">TECHNIQUES</span>
                     <span class="records-section-sub" id="howToTechCount"></span>
                 </button>
@@ -386,9 +381,7 @@
             オプションのRECORDSからワザのヒントも見られるぞ！</p>
         </div>
         <!-- HOW TO TRAINING -->
-        <div class="howto-content howto-scroll howto-page" id="howToPageTraining" style="display:none;">
-            <h2>HOW TO TRAINING</h2>
-            <button class="sound-test-back-btn howto-back" onclick="backToHowToMenu()">◀︎戻る</button>
+        <div id="howToTextTraining" hidden>
             <p>トレーニングモードでは<br>
             カードを1〜5枚すきなように出して<br>
             ワザやコンボを確かめることができる。<br>
@@ -398,9 +391,7 @@
             ※つかったワザやコンボ数はRECORDには記録されません。</p>
         </div>
         <!-- HOW TO BATTLE RUSH -->
-        <div class="howto-content howto-scroll howto-page" id="howToPageRush" style="display:none;">
-            <h2>HOW TO BATTLE RUSH</h2>
-            <button class="sound-test-back-btn howto-back" onclick="backToHowToMenu()">◀︎戻る</button>
+        <div id="howToTextRush" hidden>
             <p>バトルラッシュモードでは、<br>
             25人の敵と連続で戦っていく特殊なモード。<br>
             VALを操作して最速で敵を倒し、<br>
@@ -412,9 +403,7 @@
             ・記録やワザのヒントは、オプションのRECORDSで確認できます。</p>
         </div>
         <!-- HOW TO EXTRA BATTLE -->
-        <div class="howto-content howto-scroll howto-page" id="howToPageExtra" style="display:none;">
-            <h2>HOW TO EXTRA BATTLE</h2>
-            <button class="sound-test-back-btn howto-back" onclick="backToHowToMenu()">◀︎戻る</button>
+        <div id="howToTextExtra" hidden>
             <p>エクストラバトルでは、<br>
             1ターンごとに出さないといけない<br>
             カード枚数がランダムで決まる。</p>
@@ -424,9 +413,7 @@
             戦略的なバトルがためされる！</p>
         </div>
         <!-- HOW TO LOCAL V.S. -->
-        <div class="howto-content howto-scroll howto-page" id="howToPageVersus" style="display:none;">
-            <h2>HOW TO LOCAL V.S.</h2>
-            <button class="sound-test-back-btn howto-back" onclick="backToHowToMenu()">◀︎戻る</button>
+        <div id="howToTextVersus" hidden>
             <p>ローカルバーサスモードは、<br>
             画面を分割して2人で対戦できる<br>
             特別なモード。<br>
