@@ -4540,6 +4540,9 @@ async function runUpperCombo(attacker, defender, cursor) {
         const next = nextQueuedMove(attacker, cursor);
         if (next !== 'PUNCH') break;
         cursor.i++; // 次のコマンドを消費してコンボ継続
+        // 空中コンボで消費したカードも、相手側の伏せ札(?)を公開する(2026-10-01修正: 以前は攻防の頭でしか公開しておらず、
+        // U+P+P / U+P+P+Pのコンボ中に決められている側のカードが?のままだった)
+        if (state.enemyRevealedUpTo < cursor.i + 1) state.enemyRevealedUpTo = cursor.i + 1;
         updateUI(cursor.i); // ハイライトも追従させる
         drawEnemySlots(cursor.i);
         airPunches++;
