@@ -3452,6 +3452,13 @@ function filledCount() {
     return idx === -1 ? state.hands.length : idx;
 }
 
+// 場の空き枠(点線)は、カードを出せる間だけ表示する(2026-10-01)。登場演出やバトルの演出中は消しておき、
+// 点線が現れた瞬間が「カードを出していい合図」になるようにする(BATTLE RUSHでタイミングが分かりにくかったため)。
+function syncSlotsWaiting() {
+    const s = document.getElementById('slots');
+    const canPlay = state.battleReady && !state.resolving && (state.gameMode !== 'versus' || versusState.phase === 'inputP');
+    if (s) s.classList.toggle('slots-waiting', !canPlay);
+}
 function updateUI(activeIndex) {
     const label = document.getElementById('requiredHandSizeLabel');
     if (state.requiredHandSize) {
@@ -3467,6 +3474,7 @@ function updateUI(activeIndex) {
     } else {
         label.style.display = 'none';
     }
+    syncSlotsWaiting();
     const s = document.getElementById('slots'); s.innerHTML = '';
     state.hands.forEach((h, idx) => {
         const d = document.createElement('div');
@@ -3485,6 +3493,7 @@ function updateUI(activeIndex) {
 }
 
 function updateActionButtons() {
+    syncSlotsWaiting();
     // GO!は、通常なら1枚でも出せば押せる。requiredHandSizeが設定されている場合(EXTRA BATTLE)は、
     // ちょうどその枚数出した時だけ有効になる(少なく出して確定する、は不可)。
     // CANCELはGO!と異なり、requiredHandSizeの有無に関わらず1枚でも場に出ていれば常に押せる
@@ -5384,6 +5393,7 @@ async function resolveTurn() {
             if (rushKilled) await rushSpawnNextEnemy(); // BATTLE RUSH: 次の敵が登場し終わってから次のターンの入力を受け付ける
             state.resolving = false;
             rushSyncPause(); // BATTLE RUSH: 演出中にOPTION/HOW TOを開いたままなら、入力の番になったここから時間を止める
+            syncSlotsWaiting(); // カードを出せるようになったので、場の点線の枠を表示する
             if (rushKilled) updateActionButtons();
             if (state.gameMode === 'versus') vsBeginTurnInput(); // ローカル対戦: 次のターンの入力(1Pから)へ
         }
