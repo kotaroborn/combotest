@@ -5913,6 +5913,14 @@ async function playSubstoryBattleEpilogue(playerPresetKey) {
     document.getElementById('subStoryReadSkipBtn').style.display = 'none'; // エピローグ中は(readSubStory由来のSKIPボタンが残っていないよう)必ず隠す
     block.style.transition = 'none';
     block.style.opacity = '0';
+    // 2026-10-02: 前に読んだSUB STORY(バトル前)の最後の画像・文章が残ったまま一瞬見えてしまっていたため、
+    // 表示を始める前に消し、エピローグの画像の読み込みも先に済ませてから見せる
+    imgArea.style.backgroundImage = 'none';
+    imgArea.style.filter = 'none';
+    imgArea.classList.remove('shaking-loop');
+    fallback.innerText = '';
+    textEl.innerHTML = '';
+    if (epilogue) await loadCutsceneScreens([epilogue], 'substory');
     await wait(30);
     if (epilogue && epilogue.whiteFadeAtPage !== undefined) {
         // 白から始まるエピローグは、黒から一瞬でパッと白くフラッシュさせる(フェードで徐々に白くしない)
