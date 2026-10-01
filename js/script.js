@@ -22,7 +22,7 @@ const DB = {
         RETREAT_HALF: 200,  // 攻防のあと軽く距離を取る位置（ホームまでは戻らない）
         GROUND_MARGIN_PX: 3 // 地面バンドの高さ(ソースpx換算。キャラ下部3px想定)
     },
-    DMG: { P: 10, U: 7, M: 35, CLASH: 3, TINY: 1, P_COMBO_STEP: 5, FINISHER: 50, WALL_LAUNCH_BONUS: 2, WALL_IMPACT: 3, MIRACLE: 20 }, // MIRACLE: 同じカード5枚の技の追撃ダメージ(壁激突込みの合計、2026-09-30) / // P:パンチ勝利 / U:アッパー初撃(2026-09-20、初見のプレイヤーがコンボを知らずに単発で出した時に弱く見えすぎる問題を受け、5→7に引き上げ。コンボ・メテオ側の追撃ダメージ(P_COMBO_STEP等)には触れていないため、メテオまで通した場合の合計は65→67に微増するのみ) / M:メテオ(初撃7+追撃10+追撃15+メテオ35=合計67) / CLASH:相討ち微ダメージ / TINY:ガードされたパンチの反撃 / P_COMBO_STEP:空中パンチ連続ヒットの増加量 / FINISHER:GUARD+PUNCH+GUARD+PUNCH+PUNCH成立時の必殺技(チャージ等の影響を受けない固定値) / WALL_LAUNCH_BONUS・WALL_IMPACT:壁に叩きつける技(必殺技の壁激突・GUARD+PUNCH+UPPERの壁のめり込み)専用(2026-09-26追加)。「壁まで飛ばす力が強いので初撃に微量ダメージ増加、壁に当たること自体にも別枠のダメージ」という要望を受けたもの。WALL_LAUNCH_BONUSは初撃(パンチ/必殺技)のダメージに上乗せする微量ボーナス(他の倍率と一緒に乗算される)。WALL_IMPACTは壁に当たった瞬間の固定ダメージで、TINY/CLASHと同様チャージ・敵の個性(atkMult/defMult)いずれの倍率も適用しない(壁への激突という物理的な衝撃そのもののダメージのため)
+    DMG: { P: 10, U: 7, M: 35, CLASH: 3, TINY: 1, P_COMBO_STEP: 5, FINISHER: 50, WALL_LAUNCH_BONUS: 2, WALL_IMPACT: 3, MIRACLE: 20, FEINT: 15 }, // FEINT: P+U+Gの反撃パンチ(2026-10-01)  // MIRACLE: 同じカード5枚の技の追撃ダメージ(壁激突込みの合計、2026-09-30) / // P:パンチ勝利 / U:アッパー初撃(2026-09-20、初見のプレイヤーがコンボを知らずに単発で出した時に弱く見えすぎる問題を受け、5→7に引き上げ。コンボ・メテオ側の追撃ダメージ(P_COMBO_STEP等)には触れていないため、メテオまで通した場合の合計は65→67に微増するのみ) / M:メテオ(初撃7+追撃10+追撃15+メテオ35=合計67) / CLASH:相討ち微ダメージ / TINY:ガードされたパンチの反撃 / P_COMBO_STEP:空中パンチ連続ヒットの増加量 / FINISHER:GUARD+PUNCH+GUARD+PUNCH+PUNCH成立時の必殺技(チャージ等の影響を受けない固定値) / WALL_LAUNCH_BONUS・WALL_IMPACT:壁に叩きつける技(必殺技の壁激突・GUARD+PUNCH+UPPERの壁のめり込み)専用(2026-09-26追加)。「壁まで飛ばす力が強いので初撃に微量ダメージ増加、壁に当たること自体にも別枠のダメージ」という要望を受けたもの。WALL_LAUNCH_BONUSは初撃(パンチ/必殺技)のダメージに上乗せする微量ボーナス(他の倍率と一緒に乗算される)。WALL_IMPACTは壁に当たった瞬間の固定ダメージで、TINY/CLASHと同様チャージ・敵の個性(atkMult/defMult)いずれの倍率も適用しない(壁への激突という物理的な衝撃そのもののダメージのため)
     MAX_AIR_PUNCH: 3,
     BREATH_MS: 500, // player.PNG / player2.PNG の呼吸切替間隔
     DECK_TOTAL: 21, // デッキ合計枚数(内訳は編成画面で自由配分)
@@ -69,7 +69,8 @@ let state = {
     pShakeUntil: 0, eShakeUntil: 0,
     pBlinkUntil: 0, eBlinkUntil: 0,
     pLastAtk: null, eLastAtk: null,
-    pNumbed: false, eNumbed: false, // しびれフラグ: 次のコマンドの成功率が1/2になる(ガード成功で相手に付与)
+    pNumbed: false, eNumbed: false, numbSureSide: null, // numbSureSide: PARRY!でピヨった側(次の攻防で必ず負ける)
+    // しびれフラグ: 次のコマンドの成功率が1/2になる(ガード成功で相手に付与)
     piyoSide: null, // ピヨり演出: どちら側の頭上に出すか(truthyな間、継続して表示される)
     piyoBreakUntil: 0, // ピヨりが割れて分裂する演出の終了時刻(performance.now()基準)。しびれた側の判定が決着した時に使う
     piyoBroken: false, // 割れる演出を開始済みかどうか。trueの間はdraw()側が通常のバウンド表示に戻らないようにする(下記参照)
@@ -195,7 +196,7 @@ let soundTestBgmSource = null; // SOUND TEST専用のBGMプレビュー再生ノ
 let soundTestBgmPlayingName = null; // 現在プレビュー再生中のBGMトラック名(null=何も再生していない)
 let soundTestSeSource = null; // SOUND TEST専用のSEプレビュー再生ノード。BGMプレビューとは独立に、単発で重ねて鳴らせる
 let soundTestSePlayingName = null; // 現在プレビュー再生中のSEトラック名(null=何も再生していない)
-let specialsUsed = { superUpper: false, charge: false, followUp: false, finisher: false, upperGuardUpper: false, guardPunchUpper: false, miracle: false, meteor: false }; // 各種必殺技を、これまでの対戦を通じて1回でも使ったか(バトルをまたいで積み上げ)。SOUND TESTの解放条件は当初の4種のまま(upperGuardUpper/guardPunchUpperは将来の実績拡張用に記録のみ)
+let specialsUsed = { superUpper: false, charge: false, followUp: false, finisher: false, upperGuardUpper: false, guardPunchUpper: false, miracle: false, meteor: false, feint: false, parry: false }; // 各種必殺技を、これまでの対戦を通じて1回でも使ったか(バトルをまたいで積み上げ)。SOUND TESTの解放条件は当初の4種のまま(upperGuardUpper/guardPunchUpperは将来の実績拡張用に記録のみ)
 let selectedSkin = null; // 現在選択中のコスチューム('enemy_1'等、nullはデフォルトのプレイヤー見た目)
 let gameClearedOnce = false; // STORY MODEを一度でも最後(5人目)までクリアしたか。COSTUMEの解放条件の一部
 let costumeUnlockAnnounced = false; // タイトル画面でCOSTUME解放のポップアップを既に一度見せたか(繰り返し表示しないため)
@@ -1214,6 +1215,8 @@ function applySaveDataOnBoot() {
             guardPunchUpper: !!save.specialsUsed.guardPunchUpper,
             miracle: !!save.specialsUsed.miracle,
             meteor: !!save.specialsUsed.meteor,
+            feint: !!save.specialsUsed.feint,
+            parry: !!save.specialsUsed.parry,
         };
     }
     if (typeof save.selectedSkin === 'string' || save.selectedSkin === null) selectedSkin = save.selectedSkin;
@@ -3690,6 +3693,7 @@ function resetBattleState() {
     state.pLastAtk = null; state.eLastAtk = null;
     state.pNumbed = false;
     state.eNumbed = false;
+    state.numbSureSide = null;
     state.piyoSide = null;
     state.piyoBroken = false;
     state.pPunchStreak = 0; state.pPunchChain = 0;
@@ -4809,11 +4813,53 @@ function detectComboType(hand, total) {
             return { type: 'guardPunchUpper', start };
         }
     }
+    // FEINT(P+U+G)・PARRY(G+U+G)、2026-10-01追加。どちらもCRASH!(FINISHER_PATTERNS)の5枚のどこにも含まれない並び
+    for (let start = 0; start + 2 < total; start++) {
+        if (hand[start] === 'PUNCH' && hand[start + 1] === 'UPPER' && hand[start + 2] === 'GUARD') {
+            return { type: 'feint', start };
+        }
+        if (hand[start] === 'GUARD' && hand[start + 1] === 'UPPER' && hand[start + 2] === 'GUARD') {
+            return { type: 'parry', start };
+        }
+    }
     return { type: null, start: -1 };
 }
 
 // PUNCH+GUARD+PUNCH(1〜3枚目が全て勝利)成立時の追撃。punch.PNG/punch2.PNGを素早く切り替えながら3連打し、必ずヒットする。
 // 合計ダメージは通常パンチ1発の3倍(1発ごとにDB.DMG.P、チャージ等の影響は受けない)。
+// FEINT!(PUNCH+UPPER+GUARD、2026-10-01追加): 1・2枚目は負けなければOK、3枚目のGUARDで勝つと、受け止めた直後に
+// ダッシュしてパンチで反撃する(必ず当たる)。ガード成功で付いたピヨりは、この反撃に置き換わる(PARRY!との役割分け)。
+async function runFeintCounter(attacker, defender) {
+    hitComboSuccess(attacker);
+    if (defender === 'P') state.pNumbed = false; else state.eNumbed = false;
+    if (state.piyoSide === defender) stopPiyo();
+    spawnTechNamePop(attacker, 'FEINT!');
+    await flashDashBetweenPunches(attacker);
+    setAct(attacker, nextPunchSprite(attacker)); // Beat1: 攻撃絵
+    flashAttackerWhite(attacker); // awaitしない
+    await wait(DB.HITSTOP.POSE_MS);
+    setAct(defender, 'damage.PNG'); // Beat2: ダメージ絵(命中の瞬間)
+    applyDamage(defender, DB.DMG.FEINT * atkMultOf(attacker) * defMultOf(defender));
+    playSE('se_punch');
+    spawnHitEffect(attacker, 'PUNCH', 2);
+    await wait(DB.HITSTOP.IMPACT_MS);
+    triggerShake(defender, 300); // Beat3: 振動などの反応
+    await knockbackTo(defender, defender === 'P' ? DB.POS.P_RETREAT_X : DB.POS.E_RETREAT_X);
+    await wait(300);
+    toIdle();
+}
+// PARRY!(GUARD+UPPER+GUARD、2026-10-01追加): 1・2枚目は負けなければOK、3枚目のGUARDで勝つと、相手を必ずピヨらせる。
+// ダメージは無いが、ピヨった相手は次の攻防で必ず負ける(state.numbSureSide)。ターンの最後のカードで決めると効果は持ち越さない。
+async function runParry(attacker, defender) {
+    spawnTechNamePop(attacker, 'PARRY!');
+    flashAttackerWhite(attacker); // awaitしない
+    if (defender === 'P') state.pNumbed = true; else state.eNumbed = true;
+    state.numbSureSide = defender;
+    setAct(defender, 'damage.PNG');
+    triggerShake(defender, 400);
+    if (state.piyoSide !== defender) { startPiyo(defender); playSE('se_piyo'); }
+    await wait(500);
+}
 async function runFollowUpFlurry(attacker, defender) {
     hitComboBreak(defender);
     spawnTechNamePop(attacker, 'RUSH!'); // 技名ポップ(第36条: 追撃=ラッシュ)。3連打全体で1回だけ、暗転が始まるタイミングで表示する
@@ -5016,6 +5062,8 @@ async function resolveExchange(pAct, eAct, cursor) {
         } else if (guardSidePreset && guardSidePreset.numbFailMult) {
             numbFailChance = Math.min(1, 0.5 * guardSidePreset.numbFailMult);
         }
+        if (state.numbSureSide === numbedSide) numbFailChance = 1; // PARRY!でピヨった側は、次の攻防で必ず負ける(2026-10-01)
+        state.numbSureSide = null;
         const numbFailed = Math.random() < numbFailChance; // 判定は初期位置(RETREAT_X、全く踏み込んでいない)のまま確定させる
         // ここでは踏み込まない(中央=ATTACK_Xへの接近は、runNumbFail/runNumbEscape側で
         // 点滅・シェイク等の「間」の演出を終えた直後、実際に攻撃が始まる/3すくみ判定へ進む直前まで遅らせる。
@@ -5176,9 +5224,11 @@ async function resolveTurn() {
             if (res) {
                 if (state.pComboType === 'followup' && iAtStart >= state.pComboStart && iAtStart <= state.pComboStart + 2 && (iAtStart === state.pComboStart + 2 ? res.P !== 'win' : res.P === 'lose')) state.pComboAlive = false; // 途中は負けなければOK、最後は勝ちが必要
                 if (state.pComboType === 'guardPunchUpper' && iAtStart >= state.pComboStart && iAtStart <= state.pComboStart + 2 && (iAtStart === state.pComboStart + 2 ? res.P !== 'win' : res.P === 'lose')) state.pComboAlive = false; // 途中は負けなければOK、最後は勝ちが必要
+                if ((state.pComboType === 'feint' || state.pComboType === 'parry') && iAtStart >= state.pComboStart && iAtStart <= state.pComboStart + 2 && (iAtStart === state.pComboStart + 2 ? res.P !== 'win' : res.P === 'lose')) state.pComboAlive = false; // 途中は負けなければOK、最後は勝ちが必要
                 if (state.pComboType === 'finisher' && iAtStart <= 3 && res.P === 'lose') state.pComboAlive = false;
                 if (state.eComboType === 'followup' && iAtStart >= state.eComboStart && iAtStart <= state.eComboStart + 2 && (iAtStart === state.eComboStart + 2 ? res.E !== 'win' : res.E === 'lose')) state.eComboAlive = false; // 途中は負けなければOK、最後は勝ちが必要
                 if (state.eComboType === 'guardPunchUpper' && iAtStart >= state.eComboStart && iAtStart <= state.eComboStart + 2 && (iAtStart === state.eComboStart + 2 ? res.E !== 'win' : res.E === 'lose')) state.eComboAlive = false; // 途中は負けなければOK、最後は勝ちが必要
+                if ((state.eComboType === 'feint' || state.eComboType === 'parry') && iAtStart >= state.eComboStart && iAtStart <= state.eComboStart + 2 && (iAtStart === state.eComboStart + 2 ? res.E !== 'win' : res.E === 'lose')) state.eComboAlive = false; // 途中は負けなければOK、最後は勝ちが必要
                 if (state.eComboType === 'finisher' && iAtStart <= 3 && res.E === 'lose') state.eComboAlive = false;
                 // MIRACLE: 1〜4枚目は負けなければOK、5枚目は勝ちが必要
                 if (state.pComboType === 'miracle' && (iAtStart <= 3 ? res.P === 'lose' : res.P !== 'win')) state.pComboAlive = false;
@@ -5187,6 +5237,15 @@ async function resolveTurn() {
             // PUNCH+GUARD+PUNCHの3枚目(start+2枚目)が成立した直後に追撃を発生させる
             if (state.pComboType === 'followup' && iAtStart === state.pComboStart + 2 && state.pComboAlive) { await runFollowUpFlurry('P', 'E'); markSpecialUsed('followUp', 'P'); }
             if (state.eComboType === 'followup' && iAtStart === state.eComboStart + 2 && state.eComboAlive) { await runFollowUpFlurry('E', 'P'); markSpecialUsed('followUp', 'E'); }
+            // FEINT(P+U+G)・PARRY(G+U+G): 3枚目のGUARDで勝った直後に発動(2026-10-01)
+            for (const [side, other] of [['P', 'E'], ['E', 'P']]) {
+                const type = side === 'P' ? state.pComboType : state.eComboType;
+                const start = side === 'P' ? state.pComboStart : state.eComboStart;
+                const alive = side === 'P' ? state.pComboAlive : state.eComboAlive;
+                if (!alive || iAtStart !== start + 2) continue;
+                if (type === 'feint') { markSpecialUsed('feint', side); await runFeintCounter(side, other); }
+                else if (type === 'parry') { markSpecialUsed('parry', side); await runParry(side, other); }
+            }
             // MIRACLE(PUNCH×5 / GUARD×5): 5枚目で勝った直後に壁めり込みの追撃。UPPER×5はrunUpperCombo内で空中から発動済み
             if (state.pComboType === 'miracle' && iAtStart === 4 && state.pComboAlive && state.hands[0] !== 'UPPER') { markSpecialUsed('miracle', 'P'); await runGuardPunchUpperWallStrike('P', 'E', 'MIRACLE!'); }
             if (state.eComboType === 'miracle' && iAtStart === 4 && state.eComboAlive && state.enemyHands[0] !== 'UPPER') { markSpecialUsed('miracle', 'E'); await runGuardPunchUpperWallStrike('E', 'P', 'MIRACLE!'); }
@@ -5209,6 +5268,7 @@ async function resolveTurn() {
         // しびれはターンをまたいで持ち越さない仕様: 使われなかった場合はここで消える(ピヨり表示も同時に終了する)
         state.pNumbed = false;
         state.eNumbed = false;
+        state.numbSureSide = null;
         stopPiyo();
         // ガード連続成功のカウントは同一ターン内のみ有効。ターンをまたいで持ち越さない(チャージ状態自体は持ち越すため、ここではリセットしない)
         state.pGuardStreak = 0;
@@ -5330,17 +5390,15 @@ const HOWTO_MODE_PAGES = {
     substoryBattle: { page: 'extra',    label: 'HOW TO EXTRA BATTLE' },
     versus:         { page: 'versus',   label: 'HOW TO LOCAL V.S.' },
 };
-const HOWTO_PAGE_IDS = { battle: 'howToPageBattle', training: 'howToPageTraining', rush: 'howToPageRush', extra: 'howToPageExtra', versus: 'howToPageVersus' };
+const HOWTO_PAGE_IDS = { tech: 'howToPageTech', battle: 'howToPageBattle', training: 'howToPageTraining', rush: 'howToPageRush', extra: 'howToPageExtra', versus: 'howToPageVersus' };
 let howToCurrentModePage = null;
 function openHowToPage(page) {
+    if (page === 'tech') renderHowToTechniques();
     document.getElementById('howToMenu').style.display = 'none';
     Object.entries(HOWTO_PAGE_IDS).forEach(([k, id]) => {
         const el = document.getElementById(id);
         el.style.display = k === page ? '' : 'none';
         if (k === page) el.scrollTop = 0;
-        // メニューから開いた時だけ「戻る」を出す
-        const back = el.querySelector('.howto-back');
-        if (back) back.style.display = howToCurrentModePage ? '' : 'none';
     });
 }
 function backToHowToMenu() {
@@ -5351,12 +5409,10 @@ function openHowTo() {
     const inBattle = document.getElementById('sceneBattle').classList.contains('active');
     const mode = inBattle ? HOWTO_MODE_PAGES[state.gameMode] : null;
     howToCurrentModePage = mode ? mode.page : null;
-    if (mode) {
-        document.getElementById('howToMenuModeLabel').innerText = mode.label;
-        backToHowToMenu();
-    } else {
-        openHowToPage('battle');
-    }
+    // 2026-10-01: TECHNIQUESを選べるよう、どこから開いても常にメニューから始める(モード別の行はそのモードの対戦中だけ)
+    document.getElementById('howToMenuModeRow').style.display = mode ? '' : 'none';
+    if (mode) document.getElementById('howToMenuModeLabel').innerText = mode.label;
+    backToHowToMenu();
     document.getElementById('howToOverlay').classList.add('show');
     rushPauseTimer('howto'); // BATTLE RUSH: HOW TOを開いている間はタイマーを止める(RUSH中でなければ何もしない)
 }
@@ -5375,6 +5431,7 @@ function openHowToVs(side) {
     if (inBattle && versusState.phase !== (side === 'P' ? 'inputP' : 'inputE')) return;
     playSE('se_menu_open');
     howToCurrentModePage = 'versus';
+    document.getElementById('howToMenuModeRow').style.display = '';
     document.getElementById('howToMenuModeLabel').innerText = HOWTO_MODE_PAGES.versus.label;
     backToHowToMenu();
     const ov = document.getElementById('howToOverlay');
@@ -7431,6 +7488,8 @@ const RECORDS_TECHNIQUES = [
     { key: 'followUp',        name: 'RUSH!',         cmd: '（パンチ）（ガード）（パンチ）',       hint: 'パンチの間にガードを挟む' },
     { key: 'guardPunchUpper', name: 'BREAK!',        cmd: '（ガード）（パンチ）（アッパー）',     hint: '守って、打って、打ち上げる' },
     { key: 'finisher',        name: 'CRASH!',        cmd: '決まった並びの5枚',                   hint: '5枚を決まった並びで出す' },
+    { key: 'feint',           name: 'FEINT!',        cmd: '（パンチ）（アッパー）（ガード）',     hint: '攻めると見せて、最後は守りで返す' },
+    { key: 'parry',           name: 'PARRY!',        cmd: '（ガード）（アッパー）（ガード）',     hint: 'アッパーを守りで挟む' },
     { key: 'miracle',         name: 'MIRACLE!',      cmd: '同じカードを5枚',                     hint: '5枚すべてを…' },
 ];
 function buildRecordsItems() {
@@ -7460,6 +7519,10 @@ function buildRecordsItems() {
     return items;
 }
 function escapeRecordsText(t) { return String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+function recordsItemHtml(it) {
+    return `<div class="records-item${it.got ? ' got' : ''}"><span class="records-item-name">${it.got ? '★' : '☆'} ${escapeRecordsText(it.name)}</span>`
+        + `<span class="records-item-how">${escapeRecordsText(it.how)}</span></div>`;
+}
 function renderRecords() {
     const items = buildRecordsItems();
     const got = items.filter(it => it.got).length;
@@ -7477,8 +7540,7 @@ function renderRecords() {
             + `<div class="records-section-body">${inner}</div></div>`;
     };
     const stat = (label, value) => `<div class="records-stat"><span>${label}</span><span>${value}</span></div>`;
-    const itemHtml = (it) => `<div class="records-item${it.got ? ' got' : ''}"><span class="records-item-name">${it.got ? '★' : '☆'} ${escapeRecordsText(it.name)}</span>`
-        + `<span class="records-item-how">${escapeRecordsText(it.how)}</span></div>`;
+    const itemHtml = recordsItemHtml;
     const countSub = (list) => `${list.filter(it => it.got).length} / ${list.length}`;
     section('story', 'STORY MODE', storyCleared ? 'CLEAR' : `${defeated} / ${ENEMY_ORDER.length}`,
         stat('進行', storyCleared ? 'CLEAR' : `${defeated} / ${ENEMY_ORDER.length} 撃破`)
@@ -7506,6 +7568,14 @@ function toggleRecordsSection(key) {
     el.classList.toggle('open', open);
     el.querySelector('.records-section-arrow').textContent = open ? '▼' : '▶︎';
     playSE('se_select');
+}
+// HOW TOのTECHNIQUES(2026-10-01): RECORDSのTECHNIQUESと同じ内容を表示する
+function renderHowToTechniques() {
+    const techs = buildRecordsItems().filter(it => it.tech);
+    const body = document.getElementById('howToTechBody');
+    body.innerHTML = `<div class="records-rate"><span class="records-rate-num">${techs.filter(it => it.got).length} / ${techs.length}</span></div>`
+        + techs.map(recordsItemHtml).join('');
+    applyHowToCardIcons(body);
 }
 function openRecords() {
     renderRecords();

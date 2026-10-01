@@ -108,7 +108,7 @@
                 <div class="title-logo-fallback-sub">CROSS DIMENSION</div>
             </div>
         </div>
-        <div class="title-version">ver. 0.9.160</div>
+        <div class="title-version">ver. 0.9.161</div>
     </div>
     <button id="titleContinueBtn" class="text-btn" onclick="tapFlickerThen(this, () => goContinueGame())" style="display:none;">CONTINUE</button>
     <button id="startBtn" class="text-btn" onclick="tapFlickerThen(this, () => goNewGame())" disabled>NEW GAME</button>
@@ -340,7 +340,7 @@
 <div id="howToOverlay" class="popup-overlay" onclick="closeHowToBackdrop(event)">
     <div class="popup-panel">
         <button class="popup-close" onclick="closeHowTo()">×</button>
-        <!-- メニュー(モード別のHOW TOがある場面だけ表示。BONUSと同じ一覧から選ぶ形) -->
+        <!-- メニュー(BONUSと同じ一覧から選ぶ形)。モード別のHOW TOの行は、そのモードの対戦中だけ表示する -->
         <div class="howto-content" id="howToMenu" style="display:none;">
             <h2>HOW TO</h2>
             <div class="option-row" id="howToMenuModeRow">
@@ -351,6 +351,16 @@
                 <span class="option-label">HOW TO BATTLE</span>
                 <button onclick="openHowToPage('battle')">見る</button>
             </div>
+            <div class="option-row">
+                <span class="option-label">TECHNIQUES</span>
+                <button onclick="openHowToPage('tech')">見る</button>
+            </div>
+        </div>
+        <!-- TECHNIQUES: RECORDSのTECHNIQUESと同じ一覧(出したことのあるワザはコマンド、未使用は？？？とヒント) -->
+        <div class="howto-content howto-scroll howto-page" id="howToPageTech" style="display:none;">
+            <h2>TECHNIQUES</h2>
+            <button class="sound-test-back-btn howto-back" onclick="backToHowToMenu()">◀︎戻る</button>
+            <div id="howToTechBody"></div>
         </div>
         <!-- HOW TO BATTLE(基本) -->
         <div class="howto-content howto-scroll howto-page" id="howToPageBattle" style="display:none;">
