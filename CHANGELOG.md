@@ -3,6 +3,16 @@
 このプロジェクトの変更履歴。日付は新しいものを上に追記する。
 コード(`index.html` / `css/style.css` / `js/script.js`)や仕様に変更を加えた場合は、このファイルに追記すること(詳細は `AI_GUIDE.md` を参照)。
 
+## 2026-10-02(6)
+
+- ver. 0.9.180
+- タイトルカードを整理・拡張(`playTitleCard`、`#titleCardOverlay`)。
+  - 本編の章タイトルは、画像(`story_title_{n}.PNG`)が無い章は文字で「STORY n / 章の名前」を出すようにした。章の名前(仮): 異世界の入り口 / 廃墟の教会 / 魔王城の門 / 道化師の部屋 / もうひとりのヴァル(`STORY_CHAPTER_TITLES`で変更できる)。
+  - SUB STORYを読み始める時にもタイトルカードを出すようにした。画像は`assets/images/cutscenes/substory/substory_title_{1〜5}.PNG`(APNG可)、無ければ文字で「SUB STORY n / タイトル」。
+  - ジングルに対応: `assets/audio/bgm/jingle_story.mp3`(SUB STORYは`jingle_substory.mp3`、無ければ`jingle_story`)があれば、カードの間だけ1回鳴らす。前の曲は止める。カードが消える時(タップ・SKIP含む)に鳴り残っていれば0.3秒でフェードアウトし、次の曲と重ならないようにした。
+  - APNGの再生時間をファイルから読み取り、表示時間(約3.5秒)より長いアニメーションなら、最後まで見せてから消えるようにした(`apngDurationMs`)。
+  - 仮の5秒のAPNGと3秒の音で確認(5秒表示されること、ジングルが鳴ること、文字表示、タップで先へ進むこと、SUB STORYのカードの後に本文が始まること)。仮のファイルは削除済み。
+
 ## 2026-10-02(5)
 
 - ver. 0.9.179

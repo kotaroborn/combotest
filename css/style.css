@@ -1090,10 +1090,12 @@
 
 /* APNGの一枚絵(章タイトル・SUB STORY END、2026-10-02) */
 .apng-card-img { display: block; max-width: 92%; max-height: 70%; object-fit: contain; }
-#storyTitleOverlay {
-    position: absolute; inset: 0; z-index: 30; background: #000;
-    display: none; align-items: center; justify-content: center; opacity: 0;
+#titleCardOverlay {
+    position: absolute; inset: 0; z-index: 45; background: #000;
+    display: none; flex-direction: column; align-items: center; justify-content: center; opacity: 0;
 }
-#storyTitleOverlay.show { display: flex; }
+#titleCardOverlay.show { display: flex; }
+#titleCardText { text-align: center; color: #fff; }
+.title-card-sub { font-size: 14px; font-weight: 900; letter-spacing: 6px; color: #ffd23c; margin-bottom: 10px; }
+.title-card-main { font-size: 26px; font-weight: 900; letter-spacing: 4px; }
 #sceneSubStoryEnd .apng-card-img { max-height: 80%; }
-#skipStoryBtn { z-index: 31; } /* 章タイトル(#storyTitleOverlay)の上でもSKIPを押せるように */

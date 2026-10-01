@@ -17,7 +17,7 @@
     <meta property="og:image:height" content="630">
     <meta property="og:locale" content="ja_JP">
     <meta name="twitter:card" content="summary_large_image">
-    <link rel="stylesheet" href="css/style.min.css?v=179"> <!-- 配信用の軽量版。編集はcss/style.cssで行い、tools/build.shで作り直す(2026-10-02) -->
+    <link rel="stylesheet" href="css/style.min.css?v=180"> <!-- 配信用の軽量版。編集はcss/style.cssで行い、tools/build.shで作り直す(2026-10-02) -->
 
     <!-- 技名ポップ(2026-09-27追加)用の手書き風フォント。Google FontsのCDNから読み込む(ファイル同梱はせず、
          プレイ時のネット接続を前提とする。GitHub Pages/itch.ioでの公開自体が既にネット接続前提のため問題ない)。
@@ -88,9 +88,6 @@
             <p id="storyText" class="cine-text"></p>
         </div>
     </div>
-    <!-- 章タイトル(story_title_{番号}.PNG、APNG可)。NEW GAME開始時と、1〜4人目を倒した後のストーリーの前にだけ出す(2026-10-02)。
-         タップで先へ進める。画像が無ければ何も出さずにストーリーへ進む -->
-    <div id="storyTitleOverlay" onclick="onStoryTitleTap()"><img id="storyTitleImg" class="apng-card-img" alt=""></div>
     <button id="skipStoryBtn" class="text-btn" onclick="skipStorySequence()">▶︎SKIP</button>
 </div>
 
@@ -111,7 +108,7 @@
                 <div class="title-logo-fallback-sub">CROSS DIMENSION</div>
             </div>
         </div>
-        <div class="title-version">ver. 0.9.179</div>
+        <div class="title-version">ver. 0.9.180</div>
     </div>
     <button id="titleContinueBtn" class="text-btn" onclick="tapFlickerThen(this, () => goContinueGame())" style="display:none;">CONTINUE</button>
     <button id="startBtn" class="text-btn" onclick="tapFlickerThen(this, () => goNewGame())" disabled>NEW GAME</button>
@@ -627,6 +624,12 @@
 </div>
 
 <!-- COSTUME選択ポップアップ -->
+<!-- タイトルカード(2026-10-02): 本編の章タイトル(story_title_{番号}.PNG)とSUB STORYのタイトル(substory_title_{番号}.PNG)。
+     APNG可。画像が無ければ文字で出す。タップで先へ進める。文面・表示時間はscript.jsのSTORY_CHAPTER_TITLES / TITLE_CARD_TIMING -->
+<div id="titleCardOverlay" onclick="onTitleCardTap()">
+    <img id="titleCardImg" class="apng-card-img" alt="" style="display:none;">
+    <div id="titleCardText"></div>
+</div>
 <!-- チュートリアル(2026-10-01): はじめてのデッキ編成・Noah戦で一度だけ出す。文面はscript.jsのTUTORIAL_PAGES -->
 <div id="tutorialOverlay" class="popup-overlay">
     <div class="popup-panel tutorial-panel">
@@ -673,7 +676,7 @@
 (function() {
     // 配信用の軽量版(コメント・空白を除いたもの)。編集はjs/script.jsで行い、tools/build.shで作り直す(2026-10-02)。
     // ?v=はバージョン(.title-versionの末尾3桁)と同じ番号にし、更新のたびに上げる(古いものがキャッシュに残らないように)
-    var SCRIPT_URL = 'js/script.min.js?v=179';
+    var SCRIPT_URL = 'js/script.min.js?v=180';
     var bar = document.getElementById('nowLoadingBar');
     var percentEl = document.getElementById('nowLoadingPercent');
     var settled = false; // フォールバック(タイムアウト)と正常読み込みの、どちらか一方だけが実行されるようにするためのフラグ

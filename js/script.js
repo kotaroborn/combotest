@@ -2361,30 +2361,111 @@ async function showApngIn(imgEl, url) {
     return true;
 }
 
-// 章タイトル(story_title_{n}.PNG、cutscenes/story)。黒い画面にフェードインし、しばらく表示してからフェードアウトする。
-// 表示中はタップで先へ進める。SKIP(storyTokenが変わった)場合はすぐ終える。表示時間はAPNGの長さに合わせてここを変える
-const STORY_TITLE_TIMING = { fadeInMs: 500, holdMs: 3000, fadeOutMs: 600 };
-let storyTitleTapped = false;
-function onStoryTitleTap() { storyTitleTapped = true; }
-async function playStoryChapterTitle(n, token) {
-    const ov = document.getElementById('storyTitleOverlay');
-    const img = document.getElementById('storyTitleImg');
-    const ok = await showApngIn(img, `assets/images/cutscenes/story/story_title_${n}.PNG`);
-    if (!ok || storyToken !== token) return;
-    const t = STORY_TITLE_TIMING;
-    storyTitleTapped = false;
+// ------- タイトルカード(本編の章タイトル・SUB STORYのタイトル、2026-10-02) -------
+// 本編の章タイトルの文字(画像story_title_{n}.PNGが無い場合に出す)。文面はここだけ書き換えればよい
+const STORY_CHAPTER_TITLES = ['異世界の入り口', '廃墟の教会', '魔王城の門', '道化師の部屋', 'もうひとりのヴァル'];
+// 表示時間。holdMsは最低限見せる時間で、APNGのアニメーションがそれより長ければ、アニメーションが終わるまで見せる
+const TITLE_CARD_TIMING = { fadeInMs: 500, holdMs: 3000, fadeOutMs: 600 };
+let titleCardTapped = false;
+function onTitleCardTap() { titleCardTapped = true; }
+
+// APNGの再生時間(ミリ秒、ループ1回分×再生回数。無限ループなら1回分)。APNGでなければ0
+async function apngDurationMs(blob) {
+    try {
+        const buf = new DataView(await blob.arrayBuffer());
+        let pos = 8, total = 0, plays = 1;
+        while (pos + 8 <= buf.byteLength) {
+            const len = buf.getUint32(pos);
+            const type = String.fromCharCode(buf.getUint8(pos + 4), buf.getUint8(pos + 5), buf.getUint8(pos + 6), buf.getUint8(pos + 7));
+            const d = pos + 8;
+            if (type === 'acTL') plays = buf.getUint32(d + 4) || 1;
+            if (type === 'fcTL') {
+                const num = buf.getUint16(d + 20), den = buf.getUint16(d + 22) || 100;
+                total += num * 1000 / den;
+            }
+            if (type === 'IEND') break;
+            pos = d + len + 4;
+        }
+        return total * plays;
+    } catch (e) { return 0; }
+}
+
+// ジングル(タイトルカードの間だけ鳴らす短い曲、assets/audio/bgm/)。未配置なら鳴らさない。途中で止める時は短くフェードアウトする
+let jingleSource = null, jingleGain = null;
+async function playJingle(name, fallbackName) {
+    stopJingle(0);
+    let buffer = await preloadBgm(name, fallbackName);
+    if (!buffer || !state.soundOn) return;
+    const ctx = await getReadyAudioCtx();
+    stopBGM(); // 前の曲(タイトル・勝利後の曲など)は止めて、ジングルだけを鳴らす
+    const src = ctx.createBufferSource();
+    const g = ctx.createGain();
+    src.buffer = buffer;
+    src.connect(g);
+    g.connect(getBgmGainNode());
+    src.start(0);
+    jingleSource = src; jingleGain = g;
+}
+function stopJingle(fadeMs = 300) {
+    const src = jingleSource, g = jingleGain;
+    jingleSource = null; jingleGain = null;
+    if (!src) return;
+    try {
+        const ctx = getAudioCtx();
+        if (fadeMs > 0) {
+            g.gain.setValueAtTime(g.gain.value, ctx.currentTime);
+            g.gain.linearRampToValueAtTime(0, ctx.currentTime + fadeMs / 1000);
+            src.stop(ctx.currentTime + fadeMs / 1000 + 0.05);
+        } else {
+            src.stop();
+        }
+    } catch (e) { /* 既に止まっている等は無視 */ }
+}
+
+// タイトルカードを出す。imgUrlの画像があればそれを、無ければtextHtmlを出す。isCancelled()がtrueになったらすぐ終える(SKIP等)。
+// jingle: 鳴らすジングル名(任意)。カードが消える時(タップ・中断を含む)に鳴り残っていればフェードアウトさせる
+async function playTitleCard({ imgUrl, textHtml, jingle, jingleFallback, isCancelled }) {
+    const ov = document.getElementById('titleCardOverlay');
+    const img = document.getElementById('titleCardImg');
+    const text = document.getElementById('titleCardText');
+    const blob = await loadApngBlob(imgUrl);
+    if (isCancelled()) return;
+    let animMs = 0;
+    if (blob) {
+        await showApngIn(img, imgUrl);
+        animMs = await apngDurationMs(blob);
+        img.style.display = '';
+        text.style.display = 'none';
+    } else {
+        img.style.display = 'none';
+        text.innerHTML = textHtml;
+        text.style.display = '';
+    }
+    const t = TITLE_CARD_TIMING;
+    titleCardTapped = false;
     ov.style.transition = 'none';
     ov.style.opacity = '0';
     ov.classList.add('show');
-    await wait(30);
+    if (jingle) playJingle(jingle, jingleFallback);
+    await rawWait(30);
     ov.style.transition = `opacity ${t.fadeInMs}ms ease-in`;
     ov.style.opacity = '1';
     const start = performance.now();
-    while (performance.now() - start < t.fadeInMs + t.holdMs && !storyTitleTapped && storyToken === token) await wait(50);
+    const showMs = Math.max(t.fadeInMs + t.holdMs, animMs);
+    while (performance.now() - start < showMs && !titleCardTapped && !isCancelled()) await rawWait(50);
+    stopJingle(300); // カードが消える時は、ジングルが鳴り残っていればフェードアウトさせる(次の曲と重ならないように)
     ov.style.transition = `opacity ${t.fadeOutMs}ms ease-out`;
     ov.style.opacity = '0';
-    if (storyToken === token) await wait(t.fadeOutMs);
+    if (!isCancelled()) await rawWait(t.fadeOutMs);
     ov.classList.remove('show');
+}
+async function playStoryChapterTitle(n, token) {
+    await playTitleCard({
+        imgUrl: `assets/images/cutscenes/story/story_title_${n}.PNG`,
+        textHtml: `<div class="title-card-sub">STORY ${n}</div><div class="title-card-main">${STORY_CHAPTER_TITLES[n - 1] || ''}</div>`,
+        jingle: 'jingle_story',
+        isCancelled: () => storyToken !== token,
+    });
 }
 
 // 5人目(最終)撃破時の専用シーケンス: YOU WINの余韻を5秒→エンディング5画面→エンドロール→FIN.→タイトルへ自動的に戻る
@@ -6139,6 +6220,14 @@ async function readSubStory(idx) {
     document.getElementById('subStoryReadSkipBtn').style.display = unlockedSkins.includes(skinNameForSkip) ? '' : 'none';
     block.style.transition = 'none';
     block.style.opacity = '0';
+    // SUB STORYのタイトルカード(substory_title_{番号}.PNG、無ければ文字。2026-10-02)
+    await playTitleCard({
+        imgUrl: `assets/images/cutscenes/substory/substory_title_${idx + 1}.PNG`,
+        textHtml: `<div class="title-card-sub">SUB STORY ${idx + 1}</div><div class="title-card-main">${sub.title}</div>`,
+        jingle: 'jingle_substory', jingleFallback: 'jingle_story',
+        isCancelled: () => subStoryToken !== myToken,
+    });
+    if (subStoryToken !== myToken) return;
     await wait(30); // 直前のopacity:0が確実に描画されてからフェードインを開始させる
     block.style.transition = 'opacity 0.6s ease-in';
     block.style.opacity = '1';
