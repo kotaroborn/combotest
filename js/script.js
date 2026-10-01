@@ -971,6 +971,7 @@ const ENEMY_PRESETS = {
             ['GUARD', 'GUARD', 'GUARD'],          // さらに我慢してG+G+G(4倍)へ踏み込む
             ['GUARD', 'GUARD', 'GUARD', 'PUNCH'], // 4倍後の重いパンチ
             ['GUARD', 'GUARD', 'GUARD', 'UPPER'], // 4倍後の重いアッパー
+            ['GUARD', 'UPPER', 'GUARD'],          // G+U+G(PARRY!): 守りでアッパーを挟み、相手をしびれさせる(2026-10-01追加)
         ],
         avoidPatterns: [
             ['UPPER', 'PUNCH', 'PUNCH'], // 空中コンボを連続させたがらない(機敏さが無い)
@@ -994,6 +995,7 @@ const ENEMY_PRESETS = {
             ['UPPER', 'PUNCH', 'PUNCH'],                   // U+P+P(空中コンボ)
             ['UPPER', 'GUARD', 'UPPER'],                   // U+G+U(強化UPPER)
             ['GUARD', 'PUNCH', 'GUARD', 'PUNCH', 'PUNCH'], // 必殺技
+            ['PUNCH', 'UPPER', 'GUARD'],                   // P+U+G(FEINT!): 攻めると見せてガードで返す、道化師らしいワザ(2026-10-01追加)
         ],
         // firstMoveBiasは意図的に設定しない(一手目も含めて何を出すか読めない、トリッキーさの表現)
         atkMult: 1.2, // 攻撃力は高め
@@ -1010,6 +1012,7 @@ const ENEMY_PRESETS = {
             // Noah/Rita/Jack系(その他の主要な技)
             ['PUNCH', 'GUARD', 'PUNCH'], ['PUNCH', 'PUNCH', 'UPPER'], ['PUNCH', 'PUNCH', 'PUNCH'],
             ['UPPER', 'PUNCH', 'PUNCH'], ['UPPER', 'GUARD', 'UPPER'],
+            ['PUNCH', 'UPPER', 'GUARD'], ['GUARD', 'UPPER', 'GUARD'], // FEINT!・PARRY!(2026-10-01追加)
             ['GUARD', 'PUNCH', 'GUARD', 'PUNCH', 'PUNCH'], // 必殺技
         ],
         smallHandThreshold: 2, // 2枚以下の少ない手数の時
