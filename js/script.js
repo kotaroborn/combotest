@@ -5405,7 +5405,9 @@ let tutorialKey = null, tutorialPage = 0;
 function showTutorial(key) {
     tutorialKey = key; tutorialPage = 0;
     renderTutorialPage();
-    document.getElementById('tutorialOverlay').classList.add('show');
+    const ov = document.getElementById('tutorialOverlay');
+    ov.classList.toggle('tutorial-top', key === 'battle'); // バトル中は手札とボタンが見えるよう上寄せ
+    ov.classList.add('show');
 }
 function renderTutorialPage() {
     const pages = TUTORIAL_PAGES[tutorialKey];

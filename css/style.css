@@ -1071,8 +1071,11 @@
 .howto-tech { margin: 0 0 12px; }
 
 /* チュートリアル(2026-10-01) */
-#tutorialOverlay { z-index: 60; }
-.tutorial-panel { height: auto; max-height: 86%; }
+/* 後ろのゲーム画面が見えるよう、背景の暗さを弱め、パネル自体も少し透かす(2026-10-01) */
+#tutorialOverlay { z-index: 60; background: rgba(0,0,0,0.3); }
+.tutorial-panel { height: auto; max-height: 86%; background: rgba(22,22,22,0.82); }
+/* バトル中は手札とGO!ボタンが見えるよう、パネルを上寄せにする */
+#tutorialOverlay.tutorial-top { align-items: flex-start; padding-top: calc(var(--safe-top) + 70px); }
 .tutorial-body { font-size: 13px; line-height: 1.7; overflow-y: auto; min-height: 0; flex: 1 1 auto; }
 .tutorial-footer { display: flex; align-items: center; justify-content: space-between; margin-top: 14px; }
 #tutorialPageNum { font-size: 11px; color: #888; }
