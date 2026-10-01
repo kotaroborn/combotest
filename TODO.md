@@ -7,13 +7,18 @@
 
 ## 1. リリース前に必ず対応(最優先)
 
+- **リリースの段取り(2026-10-01、利用者の方針)**: 最終調整が終わったら、一度すべてのファイルを渡し、①GitHub用のデバッグ解放版、②GitHub用の本番版(下記のデバッグ解放ブロックを削除)を作る。その後③itch.io用の本番版を適用して終了する予定。
+  - 本番版では`js/script.js`の圧縮(minify、現在約470KB)も行う。
+  - itch.io版では、`index.html`のOGPタグ(og:url / og:image)がGitHub PagesのURLを指しているため、差し替えるか削除する。
+
 - **動作確認用のデバッグ解放ブロックが残っている**: 起動処理(`boot`)内に「【本番リリース前に必ずこのブロックを削除すること】」と明記された一時コードがあり、`gameClearedOnce`(BONUS CONTENTS/SOUND TEST/SPEEDの解放条件)・`unlockedSubStories`・`unlockedSkins`を、セーブデータの内容に関わらず強制的に全解放している。友人テスト用の一時措置であることがコード内コメントに明記されている。本番公開前に必ずこのブロックごと削除すること。
   - 2026-09-28、BATTLE RUSHの確認用に`rushUnlocked = true`もこのブロックに追加した(ブロックごと削除すれば本来のGIFT CODE解放に戻る)。
   - このブロックの影響で、下記「ローカル対戦(VERSUS)」のキャラ・ステージ解放判定も現状は常に全解放の状態になっている(`vsCharUnlocked`/`vsAvailableStages`自体のロジックは実装済みで、このブロックさえ消せば正しく機能する)。
 
 ## 2. 保留(対応するかどうかは未定、意図的に据え置き)
 
-- **`specialsUsed`の`upperGuardUpper`/`guardPunchUpper`(必殺技使用実績)は記録のみで保留**: SOUND TESTの解放条件には使っていない(当初の4種のまま)。実績としての活用(表示・条件反映)は将来使うかもしれないという位置づけで、当面は対応不要(2026-09-27、利用者の判断により保留を継続)。
+- ~~`specialsUsed`の実績としての活用~~ → 2026-09-30、RECORDSのTECHNIQUESとして表示するようになった(全10種)。SOUND TESTの解放条件はゲームクリアに一本化済み。
+- **敵もFEINT!・PARRY!を出す**(2026-10-01): 敵の手札にP U G / G U Gが並ぶと敵も発動する。特にPARRY!は「次の1枚は必ず負け」なので、理不尽に感じるようなら敵だけ発動率を下げる等を検討(様子見)。
 - **VERSUSのキャラ間の強さの偏り(特にVAL=Alvと同じ能力値)の調整は、とりあえずおいておく**(2026-09-27、利用者の判断により保留)。
 
 ## 3. テキスト・シナリオ
@@ -21,9 +26,10 @@
 - プロローグ・本編ストーリー(`OPENING_SCREENS`/`STORY_SCREENS_BY_ENEMY`)、および各敵のサブストーリー(`SUBSTORY_BY_ENEMY`、隠しタップで見られる5体分)の本文はいずれも完成済み。
 - 隠しタップの座標(`STORY_HIDDEN_TAP_POS_BY_ENEMY`)は5人目(ENEMY_05)まで設定済み(2026-09-27完了。ENEMY_05のみ判定矩形の高さを35%に広げてある)。
 
-## 4. HOW TO(遊び方)の拡充予定
+## 4. HOW TO(遊び方)
 
-- 現在のHOW TOポップアップは1種類のみで、STORY/TRAINING MODE向けの内容になっている。**EXTRA BATTLE・TRAINING MODE・VERSUS・BATTLE RUSHそれぞれに専用のHOW TOを別途用意する予定**(2026-09-27、利用者より方針決定。現状のもの1種類のみのままにするのではなく、モードごとに個別の解説画面を追加する)。仕様(文面・切り替え方法等)は未確定。
+- 2026-10-01、モード別のHOW TO(TRAINING / BATTLE RUSH / EXTRA BATTLE / LOCAL V.S.)とワザ表(TECHNIQUES)を実装済み(`IMPLEMENTATION.md`「7. UI機能」参照)。
+- BATTLE RUSHの雑魚DOLLの残りのポーズ(punch / punch2 / upper / guard / damage / knock / knock2 / down / dash)は、利用者から画像が届き次第配置する(未配置のポーズは立ち絵で代用される)。
 
 ## 5. ローカル対戦(VERSUS)まわりの調整
 

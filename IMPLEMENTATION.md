@@ -65,12 +65,16 @@ command-battle/
 
 ## 3.5 特殊な手・技の名称と付随演出(実装済み、2026-09-27整理)
 
-3枚以上の特定の並びの手札を出すと、通常の3すくみ判定とは別の専用処理(`pComboType`/`eComboType`で判定)が発動する。2026-09時点で正式名称が付いているのは以下の5つ(元々「チャージ」も含めて名前を検討したが、チャージは攻撃技ではなくバフ扱いのため命名対象から除外した)。技発動時は暗転などの「タメ」演出(`playFinisherBuildup`)の開始と同時に、技名を白文字+黒縁取り、右斜め上へ14°傾けた手書き風フォント(Google Fonts「Permanent Marker」)でポップ表示する(`spawnTechNamePop`/`drawTechNamePops`。ポップ・キープ・消滅で表示に強弱を付ける演出。表示名は末尾に必ず「!」を付ける)。CONSTITUTION.md 第27〜30条に詳細規定がある。
+3枚以上の特定の並びの手札を出すと、通常の3すくみ判定とは別の専用処理が発動する。5枚ワザ(クラッシュ!/ミラクル!)は`pComboType`/`eComboType`、3枚ワザ(ラッシュ!/ブレイク!/フェイント!/パリィ!)は`pCombos`/`eCombos`(`detectThreeCardCombos`)で判定する。**発動条件はすべて共通で「途中のカードは負けなければ(あいこでも)OK、最後のカードは勝ち」**(2026-09-30変更)。**2026-10-01から、3枚ワザは1ターンに複数発動できる**(手札の中の該当箇所をすべて拾い、それぞれ条件を守れたものが発動する。並びが重なっていてもよい。例: P G P U G → 3枚目でラッシュ!、5枚目でフェイント!)。5枚ワザの手札では3枚ワザは判定しない。RECORDS / HOW TOのTECHNIQUESに一覧がある(`RECORDS_TECHNIQUES`、全10種)。正式名称は以下(2026-09時点では5つ(元々「チャージ」も含めて名前を検討したが、チャージは攻撃技ではなくバフ扱いのため命名対象から除外した)。技発動時は暗転などの「タメ」演出(`playFinisherBuildup`)の開始と同時に、技名を白文字+黒縁取り、右斜め上へ14°傾けた手書き風フォント(Google Fonts「Permanent Marker」)でポップ表示する(`spawnTechNamePop`/`drawTechNamePops`。ポップ・キープ・消滅で表示に強弱を付ける演出。表示名は末尾に必ず「!」を付ける)。CONSTITUTION.md 第27〜30条に詳細規定がある。
 
 - **ラッシュ!(`runFollowUpFlurry`、手札 PUNCH+GUARD+PUNCH)**: 3すくみ判定を行わず、PUNCH×3発のヒットが確定する追撃。合計ダメージは通常パンチ1発(`DB.DMG.P`)の3倍。チャージ等の影響は受けない。技名ポップは暗転開始と同時。
 - **ブレイク!(`runGuardPunchUpperWallStrike`、手札 GUARD+PUNCH+UPPER)**: UPPERで壁までめり込ませる追加打撃。壁までの飛距離ボーナス(`DB.DMG.WALL_LAUNCH_BONUS`=2、初撃に乗算前加算)と、壁に当たること自体の固定ダメージ(`DB.DMG.WALL_IMPACT`=3、倍率適用なし)が加わる。この技だけ暗転演出(`playFinisherBuildup`)を伴わないため、技名ポップは唯一Beat1(命中直前)のタイミングで表示する。
 - **クラッシュ!(`runFinisher`、手札が`FINISHER_PATTERNS`に完全一致する必殺技)**: 3すくみ・しびれ判定を行わずヒット確定で固定ダメージ(`DB.DMG.FINISHER`=50)を与え、被弾側を画面端(壁)まで吹き飛ばす。ブレイクと同じ壁ボーナス(WALL_LAUNCH_BONUS)・壁激突固定ダメージ(WALL_IMPACT)が上乗せされる。技名ポップは暗転開始と同時。
 - **メテオ!(`runMeteor`、空中コンボ3発目の自動変換)**: UPPERで空中コンボに入った後、3発目のPUNCHが自動的にメテオへ変換される。ダメージは`DB.DMG.M`=35(チャージ・敵の個性倍率は適用される)。技名ポップは暗転開始と同時。
+- **フェイント!(`runFeintCounter`、手札 PUNCH+UPPER+GUARD、2026-10-01追加)**: 3枚目のGUARDで受け止めた直後、ダッシュして必ず当たる反撃パンチ(`DB.DMG.FEINT`=15、敵の個性倍率は適用)。ガード成功で付いたピヨりは、この反撃に置き換わる(パリィ!との役割分け)。暗転なし、白い発光とヒットストップあり。
+- **パリィ!(`runParry`、手札 GUARD+UPPER+GUARD、2026-10-01追加)**: ダメージは無いが、相手を必ずピヨらせ、ピヨった相手は次の攻防で必ず負ける(`state.numbSureSide`。通常のしびれは1/2)。ターンの最後のカードで決めた場合、しびれはターンをまたがないため効果は無い。
+- **ミラクル!(手札 同じカード5枚、2026-09-30追加)**: 1〜4枚目は負けなければOK、5枚目で勝つと、ブレイク!と同じ壁めり込みの追撃(合計`DB.DMG.MIRACLE`=20)。UPPER×5は空中から発動する。
+- フェイント!・パリィ!は、クラッシュ!(`FINISHER_PATTERNS`)の4つの並びのどこにも含まれない並びとして選んだ(利用者の要望)。
 - **ライジング!(`isSuperUpper`、2倍アッパー)**: UPPERダメージが2倍になる特殊なアッパー。直前2連続の地上PUNCH勝利に続くUPPER(`viaPunchPunch`)、またはUPPER勝利の直後にGUARD勝利した時に成立する「UPPER→GUARDチャージ」を消費してのUPPER(`viaUpperGuard`)の、いずれか2通りの成立経路があるが、演出・ダメージ倍率・名称は共通で1つ。技名ポップは暗転開始と同時。
 
 **チャージ(名称なし、バフ扱い)**:
@@ -123,7 +127,13 @@ localStorage(キー: `commandbattle_save_v1`)に以下の値が保存され、�
 
 ## 7. UI機能(実装済み)
 
-- **HOW TOポップアップ**: どのシーンからでも開ける画面内オーバーレイ。デッキビルド・3すくみ・カードの出し方・コンボや必殺技のヒントを実際の文章で解説する(2026-09-27訂正: 以前は「仮のテキストのみ」と記載していたが、既に本文が入っている)。挿絵(`assets/images/ui/howto.PNG`)は任意アセット。TRAINING MODE/EXTRA BATTLE/VERSUSに特化した説明は無く、現状は共通で1種類のみ(それぞれ専用のHOW TOを用意する構想がある。`TODO.md`参照)。
+- **HOW TOポップアップ**(2026-10-01に作り直し): どこから開いても、まず3すくみの図(`assets/images/ui/howto.PNG`、幅30%)があるHOW TO BATTLEのページを出す。ページの一番上に、RECORDSと同じく見出しをタップすると開閉する欄を置く(最初は閉じている、開閉状態はアプリを開いている間だけ保持。`renderHowTo` / `toggleHowToSection`)。
+  - **モード別の説明**: HOW TO TRAINING / HOW TO BATTLE RUSH / HOW TO EXTRA BATTLE / HOW TO LOCAL V.S.。そのモードの対戦中(LOCAL V.S.はキャラ選択中も)だけ表示する。本文は`index.html`内の非表示テンプレート(`howToTextTraining`等)から差し込む(`HOWTO_MODE_TEXTS`)。
+  - **TECHNIQUES**: RECORDSのTECHNIQUESと同じ一覧(出したワザはコマンドをカードのアイコンで、未使用は「？？？」とヒント。`renderHowToTechniques`)。
+  - 本文中の（パンチ）（P）等はカードのアイコンに置き換わる(`applyHowToCardIcons`)。BATTLE RUSHの対戦中は、開いている間タイマーが止まる。
+  - **LOCAL V.S.**: 1P・2Pそれぞれの左下にHOW TOボタンがある(`openHowToVs`)。キャラ選択では押した人の側の半分だけに出す(2Pは逆さ向き)。バトル中は自分がカードを選んでいる間(READY後)だけボタンが出て、全画面で開く(2Pは全画面を逆さ向き。`vsUpdateHowToBtns`)。
+- **RECORDS**(2026-09-28追加、OPTIONから。2026-10-01からバトル中を含むすべてのOPTIONで開ける): 達成率、STORY MODE(進行・最大COMBO・PERFECT勝利)、BATTLE RUSH(最多撃破・ベストタイム・最大COMBO)、TECHNIQUES(全10種)、UNLOCKS(解放要素と入手方法)。各項目は見出しをタップすると開閉する(`recordsOpenSections`)。TRAINING MODE・LOCAL V.S.で出したワザは記録しない(`markSpecialUsed`)。
+- **リンク共有時のプレビュー**(2026-10-01): `index.html`の`<head>`にdescriptionとOGPタグ(og:title / og:description / og:image等、twitter:card)を置いている。画像は`assets/images/ogp.jpg`(1200×630、黒地にタイトルロゴ)。og:url / og:imageはGitHub Pagesの絶対URL(`https://kotaroborn.github.io/combotest/`)なので、itch.io版を作る時は差し替えが必要。
 - **OPTIONポップアップ**:
   - SOUND ON/OFFの切り替え(設定値の保存のみ)
   - 進行状況(`storyEnemyIndex`)のリセット(確認ダイアログ付き)

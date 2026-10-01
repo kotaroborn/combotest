@@ -82,8 +82,9 @@ let state = {
     pUpperChargeReady: false, eUpperChargeReady: false, // UPPER→GUARDの連続成功で発動するチャージ(次に出すカードがUPPERの時だけ2倍高く速く強いアッパーになる)。水色の発光で示す。ターンをまたいで持ち越す
     pLastWinWasUpper: false, eLastWinWasUpper: false, // 直前の攻防でこの側がUPPERで勝ったか(UPPER→GUARDの連続検知に使う、毎攻防resolveExchangeの冒頭でリセットする一時フラグ)
     skipNextReposition: false, // UPPER→GUARDの専用着地演出の直後にtrueになり、次の攻防の後退→接近ダッシュ往復を1回だけスキップする
-    pComboType: null, eComboType: null, // このターンの手札パターン('followup'=PUNCH+GUARD+PUNCH, 'finisher'=FINISHER_PATTERNSのいずれか, 'guardPunchUpper'=GUARD+PUNCH+UPPER, null=該当なし)。ターン開始時に手札から判定する
+    pComboType: null, eComboType: null, // このターンの5枚ワザ('finisher'=FINISHER_PATTERNSのいずれか(CRASH!), 'miracle'=同じカード5枚, null=該当なし)。ターン開始時に手札から判定する。3枚ワザはpCombos/eCombos(2026-10-01)
     pComboStart: -1, eComboStart: -1, // followup/guardPunchUpper該当時、手札内で該当パターンが始まる位置(0始まり)。finisherは常に0固定
+    pCombos: [], eCombos: [], // 3枚ワザ(RUSH/BREAK/FEINT/PARRY)の候補一覧 [{type, start, alive}]。2026-10-01、1ターンに複数のワザが成立できるようにした(5枚ワザは従来どおりpComboType側)
     pComboAlive: false, eComboAlive: false, // 対応する各攻防が要件(勝ち、または必殺技は勝ちか相打ち)を満たし続けているか。1つでも要件を満たさなければfalseになりコンボは不成立になる
     // ------- COMBOカウンター(第26条とは別概念。上記pComboType等は手札パターン判定名で、こちらは連続成功回数の表示用) -------
     pHitCombo: 0, eHitCombo: 0, // 現在の連続成功回数。GUARD成功・空中コンボ・メテオ・追撃・必殺技も含め、成功する技すべてでカウントする。ターンをまたいでも持ち越す
@@ -3712,6 +3713,7 @@ function resetBattleState() {
     state.pComboType = null; state.eComboType = null;
     state.pComboStart = -1; state.eComboStart = -1;
     state.pComboAlive = false; state.eComboAlive = false;
+    state.pCombos = []; state.eCombos = [];
     state.pHitCombo = 0; state.eHitCombo = 0;
     state.pHitComboEverBroken = false; state.eHitComboEverBroken = false;
     state.pHitComboDisplayValue = 0; state.eHitComboDisplayValue = 0;
@@ -4489,7 +4491,6 @@ async function runUpperCombo(attacker, defender, cursor) {
     // 2発目以降として通常通り消費される)。直後の手がPUNCH以外(手札が尽きている場合を含む)なら、
     // まだ浮いたままの被弾側を、地面に降ろさずそのまま画面端まで吹き飛ばす専用の壁めり込みパンチにする。
     const gpuComboType = attacker === 'P' ? state.pComboType : state.eComboType;
-    const gpuComboStart = attacker === 'P' ? state.pComboStart : state.eComboStart;
     const gpuComboAlive = attacker === 'P' ? state.pComboAlive : state.eComboAlive;
     if (gpuComboType === 'miracle' && cursor.i === 4 && gpuComboAlive) {
         // MIRACLE(UPPER×5): 5枚目のUPPERで打ち上げた相手を、空中のまま壁までめり込ませる(1〜4枚目の成否は判定済み、ここに来た=5枚目は勝ち)
@@ -4497,7 +4498,7 @@ async function runUpperCombo(attacker, defender, cursor) {
         await runGuardPunchUpperWallStrike(attacker, defender, 'MIRACLE!');
         return;
     }
-    if (gpuComboType === 'guardPunchUpper' && cursor.i === gpuComboStart + 2 && gpuComboAlive) {
+    if (aliveComboEndingAt(attacker, 'guardPunchUpper', cursor.i)) {
         markSpecialUsed('guardPunchUpper', attacker);
         if (nextQueuedMove(attacker, cursor) === 'PUNCH') {
             // 通常の空中コンボ1発目と同じ演出(打ち上げられた側が攻撃側の高さまで降りてくる)
@@ -4786,8 +4787,7 @@ const FINISHER_PATTERNS = [
 // 'finisher'は`FINISHER_PATTERNS`のいずれかに手札の1〜5枚目が完全一致するかのみを見る(固定位置)。
 // 該当する場合は即座に返す(4種のいずれも、内部にPUNCH+GUARD+PUNCHおよびGUARD+PUNCH+UPPERの並びを
 // 含まないよう選んであるため、followup/guardPunchUpper判定と競合することはない)。
-// 'followup'(PUNCH+GUARD+PUNCH)は、手札のどの位置でも3連続で出ていれば該当し、開始インデックス(start)も返す。
-// 'guardPunchUpper'(GUARD+PUNCH+UPPER、2026-09-26追加)も同様に手札のどの位置でも3連続で出ていれば該当する。
+// 3枚ワザ(RUSH!/BREAK!/FEINT!/PARRY!)は2026-10-01からdetectThreeCardCombos側で、手札の中の該当箇所をすべて拾う。
 // UPPER+GUARD+UPPER(アッパーチャージ)は「UPPER勝利の直後にGUARD勝利」という状態遷移で判定しており、
 // 手札の1〜2枚目が常にU,Gになるため、GUARD+PUNCH+UPPERのように先頭2枚がG,Pの並びであれば、
 // アッパーチャージを狙った手(1〜2枚目がU,G)とは先頭からして一致せず、意図せず同時発動することがない。
@@ -4803,26 +4803,29 @@ function detectComboType(hand, total) {
             }
         }
     }
-    for (let start = 0; start + 2 < total; start++) {
-        if (hand[start] === 'PUNCH' && hand[start + 1] === 'GUARD' && hand[start + 2] === 'PUNCH') {
-            return { type: 'followup', start };
-        }
-    }
-    for (let start = 0; start + 2 < total; start++) {
-        if (hand[start] === 'GUARD' && hand[start + 1] === 'PUNCH' && hand[start + 2] === 'UPPER') {
-            return { type: 'guardPunchUpper', start };
-        }
-    }
-    // FEINT(P+U+G)・PARRY(G+U+G)、2026-10-01追加。どちらもCRASH!(FINISHER_PATTERNS)の5枚のどこにも含まれない並び
-    for (let start = 0; start + 2 < total; start++) {
-        if (hand[start] === 'PUNCH' && hand[start + 1] === 'UPPER' && hand[start + 2] === 'GUARD') {
-            return { type: 'feint', start };
-        }
-        if (hand[start] === 'GUARD' && hand[start + 1] === 'UPPER' && hand[start + 2] === 'GUARD') {
-            return { type: 'parry', start };
-        }
-    }
     return { type: null, start: -1 };
+}
+// 3枚ワザ(2026-10-01): 手札の中で成立しうる並びをすべて返す(1ターンに複数のワザが発動できる)。
+// それぞれ「1・2枚目は負けなければOK、3枚目は勝ち」が守られたものだけが発動する。5枚ワザ(CRASH!/MIRACLE!)の手札では使わない。
+const THREE_CARD_TECHS = [
+    { type: 'followup',        seq: ['PUNCH', 'GUARD', 'PUNCH'] }, // RUSH!
+    { type: 'guardPunchUpper', seq: ['GUARD', 'PUNCH', 'UPPER'] }, // BREAK!
+    { type: 'feint',           seq: ['PUNCH', 'UPPER', 'GUARD'] }, // FEINT!
+    { type: 'parry',           seq: ['GUARD', 'UPPER', 'GUARD'] }, // PARRY!
+];
+function detectThreeCardCombos(hand, total) {
+    const list = [];
+    for (let start = 0; start + 2 < total; start++) {
+        for (const t of THREE_CARD_TECHS) {
+            if (t.seq.every((m, i) => hand[start + i] === m)) list.push({ type: t.type, start, alive: true });
+        }
+    }
+    return list;
+}
+// 指定位置(endIndex)で3枚目を迎える、要件を満たしたままの3枚ワザを返す(無ければnull)
+function aliveComboEndingAt(side, type, endIndex) {
+    const list = side === 'P' ? state.pCombos : state.eCombos;
+    return list.find(c => c.type === type && c.alive && c.start + 2 === endIndex) || null;
 }
 
 // PUNCH+GUARD+PUNCH(1〜3枚目が全て勝利)成立時の追撃。punch.PNG/punch2.PNGを素早く切り替えながら3連打し、必ずヒットする。
@@ -5183,6 +5186,8 @@ async function resolveTurn() {
     // 手札は既に確定しているため、攻防が始まる前(敵の手が伏せられている段階)でも判定して問題ない。
     const pCombo = detectComboType(state.hands, total);
     const eCombo = detectComboType(state.enemyHands, total);
+    state.pCombos = pCombo.type ? [] : detectThreeCardCombos(state.hands, total);
+    state.eCombos = eCombo.type ? [] : detectThreeCardCombos(state.enemyHands, total);
     state.pComboType = pCombo.type; state.pComboStart = pCombo.start;
     state.eComboType = eCombo.type; state.eComboStart = eCombo.start;
     state.pComboAlive = state.pComboType !== null;
@@ -5222,29 +5227,24 @@ async function resolveTurn() {
             // 「直後の手がPUNCHかどうか」を空中コンボ開始前に判定できないため。詳細は`runUpperCombo`を参照)。
             const res = state.lastExchangeResult;
             if (res) {
-                if (state.pComboType === 'followup' && iAtStart >= state.pComboStart && iAtStart <= state.pComboStart + 2 && (iAtStart === state.pComboStart + 2 ? res.P !== 'win' : res.P === 'lose')) state.pComboAlive = false; // 途中は負けなければOK、最後は勝ちが必要
-                if (state.pComboType === 'guardPunchUpper' && iAtStart >= state.pComboStart && iAtStart <= state.pComboStart + 2 && (iAtStart === state.pComboStart + 2 ? res.P !== 'win' : res.P === 'lose')) state.pComboAlive = false; // 途中は負けなければOK、最後は勝ちが必要
-                if ((state.pComboType === 'feint' || state.pComboType === 'parry') && iAtStart >= state.pComboStart && iAtStart <= state.pComboStart + 2 && (iAtStart === state.pComboStart + 2 ? res.P !== 'win' : res.P === 'lose')) state.pComboAlive = false; // 途中は負けなければOK、最後は勝ちが必要
+                state.pCombos.forEach(c => { // 3枚ワザ: 途中は負けなければOK、最後は勝ちが必要
+                    if (iAtStart >= c.start && iAtStart <= c.start + 2 && (iAtStart === c.start + 2 ? res.P !== 'win' : res.P === 'lose')) c.alive = false;
+                });
                 if (state.pComboType === 'finisher' && iAtStart <= 3 && res.P === 'lose') state.pComboAlive = false;
-                if (state.eComboType === 'followup' && iAtStart >= state.eComboStart && iAtStart <= state.eComboStart + 2 && (iAtStart === state.eComboStart + 2 ? res.E !== 'win' : res.E === 'lose')) state.eComboAlive = false; // 途中は負けなければOK、最後は勝ちが必要
-                if (state.eComboType === 'guardPunchUpper' && iAtStart >= state.eComboStart && iAtStart <= state.eComboStart + 2 && (iAtStart === state.eComboStart + 2 ? res.E !== 'win' : res.E === 'lose')) state.eComboAlive = false; // 途中は負けなければOK、最後は勝ちが必要
-                if ((state.eComboType === 'feint' || state.eComboType === 'parry') && iAtStart >= state.eComboStart && iAtStart <= state.eComboStart + 2 && (iAtStart === state.eComboStart + 2 ? res.E !== 'win' : res.E === 'lose')) state.eComboAlive = false; // 途中は負けなければOK、最後は勝ちが必要
+                state.eCombos.forEach(c => { // 3枚ワザ: 途中は負けなければOK、最後は勝ちが必要
+                    if (iAtStart >= c.start && iAtStart <= c.start + 2 && (iAtStart === c.start + 2 ? res.E !== 'win' : res.E === 'lose')) c.alive = false;
+                });
                 if (state.eComboType === 'finisher' && iAtStart <= 3 && res.E === 'lose') state.eComboAlive = false;
                 // MIRACLE: 1〜4枚目は負けなければOK、5枚目は勝ちが必要
                 if (state.pComboType === 'miracle' && (iAtStart <= 3 ? res.P === 'lose' : res.P !== 'win')) state.pComboAlive = false;
                 if (state.eComboType === 'miracle' && (iAtStart <= 3 ? res.E === 'lose' : res.E !== 'win')) state.eComboAlive = false;
             }
             // PUNCH+GUARD+PUNCHの3枚目(start+2枚目)が成立した直後に追撃を発生させる
-            if (state.pComboType === 'followup' && iAtStart === state.pComboStart + 2 && state.pComboAlive) { await runFollowUpFlurry('P', 'E'); markSpecialUsed('followUp', 'P'); }
-            if (state.eComboType === 'followup' && iAtStart === state.eComboStart + 2 && state.eComboAlive) { await runFollowUpFlurry('E', 'P'); markSpecialUsed('followUp', 'E'); }
-            // FEINT(P+U+G)・PARRY(G+U+G): 3枚目のGUARDで勝った直後に発動(2026-10-01)
+            // RUSH!(P+G+P)・FEINT!(P+U+G)・PARRY!(G+U+G): 3枚目で勝った直後に発動。BREAK!(G+P+U)はrunUpperCombo内で発動済み
             for (const [side, other] of [['P', 'E'], ['E', 'P']]) {
-                const type = side === 'P' ? state.pComboType : state.eComboType;
-                const start = side === 'P' ? state.pComboStart : state.eComboStart;
-                const alive = side === 'P' ? state.pComboAlive : state.eComboAlive;
-                if (!alive || iAtStart !== start + 2) continue;
-                if (type === 'feint') { markSpecialUsed('feint', side); await runFeintCounter(side, other); }
-                else if (type === 'parry') { markSpecialUsed('parry', side); await runParry(side, other); }
+                if (aliveComboEndingAt(side, 'followup', iAtStart)) { await runFollowUpFlurry(side, other); markSpecialUsed('followUp', side); }
+                else if (aliveComboEndingAt(side, 'feint', iAtStart)) { markSpecialUsed('feint', side); await runFeintCounter(side, other); }
+                else if (aliveComboEndingAt(side, 'parry', iAtStart)) { markSpecialUsed('parry', side); await runParry(side, other); }
             }
             // MIRACLE(PUNCH×5 / GUARD×5): 5枚目で勝った直後に壁めり込みの追撃。UPPER×5はrunUpperCombo内で空中から発動済み
             if (state.pComboType === 'miracle' && iAtStart === 4 && state.pComboAlive && state.hands[0] !== 'UPPER') { markSpecialUsed('miracle', 'P'); await runGuardPunchUpperWallStrike('P', 'E', 'MIRACLE!'); }
@@ -7350,7 +7350,7 @@ function rushResetEnemySide() {
     state.ePunchStreak = 0; state.ePunchChain = 0; state.eGuardStreak = 0;
     state.eChargeValue = 0; state.eChargeIsMax = false;
     state.eUpperChargeReady = false; state.eLastWinWasUpper = false;
-    state.eComboType = null; state.eComboStart = -1; state.eComboAlive = false;
+    state.eComboType = null; state.eComboStart = -1; state.eComboAlive = false; state.eCombos = [];
     state.eHitCombo = 0; state.eHitComboEverBroken = false; state.eHitComboDisplayValue = 0;
     state.eHitComboFadeStartAt = 0; state.eHitComboPopAt = 0;
     state.eHitComboMilestoneAt = 0; state.eHitComboBigMilestoneAt = 0;

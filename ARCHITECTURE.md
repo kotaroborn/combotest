@@ -48,7 +48,9 @@
 | `resolving` | ターン解決処理中かどうか |
 | `pChargeValue, eChargeValue` | ガード連続成功チャージの倍率(0=無し、2または4)。次に出すカードの初撃1回分のみに適用され、勝敗を問わず消費される |
 | `pUpperChargeReady, eUpperChargeReady` | UPPER→GUARD連続成功で発動するチャージ(次がUPPERの時だけライジング!になる) |
-| `pComboType, eComboType` | このターンの手札パターン(`'followup'`=ラッシュ!、`'finisher'`=クラッシュ!、`'guardPunchUpper'`=ブレイク!、`null`=該当なし)。ターン開始時に手札から判定する |
+| `pComboType, eComboType` | このターンの5枚ワザ(`'finisher'`=クラッシュ!、`'miracle'`=ミラクル!、`null`=該当なし)。ターン開始時に手札から判定する |
+| `pCombos, eCombos` | このターンの3枚ワザの候補一覧`[{type, start, alive}]`(`'followup'`=ラッシュ!、`'guardPunchUpper'`=ブレイク!、`'feint'`=フェイント!、`'parry'`=パリィ!)。1ターンに複数発動できる(2026-10-01) |
+| `numbSureSide` | パリィ!でピヨった側。次の攻防で必ず負ける(2026-10-01) |
 
 ## モジュール一覧(script.js内の出現順)
 
@@ -83,12 +85,12 @@ canvas描画ループ本体と、キャラクターの座標・表示スプラ�
 手札の表示・カード操作と、STORY MODE/TRAINING MODEの敵の手札生成・表示を担当。
 
 ### 7. バトル進行
-`goBattleStart`, `resetBattleState`, `playBattleIntro`, `showResult`, `hideResult`, `judge`(3すくみ判定), `applyDamage`, `healBothToFull`, `wait`, `moveBothX`, `approachCenter`, `retreatSlightly`, `goHome`, `waitBothLanded`, `runFinishSequence`, `nextQueuedMove`, `runNormalHit`, `runMeteor`(メテオ!), `runUpperCombo`(内部で`isSuperUpper`判定=ライジング!), `runGuardSuccess`, `runPiyoEffect`, `runNumbFail`, `runFollowUpFlurry`(ラッシュ!), `runGuardPunchUpperWallStrike`(ブレイク!), `runFinisher`(クラッシュ!), `flashAttackerWhite`(追撃・追加打系の白い発光。CONSTITUTION.md第28条), `chargeMultOf`, `consumeCharge`, `consumeUpperCharge`, `atkMultOf`, `defMultOf`, `markCardOutcome`, `markEnemyDefeated`(STORY MODEでの撃破記録。EXTRA BATTLEの「？？？」マスキング判定に使う), `isEnemyDefeated`, `resolveExchange`(1回の攻防を解決する中心関数), `resolveTurn`(GO!ボタン押下時のエントリーポイント)
+`goBattleStart`, `resetBattleState`, `playBattleIntro`, `showResult`, `hideResult`, `judge`(3すくみ判定), `applyDamage`, `healBothToFull`, `wait`, `moveBothX`, `approachCenter`, `retreatSlightly`, `goHome`, `waitBothLanded`, `runFinishSequence`, `nextQueuedMove`, `runNormalHit`, `runMeteor`(メテオ!), `runUpperCombo`(内部で`isSuperUpper`判定=ライジング!), `runGuardSuccess`, `runPiyoEffect`, `runNumbFail`, `runFollowUpFlurry`(ラッシュ!), `runGuardPunchUpperWallStrike`(ブレイク!), `runFinisher`(クラッシュ!), `runFeintCounter`(フェイント!), `runParry`(パリィ!), `detectComboType`(5枚ワザ), `detectThreeCardCombos` / `aliveComboEndingAt`(3枚ワザ、2026-10-01), `flashAttackerWhite`(追撃・追加打系の白い発光。CONSTITUTION.md第28条), `chargeMultOf`, `consumeCharge`, `consumeUpperCharge`, `atkMultOf`, `defMultOf`, `markCardOutcome`, `markEnemyDefeated`(STORY MODEでの撃破記録。EXTRA BATTLEの「？？？」マスキング判定に使う), `isEnemyDefeated`, `resolveExchange`(1回の攻防を解決する中心関数), `resolveTurn`(GO!ボタン押下時のエントリーポイント)
 
 バトル開始演出から、1回の攻防の解決、ターン全体の進行、決着演出までを担当する最大のモジュール。これらの関数群は互いに密結合しているため、あえて分割していない。
 
 ### 8. UIポップアップ
-`openHowTo`, `closeHowTo`, `closeHowToBackdrop`, `openOption`, `closeOption`, `closeOptionBackdrop`, `updateOptionUI`, `setSound`, `openResetConfirm`, `closeResetConfirm`, `doResetProgress`, `optionRetry`, `optionReturnToTitle`, `bonusContentsAvailable`, `updateBonusContentsUI`, `openBonusContents`, `closeBonusContents`, `closeBonusContentsBackdrop`, `setBattleSpeed`, `toggleBattleSpeed`, `updateSpeedUI`(SPEED機能), `costumeSelectionAvailable`, `unlockSkin`, `openCostumeSelect`, `selectCostume`, `costumeAssetFolder`(COSTUME), `openSoundTest`, `renderSoundTestScreen`, `selectSoundTestCategory`, `stopSoundTestPlayback`等(SOUND TEST), `normalizeGiftCode`, `giftCodeHash`, `giftCodeReward`, `openGiftCodeInput`, `closeGiftCodeInput`, `showGiftCodeError`, `submitGiftCode`(GIFT CODE), `openSubStoryList`, `readSubStory`, `onSubStoryTap`, `subStoryDisplayTitle`, `playSubStoryEndScreen`(SUB STORY)
+`openHowTo`, `openHowToVs`(LOCAL V.S.用), `renderHowTo`, `toggleHowToSection`, `renderHowToTechniques`, `closeHowTo`, `closeHowToBackdrop`, `openRecords`, `renderRecords`, `toggleRecordsSection`, `openOption`, `closeOption`, `closeOptionBackdrop`, `updateOptionUI`, `setSound`, `openResetConfirm`, `closeResetConfirm`, `doResetProgress`, `optionRetry`, `optionReturnToTitle`, `bonusContentsAvailable`, `updateBonusContentsUI`, `openBonusContents`, `closeBonusContents`, `closeBonusContentsBackdrop`, `setBattleSpeed`, `toggleBattleSpeed`, `updateSpeedUI`(SPEED機能), `costumeSelectionAvailable`, `unlockSkin`, `openCostumeSelect`, `selectCostume`, `costumeAssetFolder`(COSTUME), `openSoundTest`, `renderSoundTestScreen`, `selectSoundTestCategory`, `stopSoundTestPlayback`等(SOUND TEST), `normalizeGiftCode`, `giftCodeHash`, `giftCodeReward`, `openGiftCodeInput`, `closeGiftCodeInput`, `showGiftCodeError`, `submitGiftCode`(GIFT CODE), `openSubStoryList`, `readSubStory`, `onSubStoryTap`, `subStoryDisplayTitle`, `playSubStoryEndScreen`(SUB STORY)
 
 HOW TO/OPTIONポップアップの開閉と、OPTION画面内の各操作、およびBONUS CONTENTS(COSTUME/SOUND TEST/SPEED/GIFT CODE/SUB STORY一覧)関連の画面を担当。いずれも2026-09-27時点でIMPLEMENTATION.mdへのドキュメント化が追いついていなかった実装済み機能群(詳細はIMPLEMENTATION.md「8. BONUS CONTENTS」以降を参照)。
 

@@ -3,6 +3,15 @@
 このプロジェクトの変更履歴。日付は新しいものを上に追記する。
 コード(`index.html` / `css/style.css` / `js/script.js`)や仕様に変更を加えた場合は、このファイルに追記すること(詳細は `AI_GUIDE.md` を参照)。
 
+## 2026-10-01(13)
+
+- ver. 0.9.164
+- 3枚ワザ(RUSH! / BREAK! / FEINT! / PARRY!)が1ターンに複数発動できるようにした。手札の中の該当する並びをすべて拾い、それぞれ「途中は負けなければOK、最後は勝ち」を守れたものが発動する(並びが重なっていてもよい。例: P G P U Gで、3枚目でRUSH!、5枚目でFEINT!)。CRASH! / MIRACLE!の手札では従来どおり3枚ワザは判定しない(`detectThreeCardCombos` / `aliveComboEndingAt` / `state.pCombos`・`eCombos`)。
+- `css/style.css?v=`が0.9.120から更新されていなかった(CSSだけ古いものがブラウザに残り、新しい画面が崩れるおそれがあった)ため、`?v=164`にそろえた。今後もバージョンを上げる時は同じ番号にする(`AI GUIDE.md`に追記)。
+- HOW TO BATTLEのHINTの文を「上のTECHNIQUESからワザのヒントも見られるぞ！」に変更。
+- 使われていない画像・ファイルを削除: `logo/title_logo.png`(`title_logo.PNG`と同じ中身)、`logo/title_logo/md`、`ui/howto.md`、`ui/ui.PNG`(`howto.PNG`と同じ中身)、`backgrounds/IMG_0480.png`、`backgrounds/bg.PNG.PNG`。
+- ドキュメント更新: IMPLEMENTATION.md(ワザ一覧にFEINT! / PARRY! / MIRACLE!と複数発動、HOW TO・RECORDS・OGPの説明)、ARCHITECTURE.md(stateと関数一覧)、TODO.md(リリースの段取り、HOW TOの完了、敵のPARRY!の様子見)。
+
 ## 2026-10-01(12)
 
 - ver. 0.9.163
