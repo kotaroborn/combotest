@@ -2055,8 +2055,18 @@ function waitForStoryTap() {
     return new Promise(resolve => { storyTapResolve = resolve; });
 }
 
-function goStoryThenDeck() {
+// opts.chapterTitle: ストーリーの前に章タイトル(story_title_{番号}.PNG)を出す。NEW GAME開始時と、勝って次の敵へ進む時だけ。
+// RETRY(同じ敵のストーリーを見返す)では出さない(2026-10-02)
+async function goStoryThenDeck(opts) {
     showScene('story');
+    if (opts && opts.chapterTitle) {
+        const content = document.getElementById('storyContent');
+        content.style.transition = 'none';
+        content.style.opacity = '0'; // 前回のストーリーの最後の画面が透けて見えないよう、真っ黒にしておく
+        const token = storyToken;
+        await playStoryChapterTitle((state.storyEnemyIndex % ENEMY_ORDER.length) + 1, token);
+        if (storyToken !== token) return; // 章タイトル中にSKIPされた(デッキ編成へ進んだ)
+    }
     playStorySequence();
 }
 
@@ -2308,20 +2318,73 @@ async function playFinScreen() {
 // サブストーリーバトル(EXTRA BATTLE)勝利後のエピローグ末尾に出す終了画面。FIN.と全く同じ演出(フェードイン→
 // 表示→フェードアウト)だが、表示文言が「SUB STORY / 〈キャラ名〉 / END」になり、表示時間もFINの10秒より短い
 // 3秒にしている(こちらは本編クリアほどの重みは無いため)。
-async function playSubStoryEndScreen(characterName) {
+// enemyIdx: 0始まりの敵番号。substory_end_{enemyIdx+1}.PNG(APNG可、cutscenes/substory)があれば文字の代わりに画像を出す(2026-10-02)
+async function playSubStoryEndScreen(characterName, enemyIdx) {
     const scene = document.getElementById('sceneSubStoryEnd');
     document.getElementById('subStoryEndCharName').innerText = characterName;
+    const textEl = document.getElementById('subStoryEndText');
+    const imgEl = document.getElementById('subStoryEndImg');
+    const hasImg = enemyIdx >= 0 && await showApngIn(imgEl, `assets/images/cutscenes/substory/substory_end_${enemyIdx + 1}.PNG`);
+    textEl.style.display = hasImg ? 'none' : '';
+    imgEl.style.display = hasImg ? '' : 'none';
+    const t = SUBSTORY_END_TIMING;
     scene.style.transition = 'none';
     scene.style.opacity = '0';
     showScene('subStoryEnd');
     await wait(30);
-    scene.style.transition = 'opacity 1.5s ease-in';
+    scene.style.transition = `opacity ${t.fadeInMs}ms ease-in`;
     scene.style.opacity = '1';
-    await wait(1500);
-    await wait(3000); // フェードイン完了後、3秒間表示する(FINの10秒よりは短め)
-    scene.style.transition = 'opacity 2s ease-out';
+    await wait(t.fadeInMs);
+    await wait(t.holdMs); // フェードイン完了後、しばらく表示する(FINの10秒よりは短め)
+    scene.style.transition = `opacity ${t.fadeOutMs}ms ease-out`;
     scene.style.opacity = '0';
-    await wait(2000);
+    await wait(t.fadeOutMs);
+}
+// SUB STORY ENDの表示時間。APNGのアニメーションの長さに合わせてここを変える
+const SUBSTORY_END_TIMING = { fadeInMs: 1500, holdMs: 3000, fadeOutMs: 2000 };
+
+// ------- APNG(アニメーションPNG)の一枚絵(2026-10-02) -------
+// 同じ画像を2回目に出した時も必ず最初から動くよう、一度ダウンロードしたデータから毎回新しいURL(blob)を作って表示する
+// (同じURLのままだと、1回だけ再生するAPNGが最後のコマで止まったまま出ることがあるため)。画像が無ければfalseを返す
+const apngBlobCache = {};
+function loadApngBlob(url) {
+    if (!apngBlobCache[url]) apngBlobCache[url] = fetch(url).then(r => (r.ok ? r.blob() : null)).catch(() => null);
+    return apngBlobCache[url];
+}
+async function showApngIn(imgEl, url) {
+    const blob = await loadApngBlob(url);
+    if (!blob) return false;
+    if (imgEl.dataset.blobUrl) URL.revokeObjectURL(imgEl.dataset.blobUrl);
+    const blobUrl = URL.createObjectURL(blob);
+    imgEl.dataset.blobUrl = blobUrl;
+    await new Promise(res => { imgEl.onload = res; imgEl.onerror = res; imgEl.src = blobUrl; });
+    return true;
+}
+
+// 章タイトル(story_title_{n}.PNG、cutscenes/story)。黒い画面にフェードインし、しばらく表示してからフェードアウトする。
+// 表示中はタップで先へ進める。SKIP(storyTokenが変わった)場合はすぐ終える。表示時間はAPNGの長さに合わせてここを変える
+const STORY_TITLE_TIMING = { fadeInMs: 500, holdMs: 3000, fadeOutMs: 600 };
+let storyTitleTapped = false;
+function onStoryTitleTap() { storyTitleTapped = true; }
+async function playStoryChapterTitle(n, token) {
+    const ov = document.getElementById('storyTitleOverlay');
+    const img = document.getElementById('storyTitleImg');
+    const ok = await showApngIn(img, `assets/images/cutscenes/story/story_title_${n}.PNG`);
+    if (!ok || storyToken !== token) return;
+    const t = STORY_TITLE_TIMING;
+    storyTitleTapped = false;
+    ov.style.transition = 'none';
+    ov.style.opacity = '0';
+    ov.classList.add('show');
+    await wait(30);
+    ov.style.transition = `opacity ${t.fadeInMs}ms ease-in`;
+    ov.style.opacity = '1';
+    const start = performance.now();
+    while (performance.now() - start < t.fadeInMs + t.holdMs && !storyTitleTapped && storyToken === token) await wait(50);
+    ov.style.transition = `opacity ${t.fadeOutMs}ms ease-out`;
+    ov.style.opacity = '0';
+    if (storyToken === token) await wait(t.fadeOutMs);
+    ov.classList.remove('show');
 }
 
 // 5人目(最終)撃破時の専用シーケンス: YOU WINの余韻を5秒→エンディング5画面→エンドロール→FIN.→タイトルへ自動的に戻る
@@ -2444,7 +2507,7 @@ function goTitle() {
 // セーブデータのstoryEnemyIndexが実際に更新されるのは、勝利してadvanceToNextEnemy()が呼ばれた時のみ。
 function goNewGame() {
     state.storyEnemyIndex = 0;
-    goStoryThenDeck();
+    goStoryThenDeck({ chapterTitle: true });
 }
 
 // CONTINUE: ストーリー導入は省略し、保存済みの進行状況のまま直接デッキ編成へ
@@ -2455,7 +2518,7 @@ function goContinueGame() {
 // 決着画面(YOU WIN)のNEXT BATTLEから呼ばれる: 次の敵へ進めてから、その敵のストーリーシーン(3画面)を経てデッキ編成へ遷移する
 function goNextEnemy() {
     advanceToNextEnemy();
-    goStoryThenDeck();
+    goStoryThenDeck({ chapterTitle: true });
 }
 
 function goDeckBuild(mode) {
@@ -3686,6 +3749,8 @@ function drawEnemySlots(activeIndex) {
 // ============================================================
 async function goBattleStart() {
     writeSaveData({ deckCounts: { PUNCH: deckCounts.PUNCH, UPPER: deckCounts.UPPER, GUARD: deckCounts.GUARD } }); // デッキ編成を保存
+    // 勝った後に出す次の章タイトル(APNG)を、バトル中に先読みしておく(無ければ何もしない)
+    if (state.storyEnemyIndex < ENEMY_ORDER.length - 1) loadApngBlob(`assets/images/cutscenes/story/story_title_${state.storyEnemyIndex + 2}.PNG`);
     // CONTINUE等、playStorySequenceを経由しない経路もあるため、ここでも念のため先読みを開始する(既に読み込み済み/読み込み中なら何もしない)。
     // 通常はplayStorySequence〜デッキ編成までの時間で既に読み込みが終わっているため、ここでローディングが実際に表示されるのは
     // CONTINUE等でその猶予時間を経由しなかった場合が主になる。
@@ -6013,7 +6078,7 @@ async function playSubstoryBattleEpilogue(playerPresetKey) {
 
     // 真っ黒になったところで、「SUB STORY / キャラ名 / END」をFIN.と同じ演出(フェードイン→表示→フェードアウト)で見せる
     if (subStoryToken === myToken) {
-        await playSubStoryEndScreen(ENEMY_PRESETS[playerPresetKey].name);
+        await playSubStoryEndScreen(ENEMY_PRESETS[playerPresetKey].name, ENEMY_ORDER.indexOf(playerPresetKey));
     }
 
     // END画面が消えた直後、真っ黒な画面のまま、コスチュームがまだ未解除だった場合のみ実績解除トーストを出す。

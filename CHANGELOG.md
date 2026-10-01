@@ -3,6 +3,14 @@
 このプロジェクトの変更履歴。日付は新しいものを上に追記する。
 コード(`index.html` / `css/style.css` / `js/script.js`)や仕様に変更を加えた場合は、このファイルに追記すること(詳細は `AI_GUIDE.md` を参照)。
 
+## 2026-10-02(5)
+
+- ver. 0.9.179
+- 章タイトル(APNG)の仕組みを追加。`assets/images/cutscenes/story/story_title_{1〜5}.PNG`を置くと、NEW GAME開始時と、1〜4人目を倒して次へ進む時に、ストーリーの前に黒い画面の中央へ表示する(タップで先へ、SKIPも可)。RETRYでストーリーを見返す時は出さない。画像が無ければ今までどおりすぐストーリーへ(`goStoryThenDeck({ chapterTitle: true })` / `playStoryChapterTitle`、表示時間は`STORY_TITLE_TIMING`)。次の章タイトルはバトル中に先読みする。
+- SUB STORYの「SUB STORY / キャラ名 / END」を画像(APNG)に差し替えられるようにした。`assets/images/cutscenes/substory/substory_end_{1〜5}.PNG`(1=Noah〜5=Alv)があれば文字の代わりに表示する。無いキャラは従来どおり文字(表示時間は`SUBSTORY_END_TIMING`)。
+- APNGは、表示のたびに一度読み込んだデータから新しいURLを作って表示し、1回だけ再生するAPNGでも毎回最初から動くようにした(`showApngIn` / `loadApngBlob`)。
+- 仮のAPNGを置いて、章タイトルの表示・タップ・SKIP・画像が無い場合・SUB STORY ENDの画像表示と文字表示の切り替えを確認(仮の画像は削除済み)。
+
 ## 2026-10-02(4)
 
 - ver. 0.9.178

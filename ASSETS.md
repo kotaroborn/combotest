@@ -35,6 +35,9 @@
 | `card_back.PNG` | `assets/images/cards/` | カード裏面(配布演出時) | 縞模様のCSS表示 |
 | `op_1.PNG` 〜 `op_4.PNG` | `assets/images/cutscenes/opening/` | プロローグ4画面分の画像 | プレースホルダー表示(「(未配置)」の文字) |
 | `story_1.PNG` 〜 `story_3.PNG` | `assets/images/cutscenes/story/` | ストーリーシーン3画面分の画像 | プレースホルダー表示(「(未配置)」の文字) |
+| `story_title_1.PNG` 〜 `story_title_5.PNG`(APNG可) | `assets/images/cutscenes/story/` | 章タイトル。NEW GAME開始時と、1〜4人目を倒した後のストーリーの前に、黒い画面の中央に出す(タップで先へ)。表示時間は`STORY_TITLE_TIMING`(2026-10-02) | 何も出さずにそのままストーリーへ |
+| `substory_end_1.PNG` 〜 `substory_end_5.PNG`(APNG可) | `assets/images/cutscenes/substory/` | EXTRA BATTLE後の「SUB STORY / キャラ名 / END」の代わりに出す画像(1=Noah〜5=Alv)。表示時間は`SUBSTORY_END_TIMING`(2026-10-02) | 従来どおり文字で表示 |
+| (APNGについて) | | カットシーンの画像(`op_*` / `story_*` / `substory_*`)は、同じファイル名のままAPNG(アニメーションPNG)に差し替えても動く。章タイトルとSUB STORY ENDは、表示のたびに必ず最初から再生される | |
 
 ## 未使用・予約フォルダ
 

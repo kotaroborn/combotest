@@ -1087,3 +1087,13 @@
 
 /* TECHNIQUESの一番上のワザ発動条件の説明(2026-10-02) */
 .tech-rule-note { font-size: 11px; line-height: 1.6; color: #ffd23c; background: rgba(255,210,60,0.08); border-radius: 6px; padding: 6px 8px; margin: 4px 0 6px; }
+
+/* APNGの一枚絵(章タイトル・SUB STORY END、2026-10-02) */
+.apng-card-img { display: block; max-width: 92%; max-height: 70%; object-fit: contain; }
+#storyTitleOverlay {
+    position: absolute; inset: 0; z-index: 30; background: #000;
+    display: none; align-items: center; justify-content: center; opacity: 0;
+}
+#storyTitleOverlay.show { display: flex; }
+#sceneSubStoryEnd .apng-card-img { max-height: 80%; }
+#skipStoryBtn { z-index: 31; } /* 章タイトル(#storyTitleOverlay)の上でもSKIPを押せるように */
