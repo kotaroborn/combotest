@@ -2358,7 +2358,7 @@ function checkUnlockAnnouncements() {
     if (gameClearedOnce && !recordsHintAnnounced && recordsHasUndiscovered()) {
         recordsHintAnnounced = true;
         writeSaveData({ recordsHintAnnounced: true });
-        showUnlockToast({ header: 'HINT', small: 'OPTION › RECORDS で確認', large: '未発見の秘密がある…' });
+        showUnlockToast({ header: 'HINT', small: 'OPTION › RECORDS で確認', large: 'ストーリーの会話に秘密が隠れている…' });
     }
 }
 
@@ -7518,7 +7518,7 @@ function rushBackToTitle() {
 // ゲームクリア後にタイトルへ戻った時、未発見の項目が残っていれば一度だけトーストでRECORDSへ誘導する(checkUnlockAnnouncements)。
 const RECORDS_HINTS = {
     subStoryHow: (n) => `ストーリー${n}人目の会話中に隠しタップで発見`,
-    subStoryHint: 'ストーリーの会話シーンのどこかに隠されている',
+    subStoryHint: 'ストーリーの会話シーンのどこかをタップする',
     costumeHow: (name) => `EXTRA BATTLEで${name}として勝利`,
     costumeHint: 'SUB STORYの先にある戦いで手に入る',
     clearHow: 'ゲームクリアで解放',
