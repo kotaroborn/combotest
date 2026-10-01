@@ -5383,6 +5383,7 @@ async function resolveTurn() {
             drawEnemySlots();
             if (rushKilled) await rushSpawnNextEnemy(); // BATTLE RUSH: 次の敵が登場し終わってから次のターンの入力を受け付ける
             state.resolving = false;
+            rushSyncPause(); // BATTLE RUSH: 演出中にOPTION/HOW TOを開いたままなら、入力の番になったここから時間を止める
             if (rushKilled) updateActionButtons();
             if (state.gameMode === 'versus') vsBeginTurnInput(); // ローカル対戦: 次のターンの入力(1Pから)へ
         }
@@ -7260,10 +7261,18 @@ function rushElapsedMs() {
     return now - rushState.startAt - rushState.pausedTotal - pausingNow;
 }
 // OPTION/HOW TOを開いた時にタイマーを一時停止する(計測中のRUSHでなければ何もしない)
+// OPTION/HOW TO等を開いている間はタイマーを止めるが、実際に止めるのは「カードを選んでいる時間」(battleReady かつ resolving でない)だけ。
+// 2026-10-01: 敵の登場やバトルの演出中に開くと、演出は進むのに時間だけ止まり、待ち時間を飛ばす裏ワザになっていたため。
+// 演出中に開いた場合は時間を流したままにし、演出が終わって入力の番になった時点で止める(rushSyncPause)。
+function rushIsInputPhase() { return state.battleReady && !state.resolving; }
 function rushPauseTimer(reason) {
     if (state.gameMode !== 'rush' || !rushState.startAt || rushState.endAt) return;
     rushState.pauseReasons.add(reason);
-    if (!rushState.pausedAt) rushState.pausedAt = performance.now();
+    rushSyncPause();
+}
+function rushSyncPause() {
+    if (state.gameMode !== 'rush' || !rushState.startAt || rushState.endAt) return;
+    if (rushState.pauseReasons.size > 0 && !rushState.pausedAt && rushIsInputPhase()) rushState.pausedAt = performance.now();
     rushUpdateHud();
 }
 function rushResumeTimer(reason) {
