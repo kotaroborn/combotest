@@ -935,11 +935,16 @@ updateUI(); // 第1条: 起動直後から5つの空枠を表示する
 const ENEMY_PRESETS = {
     ENEMY_01: {
         name: 'Noah', deck: { PUNCH: 13, UPPER: 4, GUARD: 4 },
+        // 2026-10-01: まだ強すぎたため、ワザはあまり狙わない「素直なパンチ連打」の性格にした。
+        // 以前はP+G+P(RUSH!)・P+P+U(RISING!)も好んでいたが外し、逆に避けるようにした。
         favoritePatterns: [
-            ['PUNCH', 'GUARD', 'PUNCH'], // P+G+P(追撃)
             ['PUNCH', 'PUNCH'],          // P+P
             ['PUNCH', 'PUNCH', 'PUNCH'], // P+P+P
-            ['PUNCH', 'PUNCH', 'UPPER'], // P+P+U(強化UPPER)
+        ],
+        avoidPatterns: [
+            ['PUNCH', 'GUARD', 'PUNCH'], // RUSH!
+            ['PUNCH', 'PUNCH', 'UPPER'], // RISING!
+            ['PUNCH', 'UPPER', 'GUARD'], // FEINT!
         ],
         noFiveOfAKind: true, // 同じカード5枚(MIRACLE)は出さない(パンチ中心のため偶然そろいやすく、最初の相手として強すぎたため、2026-09-30)
         firstMoveBias: { PUNCH: 10 }, // 一手目はPUNCHが出やすい
@@ -960,7 +965,7 @@ const ENEMY_PRESETS = {
         ],
         firstMoveBias: { UPPER: 8 }, // 一手目はUPPERが出やすい
         atkMult: 0.85, // 攻撃力は全体的に少し低め(防御力=被弾時のダメージ量は変えないため、ここでは触れない)
-        atkMultByMove: { UPPER: 1.1 }, // ただし得意技のUPPERだけは、通常より少し高い(atkMultより優先される)
+        atkMultByMove: { UPPER: 1.4 }, // ただし得意技のUPPERだけは高い(atkMultより優先される)。2026-10-01、1.1→1.4(アッパー初撃 7→9.8)
         alwaysSuperUpperVisual: true, // 通常のUPPERでも、U+P+P/U+G+Uと同じ高さ・速度・残像で放つ(ダメージは変えず見た目の迫力だけ常時アップ。UPPERが得意という個性を演出面でも表現する)
     },
     ENEMY_03: {
@@ -978,8 +983,9 @@ const ENEMY_PRESETS = {
             ['UPPER', 'PUNCH', 'PUNCH'], // 空中コンボを連続させたがらない(機敏さが無い)
             ['PUNCH', 'PUNCH'],          // 素早い連打も苦手
         ],
-        firstMoveBias: { GUARD: 10 }, // 一手目はGUARDが出やすい(様子見でまず固める)
+        firstMoveBias: { GUARD: 6, PUNCH: 3 }, // 一手目はGUARDが出やすいが、PUNCHもたまに出す(2026-10-01、以前はGUARD+10のみ。ガード読みのアッパー→メテオで簡単に倒せてしまったため)
         atkMult: 1.15, // 攻撃力は全体的にやや高め(鎧の重さ・巨体)
+        atkMultByMove: { PUNCH: 1.35 }, // 地上のパンチはさらに重い(2026-10-01追加、10→13.5)
         defMult: 0.6, // 防御力は高い(被弾ダメージ40%減、鎧で弾く)。2026-09-30、0.8→0.6: アッパーが決まった途端に空中コンボ〜メテオで一気に倒せてしまい弱かったため
         defMultByMove: { UPPER: 1.0 }, // UPPER(すくい上げ)の初撃だけは鎧の上からでも通常どおり入る(決まりやすいが、その後の追撃は硬くて通りにくい)。以前は1.15
         numbFailMult: 1.25, // 自分のガードで相手をしびれさせた時、無条件敗北の確率が通常の1.25倍(50%→62.5%)
@@ -4351,7 +4357,7 @@ async function runNormalHit(winner, loser, move) {
     const winnerStreakKey = winner === 'P' ? 'pPunchStreak' : 'ePunchStreak';
     const loserStreakKey = loser === 'P' ? 'pPunchStreak' : 'ePunchStreak';
     const cyclePos = state[winnerStreakKey] % 3; // 0=1発目, 1=2発目, 2=3発目(この後4発目で0に戻る)
-    const dmg = (DB.DMG.P + cyclePos * DB.DMG.P_COMBO_STEP) * chargeMultOf(winner) * atkMultOf(winner) * defMultOf(loser); // 3発周期で増加、チャージ中は2倍/4倍
+    const dmg = (DB.DMG.P + cyclePos * DB.DMG.P_COMBO_STEP) * chargeMultOf(winner) * atkMultOf(winner, move) * defMultOf(loser); // 2026-10-01: moveを渡し、atkMultByMove.PUNCH(Galdの重いパンチ)を効かせる // 3発周期で増加、チャージ中は2倍/4倍
     state[winnerStreakKey]++; // 命中したので連続記録を伸ばす
     state[loserStreakKey] = 0; // 負けた側の連続記録は途切れる
     // 技判定用のPUNCH連続(あいこも含む)。PUNCHで勝てば伸び、PUNCH以外の勝ち・負けで途切れる
