@@ -3,6 +3,12 @@
 このプロジェクトの変更履歴。日付は新しいものを上に追記する。
 コード(`index.html` / `css/style.css` / `js/script.js`)や仕様に変更を加えた場合は、このファイルに追記すること(詳細は `AI_GUIDE.md` を参照)。
 
+## 2026-10-01(8)
+
+- ver. 0.9.159
+- LINEなどでリンクを共有した時のプレビュー用に、説明文(description)とOGPタグ(og:title / og:description / og:image等、twitter:card)を追加。これまでは説明文が無く、画面の文字(NOW LOADING...)がプレビューに出ていた。
+- プレビュー画像`assets/images/ogp.jpg`(1200×630、黒地にタイトルロゴ)を追加。
+
 ## 2026-10-01(7)
 
 - ver. 0.9.158
