@@ -8,7 +8,7 @@
 ## 1. リリース前に必ず対応(最優先)
 
 - **リリースの段取り(2026-10-01、利用者の方針)**: 最終調整が終わったら、一度すべてのファイルを渡し、①GitHub用のデバッグ解放版、②GitHub用の本番版(下記のデバッグ解放ブロックを削除)を作る。その後③itch.io用の本番版を適用して終了する予定。
-  - 本番版では`js/script.js`の圧縮(minify、現在約470KB)も行う。
+  - ~~本番版では`js/script.js`の圧縮(minify)も行う~~ → 2026-10-02に対応済み(`tools/build.sh`で軽量版`js/script.min.js`/`css/style.min.css`を作り、ゲームはそちらを読み込む)。
   - itch.io版では、`index.html`のOGPタグ(og:url / og:image)がGitHub PagesのURLを指しているため、差し替えるか削除する。
 
 - **動作確認用のデバッグ解放ブロックが残っている**: 起動処理(`boot`)内に「【本番リリース前に必ずこのブロックを削除すること】」と明記された一時コードがあり、`gameClearedOnce`(BONUS CONTENTS/SOUND TEST/SPEEDの解放条件)・`unlockedSubStories`・`unlockedSkins`を、セーブデータの内容に関わらず強制的に全解放している。友人テスト用の一時措置であることがコード内コメントに明記されている。本番公開前に必ずこのブロックごと削除すること。

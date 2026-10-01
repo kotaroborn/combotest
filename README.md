@@ -12,8 +12,11 @@
 ```
 command-battle/
 ├── index.html          # 画面構造(HTML)
-├── css/style.css        # スタイル
-├── js/script.js         # ゲームロジック本体(憲法二十六条を先頭コメントに含む)
+├── css/style.css        # スタイル(編集用の元ファイル)
+├── css/style.min.css    # ↑の軽量版(ゲームはこちらを読み込む。tools/build.shで作る)
+├── js/script.js         # ゲームロジック本体(編集用の元ファイル。憲法二十六条を先頭コメントに含む)
+├── js/script.min.js     # ↑の軽量版(ゲームはこちらを読み込む。tools/build.shで作る)
+├── tools/build.sh       # 軽量版を作るスクリプト(esbuildでコメント・空白を除く)。script.js/style.cssを変えたら必ず実行
 └── assets/
     ├── images/
     │   ├── characters/        # 味方スプライト(必須アセット)

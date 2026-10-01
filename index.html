@@ -17,7 +17,7 @@
     <meta property="og:image:height" content="630">
     <meta property="og:locale" content="ja_JP">
     <meta name="twitter:card" content="summary_large_image">
-    <link rel="stylesheet" href="css/style.css?v=177">
+    <link rel="stylesheet" href="css/style.min.css?v=178"> <!-- 配信用の軽量版。編集はcss/style.cssで行い、tools/build.shで作り直す(2026-10-02) -->
 
     <!-- 技名ポップ(2026-09-27追加)用の手書き風フォント。Google FontsのCDNから読み込む(ファイル同梱はせず、
          プレイ時のネット接続を前提とする。GitHub Pages/itch.ioでの公開自体が既にネット接続前提のため問題ない)。
@@ -108,7 +108,7 @@
                 <div class="title-logo-fallback-sub">CROSS DIMENSION</div>
             </div>
         </div>
-        <div class="title-version">ver. 0.9.177</div>
+        <div class="title-version">ver. 0.9.178</div>
     </div>
     <button id="titleContinueBtn" class="text-btn" onclick="tapFlickerThen(this, () => goContinueGame())" style="display:none;">CONTINUE</button>
     <button id="startBtn" class="text-btn" onclick="tapFlickerThen(this, () => goNewGame())" disabled>NEW GAME</button>
@@ -666,7 +666,9 @@
 // fetch自体やストリーム読み取りに失敗した場合(古いブラウザ、CORS等)は、必ず通常のscriptタグ読み込みにフォールバックする
 // (ゲージは動かないが、ゲームの起動自体は今まで通り保証される)。
 (function() {
-    var SCRIPT_URL = 'js/script.js';
+    // 配信用の軽量版(コメント・空白を除いたもの)。編集はjs/script.jsで行い、tools/build.shで作り直す(2026-10-02)。
+    // ?v=はバージョン(.title-versionの末尾3桁)と同じ番号にし、更新のたびに上げる(古いものがキャッシュに残らないように)
+    var SCRIPT_URL = 'js/script.min.js?v=178';
     var bar = document.getElementById('nowLoadingBar');
     var percentEl = document.getElementById('nowLoadingPercent');
     var settled = false; // フォールバック(タイムアウト)と正常読み込みの、どちらか一方だけが実行されるようにするためのフラグ
@@ -699,8 +701,9 @@
         loadViaPlainTag();
     }, 15000);
 
-    // cache: 'no-store' で、ブラウザ/中間キャッシュに残った古いバージョンのscript.jsを誤って使ってしまわないようにする
-    fetch(SCRIPT_URL, { cache: 'no-store' }).then(function(response) {
+    // 2026-10-02: 以前はcache:'no-store'で毎回すべてダウンロードし直していたが、2回目以降の起動が遅くなるため、
+    // URLに?v=(バージョン)を付けて古いものを避けつつ、同じバージョンの間はブラウザのキャッシュを使うようにした
+    fetch(SCRIPT_URL).then(function(response) {
         if (!response.ok || !response.body) throw new Error('fetch failed: ' + response.status);
         var totalStr = response.headers.get('Content-Length');
         var total = totalStr ? parseInt(totalStr, 10) : 0;
