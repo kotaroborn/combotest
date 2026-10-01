@@ -7444,7 +7444,7 @@ function renderRecords() {
         const open = recordsOpenSections.has(key);
         html += `<div class="records-section${open ? ' open' : ''}" data-key="${key}">`
             + `<button class="records-section-title" onclick="toggleRecordsSection('${key}')">`
-            + `<span class="records-section-arrow">${open ? '▼' : '▶'}</span><span class="records-section-name">${title}</span>`
+            + `<span class="records-section-arrow">${open ? '▼' : '▶︎'}</span><span class="records-section-name">${title}</span>`
             + `<span class="records-section-sub">${sub}</span></button>`
             + `<div class="records-section-body">${inner}</div></div>`;
     };
@@ -7476,7 +7476,7 @@ function toggleRecordsSection(key) {
     if (!el) return;
     const open = recordsOpenSections.has(key);
     el.classList.toggle('open', open);
-    el.querySelector('.records-section-arrow').textContent = open ? '▼' : '▶';
+    el.querySelector('.records-section-arrow').textContent = open ? '▼' : '▶︎';
     playSE('se_select');
 }
 function openRecords() {
