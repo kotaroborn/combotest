@@ -132,6 +132,7 @@ localStorage(キー: `commandbattle_save_v1`)に以下の値が保存され、�
   - **TECHNIQUES**: RECORDSのTECHNIQUESと同じ一覧(出したワザはコマンドをカードのアイコンで、未使用は「？？？」とヒント。`renderHowToTechniques`)。
   - 本文中の（パンチ）（P）等はカードのアイコンに置き換わる(`applyHowToCardIcons`)。BATTLE RUSHの対戦中は、開いている間タイマーが止まる。
   - **LOCAL V.S.**: 1P・2Pそれぞれの左下にHOW TOボタンがある(`openHowToVs`)。キャラ選択では押した人の側の半分だけに出す(2Pは逆さ向き)。バトル中は自分がカードを選んでいる間(READY後)だけボタンが出て、全画面で開く(2Pは全画面を逆さ向き。`vsUpdateHowToBtns`)。
+- **チュートリアル**(2026-10-01): はじめてのデッキ編成(STORY MODE)と、はじめてのNoah戦で一度だけ出すページ送り式の説明(`TUTORIAL_PAGES` / `showTutorial`、見たかどうかはセーブの`tutorialSeen`)。
 - **RECORDS**(2026-09-28追加、OPTIONから。2026-10-01からバトル中を含むすべてのOPTIONで開ける): 達成率、STORY MODE(進行・最大COMBO・PERFECT勝利)、BATTLE RUSH(最多撃破・ベストタイム・最大COMBO)、TECHNIQUES(全10種)、UNLOCKS(解放要素と入手方法)。各項目は見出しをタップすると開閉する(`recordsOpenSections`)。TRAINING MODE・LOCAL V.S.で出したワザは記録しない(`markSpecialUsed`)。
 - **リンク共有時のプレビュー**(2026-10-01): `index.html`の`<head>`にdescriptionとOGPタグ(og:title / og:description / og:image等、twitter:card)を置いている。画像は`assets/images/ogp.jpg`(1200×630、黒地にタイトルロゴ)。og:url / og:imageはGitHub Pagesの絶対URL(`https://kotaroborn.github.io/combotest/`)なので、itch.io版を作る時は差し替えが必要。
 - **OPTIONポップアップ**:

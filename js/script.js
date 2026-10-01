@@ -204,6 +204,7 @@ let costumeUnlockAnnounced = false; // タイトル画面でCOSTUME解放のポ�
 let bonusContentsAnnounced = false; // タイトル画面でBONUS CONTENTS解放のポップアップを既に一度見せたか
 let versusUnlocked = false; // 対戦モード(VERSUS)が解放済みか。専用のGIFT CODEでのみ解放する(2026-09-27追加。それまでは常時解放だった)
 let perfectWins = 0; // ノーダメージ勝利(PERFECT!!)の回数。RECORDSで表示する(2026-09-30追加)
+let tutorialSeen = { deck: false, battle: false }; // はじめてのデッキ編成・Noah戦で出すチュートリアルを既に見たか(2026-10-01追加、セーブ対象)
 let recordsHintAnnounced = false; // クリア後の「まだ見つけていない秘密がある…」トーストを既に出したか(2026-09-28追加)
 let storyMaxCombo = 0; // STORY MODEのバトルでの最大COMBO(プレイヤー側)。RECORDSで表示する。セーブデータに永続化する(2026-09-28追加)
 let rushUnlocked = false; // BATTLE RUSHが解放済みか。専用のGIFT CODEでのみ解放する(2026-09-28追加)
@@ -1231,6 +1232,7 @@ function applySaveDataOnBoot() {
     if (typeof save.rushUnlocked === 'boolean') rushUnlocked = save.rushUnlocked;
     if (typeof save.storyMaxCombo === 'number') storyMaxCombo = save.storyMaxCombo;
     if (typeof save.recordsHintAnnounced === 'boolean') recordsHintAnnounced = save.recordsHintAnnounced;
+    if (save.tutorialSeen) tutorialSeen = { deck: !!save.tutorialSeen.deck, battle: !!save.tutorialSeen.battle };
     if (typeof save.perfectWins === 'number') perfectWins = save.perfectWins;
     if (save.rushBest25 && typeof save.rushBest25 === 'object') { // 2026-09-30: 25人制に変わったため、100人制時代の記録(rushBest)は引き継がない
         rushBest = {
@@ -2456,6 +2458,7 @@ function goDeckBuild(mode) {
     // 最初からやり直したい場合はタイトルのOPTION画面から明示的にリセットする。
     updateDeckBuildUI();
     showScene('deck');
+    if (state.pendingMode === 'story' && !tutorialSeen.deck) showTutorial('deck'); // はじめてのデッキ編成のみ(2026-10-01)
     if (state.storyEnemyIndex === 4) {
         // 5人目(Alv)のデッキ編成は、専用ストーリーBGM(bgm_story_5)を引き続き流す。
         // 既にストーリーシーンから再生中であればplayBGM内の早期returnによりそのまま継続され、
@@ -3992,6 +3995,7 @@ async function playBattleIntro() {
 
     state.battleReady = true;
     updateActionButtons();
+    if (state.gameMode === 'story' && state.storyEnemyIndex === 0 && !tutorialSeen.battle) showTutorial('battle'); // はじめてのNoah戦のみ(2026-10-01)
     if (state.gameMode === 'rush') rushStartTimer(); // BATTLE RUSH: 手札が配られて操作できるようになった瞬間から計測する
 }
 
@@ -5385,6 +5389,43 @@ async function resolveTurn() {
 // ============================================================
 // UIポップアップ
 // ============================================================
+// チュートリアル(2026-10-01): はじめてのデッキ編成と、はじめてのNoah戦(STORY MODE)で一度だけ出す短い説明。
+// ページ送り式(次へ→OK)。見たかどうかはセーブデータ(tutorialSeen)に残す。文面はTUTORIAL_PAGESだけ書き換えればよい。
+// 本文の（P）（U）（G）はカードのアイコン、{img}は3すくみの図(howto.PNG)に置き換わる。
+const TUTORIAL_PAGES = {
+    deck: [
+        { title: 'デッキビルド', body: 'PUNCH・UPPER・GUARDの3種類のカードで、<br>合計21枚のデッキを作ろう！<br><br>（P）は（U）に勝ち、（U）は（G）に勝ち、<br>（G）は（P）に勝つ。{img}迷ったら7枚ずつでもOK。<br>相手のクセが分かったら、<br>デッキを組み直して挑もう！' },
+    ],
+    battle: [
+        { title: 'バトル', body: '手札のカードをタップして、<br>場に1〜5枚出そう。<br>出し終えたらGO!で勝負！<br><br>相手と1枚ずつ出し合って、<br>勝ったカードで攻撃するぞ！' },
+        { title: 'ワザ', body: '決まった並びでカードを出すと、<br>ワザが出る！<br><br>ワザ表は左下のHOW TOから<br>いつでも見られるぞ。' },
+    ],
+};
+let tutorialKey = null, tutorialPage = 0;
+function showTutorial(key) {
+    tutorialKey = key; tutorialPage = 0;
+    renderTutorialPage();
+    document.getElementById('tutorialOverlay').classList.add('show');
+}
+function renderTutorialPage() {
+    const pages = TUTORIAL_PAGES[tutorialKey];
+    const page = pages[tutorialPage];
+    document.getElementById('tutorialTitle').textContent = page.title;
+    const body = document.getElementById('tutorialBody');
+    body.innerHTML = page.body.replace('{img}', '<img class="howto-img" src="assets/images/ui/howto.PNG" alt="" onerror="this.style.display=\'none\';">');
+    applyHowToCardIcons(body);
+    document.getElementById('tutorialPageNum').textContent = pages.length > 1 ? `${tutorialPage + 1} / ${pages.length}` : '';
+    document.getElementById('tutorialNextBtn').textContent = tutorialPage < pages.length - 1 ? '次へ' : 'OK';
+}
+function nextTutorialPage() {
+    playSE('se_select');
+    if (tutorialPage < TUTORIAL_PAGES[tutorialKey].length - 1) { tutorialPage++; renderTutorialPage(); return; }
+    document.getElementById('tutorialOverlay').classList.remove('show');
+    tutorialSeen[tutorialKey] = true;
+    writeSaveData({ tutorialSeen });
+    tutorialKey = null;
+}
+
 // HOW TO(2026-10-01): どこから開いても、まず3すくみの図があるHOW TO BATTLEを出す。一番上に、RECORDSと同じく
 // 見出しをタップすると開閉する欄を置く: モード別の説明(TRAINING/BATTLE RUSH/EXTRA BATTLE/LOCAL V.S.の対戦中だけ)と
 // TECHNIQUES(ワザ表)。どちらも最初は閉じていて、開閉状態はアプリを開いている間だけ覚えておく。

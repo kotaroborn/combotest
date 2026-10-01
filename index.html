@@ -17,7 +17,7 @@
     <meta property="og:image:height" content="630">
     <meta property="og:locale" content="ja_JP">
     <meta name="twitter:card" content="summary_large_image">
-    <link rel="stylesheet" href="css/style.css?v=165">
+    <link rel="stylesheet" href="css/style.css?v=166">
 
     <!-- 技名ポップ(2026-09-27追加)用の手書き風フォント。Google FontsのCDNから読み込む(ファイル同梱はせず、
          プレイ時のネット接続を前提とする。GitHub Pages/itch.ioでの公開自体が既にネット接続前提のため問題ない)。
@@ -108,7 +108,7 @@
                 <div class="title-logo-fallback-sub">CROSS DIMENSION</div>
             </div>
         </div>
-        <div class="title-version">ver. 0.9.165</div>
+        <div class="title-version">ver. 0.9.166</div>
     </div>
     <button id="titleContinueBtn" class="text-btn" onclick="tapFlickerThen(this, () => goContinueGame())" style="display:none;">CONTINUE</button>
     <button id="startBtn" class="text-btn" onclick="tapFlickerThen(this, () => goNewGame())" disabled>NEW GAME</button>
@@ -622,6 +622,19 @@
 </div>
 
 <!-- COSTUME選択ポップアップ -->
+<!-- チュートリアル(2026-10-01): はじめてのデッキ編成・Noah戦で一度だけ出す。文面はscript.jsのTUTORIAL_PAGES -->
+<div id="tutorialOverlay" class="popup-overlay">
+    <div class="popup-panel tutorial-panel">
+        <div class="howto-content">
+            <h2 id="tutorialTitle"></h2>
+            <div id="tutorialBody" class="tutorial-body"></div>
+            <div class="tutorial-footer">
+                <span id="tutorialPageNum"></span>
+                <button id="tutorialNextBtn" class="tutorial-next-btn" onclick="nextTutorialPage()">OK</button>
+            </div>
+        </div>
+    </div>
+</div>
 <!-- RECORDS(BONUS内): 解放状況・入手方法・各種記録の一覧 -->
 <div id="recordsOverlay" class="popup-overlay" onclick="closeRecordsBackdrop(event)">
     <div class="popup-panel">

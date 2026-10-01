@@ -1069,3 +1069,11 @@
 /* HOW TO: ※注記(2026-10-01) */
 .howto-note { font-size: 11px; color: #aaa; }
 .howto-tech { margin: 0 0 12px; }
+
+/* チュートリアル(2026-10-01) */
+#tutorialOverlay { z-index: 60; }
+.tutorial-panel { height: auto; max-height: 86%; }
+.tutorial-body { font-size: 13px; line-height: 1.7; overflow-y: auto; min-height: 0; flex: 1 1 auto; }
+.tutorial-footer { display: flex; align-items: center; justify-content: space-between; margin-top: 14px; }
+#tutorialPageNum { font-size: 11px; color: #888; }
+.tutorial-next-btn { min-width: 110px; padding: 10px 18px; font-size: 14px; font-weight: 900; letter-spacing: 2px; background: #a00; border-radius: 8px; }

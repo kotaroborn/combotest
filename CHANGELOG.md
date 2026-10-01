@@ -3,6 +3,11 @@
 このプロジェクトの変更履歴。日付は新しいものを上に追記する。
 コード(`index.html` / `css/style.css` / `js/script.js`)や仕様に変更を加えた場合は、このファイルに追記すること(詳細は `AI_GUIDE.md` を参照)。
 
+## 2026-10-01(15)
+
+- ver. 0.9.166
+- チュートリアルを追加。はじめてのデッキ編成(STORY MODE)と、はじめてのNoah戦(手札が配られた直後)で一度だけ、短い説明をページ送り式で出す(デッキ編成: 3すくみの図とデッキの作り方 / Noah戦: カードの出し方とGO!、ワザとHOW TOの場所)。見たかどうかはセーブデータの`tutorialSeen`に残す。文面は`TUTORIAL_PAGES`だけ書き換えればよい(`showTutorial` / `nextTutorialPage`、`#tutorialOverlay`)。
+
 ## 2026-10-01(14)
 
 - ver. 0.9.165
