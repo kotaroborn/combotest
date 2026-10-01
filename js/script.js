@@ -1250,10 +1250,11 @@ function unlockSkin(skinName) {
 
 // 必殺技の使用履歴を記録する(バトルをまたいで積み上げる)。4種類すべて使用済みになった時点でSOUND TESTを解除する。
 // side: 技を出した側('P'/'E')。2026-09-30、RECORDSの「TECHNIQUES」に使うため、敵(E)が出した技は記録しないようにした
-// (以前は敵が技を出してもプレイヤーの実績として記録されていた)。LOCAL V.S.は2Pも人間なので両者とも記録する。
+// (以前は敵が技を出してもプレイヤーの実績として記録されていた)。
 function markSpecialUsed(key, side) {
-    if (side === 'E' && state.gameMode !== 'versus') return;
-    if (state.gameMode === 'training') return; // TRAINING MODEで使った技はRECORDSに記録しない(HOW TO TRAININGの説明どおり、2026-10-01)
+    if (side === 'E') return;
+    // TRAINING MODE・LOCAL V.S.で使った技はRECORDSに記録しない(HOW TO TRAINING / HOW TO LOCAL V.S.の説明どおり、2026-10-01)
+    if (state.gameMode === 'training' || state.gameMode === 'versus') return;
     if (specialsUsed[key]) return; // 既に記録済みなら何もしない
     specialsUsed[key] = true;
     writeSaveData({ specialsUsed });
@@ -5326,7 +5327,7 @@ async function resolveTurn() {
 const HOWTO_MODE_PAGES = {
     training:       { page: 'training', label: 'HOW TO TRAINING' },
     rush:           { page: 'rush',     label: 'HOW TO BATTLE RUSH' },
-    substoryBattle: { page: 'extra',    label: 'HOW TO EXTRA' },
+    substoryBattle: { page: 'extra',    label: 'HOW TO EXTRA BATTLE' },
     versus:         { page: 'versus',   label: 'HOW TO LOCAL V.S.' },
 };
 const HOWTO_PAGE_IDS = { battle: 'howToPageBattle', training: 'howToPageTraining', rush: 'howToPageRush', extra: 'howToPageExtra', versus: 'howToPageVersus' };

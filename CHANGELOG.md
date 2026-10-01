@@ -3,6 +3,12 @@
 このプロジェクトの変更履歴。日付は新しいものを上に追記する。
 コード(`index.html` / `css/style.css` / `js/script.js`)や仕様に変更を加えた場合は、このファイルに追記すること(詳細は `AI_GUIDE.md` を参照)。
 
+## 2026-10-01(5)
+
+- ver. 0.9.156
+- HOW TO EXTRA BATTLE / HOW TO LOCAL V.S.の説明文を追加(これまでは「（準備中）」)。メニューの表記も「HOW TO EXTRA」から「HOW TO EXTRA BATTLE」に変更。
+- LOCAL V.S.で出した技は、RECORDSの技の記録に残らないようにした(HOW TO LOCAL V.S.の説明に合わせた。以前は両プレイヤーの分を記録していた)。
+
 ## 2026-10-01(4)
 
 - ver. 0.9.155
