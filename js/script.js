@@ -7607,6 +7607,8 @@ function buildRecordsItems() {
     return items;
 }
 function escapeRecordsText(t) { return String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+// TECHNIQUES一覧の一番上に出す、ワザの発動条件の説明(2026-10-02)。RECORDSとHOW TOの両方で使う
+const TECH_RULE_NOTE_HTML = '<div class="tech-rule-note">最後のカードで勝つとワザ発動！<br>それまでのカードは、あいこか勝ちでOK。</div>';
 function recordsItemHtml(it) {
     return `<div class="records-item${it.got ? ' got' : ''}"><span class="records-item-name">${it.got ? '★' : '☆'} ${escapeRecordsText(it.name)}</span>`
         + `<span class="records-item-how">${escapeRecordsText(it.how)}</span></div>`;
@@ -7642,7 +7644,7 @@ function renderRecords() {
     }
     const techs = items.filter(it => it.tech);
     const unlocks = items.filter(it => !it.tech);
-    section('tech', 'TECHNIQUES', countSub(techs), techs.map(itemHtml).join(''));
+    section('tech', 'TECHNIQUES', countSub(techs), TECH_RULE_NOTE_HTML + techs.map(itemHtml).join(''));
     section('unlocks', 'UNLOCKS', countSub(unlocks), unlocks.map(itemHtml).join(''));
     document.getElementById('recordsBody').innerHTML = html;
     applyHowToCardIcons(document.getElementById('recordsBody')); // 技のコマンドの（パンチ）等をカードのアイコンにする
@@ -7661,7 +7663,7 @@ function toggleRecordsSection(key) {
 function renderHowToTechniques() {
     const techs = buildRecordsItems().filter(it => it.tech);
     const body = document.getElementById('howToTechBody');
-    body.innerHTML = techs.map(recordsItemHtml).join('');
+    body.innerHTML = TECH_RULE_NOTE_HTML + techs.map(recordsItemHtml).join('');
     applyHowToCardIcons(body);
     document.getElementById('howToTechCount').textContent = `${techs.filter(it => it.got).length} / ${techs.length}`;
     document.getElementById('howToTechSection').classList.toggle('open', howToOpenSections.tech);

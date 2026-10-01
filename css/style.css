@@ -1084,3 +1084,6 @@
 /* 場の空き枠(点線)は、カードを出せる間だけ表示する(2026-10-01、syncSlotsWaiting)。現れる時はふわっと */
 #slots .slot.empty { transition: opacity 0.2s ease-out; }
 #slots.slots-waiting .slot.empty { opacity: 0; transition: none; }
+
+/* TECHNIQUESの一番上のワザ発動条件の説明(2026-10-02) */
+.tech-rule-note { font-size: 11px; line-height: 1.6; color: #ffd23c; background: rgba(255,210,60,0.08); border-radius: 6px; padding: 6px 8px; margin: 4px 0 6px; }
