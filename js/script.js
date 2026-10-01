@@ -4088,10 +4088,11 @@ function showResult(type) {
             continueBtn.style.display = 'none';
             backTitleBtn.style.display = 'none';
             document.getElementById('resultOverlay').classList.add('show');
+            const epilogueKey = state.pPresetKey; // 余韻の4秒の間に状態が変わっても、このバトルのエピローグを出せるよう先に控えておく
             (async () => {
                 await wait(4000); // YOU WINの余韻を見せてから(STORY MODEの自動進行と揃える)
                 hideResult();
-                await playSubstoryBattleEpilogue(state.pPresetKey);
+                await playSubstoryBattleEpilogue(epilogueKey);
             })();
         }
         return;
@@ -5440,6 +5441,7 @@ function renderTutorialPage() {
     document.getElementById('tutorialNextBtn').textContent = tutorialPage < pages.length - 1 ? '次へ' : 'OK';
 }
 function nextTutorialPage() {
+    if (!tutorialKey) return; // 連打などで閉じた後に呼ばれた場合は何もしない
     playSE('se_select');
     if (tutorialPage < TUTORIAL_PAGES[tutorialKey].length - 1) { tutorialPage++; renderTutorialPage(); return; }
     document.getElementById('tutorialOverlay').classList.remove('show');
