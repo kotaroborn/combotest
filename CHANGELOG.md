@@ -3,6 +3,11 @@
 このプロジェクトの変更履歴。日付は新しいものを上に追記する。
 コード(`index.html` / `css/style.css` / `js/script.js`)や仕様に変更を加えた場合は、このファイルに追記すること(詳細は `AI_GUIDE.md` を参照)。
 
+## 2026-10-01(11)
+
+- ver. 0.9.162
+- HOW TOのワザ表の置き場所を変更。メニューの「TECHNIQUES」の行とページをやめ、HOW TO BATTLEの一番上に、RECORDSと同じく見出しをタップすると開閉する「TECHNIQUES」欄を置いた(最初は閉じている、右に解放数)。3すくみの図をすぐ見直せるよう、タイトル・STORYからは再びHOW TO BATTLEを直接開く(`renderHowToTechniques` / `toggleHowToTech`)。
+
 ## 2026-10-01(10)
 
 - ver. 0.9.161

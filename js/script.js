@@ -5390,15 +5390,18 @@ const HOWTO_MODE_PAGES = {
     substoryBattle: { page: 'extra',    label: 'HOW TO EXTRA BATTLE' },
     versus:         { page: 'versus',   label: 'HOW TO LOCAL V.S.' },
 };
-const HOWTO_PAGE_IDS = { tech: 'howToPageTech', battle: 'howToPageBattle', training: 'howToPageTraining', rush: 'howToPageRush', extra: 'howToPageExtra', versus: 'howToPageVersus' };
+const HOWTO_PAGE_IDS = { battle: 'howToPageBattle', training: 'howToPageTraining', rush: 'howToPageRush', extra: 'howToPageExtra', versus: 'howToPageVersus' };
 let howToCurrentModePage = null;
 function openHowToPage(page) {
-    if (page === 'tech') renderHowToTechniques();
+    if (page === 'battle') renderHowToTechniques();
     document.getElementById('howToMenu').style.display = 'none';
     Object.entries(HOWTO_PAGE_IDS).forEach(([k, id]) => {
         const el = document.getElementById(id);
         el.style.display = k === page ? '' : 'none';
         if (k === page) el.scrollTop = 0;
+        // メニューから開いた時だけ「戻る」を出す
+        const back = el.querySelector('.howto-back');
+        if (back) back.style.display = howToCurrentModePage ? '' : 'none';
     });
 }
 function backToHowToMenu() {
@@ -5409,10 +5412,12 @@ function openHowTo() {
     const inBattle = document.getElementById('sceneBattle').classList.contains('active');
     const mode = inBattle ? HOWTO_MODE_PAGES[state.gameMode] : null;
     howToCurrentModePage = mode ? mode.page : null;
-    // 2026-10-01: TECHNIQUESを選べるよう、どこから開いても常にメニューから始める(モード別の行はそのモードの対戦中だけ)
-    document.getElementById('howToMenuModeRow').style.display = mode ? '' : 'none';
-    if (mode) document.getElementById('howToMenuModeLabel').innerText = mode.label;
-    backToHowToMenu();
+    if (mode) {
+        document.getElementById('howToMenuModeLabel').innerText = mode.label;
+        backToHowToMenu();
+    } else {
+        openHowToPage('battle'); // タイトル・STORY等は、3すくみの図をすぐ見られるようHOW TO BATTLEを直接開く
+    }
     document.getElementById('howToOverlay').classList.add('show');
     rushPauseTimer('howto'); // BATTLE RUSH: HOW TOを開いている間はタイマーを止める(RUSH中でなければ何もしない)
 }
@@ -5431,7 +5436,6 @@ function openHowToVs(side) {
     if (inBattle && versusState.phase !== (side === 'P' ? 'inputP' : 'inputE')) return;
     playSE('se_menu_open');
     howToCurrentModePage = 'versus';
-    document.getElementById('howToMenuModeRow').style.display = '';
     document.getElementById('howToMenuModeLabel').innerText = HOWTO_MODE_PAGES.versus.label;
     backToHowToMenu();
     const ov = document.getElementById('howToOverlay');
@@ -7569,13 +7573,21 @@ function toggleRecordsSection(key) {
     el.querySelector('.records-section-arrow').textContent = open ? '▼' : '▶︎';
     playSE('se_select');
 }
-// HOW TOのTECHNIQUES(2026-10-01): RECORDSのTECHNIQUESと同じ内容を表示する
+// HOW TO BATTLEの一番上のワザ表(2026-10-01): RECORDSのTECHNIQUESと同じ内容。見出しをタップすると開閉する(最初は閉じている)
+let howToTechOpen = false;
 function renderHowToTechniques() {
     const techs = buildRecordsItems().filter(it => it.tech);
     const body = document.getElementById('howToTechBody');
-    body.innerHTML = `<div class="records-rate"><span class="records-rate-num">${techs.filter(it => it.got).length} / ${techs.length}</span></div>`
-        + techs.map(recordsItemHtml).join('');
+    body.innerHTML = techs.map(recordsItemHtml).join('');
     applyHowToCardIcons(body);
+    document.getElementById('howToTechCount').textContent = `${techs.filter(it => it.got).length} / ${techs.length}`;
+    document.getElementById('howToTechSection').classList.toggle('open', howToTechOpen);
+    document.getElementById('howToTechArrow').textContent = howToTechOpen ? '▼' : '▶\ufe0e';
+}
+function toggleHowToTech() {
+    howToTechOpen = !howToTechOpen;
+    playSE('se_select');
+    renderHowToTechniques();
 }
 function openRecords() {
     renderRecords();

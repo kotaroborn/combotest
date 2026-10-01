@@ -108,7 +108,7 @@
                 <div class="title-logo-fallback-sub">CROSS DIMENSION</div>
             </div>
         </div>
-        <div class="title-version">ver. 0.9.161</div>
+        <div class="title-version">ver. 0.9.162</div>
     </div>
     <button id="titleContinueBtn" class="text-btn" onclick="tapFlickerThen(this, () => goContinueGame())" style="display:none;">CONTINUE</button>
     <button id="startBtn" class="text-btn" onclick="tapFlickerThen(this, () => goNewGame())" disabled>NEW GAME</button>
@@ -351,21 +351,19 @@
                 <span class="option-label">HOW TO BATTLE</span>
                 <button onclick="openHowToPage('battle')">見る</button>
             </div>
-            <div class="option-row">
-                <span class="option-label">TECHNIQUES</span>
-                <button onclick="openHowToPage('tech')">見る</button>
-            </div>
-        </div>
-        <!-- TECHNIQUES: RECORDSのTECHNIQUESと同じ一覧(出したことのあるワザはコマンド、未使用は？？？とヒント) -->
-        <div class="howto-content howto-scroll howto-page" id="howToPageTech" style="display:none;">
-            <h2>TECHNIQUES</h2>
-            <button class="sound-test-back-btn howto-back" onclick="backToHowToMenu()">◀︎戻る</button>
-            <div id="howToTechBody"></div>
         </div>
         <!-- HOW TO BATTLE(基本) -->
         <div class="howto-content howto-scroll howto-page" id="howToPageBattle" style="display:none;">
             <h2>HOW TO BATTLE</h2>
             <button class="sound-test-back-btn howto-back" onclick="backToHowToMenu()">◀︎戻る</button>
+            <!-- ワザ表(RECORDSのTECHNIQUESと同じ一覧)。RECORDSと同じく見出しをタップすると開閉する(2026-10-01) -->
+            <div class="records-section howto-tech" id="howToTechSection">
+                <button class="records-section-title" onclick="toggleHowToTech()">
+                    <span class="records-section-arrow" id="howToTechArrow">▶︎</span><span class="records-section-name">TECHNIQUES</span>
+                    <span class="records-section-sub" id="howToTechCount"></span>
+                </button>
+                <div class="records-section-body" id="howToTechBody"></div>
+            </div>
             <p><b>Ⅰ.デッキビルドでカードの枚数を選ぼう！</b><br>
             PUNCH、UPPER、GUARDの3種類のカードで、<br>合計21枚になるようにデッキを作ろう。</p>
 
