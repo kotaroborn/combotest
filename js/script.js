@@ -1269,6 +1269,7 @@ function unlockSkin(skinName) {
 // (以前は敵が技を出してもプレイヤーの実績として記録されていた)。
 function markSpecialUsed(key, side) {
     if (side === 'E') return;
+    if (state.battleStats) state.battleStats.techs++; // RESULT画面用: このバトルでのワザの発動回数(2026-10-02)
     // TRAINING MODE・LOCAL V.S.で使った技はRECORDSに記録しない(HOW TO TRAINING / HOW TO LOCAL V.S.の説明どおり、2026-10-01)
     if (state.gameMode === 'training' || state.gameMode === 'versus') return;
     if (specialsUsed[key]) return; // 既に記録済みなら何もしない
@@ -2503,8 +2504,7 @@ async function playStoryChapterTitle(n, token) {
 // 5人目(最終)撃破時の専用シーケンス: YOU WINの余韻を5秒→エンディング5画面→エンドロール→FIN.→タイトルへ自動的に戻る
 // この間、storyEnemyIndexは進めない(advanceToNextEnemyを呼ばない)ため、タイトルのCONTINUEは5人目と戦う前の状態のまま残る
 async function runFinalVictorySequence() {
-    await wait(5000);
-    hideResult();
+    hideResult(); // 2026-10-02: 以前はYOU WINの後に5秒待っていたが、RESULT画面のNEXTで進む形になったため待たない
     showScene('ending');
     await playEndingSequence();
     await playCredits();
@@ -3897,6 +3897,9 @@ function resetBattleState() {
     state.hpP = 100; state.hpE = 100;
     state.pTookDamage = false; // このバトルでプレイヤーが一度でもダメージを受けたか(PERFECT!!判定用、2026-09-30)
     state.turn = 0;
+    // 勝利後のRESULT画面(2026-10-02)用の、このバトル中のプレイヤーの記録
+    // cards: 実際に攻防で使ったカードの枚数 / rpsJudged・rpsWins: 3すくみで判定した攻防の数とそのうち勝った数 / techs: ワザの発動回数
+    state.battleStats = { cards: { PUNCH: 0, UPPER: 0, GUARD: 0 }, rpsJudged: 0, rpsWins: 0, maxCombo: 0, techs: 0 };
     state.hands = new Array(5).fill(null);
     state.pX = DB.POS.P_HOME_X; state.eX = DB.POS.E_HOME_X;
     state.pY = DB.POS.GROUND_Y; state.eY = DB.POS.GROUND_Y;
@@ -4242,7 +4245,7 @@ function showResult(type) {
         stopBGM();
     } else {
         playSE('se_win');
-        playBGM('bgm_victory');
+        playVictoryBgmDelayed();
     }
 
     // 最初から最後まで一度もCOMBOが途切れずに勝利した場合、YOU WINの上に「COMBO PERFECT!!」を表示する(実績の解除自体はここでは行わない)
@@ -4261,7 +4264,7 @@ function showResult(type) {
         continueBtn.style.display = 'none';
         backTitleBtn.style.display = 'none';
         document.getElementById('resultOverlay').classList.add('show');
-        runFinalVictorySequence();
+        showBattleResultAfterWin(() => runFinalVictorySequence()); // YOU WIN → RESULT → NEXTでエンディングへ(2026-10-02)
         return;
     }
 
@@ -4280,12 +4283,8 @@ function showResult(type) {
             continueBtn.style.display = 'none';
             backTitleBtn.style.display = 'none';
             document.getElementById('resultOverlay').classList.add('show');
-            const epilogueKey = state.pPresetKey; // 余韻の4秒の間に状態が変わっても、このバトルのエピローグを出せるよう先に控えておく
-            (async () => {
-                await wait(4000); // YOU WINの余韻を見せてから(STORY MODEの自動進行と揃える)
-                hideResult();
-                await playSubstoryBattleEpilogue(epilogueKey);
-            })();
+            const epilogueKey = state.pPresetKey; // RESULT画面を見ている間に状態が変わっても、このバトルのエピローグを出せるよう先に控えておく
+            showBattleResultAfterWin(() => playSubstoryBattleEpilogue(epilogueKey)); // YOU WIN → RESULT → NEXTでエピローグへ(2026-10-02)
         }
         return;
     }
@@ -4306,16 +4305,65 @@ function showResult(type) {
         continueBtn.style.display = 'none';
         backTitleBtn.style.display = 'none';
         document.getElementById('resultOverlay').classList.add('show');
-        (async () => {
-            await wait(4000); // YOU WINの余韻を見せてから
-            hideResult();
-            goNextEnemy();
-        })();
+        showBattleResultAfterWin(() => goNextEnemy()); // YOU WIN → RESULT → NEXTで次の敵へ(2026-10-02)
     }
+}
+
+// ---- 勝利後のRESULT画面(2026-10-02追加) ----
+// STORY MODE・EXTRA BATTLEで勝った時、YOU WINを少し見せた後にこのバトルの記録(使ったカードの枚数・ターン数・
+// 最大COMBO・ワザの発動回数・3すくみで勝った数)を出し、NEXTボタンで次へ進む。表記はすべて英語。
+const BATTLE_RESULT_TIMING = { youWinMs: 2000 }; // YOU WINを見せる時間
+let battleResultToken = 0;
+async function showBattleResultAfterWin(onNext) {
+    const myToken = ++battleResultToken;
+    await wait(BATTLE_RESULT_TIMING.youWinMs);
+    // 待っている間にタイトルへ戻る等で決着画面が閉じられていたら出さない
+    if (myToken !== battleResultToken || !document.getElementById('resultOverlay').classList.contains('show')) return;
+    const st = state.battleStats || { cards: { PUNCH: 0, UPPER: 0, GUARD: 0 }, rpsJudged: 0, rpsWins: 0, maxCombo: 0, techs: 0 };
+    document.getElementById('brPunch').textContent = st.cards.PUNCH;
+    document.getElementById('brUpper').textContent = st.cards.UPPER;
+    document.getElementById('brGuard').textContent = st.cards.GUARD;
+    document.getElementById('brTurns').textContent = state.turn;
+    document.getElementById('brCombo').textContent = st.maxCombo;
+    document.getElementById('brTechs').textContent = st.techs;
+    document.getElementById('brRps').textContent = `${st.rpsWins} / ${st.rpsJudged}`;
+    // YOU WINの画面に出ていたPERFECT!!/COMBO PERFECT!!は、RESULTにも小さく残す
+    const badges = [];
+    if (document.getElementById('resultNoDamageText').style.display !== 'none') badges.push('PERFECT!!');
+    if (document.getElementById('resultPerfectText').style.display !== 'none') badges.push('COMBO PERFECT!!');
+    const badgeEl = document.getElementById('battleResultBadges');
+    badgeEl.innerHTML = badges.map(b => `<span>${b}</span>`).join('');
+    badgeEl.style.display = badges.length ? '' : 'none';
+    document.getElementById('resultOverlay').classList.remove('show');
+    const ov = document.getElementById('battleResultOverlay');
+    const btn = document.getElementById('battleResultNextBtn');
+    let done = false;
+    btn.onclick = () => {
+        if (done) return; // 連打で二重に進まないようにする
+        done = true;
+        playSE('se_select');
+        ov.classList.remove('show');
+        onNext();
+    };
+    ov.classList.add('show');
+}
+
+// 勝利BGM: YOU WINのSE(se_win)から0.5秒後に流す(2026-10-02)。それまでの曲はすぐ止める。
+// 0.5秒の間に別の曲が始まっていたら(タイトルへ戻った等)流さない。bgm_victoryが未配置なら無音のまま
+let victoryBgmToken = 0;
+function playVictoryBgmDelayed() {
+    stopBGM();
+    const myToken = ++victoryBgmToken;
+    setTimeout(() => {
+        if (myToken === victoryBgmToken && currentBgmName === null) playBGM('bgm_victory');
+    }, 500);
 }
 
 function hideResult() {
     document.getElementById('resultOverlay').classList.remove('show');
+    battleResultToken++; // YOU WIN表示中に閉じられた場合、後からRESULT画面が出てこないようにする
+    const brOv = document.getElementById('battleResultOverlay');
+    if (brOv) brOv.classList.remove('show');
     const rushOv = document.getElementById('rushResultOverlay');
     if (rushOv) rushOv.classList.remove('show');
 }
@@ -4514,6 +4562,7 @@ function hitComboSuccess(side) {
         state[comboKey] = 0;
     }
     state[comboKey]++;
+    if (side === 'P' && state.battleStats) state.battleStats.maxCombo = Math.max(state.battleStats.maxCombo, state[comboKey]); // RESULT画面用
     if (state.gameMode === 'rush' && side === 'P') rushState.maxCombo = Math.max(rushState.maxCombo, state[comboKey]); // BATTLE RUSHの最大COMBO記録
     if (state.gameMode === 'story' && side === 'P' && state[comboKey] > storyMaxCombo) { // STORY MODEの最大COMBO記録(RECORDS用)
         storyMaxCombo = state[comboKey];
@@ -5302,6 +5351,7 @@ async function resolveExchange(pAct, eAct, cursor) {
     }
 
     const result = judge(pAct, eAct);
+    if (state.battleStats) { state.battleStats.rpsJudged++; if (result === 'win') state.battleStats.rpsWins++; } // RESULT画面用
     if (result === 'draw') {
         // 相討ち: 同じ手同士がぶつかる場合、双方が微ダメージを受けて振動し、反動で一歩下がる
         hitComboBreak('P'); hitComboBreak('E'); // 相討ちはどちらも「成功」ではないため、双方のCOMBOが途切れる
@@ -5429,6 +5479,13 @@ async function resolveTurn() {
             updateUI(cursor.i);       // 対戦中の味方カードを光らせる
 
             await resolveExchange(pAct, eAct, cursor);
+            // RESULT画面用: 今回の攻防で使ったカードを数える(空中コンボで複数枚を一度に解決した場合はcursor.iが進んでいるので、その分も含める)
+            if (state.battleStats) {
+                for (let k = iAtStart; k <= Math.min(cursor.i, total - 1); k++) {
+                    const c = state.hands[k];
+                    if (c && state.battleStats.cards[c] !== undefined) state.battleStats.cards[c]++;
+                }
+            }
 
             // コンボ成立要件の判定を更新する(1つでも要件を満たさなければ不成立になる)。
             // followup(PUNCH+GUARD+PUNCH)・guardPunchUpper(GUARD+PUNCH+UPPER)は該当する3枚
@@ -7215,7 +7272,7 @@ function vsShowResult() {
             `</div>`;
     });
     playSE('se_win');
-    playBGM('bgm_victory');
+    playVictoryBgmDelayed();
 }
 function vsHideResults() {
     ['vsResult1', 'vsResult2'].forEach(id => {
@@ -7742,7 +7799,7 @@ function showRushResult(cleared) {
 
     if (cleared) {
         playSE('se_win');
-        playBGM('bgm_victory');
+        playVictoryBgmDelayed();
     } else {
         playSE('se_ko');
         stopBGM();

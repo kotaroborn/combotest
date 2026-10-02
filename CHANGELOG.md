@@ -3,6 +3,14 @@
 このプロジェクトの変更履歴。日付は新しいものを上に追記する。
 コード(`index.html` / `css/style.css` / `js/script.js`)や仕様に変更を加えた場合は、このファイルに追記すること(詳細は `AI_GUIDE.md` を参照)。
 
+## 2026-10-02(19)
+
+- ver. 0.9.193
+- 勝利BGM(`bgm_victory`)をYOU WINのSEから0.5秒後に流すようにした(`playVictoryBgmDelayed`)。バトルの曲はYOU WINの時点で止める。0.5秒の間に別の曲が始まっていたら流さない。曲は制作中のため、届くまでは無音
+- 勝利後のRESULT画面を追加(STORY MODE・EXTRA BATTLE)。YOU WINを2秒見せた後、使ったカードの枚数(PUNCH / UPPER / GUARD)・TURNS・MAX COMBO・TECHNIQUES・EXCHANGES WON(3すくみの勝ち数 / 判定数)を英語で表示し、NEXTボタンで次へ進む。これまでの「4秒(最終戦は5秒)待って自動で次へ」は廃止
+  - 記録は`state.battleStats`。カード枚数は実際に攻防で使った分だけ数える(K.O.で使われずに終わったカードは含めない)
+- ASSETS.mdの古い記述(「音声再生機能自体が未実装」)を削除し、`bgm_victory.mp3`の項目を追加
+
 ## 2026-10-02(18)
 
 - ver. 0.9.192

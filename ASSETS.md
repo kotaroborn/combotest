@@ -38,6 +38,7 @@
 | `story_title_1.PNG` 〜 `story_title_5.PNG`(APNG可) | `assets/images/cutscenes/story/` | 章タイトル。NEW GAME開始時と、1〜4人目を倒した後のストーリーの前に、黒い画面の中央に出す。自動では進まず、タップで次へ(1.5秒後に「▼」を出す)。フェードインして止まる(ループしない)APNGを想定(2026-10-02) | 文字で「STORY n / 章の名前」(`STORY_CHAPTER_TITLES`) |
 | `substory_title_1.PNG` 〜 `substory_title_5.PNG`(APNG可) | `assets/images/cutscenes/substory/` | SUB STORYを読み始める時のタイトル(1=Noah〜5=Alv)。見せ方は章タイトルと同じ(2026-10-02) | 文字で「SUB STORY n / タイトル」 |
 | `jingle_story.mp3` | `assets/audio/bgm/` | タイトルカード(STORY章タイトル・SUB STORYタイトル共通)が出た時に1回だけ鳴らすジングル(その後はタップまで無音)。タップした時に鳴り残っていればフェードアウトする(2026-10-02) | 鳴らさない(無音。前の曲はカードが出る時に止める) |
+| `bgm_victory.mp3` | `assets/audio/bgm/` | 勝利後の曲。YOU WINのSE(`se_win`)から0.5秒後に流す(STORY・EXTRA BATTLE・LOCAL V.S.の決着・BATTLE RUSHクリア)。2026-10-02時点で制作中 | 鳴らさない(無音。バトルの曲はYOU WINの時点で止める) |
 | `substory_end_1.PNG` 〜 `substory_end_5.PNG`(APNG可) | `assets/images/cutscenes/substory/` | EXTRA BATTLE後の「SUB STORY / キャラ名 / END」の代わりに出す画像(1=Noah〜5=Alv)。表示時間は`SUBSTORY_END_TIMING`(2026-10-02) | 従来どおり文字で表示 |
 | (APNGについて) | | カットシーンの画像(`op_*` / `story_*` / `substory_*`)は、同じファイル名のままAPNG(アニメーションPNG)に差し替えても動く。章タイトルとSUB STORY ENDは、表示のたびに必ず最初から再生される | |
 
@@ -45,8 +46,6 @@
 
 | フォルダ | 用途 | 状態 |
 |---|---|---|
-| `assets/audio/bgm/` | BGM | コードから未参照(音声再生機能自体が未実装) |
-| `assets/audio/se/` | 効果音 | コードから未参照(音声再生機能自体が未実装) |
 | `assets/fonts/` | 独自フォント | コードから未参照(現状は既定のsans-serifを使用) |
 
 ## 推奨解像度
