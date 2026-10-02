@@ -204,7 +204,7 @@ let costumeUnlockAnnounced = false; // タイトル画面でCOSTUME解放のポ�
 let bonusContentsAnnounced = false; // タイトル画面でBONUS CONTENTS解放のポップアップを既に一度見せたか
 let versusUnlocked = false; // 対戦モード(VERSUS)が解放済みか。専用のGIFT CODEでのみ解放する(2026-09-27追加。それまでは常時解放だった)
 let perfectWins = 0; // ノーダメージ勝利(PERFECT!!)の回数。RECORDSで表示する(2026-09-30追加)
-let tutorialSeen = { deck: false, battle: false }; // はじめてのデッキ編成・Noah戦で出すチュートリアルを既に見たか(2026-10-01追加、セーブ対象)
+let tutorialSeen = { deck: false, battle: false, extra: false }; // はじめてのデッキ編成・Noah戦で出すチュートリアルを既に見たか(2026-10-01追加、セーブ対象)
 let recordsHintAnnounced = false; // クリア後の「まだ見つけていない秘密がある…」トーストを既に出したか(2026-09-28追加)
 let storyMaxCombo = 0; // STORY MODEのバトルでの最大COMBO(プレイヤー側)。RECORDSで表示する。セーブデータに永続化する(2026-09-28追加)
 let rushUnlocked = false; // BATTLE RUSHが解放済みか。専用のGIFT CODEでのみ解放する(2026-09-28追加)
@@ -1239,7 +1239,7 @@ function applySaveDataOnBoot() {
     if (typeof save.rushUnlocked === 'boolean') rushUnlocked = save.rushUnlocked;
     if (typeof save.storyMaxCombo === 'number') storyMaxCombo = save.storyMaxCombo;
     if (typeof save.recordsHintAnnounced === 'boolean') recordsHintAnnounced = save.recordsHintAnnounced;
-    if (save.tutorialSeen) tutorialSeen = { deck: !!save.tutorialSeen.deck, battle: !!save.tutorialSeen.battle };
+    if (save.tutorialSeen) tutorialSeen = { deck: !!save.tutorialSeen.deck, battle: !!save.tutorialSeen.battle, extra: !!save.tutorialSeen.extra };
     if (typeof save.perfectWins === 'number') perfectWins = save.perfectWins;
     if (save.rushBest25 && typeof save.rushBest25 === 'object') { // 2026-09-30: 25人制に変わったため、100人制時代の記録(rushBest)は引き継がない
         rushBest = {
@@ -4202,6 +4202,7 @@ async function playBattleIntro() {
     state.battleReady = true;
     updateActionButtons();
     if (state.gameMode === 'story' && state.storyEnemyIndex === 0 && !tutorialSeen.battle) showTutorial('battle'); // はじめてのNoah戦のみ(2026-10-01)
+    else if (state.gameMode === 'substoryBattle' && !tutorialSeen.extra) showTutorial('extra'); // はじめてのEXTRA BATTLEのみ(2026-10-02)
     if (state.gameMode === 'rush') rushStartTimer(); // BATTLE RUSH: 手札が配られて操作できるようになった瞬間から計測する
 }
 
@@ -5601,7 +5602,7 @@ async function resolveTurn() {
 // ============================================================
 // UIポップアップ
 // ============================================================
-// チュートリアル(2026-10-01): はじめてのデッキ編成と、はじめてのNoah戦(STORY MODE)で一度だけ出す短い説明。
+// チュートリアル(2026-10-01): はじめてのデッキ編成と、はじめてのNoah戦(STORY MODE)、はじめてのEXTRA BATTLE(2026-10-02)で一度だけ出す短い説明。
 // ページ送り式(次へ→OK)。見たかどうかはセーブデータ(tutorialSeen)に残す。文面はTUTORIAL_PAGESだけ書き換えればよい。
 // 本文の（P）（U）（G）はカードのアイコン、{img}は3すくみの図(howto.PNG)に置き換わる。
 const TUTORIAL_PAGES = {
@@ -5612,13 +5613,17 @@ const TUTORIAL_PAGES = {
         { title: 'バトル', body: '手札のカードをタップして、<br>場に1〜5枚出そう。<br>出し終えたらGO!で勝負！<br><br>相手と1枚ずつ出し合って、<br>勝ったカードで攻撃するぞ！' },
         { title: 'ワザ', body: '決まった並びでカードを出すと、<br>ワザが出る！<br><br>ワザ表は左下のHOW TOから<br>いつでも見られるぞ。' },
     ],
+    extra: [
+        { title: 'EXTRA BATTLE', body: 'エクストラバトルでは、<br>1ターンごとに出さないといけない<br>カード枚数がランダムで決まる。<br><br>場の上に出る「PLAY ○ CARDS」の<br>枚数ちょうどを出して、GO!で勝負！' },
+        { title: '作戦', body: 'その場で出せる小ワザでダメージを<br>与えるか、残りの手札をワザやコンボの<br>ために温存するか。<br><br>戦うキャラによってデッキや性能が<br>ちがうので、クセをつかもう！' },
+    ],
 };
 let tutorialKey = null, tutorialPage = 0;
 function showTutorial(key) {
     tutorialKey = key; tutorialPage = 0;
     renderTutorialPage();
     const ov = document.getElementById('tutorialOverlay');
-    ov.classList.toggle('tutorial-top', key === 'battle'); // バトル中は手札とボタンが見えるよう上寄せ
+    ov.classList.toggle('tutorial-top', key === 'battle' || key === 'extra'); // バトル中は手札とボタンが見えるよう上寄せ
     ov.classList.add('show');
 }
 function renderTutorialPage() {
