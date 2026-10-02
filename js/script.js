@@ -5410,7 +5410,7 @@ async function resolveExchange(pAct, eAct, cursor) {
 async function resolveTurn() {
     if (state.resolving || !state.battleReady || filledCount() === 0) return;
     // ローカル対戦(VERSUS): 1PのGO!は「1Pの手を確定して2Pへ交代」の意味になる。両者が確定した後、
-    // 2PのGO!(vsGo2)がphaseを'resolve'にしてから改めてこの関数を呼び、通常のターン解決へ進む。
+    // 2PのGO!(vsGo2)で両者の手が確定し、2人ともFIGHT!を押した後(vsOnFight)にphaseを'resolve'にしてから改めてこの関数を呼び、通常のターン解決へ進む。
     if (state.gameMode === 'versus' && versusState.phase !== 'resolve') {
         if (versusState.phase === 'inputP') vsSubmitP();
         return;
@@ -6825,8 +6825,9 @@ const VERSUS_STAGE_COUNT = 5; // 背景・BGMは、STORY MODEでクリア済み�
 // ローカル対戦の状態。stateと同様、以後再定義・再初期化せず、プロパティのみ書き換えて使う(第13条に倣う)。
 let versusState = {
     // 'idle'(対戦外) | 'select'(キャラ選択) | 'intro'(開始演出中) | 'readyP'/'readyE'(交代待ち、READY待ち) |
-    // 'inputP'/'inputE'(各自がカードを選んでいる) | 'resolve'(ターン解決中) | 'over'(決着)
+    // 'inputP'/'inputE'(各自がカードを選んでいる) | 'fight'(両者確定、2人ともFIGHT!を押すのを待つ) | 'resolve'(ターン解決中) | 'over'(決着)
     phase: 'idle',
+    fightReady: { P: false, E: false }, // 'fight'中に各自がFIGHT!を押したか(2026-10-02)
     selP: 'VAL', selE: 'VAL', // 選択中のキャラ(ENEMY_PRESETSのキー)
     readyP: false, readyE: false, // キャラ選択画面でREADYを押したか
     stageNum: 1, // 使用中のステージ(背景・BGM)番号
@@ -6910,6 +6911,7 @@ function setCardBackVisual(el) {
 function versusSlotsHidden(side) {
     const ph = versusState.phase;
     const own = side === 'P' ? 'inputP' : 'inputE';
+    if (ph === 'fight') return true; // 2人とも確定してFIGHT!待ちの間は、両方の場を伏せたままにする
     return ['readyP', 'inputP', 'readyE', 'inputE'].includes(ph) && ph !== own;
 }
 function vsHandHidden(side) {
@@ -7124,14 +7126,28 @@ function vsSubmitP() {
     vsRenderHand2();
     vsSetGates();
 }
-// 2PのGO!: 2Pの手を確定し、通常のターン解決(resolveTurn)へ進む
+// 2PのGO!: 2Pの手を確定する。すぐには始めず、2人ともFIGHT!を押すまで待つ(2026-10-02: 2人そろってバトルを見られるように)
 function vsGo2() {
     if (versusState.phase !== 'inputE' || state.resolving) return;
     const count = vsCountFilled(versusState.played2);
     if (count === 0 || (state.requiredHandSize && count !== state.requiredHandSize)) return;
-    versusState.phase = 'resolve';
+    playSE('se_select');
+    versusState.phase = 'fight';
+    versusState.fightReady = { P: false, E: false };
     versusState.committedP = state.hands.slice(0, count);
     versusState.revealToken++;
+    vsSetGates();
+    updateHandUI();
+    vsRenderHand2();
+    updateUI();
+}
+// ゲートのFIGHT!ボタン: 両方が押したら、通常のターン解決(resolveTurn)へ進む
+function vsOnFight(side) {
+    if (versusState.phase !== 'fight' || versusState.fightReady[side]) return;
+    playSE('se_select');
+    versusState.fightReady[side] = true;
+    if (!(versusState.fightReady.P && versusState.fightReady.E)) { vsSetGates(); return; }
+    versusState.phase = 'resolve';
     vsSetGates();
     updateHandUI();
     vsRenderHand2();
@@ -7152,7 +7168,18 @@ function vsSetGates() {
         const myReady = side === 'P' ? 'readyP' : 'readyE';
         const otherTurn = side === 'P' ? ['readyE', 'inputE'] : ['readyP', 'inputP'];
         gate.className = 'vs-gate vs-gate-' + side;
-        if (ph === myReady) {
+        if (ph === 'fight') {
+            // 両者の手が確定した後: それぞれFIGHT!を押す。押した側は相手を待つ
+            if (versusState.fightReady && versusState.fightReady[side]) {
+                gate.classList.add('show', 'waiting');
+                gate.innerHTML = `<div class="vs-gate-title">WAITING FOR ${other}...</div>`;
+            } else {
+                gate.classList.add('show');
+                gate.innerHTML = `<div class="vs-gate-title">CARDS SET!</div>` +
+                    `<div class="vs-gate-sub">BOTH PRESS FIGHT! TO START</div>` +
+                    `<button class="vs-ready-btn" onclick="vsOnFight('${side}')">FIGHT!</button>`;
+            }
+        } else if (ph === myReady) {
             gate.classList.add('show');
             gate.innerHTML = `<div class="vs-gate-title">${me} TURN</div>` +
                 `<div class="vs-gate-sub">${cardsText}</div>` +
