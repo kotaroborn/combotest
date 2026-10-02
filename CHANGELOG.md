@@ -3,6 +3,11 @@
 このプロジェクトの変更履歴。日付は新しいものを上に追記する。
 コード(`index.html` / `css/style.css` / `js/script.js`)や仕様に変更を加えた場合は、このファイルに追記すること(詳細は `AI_GUIDE.md` を参照)。
 
+## 2026-10-02(17)
+
+- ver. 0.9.191
+- ストーリージングル`assets/audio/bgm/jingle_story.mp3`(約3.2秒、元ファイル名`title_call_jingle.mp3`)を配置。STORY章タイトルで1回鳴る。`jingle_substory.mp3`は未配置のため、SUB STORYタイトルでも当面これを流用する。コード変更なし
+
 ## 2026-10-02(16)
 
 - ver. 0.9.190
