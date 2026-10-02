@@ -2375,8 +2375,8 @@ async function playSubStoryEndScreen(characterName, enemyIdx) {
     document.getElementById('subStoryEndCharName').innerText = characterName;
     const textEl = document.getElementById('subStoryEndText');
     const imgEl = document.getElementById('subStoryEndImg');
-    // 2026-10-02: 絵の前に、真っ黒・無音の画面を1秒挟む(章タイトルと同じ。エピローグの曲もここでフェードアウトさせる)
-    fadeOutBGM(TITLE_CARD_TIMING.blackMs);
+    // 2026-10-02: 絵の前に、真っ黒な画面を1秒挟む(章タイトルと同じ)。
+    // エピローグの曲は止めずにEND画面・解放トーストの間も流し続け、タイトルへ戻った時にタイトルの曲へ切り替える(無音だと寂しいため)
     await wait(TITLE_CARD_TIMING.blackMs);
     const hasImg = enemyIdx >= 0 && await showApngIn(imgEl, `assets/images/cutscenes/substory/substory_end_${enemyIdx + 1}.PNG`);
     textEl.style.display = hasImg ? 'none' : '';
