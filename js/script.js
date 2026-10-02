@@ -4245,10 +4245,10 @@ function showResult(type) {
     // 決着音・決着BGM: K.O.は効果音のみでバトルBGMを止め、YOU WINは効果音と共に勝利BGMへ切り替える
     if (type === 'KO') {
         playSE('se_ko');
-        playResultBgmDelayed('bgm_battle_lose'); // 2026-10-02: K.O.も0.5秒後に負けの曲を流す(以前は無音)
+        playResultBgmDelayed('bgm_battle_lose', 'se_ko'); // 2026-10-02: K.O.もSEの後に負けの曲を流す(以前は無音)
     } else {
         playSE('se_win');
-        playResultBgmDelayed('bgm_battle_win');
+        playResultBgmDelayed('bgm_battle_win', 'se_win');
     }
 
     // 最初から最後まで一度もCOMBOが途切れずに勝利した場合、YOU WINの上に「COMBO PERFECT!!」を表示する(実績の解除自体はここでは行わない)
@@ -4344,21 +4344,31 @@ async function showBattleResultAfterWin(onNext) {
     box.classList.add('show');
 }
 
-// 決着の曲(2026-10-02): YOU WIN(se_win)・K.O.(se_ko)のSEから0.5秒後に、RESULT中の曲を流す。
-// 勝ち: bgm_battle_win / 負け: bgm_battle_lose(どちらもループ)。それまでのバトルの曲はすぐ止める。
-// 0.5秒の間に別の曲が始まっていたら(タイトルへ戻った等)流さない。RESULTから次へ進むと、行き先の画面が自分の曲に切り替える
+// 決着の曲(2026-10-02): YOU WIN(se_win)・K.O.(se_ko)のSEが鳴り終わってから、RESULT中の曲を流す。
+// 勝ち: bgm_battle_win / 負け: bgm_battle_lose(どちらもループ)。LOCAL V.S.はbgm_title。それまでのバトルの曲はすぐ止める。
+// 待っている間に別の曲が始まっていたら(タイトルへ戻った等)流さない。RESULTから次へ進むと、行き先の画面が自分の曲に切り替える
+// seName: 直前に鳴らした決着のSE。その長さだけ待つ(SEが未配置・読み込めない場合は0.5秒)
 let victoryBgmToken = 0;
-function playResultBgmDelayed(name) {
+async function playResultBgmDelayed(name, seName) {
     stopBGM();
     const myToken = ++victoryBgmToken;
+    const startedAt = performance.now();
+    let seMs = 500;
+    try {
+        let buf = seBufferCache[seName];
+        if (buf === undefined) buf = await loadAudioBuffer('se', seName);
+        if (buf) seMs = buf.duration * 1000;
+    } catch (e) { /* 読み込めなければ0.5秒のまま */ }
+    const remain = Math.max(0, seMs - (performance.now() - startedAt));
     setTimeout(() => {
         if (myToken === victoryBgmToken && currentBgmName === null) playBGM(name);
-    }, 500);
+    }, remain);
 }
 
 function hideResult() {
     document.getElementById('resultOverlay').classList.remove('show');
     battleResultToken++; // YOU WIN表示中に閉じられた場合、後からRESULTが出てこないようにする
+    victoryBgmToken++; // 決着のSEが鳴り終わる前に次へ進んだ場合、後から決着の曲が鳴り出さないようにする
     const brBox = document.getElementById('battleResult');
     if (brBox) brBox.classList.remove('show');
     const rushOv = document.getElementById('rushResultOverlay');
@@ -7296,9 +7306,10 @@ function vsShowResult() {
             `</div>`;
     });
     playSE('se_win');
-    playResultBgmDelayed('bgm_title'); // 2026-10-02: 1つの画面で勝ち負けが同時に出るため、決着後は勝ち負けの曲ではなく必ずタイトルの曲を流す
+    playResultBgmDelayed('bgm_title', 'se_win'); // 2026-10-02: 1つの画面で勝ち負けが同時に出るため、決着後は勝ち負けの曲ではなく必ずタイトルの曲を流す
 }
 function vsHideResults() {
+    victoryBgmToken++; // 決着のSEが鳴り終わる前にREMATCH等を押した場合、後からタイトルの曲が鳴り出さないようにする
     ['vsResult1', 'vsResult2'].forEach(id => {
         const el = document.getElementById(id);
         if (el) { el.className = 'vs-result'; el.innerHTML = ''; }
@@ -7823,10 +7834,10 @@ function showRushResult(cleared) {
 
     if (cleared) {
         playSE('se_win');
-        playResultBgmDelayed('bgm_battle_win');
+        playResultBgmDelayed('bgm_battle_win', 'se_win');
     } else {
         playSE('se_ko');
-        playResultBgmDelayed('bgm_battle_lose'); // 2026-10-02: 倒れた時も0.5秒後に負けの曲を流す
+        playResultBgmDelayed('bgm_battle_lose', 'se_ko'); // 2026-10-02: 倒れた時もSEの後に負けの曲を流す
     }
     document.getElementById('rushResultOverlay').classList.add('show');
 }
