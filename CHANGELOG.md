@@ -3,6 +3,12 @@
 このプロジェクトの変更履歴。日付は新しいものを上に追記する。
 コード(`index.html` / `css/style.css` / `js/script.js`)や仕様に変更を加えた場合は、このファイルに追記すること(詳細は `AI_GUIDE.md` を参照)。
 
+## 2026-10-02(14)
+
+- ver. 0.9.188
+- SUB STORYのSKIP(そのEXTRA BATTLEに勝ったことがある人だけに出るボタン)を押した時、すぐ飛ばさず「バトル直前までスキップしますか？」(いいえ/はい)を出すようにした(`openSubStorySkipConfirm`)。「いいえ」ならそのまま読み続ける。
+- Galdのdown.PNG(倒れた絵)だけ、元絵32×32ピクセルで4ピクセル分下に描くようにした。敵として出る時も、EXTRA BATTLE・LOCAL V.S.・コスチュームでGaldを使う時も同じ(`SPRITE_Y_OFFSET_PX_BY_SET` / `spriteYOffset`。他のキャラ・ポーズも同じ表に足せば調整できる)。
+
 ## 2026-10-02(13)
 
 - ver. 0.9.187

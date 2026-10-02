@@ -17,7 +17,7 @@
     <meta property="og:image:height" content="630">
     <meta property="og:locale" content="ja_JP">
     <meta name="twitter:card" content="summary_large_image">
-    <link rel="stylesheet" href="css/style.min.css?v=187"> <!-- 配信用の軽量版。編集はcss/style.cssで行い、tools/build.shで作り直す(2026-10-02) -->
+    <link rel="stylesheet" href="css/style.min.css?v=188"> <!-- 配信用の軽量版。編集はcss/style.cssで行い、tools/build.shで作り直す(2026-10-02) -->
 
     <!-- 技名ポップ(2026-09-27追加)用の手書き風フォント。Google FontsのCDNから読み込む(ファイル同梱はせず、
          プレイ時のネット接続を前提とする。GitHub Pages/itch.ioでの公開自体が既にネット接続前提のため問題ない)。
@@ -108,7 +108,7 @@
                 <div class="title-logo-fallback-sub">CROSS DIMENSION</div>
             </div>
         </div>
-        <div class="title-version">ver. 0.9.187</div>
+        <div class="title-version">ver. 0.9.188</div>
     </div>
     <!-- STORY MODE(2026-10-02、旧NEW GAME。CONTINUEは廃止): STORY 2以降へ進んだことがあれば、どの章から遊ぶか選ぶウィンドウを出す -->
     <button id="startBtn" class="text-btn" onclick="tapFlickerThen(this, () => goStoryMode())" disabled>STORY MODE</button>
@@ -578,6 +578,14 @@
 </div>
 <!-- サブストーリーバトルの「バトルしますか？」確認ポップアップ。BONUS CONTENTS等、他のオーバーレイの表示状態に
      依存せず常に表示できるよう、あえて独立した最上位要素にしている(#confirm-panel-standaloneでposition:fixedにする)。 -->
+<!-- SUB STORYのSKIP(勝ったことがある人のみ)の確認(2026-10-02) -->
+<div id="subStorySkipConfirmPanel" class="confirm-panel confirm-panel-standalone">
+    <p class="confirm-text">バトル直前までスキップしますか？</p>
+    <div class="confirm-btns">
+        <button onclick="closeSubStorySkipConfirm()">いいえ</button>
+        <button onclick="acceptSubStorySkip()" class="confirm-ok">はい</button>
+    </div>
+</div>
 <div id="substoryBattleConfirmPanel" class="confirm-panel confirm-panel-standalone">
     <p class="confirm-text">バトルしますか？</p>
     <div class="confirm-btns">
@@ -621,7 +629,7 @@
         <div class="cine-textbox"><p id="subStoryText" class="cine-text"></p></div>
     </div>
     <button id="backSubStoryBtn" class="text-btn" onclick="backToSubStoryList()">◀︎戻る</button>
-    <button id="subStoryReadSkipBtn" class="text-btn" style="display:none;" onclick="skipSubStoryToBattle()">▶︎SKIP</button>
+    <button id="subStoryReadSkipBtn" class="text-btn" style="display:none;" onclick="openSubStorySkipConfirm()">▶︎SKIP</button>
 </div>
 
 <!-- SOUND TESTポップアップ -->
@@ -690,7 +698,7 @@
 (function() {
     // 配信用の軽量版(コメント・空白を除いたもの)。編集はjs/script.jsで行い、tools/build.shで作り直す(2026-10-02)。
     // ?v=はバージョン(.title-versionの末尾3桁)と同じ番号にし、更新のたびに上げる(古いものがキャッシュに残らないように)
-    var SCRIPT_URL = 'js/script.min.js?v=187';
+    var SCRIPT_URL = 'js/script.min.js?v=188';
     var bar = document.getElementById('nowLoadingBar');
     var percentEl = document.getElementById('nowLoadingPercent');
     var settled = false; // フォールバック(タイムアウト)と正常読み込みの、どちらか一方だけが実行されるようにするためのフラグ

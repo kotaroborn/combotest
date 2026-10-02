@@ -2971,6 +2971,13 @@ function drawComboCounter(side, anchorX, align, c) {
 // Gald(3人目)は敵本体として登場する時も、プレイヤーがコスチュームとして選択した時も、どちらも1.2倍で表示する。
 // Alv(5人目、ラスボス)も同様に、敵本体・コスチュームどちらでも1.1倍で表示する。
 const CHARACTER_SCALE_BY_SET = { enemy_3: 1.2, enemy_5: 1.1 };
+// キャラ別・ポーズ別の描画位置の下げ幅(元絵32×32ピクセルで何ピクセル分下げるか、2026-10-02)。
+// Gald(enemy_3)のdown.PNGは、絵の位置の都合で4ピクセル分下に置く
+const SPRITE_Y_OFFSET_PX_BY_SET = { enemy_3: { 'down.PNG': 4 } };
+function spriteYOffset(setName, poseName, rectSize) {
+    const px = (SPRITE_Y_OFFSET_PX_BY_SET[setName] || {})[poseName] || 0;
+    return px * rectSize / 32;
+}
 // 指定した座標(スプライトの左上基準点)を、指定倍率で描画するための矩形に変換する。
 // 横方向は中央基準で左右均等に広がり、縦方向は下端(足元)を基準に上方向にだけ広がる(地面に立つキャラが浮いたり
 // めり込んだりしないようにするため)。倍率1(既定)の場合は元の座標・DB.IMG_SIZEをそのまま返す。
@@ -3117,6 +3124,7 @@ function draw(tRaw) {
     // それ以外はコスチュームとしてGald/Alvを選んでいる場合のみ1.2倍/1.1倍になる
     const pScale = CHARACTER_SCALE_BY_SET[playerCharacterSetName()] || 1;
     const pRect = growRectKeepBottomCenter(state.pX + pJit, state.pY + pJit, pScale);
+    pRect.y += spriteYOffset(playerCharacterSetName(), spriteFor(state.pAct, t), pRect.size);
     if (state.pUpperChargeReady && pImg) {
         // UPPER+GUARD+UPPER用のチャージ: 水色の発光(ガード+ガードの金色とは別の色で見分けられるようにする)
         ctx.save();
@@ -3170,6 +3178,7 @@ function draw(tRaw) {
     const eGlowPulse = (Math.sin(t / 180) + 1) / 2;
     const eScale = CHARACTER_SCALE_BY_SET[currentEnemySetName()] || 1; // Gald/Alvとして登場している場合のみ1.2倍/1.1倍になる
     const eRect = growRectKeepBottomCenter(-(state.eX + eJit) - DB.IMG_SIZE, state.eY + eJit, eScale);
+    eRect.y += spriteYOffset(currentEnemySetName(), spriteFor(state.eAct, t), eRect.size);
     if (state.eUpperChargeReady && eImg) {
         // UPPER+GUARD+UPPER用のチャージ: 水色の発光
         ctx.save();
@@ -6392,6 +6401,14 @@ async function readSubStory(idx) {
 
 // 右下のSKIPボタン(readSubStory側で、既に勝利済み=コスチューム解除済みの場合のみ表示している)。
 // テキストを読み終えるのを待たず、その場でサブストーリーバトルへ直接進む(読み終えた時の確認ポップアップは経由しない)。
+// SKIPボタン(勝ったことがある人のみ表示)を押したら、すぐ飛ばさず「バトル直前までスキップしますか？」を聞く(2026-10-02)
+function openSubStorySkipConfirm() {
+    if (subStoryReadIdx === null) return;
+    playSE('se_select');
+    document.getElementById('subStorySkipConfirmPanel').classList.add('show');
+}
+function closeSubStorySkipConfirm() { document.getElementById('subStorySkipConfirmPanel').classList.remove('show'); }
+function acceptSubStorySkip() { closeSubStorySkipConfirm(); skipSubStoryToBattle(); }
 function skipSubStoryToBattle() {
     if (subStoryReadIdx === null) return;
     const idx = subStoryReadIdx;
