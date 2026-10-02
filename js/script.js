@@ -7296,7 +7296,7 @@ function vsShowResult() {
             `</div>`;
     });
     playSE('se_win');
-    playResultBgmDelayed('bgm_battle_win');
+    playResultBgmDelayed('bgm_title'); // 2026-10-02: 1つの画面で勝ち負けが同時に出るため、決着後は勝ち負けの曲ではなく必ずタイトルの曲を流す
 }
 function vsHideResults() {
     ['vsResult1', 'vsResult2'].forEach(id => {
