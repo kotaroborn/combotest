@@ -1128,4 +1128,4 @@
 #titleCardHint.show { animation: titleCardHintBlink 1.2s ease-in-out infinite; }
 @keyframes titleCardHintBlink { 0%, 100% { opacity: 0.2; } 50% { opacity: 0.9; } }
 
-.howto-corner.option-corner { left: auto; right: 14px; } /* デッキ編成のOPTION(右下、2026-10-02) */
+.howto-corner.option-corner { left: calc(14px + 48px + 8px); } /* デッキ編成のOPTION。バトル画面と同じくHOW TOの右隣・同じ形(2026-10-02) */
