@@ -3,6 +3,11 @@
 このプロジェクトの変更履歴。日付は新しいものを上に追記する。
 コード(`index.html` / `css/style.css` / `js/script.js`)や仕様に変更を加えた場合は、このファイルに追記すること(詳細は `AI_GUIDE.md` を参照)。
 
+## 2026-10-02(35)
+
+- ver. 0.9.210
+- エンドロールの見出し「Chapter Title Animation」を他の見出しに合わせて大文字「CHAPTER TITLE ANIMATION」に
+
 ## 2026-10-02(34)
 
 - ver. 0.9.209

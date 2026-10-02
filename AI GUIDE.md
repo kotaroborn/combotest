@@ -65,7 +65,7 @@
 
 ## バージョン表記カウンター(必ず最新に保つこと)
 
-- `index.html`内の現在のバージョン表記: `ver. 0.9.209`(`css/style.min.css?v=209`、`js/script.min.js?v=209`)
+- `index.html`内の現在のバージョン表記: `ver. 0.9.210`(`css/style.min.css?v=210`、`js/script.min.js?v=210`)
 - **2026-10-02から、ゲームが読み込むのは軽量版(`js/script.min.js` / `css/style.min.css`)。** 編集するのは今までどおり`js/script.js` / `css/style.css`(コメント付きの元ファイル)で、編集したら必ず`tools/build.sh`(esbuildでコメント・空白を除く)を実行して軽量版を作り直し、両方をコミットすること。作り直さないと変更がゲームに反映されない。バージョンを上げる時は、`index.html`の`style.min.css?v=`と`SCRIPT_URL`の`?v=`も同じ末尾3桁にする。
 - 2026-10-01: Claudeが直接pushする運用になってからは、変更のたびに`.title-version`を1つ上げている(カウンターは使っていない)。その際`style.css?v=`の更新が0.9.120から止まっていたため、0.9.164でそろえ直した。今後も`.title-version`を上げる時は必ず`?v=`も同じ末尾3桁にすること。
 - 保留中の更新回数(次に`index.html`を変更する際、この回数+1を加算して`.title-version`を書き換え、ここを0に戻す): 0
