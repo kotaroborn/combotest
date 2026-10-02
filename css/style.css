@@ -1127,3 +1127,5 @@
 #titleCardHint { position: absolute; bottom: calc(40px + env(safe-area-inset-bottom, 0px)); left: 50%; transform: translateX(-50%); font-size: 16px; color: #fff; opacity: 0; pointer-events: none; }
 #titleCardHint.show { animation: titleCardHintBlink 1.2s ease-in-out infinite; }
 @keyframes titleCardHintBlink { 0%, 100% { opacity: 0.2; } 50% { opacity: 0.9; } }
+
+.howto-corner.option-corner { left: auto; right: 14px; } /* デッキ編成のOPTION(右下、2026-10-02) */

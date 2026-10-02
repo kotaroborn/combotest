@@ -5786,19 +5786,23 @@ function updateOptionUI() {
     document.getElementById('seVolumeSlider').value = Math.round(state.seVolume * 100);
     // タイトルから開いた場合は「今のバトル」が存在しないため、RETRY/RETURN TO TITLEを隠す
     const isTitle = document.getElementById('sceneTitle').classList.contains('active');
+    // デッキ編成から開いた場合(2026-10-02追加)は、STORY MODEのバトル前として扱う(state.gameModeは前のモードのまま残っていることがあるため)
+    const isDeck = document.getElementById('sceneDeck').classList.contains('active');
+    const uiMode = isDeck ? 'story' : state.gameMode;
     // COSTUMEは「STORY MODEを一度最後までクリアした」場合、またはGIFT CODE等の追加コスチュームを1つでも
     // 持っている場合(costumeSelectionAvailable)のみ表示する
     document.getElementById('optionCostumeRow').style.display =
-        (costumeSelectionAvailable() && state.gameMode !== 'substoryBattle' && state.gameMode !== 'versus') ? 'flex' : 'none'; // サブストーリーバトル中は借りているキャラの見た目を変更できないようにする
+        (costumeSelectionAvailable() && uiMode !== 'substoryBattle' && uiMode !== 'versus') ? 'flex' : 'none'; // サブストーリーバトル中は借りているキャラの見た目を変更できないようにする
     // GIFT CODEはタイトル画面のOPTIONからのみ入力できるようにする(バトル中は表示しない)
     document.getElementById('optionGiftCodeRow').style.display = isTitle ? 'flex' : 'none';
     document.getElementById('optionRecordsRow').style.display = 'flex'; // RECORDSはどのOPTIONからでも見られる(2026-10-01、バトル中にもワザのヒントを確認できるように)
     document.getElementById('optionResetRow').style.display = isTitle ? 'flex' : 'none'; // 進行状況リセットもタイトルのOPTIONからのみ(バトル中の誤操作防止、2026-09-28)
     document.getElementById('optionFooter').style.display = isTitle ? 'none' : 'flex';
-    // TRAINING MODEはデッキ編成を経由しない(選び放題の固定手札のため)、RETRYボタン自体を隠す
-    document.getElementById('optionRetryBtn').style.display = state.gameMode === 'training' ? 'none' : '';
+    // TRAINING MODEはデッキ編成を経由しない(選び放題の固定手札のため)、RETRYボタン自体を隠す。
+    // デッキ編成中もまだバトルが始まっていないため、RETRYは出さずRETURN TO TITLEだけにする(2026-10-02)
+    document.getElementById('optionRetryBtn').style.display = (uiMode === 'training' || isDeck) ? 'none' : '';
     // RETURN TO TITLEの確認文言: STORY MODEは進行状況の保存に触れるが、TRAINING MODEは進行状況を持たないため短い文言にする
-    document.getElementById('returnConfirmText').innerHTML = (state.gameMode === 'training' || state.gameMode === 'versus' || state.gameMode === 'rush')
+    document.getElementById('returnConfirmText').innerHTML = (uiMode === 'training' || uiMode === 'versus' || uiMode === 'rush')
         ? 'タイトルに戻りますか？'
         : 'タイトルに戻りますか？<br>（ストーリーの進行状況は保存されます）';
     closeResetConfirm(); // 開き直したら確認状態はリセット

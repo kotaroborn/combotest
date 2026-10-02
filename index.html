@@ -17,7 +17,7 @@
     <meta property="og:image:height" content="630">
     <meta property="og:locale" content="ja_JP">
     <meta name="twitter:card" content="summary_large_image">
-    <link rel="stylesheet" href="css/style.min.css?v=182"> <!-- 配信用の軽量版。編集はcss/style.cssで行い、tools/build.shで作り直す(2026-10-02) -->
+    <link rel="stylesheet" href="css/style.min.css?v=183"> <!-- 配信用の軽量版。編集はcss/style.cssで行い、tools/build.shで作り直す(2026-10-02) -->
 
     <!-- 技名ポップ(2026-09-27追加)用の手書き風フォント。Google FontsのCDNから読み込む(ファイル同梱はせず、
          プレイ時のネット接続を前提とする。GitHub Pages/itch.ioでの公開自体が既にネット接続前提のため問題ない)。
@@ -108,7 +108,7 @@
                 <div class="title-logo-fallback-sub">CROSS DIMENSION</div>
             </div>
         </div>
-        <div class="title-version">ver. 0.9.182</div>
+        <div class="title-version">ver. 0.9.183</div>
     </div>
     <button id="titleContinueBtn" class="text-btn" onclick="tapFlickerThen(this, () => goContinueGame())" style="display:none;">CONTINUE</button>
     <button id="startBtn" class="text-btn" onclick="tapFlickerThen(this, () => goNewGame())" disabled>NEW GAME</button>
@@ -150,6 +150,8 @@
     </div>
     <button id="deckConfirmBtn" class="text-btn" onclick="tapFlickerThen(this, () => goBattleStart())">FIGHT</button>
     <button class="howto-btn howto-corner" onclick="openHowTo()">HOW<br>TO</button>
+    <!-- デッキ編成中のOPTION(2026-10-02)。中の戻るボタンはRETURN TO TITLEのみ(updateOptionUI) -->
+    <button class="howto-btn howto-corner option-corner" onclick="playSE('se_menu_open'); openOption();">OPT<br>ION</button>
 </div>
 
 <!-- ローカル対戦(VERSUS)のキャラ選択: 上半分=2P(180°回転)、下半分=1P。両者がREADYを押すとバトルへ -->
@@ -677,7 +679,7 @@
 (function() {
     // 配信用の軽量版(コメント・空白を除いたもの)。編集はjs/script.jsで行い、tools/build.shで作り直す(2026-10-02)。
     // ?v=はバージョン(.title-versionの末尾3桁)と同じ番号にし、更新のたびに上げる(古いものがキャッシュに残らないように)
-    var SCRIPT_URL = 'js/script.min.js?v=182';
+    var SCRIPT_URL = 'js/script.min.js?v=183';
     var bar = document.getElementById('nowLoadingBar');
     var percentEl = document.getElementById('nowLoadingPercent');
     var settled = false; // フォールバック(タイムアウト)と正常読み込みの、どちらか一方だけが実行されるようにするためのフラグ

@@ -3,6 +3,11 @@
 このプロジェクトの変更履歴。日付は新しいものを上に追記する。
 コード(`index.html` / `css/style.css` / `js/script.js`)や仕様に変更を加えた場合は、このファイルに追記すること(詳細は `AI_GUIDE.md` を参照)。
 
+## 2026-10-02(9)
+
+- ver. 0.9.183
+- デッキ編成画面の右下にOPTIONボタンを追加(左下のHOW TOと対称)。中の戻る系のボタンはRETURN TO TITLEのみ(RETRYはまだバトルが始まっていないため出さない)。デッキ編成から開いた時はSTORY MODEのバトル前として扱い、COSTUME(解放済みなら)・RECORDS・音量も使える。RETURN TO TITLEの確認文は「ストーリーの進行状況は保存されます」付き(`updateOptionUI`の`isDeck`)。
+
 ## 2026-10-02(8)
 
 - ver. 0.9.182
