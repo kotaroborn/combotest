@@ -1775,6 +1775,8 @@ function layoutTitleMenu() {
 
 async function playLogo() {
     const myToken = ++logoTokenCounter;
+    stopBGM(); // 起動直後のロゴは必ず無音(バトル途中でタイトルへ戻った時、前の曲が鳴り続けていたため、2026-10-02)
+    stopJingle(0);
     const content = document.getElementById('logoContent');
     content.style.transition = 'none';
     content.style.opacity = '0';
@@ -2364,31 +2366,10 @@ async function showApngIn(imgEl, url) {
 // ------- タイトルカード(本編の章タイトル・SUB STORYのタイトル、2026-10-02) -------
 // 本編の章タイトルの文字(画像story_title_{n}.PNGが無い場合に出す)。文面はここだけ書き換えればよい
 const STORY_CHAPTER_TITLES = ['異世界の入り口', '廃墟の教会', '魔王城の門', '道化師の部屋', 'もうひとりのヴァル'];
-// 表示時間。holdMsは最低限見せる時間で、APNGのアニメーションがそれより長ければ、アニメーションが終わるまで見せる
-const TITLE_CARD_TIMING = { fadeInMs: 500, holdMs: 3000, fadeOutMs: 600 };
+// タイトルカードは自動では進まず、タップで次へ進む(2026-10-02)
+const TITLE_CARD_TIMING = { fadeInMs: 500, fadeOutMs: 600, hintAfterMs: 1500 }; // hintAfterMs: タップを促す「▼」を出すまでの時間
 let titleCardTapped = false;
 function onTitleCardTap() { titleCardTapped = true; }
-
-// APNGの再生時間(ミリ秒、ループ1回分×再生回数。無限ループなら1回分)。APNGでなければ0
-async function apngDurationMs(blob) {
-    try {
-        const buf = new DataView(await blob.arrayBuffer());
-        let pos = 8, total = 0, plays = 1;
-        while (pos + 8 <= buf.byteLength) {
-            const len = buf.getUint32(pos);
-            const type = String.fromCharCode(buf.getUint8(pos + 4), buf.getUint8(pos + 5), buf.getUint8(pos + 6), buf.getUint8(pos + 7));
-            const d = pos + 8;
-            if (type === 'acTL') plays = buf.getUint32(d + 4) || 1;
-            if (type === 'fcTL') {
-                const num = buf.getUint16(d + 20), den = buf.getUint16(d + 22) || 100;
-                total += num * 1000 / den;
-            }
-            if (type === 'IEND') break;
-            pos = d + len + 4;
-        }
-        return total * plays;
-    } catch (e) { return 0; }
-}
 
 // ジングル(タイトルカードの間だけ鳴らす短い曲、assets/audio/bgm/)。未配置なら鳴らさない。途中で止める時は短くフェードアウトする
 let jingleSource = null, jingleGain = null;
@@ -2423,17 +2404,18 @@ function stopJingle(fadeMs = 300) {
 }
 
 // タイトルカードを出す。imgUrlの画像があればそれを、無ければtextHtmlを出す。isCancelled()がtrueになったらすぐ終える(SKIP等)。
-// jingle: 鳴らすジングル名(任意)。カードが消える時(タップ・中断を含む)に鳴り残っていればフェードアウトさせる
+// 2026-10-02: 自動では進まず、タップで次へ進む(フェードインして止まるAPNGを想定)。前の曲は止めて無音にし、
+// jingle(任意)があれば1回だけ鳴らす(鳴り終わった後は無音のまま)。タップした時に鳴り残っていればフェードアウトさせる
 async function playTitleCard({ imgUrl, textHtml, jingle, jingleFallback, isCancelled }) {
     const ov = document.getElementById('titleCardOverlay');
     const img = document.getElementById('titleCardImg');
     const text = document.getElementById('titleCardText');
+    const hint = document.getElementById('titleCardHint');
+    stopBGM(); // 前の曲(タイトル画面・勝利後など)は止める
     const blob = await loadApngBlob(imgUrl);
     if (isCancelled()) return;
-    let animMs = 0;
     if (blob) {
         await showApngIn(img, imgUrl);
-        animMs = await apngDurationMs(blob);
         img.style.display = '';
         text.style.display = 'none';
     } else {
@@ -2443,6 +2425,7 @@ async function playTitleCard({ imgUrl, textHtml, jingle, jingleFallback, isCance
     }
     const t = TITLE_CARD_TIMING;
     titleCardTapped = false;
+    hint.classList.remove('show');
     ov.style.transition = 'none';
     ov.style.opacity = '0';
     ov.classList.add('show');
@@ -2451,9 +2434,12 @@ async function playTitleCard({ imgUrl, textHtml, jingle, jingleFallback, isCance
     ov.style.transition = `opacity ${t.fadeInMs}ms ease-in`;
     ov.style.opacity = '1';
     const start = performance.now();
-    const showMs = Math.max(t.fadeInMs + t.holdMs, animMs);
-    while (performance.now() - start < showMs && !titleCardTapped && !isCancelled()) await rawWait(50);
-    stopJingle(300); // カードが消える時は、ジングルが鳴り残っていればフェードアウトさせる(次の曲と重ならないように)
+    while (!titleCardTapped && !isCancelled()) {
+        if (!hint.classList.contains('show') && performance.now() - start > t.hintAfterMs) hint.classList.add('show'); // 少し経ってから「▼」でタップを促す
+        await rawWait(50);
+    }
+    stopJingle(300);
+    hint.classList.remove('show');
     ov.style.transition = `opacity ${t.fadeOutMs}ms ease-out`;
     ov.style.opacity = '0';
     if (!isCancelled()) await rawWait(t.fadeOutMs);

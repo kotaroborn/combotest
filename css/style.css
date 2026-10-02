@@ -1099,3 +1099,8 @@
 .title-card-sub { font-size: 14px; font-weight: 900; letter-spacing: 6px; color: #ffd23c; margin-bottom: 10px; }
 .title-card-main { font-size: 26px; font-weight: 900; letter-spacing: 4px; }
 #sceneSubStoryEnd .apng-card-img { max-height: 80%; }
+
+/* タイトルカードの「▼」(タップで次へ、2026-10-02) */
+#titleCardHint { position: absolute; bottom: calc(40px + env(safe-area-inset-bottom, 0px)); left: 50%; transform: translateX(-50%); font-size: 16px; color: #fff; opacity: 0; pointer-events: none; }
+#titleCardHint.show { animation: titleCardHintBlink 1.2s ease-in-out infinite; }
+@keyframes titleCardHintBlink { 0%, 100% { opacity: 0.2; } 50% { opacity: 0.9; } }
