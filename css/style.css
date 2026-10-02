@@ -1129,3 +1129,16 @@
 @keyframes titleCardHintBlink { 0%, 100% { opacity: 0.2; } 50% { opacity: 0.9; } }
 
 .howto-corner.option-corner { left: calc(14px + 48px + 8px); } /* デッキ編成のOPTION。バトル画面と同じくHOW TOの右隣・同じ形(2026-10-02) */
+
+/* STORY選択(2026-10-02) */
+.story-select-panel { height: auto; }
+#storySelectRows { display: flex; flex-direction: column; gap: 8px; margin-top: 6px; }
+.story-select-row {
+    display: flex; align-items: center; gap: 16px; width: 100%;
+    padding: 12px 14px; border-radius: 8px; background: #2a2a2a; color: #fff; text-align: left;
+    font-size: 15px; font-weight: 900; letter-spacing: 2px;
+}
+.story-select-row:active { background: #3a3a3a; }
+.story-select-no { color: #ffd23c; min-width: 80px; }
+.story-select-row.locked { background: #1a1a1a; color: #555; cursor: default; }
+.story-select-row.locked .story-select-no { color: #555; }

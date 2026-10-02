@@ -17,7 +17,7 @@
     <meta property="og:image:height" content="630">
     <meta property="og:locale" content="ja_JP">
     <meta name="twitter:card" content="summary_large_image">
-    <link rel="stylesheet" href="css/style.min.css?v=184"> <!-- 配信用の軽量版。編集はcss/style.cssで行い、tools/build.shで作り直す(2026-10-02) -->
+    <link rel="stylesheet" href="css/style.min.css?v=185"> <!-- 配信用の軽量版。編集はcss/style.cssで行い、tools/build.shで作り直す(2026-10-02) -->
 
     <!-- 技名ポップ(2026-09-27追加)用の手書き風フォント。Google FontsのCDNから読み込む(ファイル同梱はせず、
          プレイ時のネット接続を前提とする。GitHub Pages/itch.ioでの公開自体が既にネット接続前提のため問題ない)。
@@ -108,10 +108,10 @@
                 <div class="title-logo-fallback-sub">CROSS DIMENSION</div>
             </div>
         </div>
-        <div class="title-version">ver. 0.9.184</div>
+        <div class="title-version">ver. 0.9.185</div>
     </div>
-    <button id="titleContinueBtn" class="text-btn" onclick="tapFlickerThen(this, () => goContinueGame())" style="display:none;">CONTINUE</button>
-    <button id="startBtn" class="text-btn" onclick="tapFlickerThen(this, () => goNewGame())" disabled>NEW GAME</button>
+    <!-- STORY MODE(2026-10-02、旧NEW GAME。CONTINUEは廃止): STORY 2以降へ進んだことがあれば、どの章から遊ぶか選ぶウィンドウを出す -->
+    <button id="startBtn" class="text-btn" onclick="tapFlickerThen(this, () => goStoryMode())" disabled>STORY MODE</button>
     <button id="trainingBtn" class="text-btn" onclick="tapFlickerThen(this, () => goTrainingBattle())" disabled>TRAINING MODE</button>
     <button id="versusBtn" class="text-btn" onclick="tapFlickerThen(this, () => goVersusSelect())" disabled style="display:none;">LOCAL V.S.</button>
     <button id="rushBtn" class="text-btn" onclick="tapFlickerThen(this, () => goRushStart())" disabled style="display:none;">BATTLE RUSH</button>
@@ -587,6 +587,17 @@
 </div>
 
 <!-- SUB STORY一覧/閲覧ポップアップ -->
+<!-- STORY選択(2026-10-02): 倒した章と、次に挑む章から選べる。まだの章は？？？ -->
+<div id="storySelectOverlay" class="popup-overlay" onclick="if (event.target.id === 'storySelectOverlay') closeStorySelect()">
+    <div class="popup-panel story-select-panel">
+        <button class="popup-close" onclick="closeStorySelect()">×</button>
+        <div class="howto-content">
+            <h2>STORY選択</h2>
+            <div id="storySelectRows"></div>
+        </div>
+    </div>
+</div>
+
 <div id="subStoryOverlay" class="popup-overlay" onclick="closeSubStoryBackdrop(event)">
     <div class="popup-panel">
         <button class="popup-close" onclick="closeAllBonus()">×</button>
@@ -679,7 +690,7 @@
 (function() {
     // 配信用の軽量版(コメント・空白を除いたもの)。編集はjs/script.jsで行い、tools/build.shで作り直す(2026-10-02)。
     // ?v=はバージョン(.title-versionの末尾3桁)と同じ番号にし、更新のたびに上げる(古いものがキャッシュに残らないように)
-    var SCRIPT_URL = 'js/script.min.js?v=184';
+    var SCRIPT_URL = 'js/script.min.js?v=185';
     var bar = document.getElementById('nowLoadingBar');
     var percentEl = document.getElementById('nowLoadingPercent');
     var settled = false; // フォールバック(タイムアウト)と正常読み込みの、どちらか一方だけが実行されるようにするためのフラグ

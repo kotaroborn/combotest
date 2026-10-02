@@ -3,6 +3,14 @@
 このプロジェクトの変更履歴。日付は新しいものを上に追記する。
 コード(`index.html` / `css/style.css` / `js/script.js`)や仕様に変更を加えた場合は、このファイルに追記すること(詳細は `AI_GUIDE.md` を参照)。
 
+## 2026-10-02(11)
+
+- ver. 0.9.185
+- タイトル画面の「NEW GAME」を「STORY MODE」に改称し、「CONTINUE」を廃止。
+  - はじめて遊ぶ人(STORY 2以降へ進んだことがない)は、今までどおりそのままSTORY 1へ。
+  - STORY 2以降へ進んだことがある(またはクリア済み)場合は、「STORY選択」ウィンドウを出す。STORY 1〜5と相手の名前を並べ、倒した章と次に挑む章はどこからでも遊べる。まだの章は「？？？」で選べない(`goStoryMode` / `openStorySelect` / `startStoryFrom` / `storyChapterPlayable`)。選んだ章は章タイトルから始まる。
+  - 前の章を遊び直して勝っても、セーブの進行状況(どこまで進んだか)は巻き戻らないようにした(`advanceToNextEnemy`は大きい方を保存)。
+
 ## 2026-10-02(10)
 
 - ver. 0.9.184

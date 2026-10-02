@@ -1757,11 +1757,41 @@ async function boot() {
 // タイトルのCONTINUEは、セーブデータが存在するだけでは表示しない。
 // デッキ編成(deckCounts)やサウンド設定などの保存だけでも「セーブデータの存在」自体は真になってしまうため、
 // 実際に敵2以降まで進んだ記録(storyEnemyIndex >= 1)があるかどうかで判定する。
+// (2026-10-02: CONTINUEボタンは廃止し、STORY MODEのSTORY選択に置き換えた。呼び出し元が多いため関数名はそのまま残し、メニューの並べ直しだけ行う)
 function updateTitleContinueVisibility() {
-    const save = loadSaveData();
-    const hasStoryProgress = !!save && typeof save.storyEnemyIndex === 'number' && save.storyEnemyIndex >= 1;
-    document.getElementById('titleContinueBtn').style.display = hasStoryProgress ? 'block' : 'none';
     layoutTitleMenu();
+}
+
+// ------- STORY MODE / STORY選択(2026-10-02) -------
+// 遊べる章: 倒したことがある章、次に挑む章(セーブの進行状況まで)。ゲームクリア後は全章
+function storyChapterPlayable(idx) {
+    const save = loadSaveData() || {};
+    const reached = typeof save.storyEnemyIndex === 'number' ? save.storyEnemyIndex : 0;
+    return gameClearedOnce || idx <= reached || isEnemyDefeated(idx);
+}
+function goStoryMode() {
+    const save = loadSaveData() || {};
+    const reached = typeof save.storyEnemyIndex === 'number' ? save.storyEnemyIndex : 0;
+    if (reached < 1 && !gameClearedOnce) { goNewGame(); return; } // はじめて遊ぶ人は、そのままSTORY 1へ
+    openStorySelect();
+}
+function openStorySelect() {
+    const rows = document.getElementById('storySelectRows');
+    rows.innerHTML = ENEMY_ORDER.map((key, i) => {
+        const ok = storyChapterPlayable(i);
+        const name = ok ? ENEMY_PRESETS[key].name : '？？？';
+        return `<button class="story-select-row${ok ? '' : ' locked'}" ${ok ? `onclick="startStoryFrom(${i})"` : 'disabled'}>`
+            + `<span class="story-select-no">STORY ${i + 1}</span><span class="story-select-name">${name}</span></button>`;
+    }).join('');
+    document.getElementById('storySelectOverlay').classList.add('show');
+}
+function closeStorySelect() { document.getElementById('storySelectOverlay').classList.remove('show'); }
+function startStoryFrom(idx) {
+    if (!storyChapterPlayable(idx)) return;
+    playSE('se_select');
+    closeStorySelect();
+    state.storyEnemyIndex = idx;
+    goStoryThenDeck({ chapterTitle: true });
 }
 
 // 対戦モード(VERSUS)ボタンの表示を、専用GIFT CODEでの解放状態(versusUnlocked)に合わせる。
@@ -1779,7 +1809,7 @@ function updateRushButtonVisibility() {
 }
 // タイトルのメニューを、表示中のボタンだけで下から詰めて並べる(2026-09-28追加)。OPTIONは常に最下部。
 // 未解放で隠れているボタンの分の隙間は作らない。表示/非表示を切り替える各関数の最後で呼ぶ。
-const TITLE_MENU_ORDER = ['titleContinueBtn', 'startBtn', 'trainingBtn', 'versusBtn', 'rushBtn', 'bonusContentsBtn', 'optionBtn']; // 上から順
+const TITLE_MENU_ORDER = ['startBtn', 'trainingBtn', 'versusBtn', 'rushBtn', 'bonusContentsBtn', 'optionBtn']; // 上から順
 const TITLE_MENU_BOTTOM = 12;  // 最下段(OPTION)の位置(bottom %)
 const TITLE_MENU_STEP = 5.2;   // ボタン同士の間隔(%)
 function layoutTitleMenu() {
@@ -3720,7 +3750,10 @@ function updateCharNames() {
 // 連戦で次の敵へ進む(YOU WIN時、決着画面のNEXT BATTLEからgoNextEnemy経由で呼ばれる)
 function advanceToNextEnemy() {
     state.storyEnemyIndex = (state.storyEnemyIndex + 1) % ENEMY_ORDER.length;
-    writeSaveData({ storyEnemyIndex: state.storyEnemyIndex }); // 進行状況を保存
+    // 進行状況を保存する。STORY選択で前の章を遊び直した場合に、進んでいた進行状況を巻き戻さないよう、大きい方を残す(2026-10-02)
+    const save = loadSaveData() || {};
+    const saved = typeof save.storyEnemyIndex === 'number' ? save.storyEnemyIndex : 0;
+    writeSaveData({ storyEnemyIndex: Math.max(saved, state.storyEnemyIndex) });
 }
 
 function weightedRandomMove(weights) {
