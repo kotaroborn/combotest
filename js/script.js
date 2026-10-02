@@ -2376,12 +2376,15 @@ async function playSubStoryEndScreen(characterName, enemyIdx) {
     const textEl = document.getElementById('subStoryEndText');
     const imgEl = document.getElementById('subStoryEndImg');
     // 2026-10-02: 絵の前に、真っ黒な画面を1秒挟む(章タイトルと同じ)。
-    // エピローグの曲は止めずにEND画面・解放トーストの間も流し続け、タイトルへ戻った時にタイトルの曲へ切り替える(無音だと寂しいため)
+    // エピローグの曲は止めずにEND画面の間も流し続け、タップでEND画面と一緒にフェードアウトさせる(無音だと寂しいため)
     await wait(TITLE_CARD_TIMING.blackMs);
     const hasImg = enemyIdx >= 0 && await showApngIn(imgEl, `assets/images/cutscenes/substory/substory_end_${enemyIdx + 1}.PNG`);
     textEl.style.display = hasImg ? 'none' : '';
     imgEl.style.display = hasImg ? '' : 'none';
     const t = SUBSTORY_END_TIMING;
+    const hint = document.getElementById('subStoryEndHint');
+    hint.classList.remove('show');
+    subStoryEndTapped = false;
     scene.style.transition = 'none';
     scene.style.opacity = '0';
     showScene('subStoryEnd');
@@ -2389,13 +2392,24 @@ async function playSubStoryEndScreen(characterName, enemyIdx) {
     scene.style.transition = `opacity ${t.fadeInMs}ms ease-in`;
     scene.style.opacity = '1';
     await wait(t.fadeInMs);
-    await wait(t.holdMs); // フェードイン完了後、しばらく表示する(FINの10秒よりは短め)
+    // 2026-10-02: 時間で自動的に消すのをやめ、タップされたら画面と曲を一緒にゆっくりフェードアウトする
+    subStoryEndTapped = false; // フェードイン中のタップは数えない
+    const start = performance.now();
+    while (!subStoryEndTapped) {
+        if (!hint.classList.contains('show') && performance.now() - start > t.hintAfterMs) hint.classList.add('show'); // APNGが終わる頃に「▼」でタップを促す
+        await rawWait(50);
+    }
+    hint.classList.remove('show');
+    fadeOutBGM(t.fadeOutMs);
     scene.style.transition = `opacity ${t.fadeOutMs}ms ease-out`;
     scene.style.opacity = '0';
     await wait(t.fadeOutMs);
+    stopBGM(); // フェードし終えた曲の記録(currentBgmName)も消しておく(後で同じ曲を頼んだ時に鳴らないのを防ぐ)
 }
-// SUB STORY ENDの表示時間。APNGのアニメーションの長さに合わせてここを変える
-const SUBSTORY_END_TIMING = { fadeInMs: 500, holdMs: 5500, fadeOutMs: 2000 }; // 2026-10-02: END APNG(約4.7秒)が最後まで再生され、止まった絵を約1.3秒見せてからフェードアウト
+// SUB STORY ENDの表示タイミング。hintAfterMs: タップを促す「▼」を出すまでの時間(END APNG約4.7秒の再生が終わる頃)
+const SUBSTORY_END_TIMING = { fadeInMs: 500, hintAfterMs: 4300, fadeOutMs: 2000 };
+let subStoryEndTapped = false;
+function onSubStoryEndTap() { subStoryEndTapped = true; }
 
 // ------- APNG(アニメーションPNG)の一枚絵(2026-10-02) -------
 // 同じ画像を2回目に出した時も必ず最初から動くよう、一度ダウンロードしたデータから毎回新しいURL(blob)を作って表示する

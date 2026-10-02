@@ -1128,8 +1128,8 @@
 #sceneSubStoryEnd .apng-card-img { max-height: 80%; }
 
 /* タイトルカードの「▼」(タップで次へ、2026-10-02) */
-#titleCardHint { position: absolute; bottom: calc(40px + env(safe-area-inset-bottom, 0px)); left: 50%; transform: translateX(-50%); font-size: 16px; color: #fff; opacity: 0; pointer-events: none; }
-#titleCardHint.show { animation: titleCardHintBlink 1.2s ease-in-out infinite; }
+#titleCardHint, #subStoryEndHint { position: absolute; bottom: calc(40px + env(safe-area-inset-bottom, 0px)); left: 50%; transform: translateX(-50%); font-size: 16px; color: #fff; opacity: 0; pointer-events: none; }
+#titleCardHint.show, #subStoryEndHint.show { animation: titleCardHintBlink 1.2s ease-in-out infinite; }
 @keyframes titleCardHintBlink { 0%, 100% { opacity: 0.2; } 50% { opacity: 0.9; } }
 
 .howto-corner.option-corner { left: calc(14px + 48px + 8px); } /* デッキ編成のOPTION。バトル画面と同じくHOW TOの右隣・同じ形(2026-10-02) */
