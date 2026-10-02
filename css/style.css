@@ -768,7 +768,17 @@
             flex: none;
             min-height: var(--vs-ui-h);
         }
-        body.versus-layout #ui { padding-bottom: calc(6px + env(safe-area-inset-bottom, 0px)); }
+        body.versus-layout #ui {
+            padding-bottom: calc(6px + env(safe-area-inset-bottom, 0px));
+            /* LOCAL V.S.の1P側は、キャラ選択と同じ赤の10段階帯(2Pは下の.vs-uiで青。2026-10-02) */
+            background: linear-gradient(to bottom,
+                #000000 0%, #000000 10%, #070202 10%, #070202 20%,
+                #0e0404 20%, #0e0404 30%, #150505 30%, #150505 40%,
+                #1c0707 40%, #1c0707 50%, #230909 50%, #230909 60%,
+                #2a0b0b 60%, #2a0b0b 70%, #310c0c 70%, #310c0c 80%,
+                #380e0e 80%, #380e0e 90%, #3f1010 90%, #3f1010 100%
+            );
+        }
         .vs-ui {
             /* 2P側は回転しているため、物理的な画面上端(時計・ノッチ側)の余白は、要素の「下」側の余白になる */
             padding-bottom: calc(6px + var(--safe-top));
@@ -887,7 +897,14 @@
             display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
             padding: 12px 14px;
             padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
-            background: linear-gradient(to top, #2a0808, #000 75%);
+            /* 1Pは黒→赤、2Pは黒→青の10段階の帯(デッキ編成と同じ段階的なグラデーション、2026-10-02) */
+            background: linear-gradient(to top,
+                #3a0c0c 0%, #3a0c0c 10%, #340b0b 10%, #340b0b 20%,
+                #2d0909 20%, #2d0909 30%, #270808 30%, #270808 40%,
+                #200707 40%, #200707 50%, #1a0505 50%, #1a0505 60%,
+                #130404 60%, #130404 70%, #0d0303 70%, #0d0303 80%,
+                #060101 80%, #060101 90%, #000000 90%, #000000 100%
+            );
             transition: filter 0.2s;
         }
         .vs-sel-half { position: relative; }
@@ -896,7 +913,13 @@
         .vs-sel-half-e {
             transform: rotate(180deg);
             padding-bottom: calc(12px + var(--safe-top));
-            background: linear-gradient(to top, #081a33, #000 75%);
+            background: linear-gradient(to top,
+                #0f2b52 0%, #0f2b52 10%, #0d2649 10%, #0d2649 20%,
+                #0c2140 20%, #0c2140 30%, #0a1d37 30%, #0a1d37 40%,
+                #08182e 40%, #08182e 50%, #071324 50%, #071324 60%,
+                #050e1b 60%, #050e1b 70%, #030a12 70%, #030a12 80%,
+                #020509 80%, #020509 90%, #000000 90%, #000000 100%
+            );
         }
         .vs-sel-head { display: flex; align-items: baseline; gap: 10px; }
         .vs-sel-badge { font-size: 13px; font-weight: 900; padding: 2px 8px; border-radius: 4px; background: #c22; letter-spacing: 1px; }

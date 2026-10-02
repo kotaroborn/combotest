@@ -1579,6 +1579,21 @@ async function playBGM(name, fallbackName) {
     currentBgmSource = source;
 }
 
+// 再生中のBGMを、指定した時間をかけて小さくしていき、最後に止める(2026-10-02、プロローグの渦の演出に合わせて使う)
+function fadeOutBGM(ms) {
+    const src = currentBgmSource;
+    if (!src) return;
+    try {
+        const ctx = getAudioCtx();
+        const g = ctx.createGain();
+        src.disconnect();
+        src.connect(g);
+        g.connect(getBgmGainNode());
+        g.gain.setValueAtTime(1, ctx.currentTime);
+        g.gain.linearRampToValueAtTime(0, ctx.currentTime + ms / 1000);
+        src.stop(ctx.currentTime + ms / 1000 + 0.05);
+    } catch (e) { /* 既に止まっている等は無視 */ }
+}
 function stopBGM() {
     bgmToken++; // 保留中のplayBGM呼び出しがあれば、この時点で確実に無効化する
     if (currentBgmSource) {
@@ -1904,7 +1919,8 @@ async function playPrologue() {
             await wait(1500);
             await wait(400);
         } else if (screen.exit === 'swirl') {
-            // 渦を巻くように、回転しながら縮み・ぼやけつつ暗転する
+            // 渦を巻くように、回転しながら縮み・ぼやけつつ暗転する。BGMも同じ時間をかけて小さくしていく(2026-10-02)
+            fadeOutBGM(2600);
             content.style.transition = 'transform 2.6s ease-in, filter 2.6s ease-in, opacity 2.6s ease-in';
             content.style.transform = 'rotate(540deg) scale(0.05)';
             content.style.filter = 'blur(10px) brightness(0.3)';
