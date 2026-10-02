@@ -2395,7 +2395,7 @@ async function playSubStoryEndScreen(characterName, enemyIdx) {
     await wait(t.fadeOutMs);
 }
 // SUB STORY ENDの表示時間。APNGのアニメーションの長さに合わせてここを変える
-const SUBSTORY_END_TIMING = { fadeInMs: 1500, holdMs: 3000, fadeOutMs: 2000 };
+const SUBSTORY_END_TIMING = { fadeInMs: 500, holdMs: 5500, fadeOutMs: 2000 }; // 2026-10-02: END APNG(約4.7秒)が最後まで再生され、止まった絵を約1.3秒見せてからフェードアウト
 
 // ------- APNG(アニメーションPNG)の一枚絵(2026-10-02) -------
 // 同じ画像を2回目に出した時も必ず最初から動くよう、一度ダウンロードしたデータから毎回新しいURL(blob)を作って表示する
