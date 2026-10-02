@@ -6273,7 +6273,7 @@ async function readSubStory(idx) {
     await playTitleCard({
         imgUrl: `assets/images/cutscenes/substory/substory_title_${idx + 1}.PNG`,
         textHtml: `<div class="title-card-sub">SUB STORY ${idx + 1}</div><div class="title-card-main">${sub.title}</div>`,
-        jingle: 'jingle_substory', jingleFallback: 'jingle_story',
+        jingle: 'jingle_story', // SUB STORYもSTORYと同じジングル(2026-10-02決定)
         isCancelled: () => subStoryToken !== myToken,
     });
     if (subStoryToken !== myToken) return;
