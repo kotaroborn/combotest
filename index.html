@@ -17,7 +17,7 @@
     <meta property="og:image:height" content="630">
     <meta property="og:locale" content="ja_JP">
     <meta name="twitter:card" content="summary_large_image">
-    <link rel="stylesheet" href="css/style.min.css?v=194"> <!-- 配信用の軽量版。編集はcss/style.cssで行い、tools/build.shで作り直す(2026-10-02) -->
+    <link rel="stylesheet" href="css/style.min.css?v=195"> <!-- 配信用の軽量版。編集はcss/style.cssで行い、tools/build.shで作り直す(2026-10-02) -->
 
     <!-- 技名ポップ(2026-09-27追加)用の手書き風フォント。Google FontsのCDNから読み込む(ファイル同梱はせず、
          プレイ時のネット接続を前提とする。GitHub Pages/itch.ioでの公開自体が既にネット接続前提のため問題ない)。
@@ -108,7 +108,7 @@
                 <div class="title-logo-fallback-sub">CROSS DIMENSION</div>
             </div>
         </div>
-        <div class="title-version">ver. 0.9.194</div>
+        <div class="title-version">ver. 0.9.195</div>
     </div>
     <!-- STORY MODE(2026-10-02、旧NEW GAME。CONTINUEは廃止): STORY 2以降へ進んだことがあれば、どの章から遊ぶか選ぶウィンドウを出す -->
     <button id="startBtn" class="text-btn" onclick="tapFlickerThen(this, () => goStoryMode())" disabled>STORY MODE</button>
@@ -265,18 +265,13 @@
     <div id="resultNoDamageText" style="display:none;">PERFECT!!</div>
     <div id="resultPerfectText" style="display:none;">COMBO PERFECT!!</div>
     <div id="resultText"></div>
-    <button id="continueBtn" onclick="goDeckBuild()">CONTINUE</button>
-    <button id="backTitleBtn" onclick="goLogo()">タイトルへ戻る</button>
-</div>
-<!-- 勝利後のRESULT(2026-10-02): STORY MODE・EXTRA BATTLEで勝った時、YOU WINの後に表示。NEXTで次へ進む -->
-<div id="battleResultOverlay">
-    <div class="rush-result-body">
-        <div class="rush-result-title">RESULT</div>
-        <div id="battleResultBadges" style="display:none;"></div>
+    <!-- 勝利後のRESULT(2026-10-02): STORY MODE・EXTRA BATTLEの勝利時、YOU WINの下に小さくまとめて出す。NEXTで次へ進む -->
+    <div id="battleResult">
+        <div class="br-title">RESULT</div>
         <div class="br-cards">
-            <div class="br-card"><img src="assets/images/cards/card_P.PNG" alt=""><div class="br-card-name">PUNCH</div><div class="br-card-num" id="brPunch">0</div></div>
-            <div class="br-card"><img src="assets/images/cards/card_U.PNG" alt=""><div class="br-card-name">UPPER</div><div class="br-card-num" id="brUpper">0</div></div>
-            <div class="br-card"><img src="assets/images/cards/card_G.PNG" alt=""><div class="br-card-name">GUARD</div><div class="br-card-num" id="brGuard">0</div></div>
+            <div class="br-card"><img src="assets/images/cards/card_P.PNG" alt="PUNCH"><span id="brPunch">0</span></div>
+            <div class="br-card"><img src="assets/images/cards/card_U.PNG" alt="UPPER"><span id="brUpper">0</span></div>
+            <div class="br-card"><img src="assets/images/cards/card_G.PNG" alt="GUARD"><span id="brGuard">0</span></div>
         </div>
         <div class="br-stats">
             <div class="br-stat"><span>TURNS</span><span id="brTurns">0</span></div>
@@ -284,10 +279,10 @@
             <div class="br-stat"><span>TECHNIQUES</span><span id="brTechs">0</span></div>
             <div class="br-stat"><span>READS WON</span><span id="brRps">0 / 0</span></div>
         </div>
-    </div>
-    <div class="rush-result-btns">
         <button id="battleResultNextBtn">NEXT</button>
     </div>
+    <button id="continueBtn" onclick="goDeckBuild()">CONTINUE</button>
+    <button id="backTitleBtn" onclick="goLogo()">タイトルへ戻る</button>
 </div>
 <!-- BATTLE RUSHのRESULT: 倒れた時点(または最後の25人目撃破時)に表示。ボタンは最下部に固定し、項目が多くてもはみ出さないようにする -->
 <div id="rushResultOverlay">
@@ -719,7 +714,7 @@
 (function() {
     // 配信用の軽量版(コメント・空白を除いたもの)。編集はjs/script.jsで行い、tools/build.shで作り直す(2026-10-02)。
     // ?v=はバージョン(.title-versionの末尾3桁)と同じ番号にし、更新のたびに上げる(古いものがキャッシュに残らないように)
-    var SCRIPT_URL = 'js/script.min.js?v=194';
+    var SCRIPT_URL = 'js/script.min.js?v=195';
     var bar = document.getElementById('nowLoadingBar');
     var percentEl = document.getElementById('nowLoadingPercent');
     var settled = false; // フォールバック(タイムアウト)と正常読み込みの、どちらか一方だけが実行されるようにするためのフラグ

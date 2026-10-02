@@ -4238,6 +4238,7 @@ function showResult(type) {
     }
 
     document.getElementById('resultText').innerText = type === 'KO' ? 'K.O.' : 'YOU WIN';
+    document.getElementById('battleResult').classList.remove('show'); // RESULTは勝利時だけ、少し遅れて出す
 
     // 決着音・決着BGM: K.O.は効果音のみでバトルBGMを止め、YOU WINは効果音と共に勝利BGMへ切り替える
     if (type === 'KO') {
@@ -4309,16 +4310,14 @@ function showResult(type) {
     }
 }
 
-// ---- 勝利後のRESULT画面(2026-10-02追加) ----
-// STORY MODE・EXTRA BATTLEで勝った時、YOU WINを少し見せた後にこのバトルの記録(使ったカードの枚数・ターン数・
-// 最大COMBO・ワザの発動回数・3すくみで勝った数)を出し、NEXTボタンで次へ進む。表記はすべて英語。
-const BATTLE_RESULT_TIMING = { youWinMs: 2000 }; // YOU WINを見せる時間
+// ---- 勝利後のRESULT(2026-10-02追加) ----
+// STORY MODE・EXTRA BATTLEで勝った時、YOU WINの下にこのバトルの記録(使ったカードの枚数・ターン数・
+// 最大COMBO・ワザの発動回数・3すくみで勝った数)を小さくまとめて出し、NEXTボタンで次へ進む。表記はすべて英語。
+// YOU WINを一瞬だけ単独で見せてから、RESULTをふわっと出す。
+const BATTLE_RESULT_TIMING = { youWinMs: 800 }; // YOU WINだけを見せる時間
 let battleResultToken = 0;
 async function showBattleResultAfterWin(onNext) {
     const myToken = ++battleResultToken;
-    await wait(BATTLE_RESULT_TIMING.youWinMs);
-    // 待っている間にタイトルへ戻る等で決着画面が閉じられていたら出さない
-    if (myToken !== battleResultToken || !document.getElementById('resultOverlay').classList.contains('show')) return;
     const st = state.battleStats || { cards: { PUNCH: 0, UPPER: 0, GUARD: 0 }, rpsJudged: 0, rpsWins: 0, maxCombo: 0, techs: 0 };
     document.getElementById('brPunch').textContent = st.cards.PUNCH;
     document.getElementById('brUpper').textContent = st.cards.UPPER;
@@ -4327,25 +4326,20 @@ async function showBattleResultAfterWin(onNext) {
     document.getElementById('brCombo').textContent = st.maxCombo;
     document.getElementById('brTechs').textContent = st.techs;
     document.getElementById('brRps').textContent = `${st.rpsWins} / ${st.rpsJudged}`;
-    // YOU WINの画面に出ていたPERFECT!!/COMBO PERFECT!!は、RESULTにも小さく残す
-    const badges = [];
-    if (document.getElementById('resultNoDamageText').style.display !== 'none') badges.push('PERFECT!!');
-    if (document.getElementById('resultPerfectText').style.display !== 'none') badges.push('COMBO PERFECT!!');
-    const badgeEl = document.getElementById('battleResultBadges');
-    badgeEl.innerHTML = badges.map(b => `<span>${b}</span>`).join('');
-    badgeEl.style.display = badges.length ? '' : 'none';
-    document.getElementById('resultOverlay').classList.remove('show');
-    const ov = document.getElementById('battleResultOverlay');
+    await wait(BATTLE_RESULT_TIMING.youWinMs);
+    // 待っている間にタイトルへ戻る等で決着画面が閉じられていたら出さない
+    if (myToken !== battleResultToken || !document.getElementById('resultOverlay').classList.contains('show')) return;
+    const box = document.getElementById('battleResult');
     const btn = document.getElementById('battleResultNextBtn');
     let done = false;
     btn.onclick = () => {
         if (done) return; // 連打で二重に進まないようにする
         done = true;
         playSE('se_select');
-        ov.classList.remove('show');
+        hideResult();
         onNext();
     };
-    ov.classList.add('show');
+    box.classList.add('show');
 }
 
 // 勝利BGM: YOU WINのSE(se_win)から0.5秒後に流す(2026-10-02)。それまでの曲はすぐ止める。
@@ -4361,9 +4355,9 @@ function playVictoryBgmDelayed() {
 
 function hideResult() {
     document.getElementById('resultOverlay').classList.remove('show');
-    battleResultToken++; // YOU WIN表示中に閉じられた場合、後からRESULT画面が出てこないようにする
-    const brOv = document.getElementById('battleResultOverlay');
-    if (brOv) brOv.classList.remove('show');
+    battleResultToken++; // YOU WIN表示中に閉じられた場合、後からRESULTが出てこないようにする
+    const brBox = document.getElementById('battleResult');
+    if (brBox) brBox.classList.remove('show');
     const rushOv = document.getElementById('rushResultOverlay');
     if (rushOv) rushOv.classList.remove('show');
 }

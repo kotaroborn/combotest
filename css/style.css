@@ -1153,33 +1153,28 @@
 #subStoryOverlay .howto-content { display: flex; flex-direction: column; min-height: 0; height: 100%; }
 #subStoryListView { flex: 1 1 auto; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; }
 
-/* 勝利後のRESULT(2026-10-02追加)。枠組みはBATTLE RUSHのRESULT(.rush-result-*)を流用する */
-#battleResultOverlay {
-    position: absolute; inset: 0; background: rgba(0,0,0,0.9); z-index: 50;
-    display: none; flex-direction: column; align-items: stretch;
-    padding: calc(var(--safe-top, 0px) + 18px) 20px calc(env(safe-area-inset-bottom, 0px) + 18px);
-    box-sizing: border-box;
+/* 勝利後のRESULT(2026-10-02追加): YOU WINの下に小さくまとめる(1画面に収める) */
+#battleResult {
+    display: none; flex-direction: column; align-items: center; gap: 8px;
+    width: min(300px, calc(100% - 40px)); padding: 10px 14px 14px; box-sizing: border-box;
+    background: rgba(0,0,0,0.55); border: 1px solid rgba(255,255,255,0.18); border-radius: 10px;
+    margin-top: -12px; /* YOU WINとの間隔をgapより少し詰める */
 }
-#battleResultOverlay.show { display: flex; animation: battleResultIn 0.35s ease-out; }
-@keyframes battleResultIn { from { opacity: 0; } to { opacity: 1; } }
-#battleResultBadges { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-top: -6px; }
-#battleResultBadges span {
-    font-size: 13px; font-weight: 900; letter-spacing: 1px; color: #ffd23c;
-    text-shadow: 0 0 10px rgba(255,210,60,0.7); white-space: nowrap;
-}
-.br-cards { display: flex; justify-content: center; gap: 18px; width: 100%; max-width: 300px; padding: 6px 0 10px; border-bottom: 1px solid rgba(255,255,255,0.18); }
-.br-card { display: flex; flex-direction: column; align-items: center; gap: 3px; }
-.br-card img { width: 42px; height: 60px; image-rendering: pixelated; border-radius: 4px; }
-.br-card-name { font-size: 10px; font-weight: 700; color: #aaa; letter-spacing: 1px; }
-.br-card-num { font-size: 24px; font-weight: 900; color: #fff; line-height: 1.1; font-variant-numeric: tabular-nums; }
-.br-stats { width: 100%; max-width: 300px; }
+#battleResult.show { display: flex; animation: battleResultIn 0.4s ease-out; }
+@keyframes battleResultIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.br-title { font-size: 12px; font-weight: 900; letter-spacing: 4px; color: #ffd23c; }
+.br-cards { display: flex; justify-content: center; gap: 18px; }
+.br-card { display: flex; align-items: center; gap: 5px; }
+.br-card img { width: 21px; height: 30px; image-rendering: pixelated; border-radius: 2px; }
+.br-card span { font-size: 18px; font-weight: 900; color: #fff; font-variant-numeric: tabular-nums; min-width: 1.2em; }
+.br-stats { display: grid; grid-template-columns: 1fr 1fr; column-gap: 14px; width: 100%; }
 .br-stat {
     display: flex; justify-content: space-between; align-items: baseline;
-    padding: 9px 4px; border-bottom: 1px solid rgba(255,255,255,0.12);
-    font-size: 13px; font-weight: 700; color: #aaa; letter-spacing: 1.5px;
+    padding: 4px 0; border-bottom: 1px solid rgba(255,255,255,0.12);
+    font-size: 9px; font-weight: 700; color: #aaa; letter-spacing: 0.5px; white-space: nowrap;
 }
-.br-stat span:last-child { font-size: 20px; font-weight: 900; color: #fff; letter-spacing: 0.5px; font-variant-numeric: tabular-nums; }
+.br-stat span:last-child { font-size: 14px; font-weight: 900; color: #fff; letter-spacing: 0; font-variant-numeric: tabular-nums; }
 #battleResultNextBtn {
-    background: #a00; border: none; color: #fff;
-    padding: 12px 44px; font-size: 15px; font-weight: bold; letter-spacing: 2px; border-radius: 8px; cursor: pointer;
+    margin-top: 4px; background: #a00; border: none; color: #fff;
+    padding: 10px 40px; font-size: 14px; font-weight: bold; letter-spacing: 2px; border-radius: 8px; cursor: pointer;
 }

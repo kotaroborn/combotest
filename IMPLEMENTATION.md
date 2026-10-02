@@ -32,7 +32,7 @@ command-battle/
 5. **デッキ編成シーン**: PUNCH/UPPER/GUARDの枚数を調整し、合計21枚になったときのみFIGHTボタンが有効になる。
 6. **バトルシーン**: バトル開始演出→手札配布演出の後、操作可能になる。
 7. **決着オーバーレイ**: K.O.またはYOU WINを表示する。K.O.時のみCONTINUEボタンが表示され、両方のケースで「タイトルへ戻る」ボタンが表示される。
-   - 2026-10-02: STORY MODE・EXTRA BATTLEの勝利時は、YOU WINを2秒見せた後にRESULT画面(`#battleResultOverlay`)へ切り替える。表示はすべて英語で、このバトルで使ったカードの枚数(PUNCH / UPPER / GUARD)・TURNS・MAX COMBO・TECHNIQUES(ワザの発動回数)・READS WON(3すくみで勝った数 / 3すくみで判定した攻防の数)。PERFECT!!等が出ていればRESULTにも小さく残す。NEXTボタンで次へ(次の敵のストーリー / EXTRA BATTLEのエピローグ / 最終戦はエンディング)。記録は`state.battleStats`(`resetBattleState`で初期化)
+   - 2026-10-02: STORY MODE・EXTRA BATTLEの勝利時は、YOU WINの0.8秒後に、その下へRESULT(`#battleResult`、決着オーバーレイ内)を小さくまとめて出す(1画面に収まる)。表示はすべて英語で、このバトルで使ったカードの枚数(PUNCH / UPPER / GUARD)・TURNS・MAX COMBO・TECHNIQUES(ワザの発動回数)・READS WON(3すくみで勝った数 / 3すくみで判定した攻防の数)。NEXTボタンで次へ(次の敵のストーリー / EXTRA BATTLEのエピローグ / 最終戦はエンディング)。記録は`state.battleStats`(`resetBattleState`で初期化)
 
 ---
 
