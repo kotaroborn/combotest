@@ -3,6 +3,11 @@
 このプロジェクトの変更履歴。日付は新しいものを上に追記する。
 コード(`index.html` / `css/style.css` / `js/script.js`)や仕様に変更を加えた場合は、このファイルに追記すること(詳細は `AI_GUIDE.md` を参照)。
 
+## 2026-10-02(38)
+
+- ver. 0.9.213
+- BATTLE RUSHの雑魚DOLLに`upper.PNG`を追加。コード変更なし。残り: guard / damage / knock2
+
 ## 2026-10-02(37)
 
 - ver. 0.9.212
