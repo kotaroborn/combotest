@@ -3,6 +3,11 @@
 このプロジェクトの変更履歴。日付は新しいものを上に追記する。
 コード(`index.html` / `css/style.css` / `js/script.js`)や仕様に変更を加えた場合は、このファイルに追記すること(詳細は `AI_GUIDE.md` を参照)。
 
+## 2026-10-02(16)
+
+- ver. 0.9.190
+- BATTLE RUSHの雑魚DOLLに`down.PNG`(K.O.時の倒れ)と`dash.PNG`(移動・登場時)を追加(`assets/images/characters_enemy/rush/`)。コード変更なし(未配置ポーズは従来通りDOLLの`player.PNG`で代用)。残り: punch / punch2 / upper / guard / damage / knock / knock2 / piyo
+
 ## 2026-10-02(15)
 
 - ver. 0.9.189
