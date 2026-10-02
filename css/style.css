@@ -1163,9 +1163,10 @@
 #battleResult.show { display: flex; animation: battleResultIn 0.4s ease-out; }
 @keyframes battleResultIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 .br-title { font-size: 12px; font-weight: 900; letter-spacing: 4px; color: #ffd23c; }
-.br-cards { display: flex; justify-content: center; gap: 18px; }
-.br-card { display: flex; align-items: center; gap: 5px; }
-.br-card img { width: 21px; height: 30px; image-rendering: pixelated; border-radius: 2px; }
+.br-cards { display: flex; justify-content: center; gap: 10px; }
+.br-card { display: flex; align-items: center; gap: 0; }
+/* カード画像は元が30×30(左右に透明の余白あり)なので、引き伸ばさず等倍で出す */
+.br-card img { width: 30px; height: 30px; image-rendering: pixelated; }
 .br-card span { font-size: 18px; font-weight: 900; color: #fff; font-variant-numeric: tabular-nums; min-width: 1.2em; }
 .br-stats { display: grid; grid-template-columns: 1fr 1fr; column-gap: 14px; width: 100%; }
 .br-stat {
