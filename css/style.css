@@ -1142,3 +1142,10 @@
 .story-select-no { color: #ffd23c; min-width: 80px; }
 .story-select-row.locked { background: #1a1a1a; color: #555; cursor: default; }
 .story-select-row.locked .story-select-no { color: #555; }
+
+/* SUB STORYの一覧もSTORY選択と同じ見た目(2026-10-02) */
+#subStoryListRows.story-select-list { display: flex; flex-direction: column; gap: 8px; margin-top: 6px; }
+/* タイトルが長いので、番号(上)とタイトル(下)の2段にする */
+#subStoryListRows .story-select-row { flex-direction: column; align-items: flex-start; gap: 4px; padding: 10px 14px; }
+#subStoryListRows .story-select-no { min-width: 0; font-size: 11px; white-space: nowrap; }
+.substory-select-name { font-size: 15px; letter-spacing: 1px; }

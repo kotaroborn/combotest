@@ -6001,20 +6001,16 @@ async function submitGiftCode() {
 
 // ------- SUB STORY(一覧/閲覧) -------
 function openSubStoryList() {
+    // 2026-10-02: STORY選択と同じ見た目に。5話すべて並べ、見つけた話は「SUB STORY n  タイトル」で読める。まだの話は？？？で押せない
     const rows = document.getElementById('subStoryListRows');
-    rows.innerHTML = '';
-    unlockedSubStories.slice().sort((a, b) => a - b).forEach(idx => {
-        const enemyKey = ENEMY_ORDER[idx];
-        const sub = SUBSTORY_BY_ENEMY[enemyKey];
-        if (!sub) return;
-        const row = document.createElement('div');
-        row.className = 'option-row';
-        row.innerHTML = `<span class="option-label">${subStoryDisplayTitle(idx)}</span><button onclick="readSubStory(${idx})">読む</button>`;
-        rows.appendChild(row);
-    });
-    if (unlockedSubStories.length === 0) {
-        rows.innerHTML = '<p style="color:#888;">まだ何も解除されていません。</p>';
-    }
+    rows.innerHTML = ENEMY_ORDER.map((key, idx) => {
+        const sub = SUBSTORY_BY_ENEMY[key];
+        if (!sub) return '';
+        const ok = unlockedSubStories.includes(idx);
+        return `<button class="story-select-row${ok ? '' : ' locked'}" ${ok ? `onclick="readSubStory(${idx})"` : 'disabled'}>`
+            + `<span class="story-select-no">SUB STORY ${idx + 1}</span><span class="story-select-name substory-select-name">${ok ? sub.title : '？？？'}</span></button>`;
+    }).join('');
+    rows.classList.add('story-select-list');
     document.getElementById('subStoryOverlay').classList.add('show');
 }
 let subStoryToken = 0;
