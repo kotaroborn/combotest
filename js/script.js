@@ -2375,6 +2375,9 @@ async function playSubStoryEndScreen(characterName, enemyIdx) {
     document.getElementById('subStoryEndCharName').innerText = characterName;
     const textEl = document.getElementById('subStoryEndText');
     const imgEl = document.getElementById('subStoryEndImg');
+    // 2026-10-02: 絵の前に、真っ黒・無音の画面を1秒挟む(章タイトルと同じ。エピローグの曲もここでフェードアウトさせる)
+    fadeOutBGM(TITLE_CARD_TIMING.blackMs);
+    await wait(TITLE_CARD_TIMING.blackMs);
     const hasImg = enemyIdx >= 0 && await showApngIn(imgEl, `assets/images/cutscenes/substory/substory_end_${enemyIdx + 1}.PNG`);
     textEl.style.display = hasImg ? 'none' : '';
     imgEl.style.display = hasImg ? '' : 'none';
@@ -2416,7 +2419,7 @@ async function showApngIn(imgEl, url) {
 // 本編の章タイトルの文字(画像story_title_{n}.PNGが無い場合に出す)。文面はここだけ書き換えればよい
 const STORY_CHAPTER_TITLES = ['異世界の入り口', '廃墟の教会', '魔王城の門', '道化師の部屋', 'もうひとりのヴァル'];
 // タイトルカードは自動では進まず、タップで次へ進む(2026-10-02)
-const TITLE_CARD_TIMING = { fadeInMs: 500, fadeOutMs: 600, hintAfterMs: 1500 }; // hintAfterMs: タップを促す「▼」を出すまでの時間
+const TITLE_CARD_TIMING = { blackMs: 1000, fadeInMs: 500, fadeOutMs: 600, hintAfterMs: 1500 }; // blackMs: 絵とジングルの前に、黒い画面・無音で待つ時間(2026-10-02) // hintAfterMs: タップを促す「▼」を出すまでの時間
 let titleCardTapped = false;
 function onTitleCardTap() { titleCardTapped = true; }
 
@@ -2460,28 +2463,32 @@ async function playTitleCard({ imgUrl, textHtml, jingle, jingleFallback, isCance
     const img = document.getElementById('titleCardImg');
     const text = document.getElementById('titleCardText');
     const hint = document.getElementById('titleCardHint');
+    const t = TITLE_CARD_TIMING;
     stopBGM(); // 前の曲(タイトル画面・勝利後など)は止める
-    const blob = await loadApngBlob(imgUrl);
-    if (isCancelled()) return;
+    // 2026-10-02: 選んだ瞬間に決定音と絵・ジングルが重ならないよう、まず真っ黒・無音の画面をblackMsだけ挟む(その間に画像を読み込む)
+    hint.classList.remove('show');
+    img.style.display = 'none';
+    text.style.display = 'none';
+    ov.style.transition = 'none';
+    ov.style.opacity = '1';
+    ov.classList.add('show');
+    const [blob] = await Promise.all([loadApngBlob(imgUrl), rawWait(t.blackMs)]);
+    if (isCancelled()) { ov.classList.remove('show'); return; }
+    const content = blob ? img : text;
+    content.style.transition = 'none';
+    content.style.opacity = '0';
     if (blob) {
-        await showApngIn(img, imgUrl);
+        await showApngIn(img, imgUrl); // ここで読み込み直すので、APNGは黒い間ではなく表示した瞬間から動き出す
         img.style.display = '';
-        text.style.display = 'none';
     } else {
-        img.style.display = 'none';
         text.innerHTML = textHtml;
         text.style.display = '';
     }
-    const t = TITLE_CARD_TIMING;
-    titleCardTapped = false;
-    hint.classList.remove('show');
-    ov.style.transition = 'none';
-    ov.style.opacity = '0';
-    ov.classList.add('show');
+    titleCardTapped = false; // 黒い間のタップは数えない
     if (jingle) playJingle(jingle, jingleFallback);
     await rawWait(30);
-    ov.style.transition = `opacity ${t.fadeInMs}ms ease-in`;
-    ov.style.opacity = '1';
+    content.style.transition = `opacity ${t.fadeInMs}ms ease-in`;
+    content.style.opacity = '1';
     const start = performance.now();
     while (!titleCardTapped && !isCancelled()) {
         if (!hint.classList.contains('show') && performance.now() - start > t.hintAfterMs) hint.classList.add('show'); // 少し経ってから「▼」でタップを促す

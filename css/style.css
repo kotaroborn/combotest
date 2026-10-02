@@ -1118,6 +1118,10 @@
     display: none; flex-direction: column; align-items: center; justify-content: center; opacity: 0;
 }
 #titleCardOverlay.show { display: flex; }
+/* 章タイトル・SUB STORYタイトルのAPNG(1280×720、文字は中央付近だけ)は、画面幅より大きく出して左右の透明な余白を
+   画面の外へ逃がし、文字を大きく見せる(2026-10-02)。文字が画像の幅の約70%より外まで広がっていると切れるので注意 */
+#titleCardOverlay { overflow: hidden; }
+#titleCardImg.apng-card-img { max-width: none; max-height: none; width: 140%; flex: none; }
 #titleCardText { text-align: center; color: #fff; }
 .title-card-sub { font-size: 14px; font-weight: 900; letter-spacing: 6px; color: #ffd23c; margin-bottom: 10px; }
 .title-card-main { font-size: 26px; font-weight: 900; letter-spacing: 4px; }
