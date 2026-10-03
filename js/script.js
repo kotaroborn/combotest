@@ -381,6 +381,64 @@ const SOUND_TEST_TRACKS = [
     { name: 'se_win', label: 'SE: YOU WIN' },
 ];
 
+// ------- シード付き乱数(2026-10-03、オンライン対戦の準備・段階1。ONLINE_PLAN.md参照) -------
+// 対戦結果に関わる乱数は、Math.randomではなくここから取る。同じシードなら、どの端末でも全く同じ並びの乱数が出る。
+// 用途ごとに「系統」(stream)を分けている。例えば自分の山札をシャッフルした回数が端末ごとに違っても、
+// 出す枚数('hand')やピヨり・しびれの抽選('battle')の結果には影響しない(系統ごとに独立した乱数の列になる)。
+// 使っている系統: 'deckP' / 'deckE'(山札のシャッフル。Eはローカル対戦の2P側)、'hand'(毎ターン出す枚数)、
+//   'battle'(ガード成功時のピヨり、しびれの成否)、'selectP' / 'selectE'(キャラ選択の？の結果)、'stage'(ステージ抽選)
+// シードは全モードでバトル開始ごと(resetBattleState)とローカル対戦のキャラ選択画面に入る時(goVersusSelect)に決め直す。
+// 通常は毎回ランダムなシードなので、遊んだ感触は従来のMath.randomと変わらない。
+// RNG.nextSeedに値を入れておくと、次に決め直す時だけその値をシードに使う(オンライン対戦で両者のシードをそろえるため)。
+// ※Math.randomのまま残しているもの: CPUの手(weightedRandomMove。オンライン対戦では相手が人なので使わない)と、
+//   ルーレットの途中の動き・画面の揺れなど、結果に関わらない見た目だけの乱数。
+const RNG = {
+    seed: 0,       // 現在のシード(32bit整数)
+    streams: {},   // 系統ごとの乱数の内部状態
+    nextSeed: null // 次に決め直す時に使うシード(nullなら新しくランダムに作る)
+};
+// 文字列を32bitの値にする(FNV-1a)。系統名ごとに乱数の列をずらすのに使う
+function rngHashString(str) {
+    let h = 0x811c9dc5;
+    for (let i = 0; i < str.length; i++) {
+        h ^= str.charCodeAt(i);
+        h = Math.imul(h, 0x01000193);
+    }
+    return h >>> 0;
+}
+// 新しいシードをランダムに作る(使えればcrypto.getRandomValues、無ければMath.random)
+function rngFreshSeed() {
+    if (window.crypto && crypto.getRandomValues) return crypto.getRandomValues(new Uint32Array(1))[0];
+    return Math.floor(Math.random() * 4294967296) >>> 0;
+}
+// シードを指定して、全系統を最初からやり直す
+function rngSetSeed(seed) {
+    RNG.seed = seed >>> 0;
+    RNG.streams = {};
+}
+// シードを決め直す(RNG.nextSeedがあればそれを1回だけ使う)。決めたシードを返す
+function rngReseed() {
+    const seed = RNG.nextSeed !== null ? RNG.nextSeed : rngFreshSeed();
+    RNG.nextSeed = null;
+    rngSetSeed(seed);
+    return RNG.seed;
+}
+// 指定した系統の次の乱数(0以上1未満)。中身はmulberry32
+function rngNext(stream) {
+    let a = RNG.streams[stream];
+    if (a === undefined) a = Math.imul(RNG.seed ^ rngHashString(stream), 0x9e3779b1) >>> 0;
+    a = (a + 0x6D2B79F5) >>> 0;
+    RNG.streams[stream] = a;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+}
+// 指定した系統で、0以上n未満の整数
+function rngInt(stream, n) {
+    return Math.floor(rngNext(stream) * n);
+}
+
 // ------- セーブ/ロード(localStorage) -------
 // このゲームは単体のHTMLファイルとして配布する想定のため、通常のWebサイトと同様にlocalStorageを使用する。
 const SAVE_KEY = 'commandbattle_save_v1';
@@ -1287,20 +1345,21 @@ function markSpecialUsed(key, side) {
 // ============================================================
 // デッキ・山札システム
 // ============================================================
-function shuffleArray(arr) {
+// streamはシード付き乱数の系統名('deckP' / 'deckE')。RNG(設定・状態管理内)参照
+function shuffleArray(arr, stream) {
     for (let i = arr.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
+        const j = rngInt(stream, i + 1);
         [arr[i], arr[j]] = [arr[j], arr[i]];
     }
     return arr;
 }
 
-function buildDeckArray(counts) {
+function buildDeckArray(counts, stream) {
     const deck = [];
     for (let i = 0; i < counts.PUNCH; i++) deck.push('PUNCH');
     for (let i = 0; i < counts.UPPER; i++) deck.push('UPPER');
     for (let i = 0; i < counts.GUARD; i++) deck.push('GUARD');
-    return shuffleArray(deck);
+    return shuffleArray(deck, stream);
 }
 
 function drawCard() {
@@ -1335,7 +1394,7 @@ async function runDeckRefresh() {
     }
 
     // ここで実際に捨札を山へ戻す(配分比率は変わらない)
-    state.playerDeck = shuffleArray(state.playerDiscard.slice());
+    state.playerDeck = shuffleArray(state.playerDiscard.slice(), 'deckP');
     state.playerDiscard = [];
     const target = state.playerDeck.length;
 
@@ -3749,7 +3808,7 @@ function rollRequiredHandSize() {
     // ローカル対戦(VERSUS): 両者とも同じ枚数を出すため、2Pの手札枚数とも比べて少ない方に合わせる
     if (state.gameMode === 'versus') availableCount = Math.min(availableCount, versusState.hand2.filter(c => c !== null).length);
     const maxAllowed = Math.max(1, Math.min(5, availableCount)); // 万一0枚でも最低1にしておく安全策
-    state.requiredHandSize = 1 + Math.floor(Math.random() * maxAllowed);
+    state.requiredHandSize = 1 + rngInt('hand', maxAllowed);
 }
 
 function currentEnemyPreset() {
@@ -3919,6 +3978,7 @@ async function goBattleStart() {
 }
 
 function resetBattleState() {
+    rngReseed(); // シード付き乱数: バトルごとにシードを決め直す(山札のシャッフル等より前に行うこと)
     // 第13条: state自体は再定義せず、プロパティのみ初期値に戻す
     state.hpP = 100; state.hpE = 100;
     state.pTookDamage = false; // このバトルでプレイヤーが一度でもダメージを受けたか(PERFECT!!判定用、2026-09-30)
@@ -3991,7 +4051,7 @@ function resetBattleState() {
     } else {
         // BATTLE RUSHはデッキ編成を経由せず、VALの固定デッキ(7/7/7)を使う(能力は通常のプレイヤーのまま)
         const deckSource = state.gameMode === 'rush' ? RUSH_PLAYER_DECK : state.pPresetKey ? ENEMY_PRESETS[state.pPresetKey].deck : deckCounts;
-        state.playerDeck = buildDeckArray(deckSource);
+        state.playerDeck = buildDeckArray(deckSource, 'deckP');
         state.playerDiscard = [];
         state.playerHand = new Array(5).fill(null);
         for (let i = 0; i < 5; i++) state.playerHand[i] = drawCard();
@@ -4928,7 +4988,7 @@ async function runGuardSuccess(winner, loser, loserPoseOverride) {
     // ピヨり発動判定(DB.GUARD_PIYO_CHANCE、既定50%)。外れた場合はしびれフラグを立てず、
     // 敗者はこの後の演出でもダウン気味の姿勢(damage.PNG)やピヨり演出には移行せず、通常のブロック反応のまま
     // (toIdle()がstate.pNumbed/eNumbedを見て判定するため、次の攻防が始まる頃には自然に通常ポーズへ戻る)。
-    const guardPiyoTriggered = Math.random() < DB.GUARD_PIYO_CHANCE;
+    const guardPiyoTriggered = rngNext('battle') < DB.GUARD_PIYO_CHANCE;
     if (guardPiyoTriggered) {
         if (loser === 'P') state.pNumbed = true; else state.eNumbed = true; // 次のコマンドの成功率が1/2になる
     }
@@ -5365,7 +5425,7 @@ async function resolveExchange(pAct, eAct, cursor) {
         }
         if (state.numbSureSide === numbedSide) numbFailChance = 1; // PARRY!でピヨった側は、次の攻防で必ず負ける(2026-10-01)
         state.numbSureSide = null;
-        const numbFailed = Math.random() < numbFailChance; // 判定は初期位置(RETREAT_X、全く踏み込んでいない)のまま確定させる
+        const numbFailed = rngNext('battle') < numbFailChance; // 判定は初期位置(RETREAT_X、全く踏み込んでいない)のまま確定させる
         // ここでは踏み込まない(中央=ATTACK_Xへの接近は、runNumbFail/runNumbEscape側で
         // 点滅・シェイク等の「間」の演出を終えた直後、実際に攻撃が始まる/3すくみ判定へ進む直前まで遅らせる。
         // ここで先に詰めてしまうと、抽選後もしばらく攻撃側だけが相手のすぐ近くで待機して見えるため)。
@@ -6959,7 +7019,7 @@ function vsCountFilled(arr) {
 // ------- 2P側の山札・手札 -------
 function vsResetBattleSide2() {
     const preset = ENEMY_PRESETS[state.ePresetKey];
-    versusState.deck2 = buildDeckArray(preset.deck);
+    versusState.deck2 = buildDeckArray(preset.deck, 'deckE');
     versusState.discard2 = [];
     versusState.hand2 = new Array(5).fill(null);
     for (let i = 0; i < 5; i++) versusState.hand2[i] = vsDrawCard2();
@@ -7033,7 +7093,7 @@ async function vsRunDeckRefresh2() {
         deckEl.style.opacity = '1';
         await wait(75);
     }
-    versusState.deck2 = shuffleArray(versusState.discard2.slice());
+    versusState.deck2 = shuffleArray(versusState.discard2.slice(), 'deckE');
     versusState.discard2 = [];
     const target = versusState.deck2.length;
     const steps = 30;
@@ -7380,6 +7440,7 @@ function vsExitToTitle() {
 
 // ------- キャラ選択画面 -------
 function goVersusSelect() {
+    rngReseed(); // シード付き乱数: キャラ選択の？とステージ抽選用にシードを決め直す
     enterVersusLayout();
     versusState.phase = 'select';
     versusState.readyP = false;
@@ -7468,8 +7529,8 @@ async function vsRandomSelect(side) {
     const pool = VERSUS_CHARACTERS.filter(ch => vsCharUnlocked(ch)).map(ch => ch.key);
     if (pool.length === 0) return;
     versusState.rolling[side] = true;
-    const target = pool[Math.floor(Math.random() * pool.length)];
-    const steps = 14 + Math.floor(Math.random() * 4);
+    const target = pool[rngInt(side === 'P' ? 'selectP' : 'selectE', pool.length)]; // 結果はシード付き乱数で決める
+    const steps = 14 + Math.floor(Math.random() * 4); // 止まるまでの動き(見た目だけ)はMath.randomのまま
     let prev = side === 'P' ? versusState.selP : versusState.selE;
     for (let k = 0; k < steps; k++) {
         if (versusState.phase !== 'select') { versusState.rolling[side] = false; return; }
@@ -7503,7 +7564,7 @@ function vsToggleSelectReady(side) {
 async function vsStartFromSelect() {
     versusState.phase = 'starting';
     const stages = vsAvailableStages();
-    versusState.stageNum = stages[Math.floor(Math.random() * stages.length)];
+    versusState.stageNum = stages[rngInt('stage', stages.length)];
     document.getElementById('vsSelFight').classList.add('show');
     playSE('se_go');
     await rawWait(900);

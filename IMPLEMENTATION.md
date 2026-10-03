@@ -203,3 +203,11 @@ BGM/SEはWeb Audio API(`AudioContext`)で実装されている。`state.soundOn`
 - **表示**: TURN表示の位置に撃破数と経過タイム(手札が配られた瞬間から計測、倒れた瞬間/100人目撃破の瞬間に停止)。RESULTは`#rushResultOverlay`(撃破数・タイム・最大COMBO・自己ベスト`rushBest`とNEW RECORD、100人撃破時はCLEAR!!)。
 - **OPTION**: RETRYは1人目から再開、RETURN TO TITLEは進行状況に触れない短い確認文言。
 
+## 14. シード付き乱数(実装済み、2026-10-03追加。オンライン対戦の段階1、`ONLINE_PLAN.md`参照)
+
+- **目的**: 2台の端末で同じシード・同じ入力なら、全く同じ展開になるようにする(オンライン対戦で結果がズレないため)。
+- **仕組み**: `RNG`(設定・状態管理内)。中身はmulberry32。用途ごとに系統を分け(`rngNext('battle')`など)、系統ごとに独立した乱数の列になる。ある系統を何回使っても、他の系統の結果は変わらない。
+- **系統と用途**: `deckP` / `deckE`(山札のシャッフル。Eはローカル対戦の2P側)、`hand`(毎ターン出す枚数、`rollRequiredHandSize`)、`battle`(ガード成功時のピヨり抽選`runGuardSuccess`、しびれの成否`resolveExchange`)、`selectP` / `selectE`(LOCAL V.S.のキャラ選択の？の結果`vsRandomSelect`)、`stage`(LOCAL V.S.のステージ抽選`vsStartFromSelect`)。
+- **シードを決め直す時**: 全モードでバトル開始ごと(`resetBattleState`の先頭)と、LOCAL V.S.のキャラ選択画面に入る時(`goVersusSelect`)。通常は毎回ランダムなシード(`crypto.getRandomValues`)。`RNG.nextSeed`に値を入れておくと、次に決め直す時だけその値を使う(オンライン対戦でシードをそろえるための入口。まだ使っている箇所は無い)。
+- **`Math.random`のまま**: CPUの手(`weightedRandomMove`)、見た目だけの乱数(画面の揺れ`screenShake`、`pJit`/`eJit`、キャラ選択のルーレットの途中の動き)。
+

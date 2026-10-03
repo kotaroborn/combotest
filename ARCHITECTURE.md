@@ -19,6 +19,7 @@
 | `deckCounts` | 可変状態 | デッキ編成画面で編集中のPUNCH/UPPER/GUARD内訳。 |
 | `cardOutcomes` | 可変状態 | ターン中の各カードの勝敗表現(`card-lose`/`card-shatter`)。ターン終了時にリセット。 |
 | `trails` | 可変状態 | dash.PNGの残像座標リスト。 |
+| `RNG` | 可変状態 | シード付き乱数の状態(`seed` / 系統ごとの`streams` / 次回用の`nextSeed`)。関数は`rngHashString`, `rngFreshSeed`, `rngSetSeed`, `rngReseed`, `rngNext(系統)`, `rngInt(系統, n)`。対戦結果に関わる乱数はここから取る(2026-10-03、オンライン対戦の準備。`IMPLEMENTATION.md`「14. シード付き乱数」参照)。 |
 
 ### `state` プロパティ一覧
 
