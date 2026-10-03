@@ -1358,3 +1358,32 @@
 body.versus-layout #turnDisplay, body.versus-layout #vsTurn2 { font-size: 8px; }
 body.versus-layout .char-name, body.versus-layout .vs-name-rot { font-size: 7px; }
 
+
+/* ドット文字への統一・その2(2026-10-04、利用者の指示): LOCAL V.S.・ONLINE V.S.の画面と、すべてのボタン(OPTIONの中・RETRY/OK/CANCEL等の確認)。
+   ▶︎・×・＋−の記号だけのボタンは、ドット文字に無い記号なので通常のフォントのまま */
+button:not(.speed-toggle-btn):not(.deck-btn):not(.sound-test-play-btn):not(.popup-close):not(.vs-sel-back),
+.vs-sel-name, .vs-sel-badge, .vs-sel-deck, .vs-sel-tile-name, .vs-sel-vs, .vs-sel-random-mark, #vsSelFight,
+.vs-gate-title, .vs-gate-sub, .vs-result-text, .vs-result-score, .vs-deck-info, .vs-deck-refresh,
+.online-title, .online-label, .online-room-code, .online-waiting, .online-search-text, .online-score, .online-rival,
+.online-sel-timer, .online-gate-timer, .online-fight-text, .online-fight-names, #onlineStatus, #onlineTimer, #onlineRivalCard,
+.online-name-label, .online-name-input, .online-code-input, .online-my-record, .online-card-title, .online-or, .online-msg-big {
+    font-family: var(--pixel-font); font-weight: normal; font-style: normal;
+}
+button:not(.speed-toggle-btn):not(.deck-btn):not(.sound-test-play-btn):not(.popup-close):not(.vs-sel-back) { letter-spacing: 1px; }
+/* ドット文字は横幅が広いので、大きい文字・長いボタンは小さめにする(2026-10-04) */
+.online-room-code { font-size: 44px; letter-spacing: 8px; padding-left: 8px; }
+.online-search-text { font-size: 12px; letter-spacing: 1px; }
+.online-title { font-size: 15px; letter-spacing: 2px; }
+.online-fight-text { font-size: 40px; letter-spacing: 2px; }
+.online-fight-names { font-size: 11px; letter-spacing: 1px; }
+.vs-result-text { font-size: 30px; letter-spacing: 1px; }
+.vs-result-score { font-size: 10px; letter-spacing: 1px; line-height: 1.8; }
+#vsSelFight { font-size: 40px; letter-spacing: 2px; }
+.howto-footer button { font-size: 10px; letter-spacing: 0; }
+.online-main-btn, .vs-ready-btn { font-size: 13px; }
+.online-join-row .online-join-btn { font-size: 12px; }
+.vs-sub-btn { font-size: 10px; }
+.online-rival, .online-score { font-size: 10px; letter-spacing: 1px; }
+.vs-sel-tile-name { font-size: 7px; letter-spacing: 0; }
+.online-join-row .online-code-input { font-size: 15px; letter-spacing: 4px; padding-left: 4px; }
+.howto-footer button { font-size: 8px; }
