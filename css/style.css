@@ -1309,3 +1309,52 @@
     display: flex; flex-direction: column; align-items: center; justify-content: center;
     position: absolute; inset: 0; z-index: 30; background: rgba(0,0,0,0.88);
 }
+
+/* ============================================================
+   ドット文字(Press Start 2P)への統一(2026-10-04、利用者の指示)
+   BATTLE RUSHの回復表示(HP +5)と同じフォントを、メニュー・ボタン・バトル画面の英数字・見出しに使う。
+   日本語はこのフォントに無いので、自動で通常のフォントになる。ドット文字は太字にすると潰れるので太さは標準にし、
+   横幅が広いぶん文字を小さめ・文字間を狭めにしている
+   ============================================================ */
+:root { --pixel-font: 'Press Start 2P', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', sans-serif; }
+#titleContinueBtn, #startBtn, #trainingBtn, #versusBtn, #onlineBtn, #rushBtn, #optionBtn, #bonusContentsBtn,
+.logo-main, .logo-sub, .howto-btn, #goBtn, #clrBtn,
+.deck-title, .deck-label, .deck-count, #deckTotalText, #deckConfirmBtn,
+#turnDisplay, #turnStageLabel, .char-name, .vs-name-rot, #vsTurn2,
+#deckInfo, #deckRefreshLabel, #requiredHandSizeLabel, .vs-required-label,
+#skipBtn, #skipStoryBtn, #subStoryReadSkipBtn,
+.howto-content h2, .records-section-title {
+    font-family: var(--pixel-font); font-weight: normal;
+}
+/* タイトルのメニュー */
+#titleContinueBtn, #startBtn, #trainingBtn, #versusBtn, #onlineBtn, #rushBtn, #optionBtn, #bonusContentsBtn { font-size: 11px; letter-spacing: 2px; }
+/* ロゴ(画像が無い時の文字) */
+.logo-main { font-size: 16px; letter-spacing: 2px; }
+.logo-sub { font-size: 9px; letter-spacing: 4px; margin-top: 10px; }
+/* HOW TO / OPTION / 2倍速 / CANCEL / GO! */
+.howto-btn { font-size: 8px; line-height: 1.6; }
+.speed-toggle-btn { font-family: sans-serif; font-size: 16px; } /* ▶︎の記号はドット文字に無いので通常のフォント */
+#goBtn { font-size: 14px; letter-spacing: 1px; }
+#clrBtn { font-size: 9px; }
+/* デッキ編成 */
+.deck-title { color: #ccc; font-size: 14px; letter-spacing: 2px; }
+.deck-label { font-size: 11px; width: 74px; letter-spacing: 0; }
+.deck-count { font-size: 15px; }
+#deckTotalText { font-size: 11px; letter-spacing: 1px; }
+#deckConfirmBtn { font-size: 14px; letter-spacing: 3px; }
+/* バトル画面の上(TURN・ステージ・名前) */
+#turnDisplay { font-size: 10px; line-height: 1.5; }
+#turnStageLabel { font-size: 6px; letter-spacing: 0; line-height: 1.6; }
+.char-name { font-size: 8px; letter-spacing: 0; line-height: 1.8; }
+/* バトル画面の下(山札の残り・Refresh・出す枚数の指示) */
+#deckInfo, #deckRefreshLabel { font-size: 8px; }
+#requiredHandSizeLabel { font-size: 9px; letter-spacing: 0; line-height: 1.6; }
+/* SKIP */
+#skipBtn, #skipStoryBtn, #subStoryReadSkipBtn { font-size: 10px; }
+/* OPTION・HOW TO等の見出し */
+.howto-content h2 { font-size: 13px; letter-spacing: 1px; line-height: 1.4; }
+.records-section-title { font-size: 9px; letter-spacing: 1px; line-height: 1.5; }
+.records-section-sub { font-family: var(--pixel-font); font-size: 9px; }
+body.versus-layout #turnDisplay, body.versus-layout #vsTurn2 { font-size: 8px; }
+body.versus-layout .char-name, body.versus-layout .vs-name-rot { font-size: 7px; }
+

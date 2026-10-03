@@ -17,7 +17,7 @@
     <meta property="og:image:height" content="630">
     <meta property="og:locale" content="ja_JP">
     <meta name="twitter:card" content="summary_large_image">
-    <link rel="stylesheet" href="css/style.min.css?v=233"> <!-- 配信用の軽量版。編集はcss/style.cssで行い、tools/build.shで作り直す(2026-10-02) -->
+    <link rel="stylesheet" href="css/style.min.css?v=234"> <!-- 配信用の軽量版。編集はcss/style.cssで行い、tools/build.shで作り直す(2026-10-02) -->
 
     <!-- 技名ポップ用の8bit風フォント(Press Start 2P、SIL OFL。2026-10-03に手書き風Permanent Markerから変更)。
          ゲームに同梱し(assets/fonts/)、ネット環境に左右されず表示する。canvasで使うため先読みしておく -->
@@ -116,13 +116,13 @@
     <button id="optionBtn" class="text-btn" onclick="openOption()" disabled>OPTION</button>
     <button class="howto-btn howto-corner" onclick="openHowTo()">HOW<br>TO</button>
     <div class="title-copyright">©BORN MAGAZINE 2026</div>
-    <div class="title-version">ver. 0.9.233</div> <!-- 2026-10-03: ロゴ直下から、画面下の中央(©表記と同じ高さ)へ移動 -->
+    <div class="title-version">ver. 0.9.234</div> <!-- 2026-10-03: ロゴ直下から、画面下の中央(©表記と同じ高さ)へ移動 -->
 </div>
 
 <!-- デッキ編成シーン: 21枚固定・内訳自由 -->
 <div id="sceneDeck" class="scene">
     <div class="scene-inner" style="justify-content:flex-start; padding-top:14%; gap:20px;">
-        <p class="prologue-text">デッキ編成（合計21枚）</p>
+        <p class="prologue-text deck-title">DECK BUILD</p> <!-- 2026-10-04: 「デッキ編成（合計21枚）」から変更 -->
         <div class="deck-row">
             <img class="deck-card-icon" src="assets/images/cards/card_P.PNG" alt="" onerror="this.style.visibility='hidden';">
             <span class="deck-label">PUNCH</span>
@@ -144,7 +144,7 @@
             <span class="deck-count" id="deckCountGUARD">7</span>
             <button class="deck-btn" onclick="adjustDeck('GUARD',1)">＋</button>
         </div>
-        <p id="deckTotalText">合計 21 / 21</p>
+        <p id="deckTotalText">TOTAL 21/21</p>
     </div>
     <button id="deckConfirmBtn" class="text-btn" onclick="tapFlickerThen(this, () => goBattleStart())">FIGHT</button>
     <button class="howto-btn howto-corner" onclick="openHowTo()">HOW<br>TO</button>
@@ -810,7 +810,7 @@
 (function() {
     // 配信用の軽量版(コメント・空白を除いたもの)。編集はjs/script.jsで行い、tools/build.shで作り直す(2026-10-02)。
     // ?v=はバージョン(.title-versionの末尾3桁)と同じ番号にし、更新のたびに上げる(古いものがキャッシュに残らないように)
-    var SCRIPT_URL = 'js/script.min.js?v=233';
+    var SCRIPT_URL = 'js/script.min.js?v=234';
     var bar = document.getElementById('nowLoadingBar');
     var percentEl = document.getElementById('nowLoadingPercent');
     var settled = false; // フォールバック(タイムアウト)と正常読み込みの、どちらか一方だけが実行されるようにするためのフラグ

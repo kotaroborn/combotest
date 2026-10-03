@@ -216,6 +216,7 @@ let onlineUnlocked = false; // 旧: ONLINE V.S.のGIFT CODEで解放したか(20
 // このフラグはデバッグ解放ブロック・旧セーブデータ用に残すだけ(GIFT CODEは廃止)
 // 解放の知らせを一度出したか(2026-10-04): ONLINE V.S.(STORY 1でNoahに勝った時)、BATTLE RUSH(STORYクリア後のタイトル)、SOUND TEST(BATTLE RUSHのRESULT直後)
 let onlineUnlockAnnounced = false, rushUnlockAnnounced = false, soundTestAnnounced = false;
+let debugAllUnlocked = false; // デバッグ用GIFT CODE(BONUS全解放)を使ったか(2026-10-04、セーブ対象)。SOUND TESTの解放にだけ使う
 let onlineWins = 0; // ONLINE V.S.の通算勝利数(2026-10-03追加、セーブ対象)
 let onlineLosses = 0; // ONLINE V.S.の通算敗北数(2026-10-03追加、セーブ対象。これより前の負けは数えていない)
 let onlineName = null; // ONLINE V.S.で相手に見せる名前(英大文字・数字の4文字、2026-10-03に数字も可にした)。初めて使う時にランダムで決める(2026-10-03追加、セーブ対象)
@@ -1330,6 +1331,7 @@ function applySaveDataOnBoot() {
     if (typeof save.onlineUnlockAnnounced === 'boolean') onlineUnlockAnnounced = save.onlineUnlockAnnounced;
     if (typeof save.rushUnlockAnnounced === 'boolean') rushUnlockAnnounced = save.rushUnlockAnnounced;
     if (typeof save.soundTestAnnounced === 'boolean') soundTestAnnounced = save.soundTestAnnounced;
+    if (typeof save.debugAllUnlocked === 'boolean') debugAllUnlocked = save.debugAllUnlocked;
     if (save.tutorialSeen) tutorialSeen = { deck: !!save.tutorialSeen.deck, battle: !!save.tutorialSeen.battle, extra: !!save.tutorialSeen.extra };
     if (typeof save.perfectWins === 'number') perfectWins = save.perfectWins;
     if (save.rushBest25 && typeof save.rushBest25 === 'object') { // 2026-09-30: 25人制に変わったため、100人制時代の記録(rushBest)は引き継がない
@@ -1453,7 +1455,7 @@ function updateDeckBuildUI() {
     document.getElementById('deckCountUPPER').innerText = deckCounts.UPPER;
     document.getElementById('deckCountGUARD').innerText = deckCounts.GUARD;
     const total = deckCounts.PUNCH + deckCounts.UPPER + deckCounts.GUARD;
-    document.getElementById('deckTotalText').innerText = `合計 ${total} / ${DB.DECK_TOTAL}`;
+    document.getElementById('deckTotalText').innerText = `TOTAL ${total}/${DB.DECK_TOTAL}`; // 2026-10-04: 英語表記に
     document.getElementById('deckConfirmBtn').disabled = (total !== DB.DECK_TOTAL);
 }
 
@@ -1911,7 +1913,7 @@ function announceOnlineUnlock() {
 function onlineAvailable() { return onlineUnlocked || gameClearedOnce || isEnemyDefeated(0); }
 function rushAvailable() { return rushUnlocked || gameClearedOnce; }
 function rushClearedOnce() { return rushBest.clearTimeMs !== null || (rushBest.kills || 0) >= RUSH_TOTAL; }
-function soundTestAvailableNow() { return rushClearedOnce(); }
+function soundTestAvailableNow() { return rushClearedOnce() || debugAllUnlocked; }
 // ONLINE V.S.ボタンの表示(STORY 1クリアで解放、2026-10-04)
 function updateOnlineButtonVisibility() {
     const btn = document.getElementById('onlineBtn');
@@ -6049,12 +6051,13 @@ function closeBonusResetConfirm() { document.getElementById('bonusResetConfirmPa
 function doResetAllBonus() {
     gameClearedOnce = false;
     soundTestUnlocked = false; // 旧セーブデータ互換の解除フラグも一緒に戻す
+    debugAllUnlocked = false; // デバッグ用GIFT CODEで開けたSOUND TESTも戻す(2026-10-04)
     unlockedSubStories = [];
     unlockedSkins = [];
     redeemedGiftCodes = []; // GIFT CODEの使用履歴も戻す(再度同じコードを入力できるようにする)
     selectedSkin = null;
     battleSpeedX2 = false; // SPEED設定も初期状態(通常速度)に戻す
-    writeSaveData({ gameClearedOnce, soundTestUnlocked, unlockedSubStories, unlockedSkins, redeemedGiftCodes, selectedSkin, battleSpeedX2 });
+    writeSaveData({ gameClearedOnce, soundTestUnlocked, debugAllUnlocked, unlockedSubStories, unlockedSkins, redeemedGiftCodes, selectedSkin, battleSpeedX2 });
     closeBonusResetConfirm();
     closeAllBonus(); // リセット後は表示する内容が無くなるため、BONUS関連のポップアップを一括で閉じる
 }
@@ -6145,11 +6148,15 @@ const GIFT_CODE_PBKDF2_ITER = 150000;
 // submitGiftCode側でこの値かどうかを見て、コスチューム解放とは別の専用処理に分岐する。
 const GIFT_CODE_VERSUS_REWARD = 'unlock_versus';
 const GIFT_CODE_RUSH_REWARD = 'unlock_rush';
+// デバッグ用(2026-10-04): BONUS全解放。デバッグ解放ブロックと同じものを解放する(友人テスト等で、本番版でも全部見られるように)。
+// SOUND TESTはBATTLE RUSHクリアが条件のため、記録を作らずに見られるよう専用のフラグ(debugAllUnlocked)で開ける
+const GIFT_CODE_ALL_REWARD = 'debug_all';
 // PBKDF2値(16進) → 報酬
 const GIFT_CODE_HASHES = {
     '8a1cc7fe3be521332e30b87dd716f2b23ce952dc15df2bb46ae93fd19dcf775c': 'mifune',               // MIFUNEコスチューム
     '0ed3577057a45b7eca95cb92ffd8de9e86661241827f4a676c57215ca77ade3c': GIFT_CODE_VERSUS_REWARD, // LOCAL V.S.解放
     '75c11927e586db4af6e3352382cde7af57d49676fdad0b1787b3d9993fdf3c51': GIFT_CODE_RUSH_REWARD,   // BATTLE RUSH解放
+    '95fedae3c4edfd1b0bb7bf2b777d9897aec45714756e3e51acafafd2ef3b81f8': GIFT_CODE_ALL_REWARD,    // デバッグ用: BONUS全解放(2026-10-04)
     // ONLINE V.S.のコードは2026-10-04に廃止(STORY 1クリアで解放するようにしたため。入力すると無効なコード)
 };
 function normalizeGiftCode(raw) {
@@ -6210,6 +6217,28 @@ async function submitGiftCode() {
     }
     redeemedGiftCodes.push(code);
     writeSaveData({ redeemedGiftCodes });
+    if (reward === GIFT_CODE_ALL_REWARD) {
+        // デバッグ用のBONUS全解放(2026-10-04)。デバッグ解放ブロックと同じ内容+SOUND TEST
+        gameClearedOnce = true;
+        unlockedSubStories = [0, 1, 2, 3, 4];
+        ['enemy_1', 'enemy_2', 'enemy_3', 'enemy_4', 'enemy_5', 'mifune'].forEach(s => { if (!unlockedSkins.includes(s)) unlockedSkins.push(s); });
+        versusUnlocked = true;
+        rushUnlocked = true;
+        debugAllUnlocked = true;
+        // 個別の解放の知らせは出さず、ここでまとめて1回だけ知らせる
+        onlineUnlockAnnounced = rushUnlockAnnounced = soundTestAnnounced = true;
+        writeSaveData({ gameClearedOnce, unlockedSubStories, unlockedSkins, versusUnlocked, rushUnlocked, debugAllUnlocked,
+            onlineUnlockAnnounced, rushUnlockAnnounced, soundTestAnnounced });
+        updateVersusButtonVisibility();
+        updateRushButtonVisibility();
+        updateOnlineButtonVisibility();
+        updateBonusContentsUI();
+        checkUnlockAnnouncements();
+        closeGiftCodeInput();
+        updateOptionUI();
+        showUnlockToast({ small: 'DEBUG', large: 'ALL BONUS 解放！' });
+        return;
+    }
     if (reward === GIFT_CODE_RUSH_REWARD) {
         // BATTLE RUSH解放コード。VERSUSと同じく、コスチューム解放処理には進まずここで完結させる。
         const alreadyUnlocked = rushAvailable(); // STORYクリア済みなら、もう解放されている

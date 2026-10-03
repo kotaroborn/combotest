@@ -154,6 +154,10 @@ localStorage(キー: `commandbattle_save_v1`)に以下の値が保存され、�
 - **COSTUME**: `costumeSelectionAvailable()`で解放判定(`gameClearedOnce`で敵1〜5の見た目`enemy_1`〜`enemy_5`が全解放、またはGIFT CODE等の追加コスチュームを1つでも持っていれば表示される)。選ぶとプレイヤーキャラの見た目が対応する敵のグラフィックセットに変わる(`selectCostume`)。`enemy_N`形式でない追加コスチューム(例: GIFT CODEで解放する`mifune`)は`EXTRA_COSTUME_LABELS`で表示名を、`COSTUME_ASSET_FOLDER`で流用する画像フォルダを指定する(`mifune`は`training`セットの画像を流用)。EXTRA BATTLE・VERSUS中はCOSTUME変更不可(借りているキャラの見た目を上書きしないため)。
 - **SPEED(バトル2倍速)**: `gameClearedOnce`で解放。BONUS CONTENTS内のSPEED行、およびバトル画面操作列のボタン、どちらからでも切り替えられ、常に両方の表示が同期する(`setBattleSpeed`/`toggleBattleSpeed`/`updateSpeedUI`)。実際の速度反映は演出の`wait()`側で行う(ダメージ計算等のゲームルールには影響しない、演出専用の設定)。
 
+## 8.6 文字(フォント)(2026-10-04)
+
+メニュー・ボタン・バトル画面の英数字・見出しは、ドット文字(Press Start 2P、`assets/fonts/`に同梱。BATTLE RUSHの回復表示・ワザ名と同じ)。対象は`css/style.css`の末尾「ドット文字への統一」の節にまとめてある(タイトルのメニュー、ロゴの文字、HOW TO/OPTION/CANCEL/GO!、デッキ編成画面、TURN・ステージ・名前、山札の残り・Refresh・出す枚数の指示、SKIP、ポップアップの見出し)。日本語はこのフォントに無いので通常のフォントで出る。2倍速ボタンの▶︎はドット文字に無いので通常のフォント。デッキ編成画面の見出しは「DECK BUILD」、合計は「TOTAL 21/21」。
+
 ## 8.5 解放条件のまとめ(2026-10-04に整理、利用者の指示)
 
 | 項目 | 条件 | 知らせ |
@@ -175,6 +179,7 @@ localStorage(キー: `commandbattle_save_v1`)に以下の値が保存され、�
 
 - **照合方式(2026-09-28〜)**: 発行済みのコードそのものはソースに置かず、PBKDF2(SHA-256、ソルト`GIFT_CODE_PBKDF2_SALT`、`GIFT_CODE_PBKDF2_ITER`回)で変換した値だけを`GIFT_CODE_HASHES`に持つ。入力されたコードを同じ方法で変換し、一致したものだけ有効(`giftCodeReward`)。通信不要でオフライン完結。ブラウザ標準の`crypto.subtle`を使うため、https(itch.io/GitHub Pages)やlocalhostで動作し、使えない環境では「この環境ではコードを確認できません」と表示する。
 - 以前の「計算式(チェックサム)に合う文字列ならどれでも有効」方式はソースから有効コードを作れてしまうため廃止した。登録済みの3コード以外は無効。
+- デバッグ用(2026-10-04): BONUS全解放(`GIFT_CODE_ALL_REWARD`)。デバッグ解放ブロックと同じもの(STORYクリア扱い・SUB STORY全部・COSTUME全部+MIFUNE・LOCAL V.S.・BATTLE RUSH)と、SOUND TEST(`debugAllUnlocked`。BATTLE RUSHの記録は作らない)を開ける。BONUS ALLリセットで戻る。
 - 登録済みの報酬: MIFUNEコスチューム(`'mifune'`)、LOCAL V.S.解放(`GIFT_CODE_VERSUS_REWARD`)、BATTLE RUSH解放(`GIFT_CODE_RUSH_REWARD`、2026-10-04からはSTORYクリア前の先行解放)。ONLINE V.S.のコードは2026-10-04に廃止。コードの平文はリポジトリ・ドキュメントに書かない。
 - コードの追加手順: コードを決める → 同じソルト・回数でPBKDF2値を計算(例: Node.jsで`crypto.pbkdf2Sync(code, 'CLASH5-GIFT-2026', 150000, 32, 'sha256').toString('hex')`) → `GIFT_CODE_HASHES`に1行追加。
 - 同じコードは`redeemedGiftCodes`に記録され、二度使用できない。コスチューム系のコードを入力すると対応するコスチュームが`unlockedSkins`に追加され、COSTUME選択・BONUS CONTENTS解放トースト(初回のみ)につながる。モード解放コードの場合は`versusUnlocked`/`rushUnlocked`を保存し、タイトルのボタンを即座に表示する。
