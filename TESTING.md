@@ -135,4 +135,8 @@
 - [ ] ロビー・部屋の相手待ち・ランダムマッチの検索中・キャラ選択の左下に、HOW TOとOPTIONが出ている(画面の他のボタン・文字と重ならない)。HOW TOに「HOW TO ONLINE V.S.」の欄がある。OPTIONにRETURN TO TITLEが出ない(バトル中のOPTIONには出る)
 - [ ] FRIEND MATCH(CREATE ROOM・JOIN ROOM)で勝っても負けても、途中で抜けても、RECORDSの勝敗は変わらない(RANDOM MATCHの時だけ変わる)。RECORDSの見出しは「n WIN  n LOSE」で、欄を開くと数え方の注意が出る。HOW TOに※注意がある
 - [ ] 相手が、自分がSTORY MODEでまだ勝っていないキャラを選ぶと、FIGHT!とバトル中の名前が「？？？」になる(本番版で確認。今はデバッグ解放ブロックで全員解放されているため出ない)
+- [ ] ONLINE V.S.のバトルでは2倍速のボタンが出ない(STORY MODE等では出る)
+- [ ] キャラ選択に「TIME 30」が出て減っていく。30秒何もしないと、ランダムなキャラでREADYになる
+- [ ] 決着画面に「TIME 30」が出て、30秒REMATCHを押さないとONLINE V.S.の最初の画面に戻る(相手側はRIVAL LEFT)
+- [ ] 対戦中に片方がブラウザを裏にしたまま放置すると、もう片方は50秒ほどで「YOU WIN / RIVAL LEFT」になる。放置した側が戻ると「DISCONNECTED」(RANDOM MATCHなら負けが1増える)
 - [ ] VS CPUでは名前・勝敗が出ず、勝っても負けてもRECORDSの勝敗数は変わらない

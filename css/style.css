@@ -1237,6 +1237,10 @@
 .online-score { font-size: 12px; font-weight: 900; letter-spacing: 2px; color: #ccc; }
 .online-rival { font-size: 12px; font-weight: 900; letter-spacing: 2px; color: #8cc6ff; }
 .online-rival.ready { color: #ffd23c; }
+/* キャラ選択・決着画面の残り時間(2026-10-04) */
+.online-sel-timer, .online-gate-timer { min-height: 1.4em; font-size: 12px; font-weight: 900; letter-spacing: 2px; color: #fff; font-variant-numeric: tabular-nums; }
+.online-gate-timer { margin-top: 10px; }
+.online-sel-timer.hurry, .online-gate-timer.hurry { color: #ff5a5a; }
 /* 名前と勝敗(2026-10-03) */
 .online-rival { text-align: center; line-height: 1.6; }
 .online-rival-who { color: #fff; }

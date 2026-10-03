@@ -17,7 +17,7 @@
     <meta property="og:image:height" content="630">
     <meta property="og:locale" content="ja_JP">
     <meta name="twitter:card" content="summary_large_image">
-    <link rel="stylesheet" href="css/style.min.css?v=231"> <!-- 配信用の軽量版。編集はcss/style.cssで行い、tools/build.shで作り直す(2026-10-02) -->
+    <link rel="stylesheet" href="css/style.min.css?v=232"> <!-- 配信用の軽量版。編集はcss/style.cssで行い、tools/build.shで作り直す(2026-10-02) -->
 
     <!-- 技名ポップ用の8bit風フォント(Press Start 2P、SIL OFL。2026-10-03に手書き風Permanent Markerから変更)。
          ゲームに同梱し(assets/fonts/)、ネット環境に左右されず表示する。canvasで使うため先読みしておく -->
@@ -116,7 +116,7 @@
     <button id="optionBtn" class="text-btn" onclick="openOption()" disabled>OPTION</button>
     <button class="howto-btn howto-corner" onclick="openHowTo()">HOW<br>TO</button>
     <div class="title-copyright">©BORN MAGAZINE 2026</div>
-    <div class="title-version">ver. 0.9.231</div> <!-- 2026-10-03: ロゴ直下から、画面下の中央(©表記と同じ高さ)へ移動 -->
+    <div class="title-version">ver. 0.9.232</div> <!-- 2026-10-03: ロゴ直下から、画面下の中央(©表記と同じ高さ)へ移動 -->
 </div>
 
 <!-- デッキ編成シーン: 21枚固定・内訳自由 -->
@@ -228,6 +228,7 @@
     </div>
     <div id="onPanelSelect" class="online-panel">
         <div id="onScore" class="online-score"></div>
+        <div id="onSelTimer" class="online-sel-timer"></div> <!-- キャラ選択の残り時間(2026-10-04) -->
         <div class="vs-sel-head"><span class="vs-sel-badge">YOU</span><span class="vs-sel-name" id="onSelName"></span></div>
         <div class="vs-sel-deck" id="onSelDeck"></div>
         <div class="vs-sel-grid" id="onSelGrid"></div>
@@ -532,6 +533,9 @@
             ・対戦中に相手の名前をタップすると、相手の勝敗が見られます。<br>
             ・CREATE ROOMで出る4桁の番号を友だちに伝えると、友だちはJOIN ROOMでその部屋に入れます。<br>
             ・1ターンの制限時間は30秒です。時間切れになると、足りない枚数のカードが手札から自動で出されます。<br>
+            ・キャラクター選択も30秒です。時間切れになるとランダムで決まります。決着後、30秒REMATCHを押さないとONLINE V.S.の最初の画面に戻ります。<br>
+            ・相手が時間を過ぎても戻ってこない時は、相手が抜けたとみなされ、あなたの勝ちになります。<br>
+            ・ONLINE V.S.ではバトルスピード(2倍速)は使えません。<br>
             ・対戦中に通信が切れたまま戻らない時や、タイトルに戻った・ページを閉じた時は、相手の勝ちになります（RANDOM MATCHでは、あなたの負けとして記録されます）。<br>
             ・キャラクター・ステージはローカルバーサスモードと同じです。<br>
             ・RECORDには勝利数・敗北数だけが記録されます。</p>
@@ -806,7 +810,7 @@
 (function() {
     // 配信用の軽量版(コメント・空白を除いたもの)。編集はjs/script.jsで行い、tools/build.shで作り直す(2026-10-02)。
     // ?v=はバージョン(.title-versionの末尾3桁)と同じ番号にし、更新のたびに上げる(古いものがキャッシュに残らないように)
-    var SCRIPT_URL = 'js/script.min.js?v=231';
+    var SCRIPT_URL = 'js/script.min.js?v=232';
     var bar = document.getElementById('nowLoadingBar');
     var percentEl = document.getElementById('nowLoadingPercent');
     var settled = false; // フォールバック(タイムアウト)と正常読み込みの、どちらか一方だけが実行されるようにするためのフラグ

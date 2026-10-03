@@ -4583,7 +4583,7 @@ function healBothToFull() {
 // バトル中(GO!を押してからターン解決が終わるまで、state.resolvingがtrueの間)のみ、2倍速設定を反映する。
 // プロローグ/ストーリー/タイトル演出等、バトル以外のシーンはこの関数を使っていても速度が変わらない。
 function wait(ms) {
-    const scaledMs = (battleSpeedX2 && state.resolving && state.gameMode !== 'rush') ? ms / 2 : ms; // BATTLE RUSHは2倍速を使えない
+    const scaledMs = (battleSpeedX2 && state.resolving && state.gameMode !== 'rush' && state.gameMode !== 'online') ? ms / 2 : ms; // BATTLE RUSH・ONLINE V.S.は2倍速を使えない(オンラインは2026-10-04)
     return new Promise(r => setTimeout(r, scaledMs));
 }
 
@@ -5973,7 +5973,7 @@ function updateSpeedUI() {
     const unlocked = gameClearedOnce;
     const battleBtn = document.getElementById('speedToggleBtn');
     if (battleBtn) {
-        battleBtn.style.visibility = (unlocked && state.gameMode !== 'rush') ? 'visible' : 'hidden'; // BATTLE RUSHでは2倍速を使えないためボタンを隠す
+        battleBtn.style.visibility = (unlocked && state.gameMode !== 'rush' && state.gameMode !== 'online') ? 'visible' : 'hidden'; // BATTLE RUSH・ONLINE V.S.(2026-10-04)では2倍速を使えないためボタンを隠す
         battleBtn.innerText = battleSpeedX2 ? '▶︎▶︎' : '▶︎';
         battleBtn.classList.toggle('speed-active', battleSpeedX2);
     }
@@ -7747,6 +7747,11 @@ const ONLINE_NAME_NG3 = ['FAG', 'FUK', 'FCK', 'KYS', 'SEX', 'CUM', 'NGR', 'ASS',
 // 入力の制限時間(段階4)。時間切れなら、手札から足りない枚数を自動で出して送る(CPU戦では使わない)
 const ONLINE_INPUT_LIMIT_MS = 30000;
 const ONLINE_INPUT_HURRY_SEC = 10; // 残りがこの秒数以下になったら、残り時間の表示を赤くする
+// 相手が時間内に来ない時(2026-10-04): 相手の端末の締め切り(30秒)にこの猶予を足しても相手の手(またはREADY)が届かなければ、
+// 相手が抜けたとみなす(タブを裏にしたまま放置・改造等で、こちらが待たされ続けないように)。抜けた側は戻った時に負けが付く
+const ONLINE_RIVAL_GRACE_MS = 20000;
+const ONLINE_SELECT_LIMIT_MS = 30000; // キャラ選択の制限時間。時間切れならランダムで決めてREADYにする(2026-10-04)
+const ONLINE_RESULT_LIMIT_MS = 30000; // 決着画面の制限時間。REMATCHを押さなければONLINE V.S.の画面(ロビー)へ戻る(2026-10-04)
 // ランダムマッチ(段階3)
 const ONLINE_SEARCH_CPU_PROMPT_MS = 30000; // この時間相手が見つからなければ「VS CPU / KEEP SEARCHING」を出す
 const ONLINE_QUEUE_REFRESH_MS = 20000;     // 待っている間、この間隔で待合室を見直す(自分の欄のtを新しくし、後から来た人がいれば組む)
@@ -7795,7 +7800,9 @@ let onlineState = {
     // 入力の制限時間(段階4)
     inputTimer: null,    // 残り時間の表示を更新するタイマー
     inputDeadline: 0,    // このターンの入力の締め切り時刻
-    timeUp: false        // このターンは時間切れで自動的に出したか
+    timeUp: false,       // このターンは時間切れで自動的に出したか
+    // キャラ選択・決着画面の制限時間、相手待ちの打ち切り(2026-10-04)。onlineStartCountdown/onlineStopCountdownで使う
+    countdowns: {}       // { select | result | rival: { timer, deadline } }
 };
 
 // ------- 通信部分(差し替え可能) -------
@@ -8372,6 +8379,7 @@ function onlineCancelHost() {
 function onlineLeave() {
     // 人との対戦の途中で抜けた(OPTIONのRETURN TO TITLE等): 相手の端末では相手の勝ちになるので、自分には負けを付ける
     onlineCloseMatch(onlineInBattle() && onlineState.code && !onlineState.oppLeft ? 'loss' : null);
+    onlineStopAllCountdowns(); // キャラ選択・決着画面の制限時間、相手待ちの打ち切り
     onlineStopSearch(); // ランダムマッチで待合室にいれば、待合室からも抜ける
     onlineState.cpu = false;
     onlineState.random = false;
@@ -8777,7 +8785,7 @@ async function onlineProcessOnce() {
     // 自分の通信が切れている間に、相手が「相手が抜けた」として試合を終わらせていた(m/{試合番号}/end)。この試合は相手の勝ち
     const curMatch = room.m && room.m[onlineState.match];
     if (curMatch && curMatch.end && curMatch.end.winner === opp && ['intro', 'input', 'commit', 'reveal', 'verify', 'resolve'].includes(ph)) {
-        onlineEndAbnormal('DISCONNECTED', '通信が切れたため、相手の勝ちになりました', true);
+        onlineEndAbnormal('DISCONNECTED', '通信切れ・時間切れのため、相手の勝ちになりました', true);
         return;
     }
 
@@ -8848,7 +8856,27 @@ function onlineGoSelect() {
     onlineShowPanel('Select');
     showScene('online');
     playBGM('bgm_deck');
+    onlineStartSelectTimer();
     onlineProcess();
+}
+// キャラ選択の制限時間(2026-10-04): 30秒。時間切れでまだREADYでなければ、ランダムで決めてREADYにする。CPU戦は制限なし。
+// 相手も締め切り+猶予までにREADYしなければ、相手が抜けたとみなす
+function onlineStartSelectTimer() {
+    const el = document.getElementById('onSelTimer');
+    if (onlineState.cpu) { if (el) el.textContent = ''; return; }
+    onlineStartCountdown('select', ONLINE_SELECT_LIMIT_MS, sec => {
+        if (onlineState.phase !== 'select') { if (el) el.textContent = ''; return false; }
+        if (el) {
+            el.textContent = onlineState.ready ? '' : 'TIME ' + sec;
+            el.classList.toggle('hurry', sec <= ONLINE_INPUT_HURRY_SEC);
+        }
+    }, () => {
+        if (el) el.textContent = '';
+        if (onlineState.phase !== 'select' || onlineState.ready) return;
+        onlineRandomSelect();
+        onlineToggleReady();
+    });
+    onlineStartRivalWatch(ONLINE_SELECT_LIMIT_MS + ONLINE_RIVAL_GRACE_MS);
 }
 function onlineWriteSel() {
     if (!onlineState.net || !onlineState.code) return;
@@ -8944,6 +8972,7 @@ function onlineToggleReady() {
 // ------- 試合の開始・ターン・決着 -------
 async function onlineStartMatch(room, m) {
     onlineState.phase = 'starting';
+    onlineStopCountdown('select'); onlineStopCountdown('rival');
     const s = room.sel[onlineOppRole()];
     const oppCh = vsCharByKey(s.key);
     onlineState.oppKey = (oppCh && ENEMY_PRESETS[s.key]) ? s.key : 'VAL'; // 知らないキーが来た場合の安全策
@@ -9028,11 +9057,46 @@ function onlineStartInputTimer() {
     onlineState.inputDeadline = Date.now() + ONLINE_INPUT_LIMIT_MS;
     onlineState.inputTimer = setInterval(onlineTickInputTimer, 250);
     onlineTickInputTimer();
+    onlineStartRivalWatch(ONLINE_INPUT_LIMIT_MS + ONLINE_RIVAL_GRACE_MS); // 相手の手が締め切り+猶予までに届かなければ、相手が抜けたとみなす
 }
 function onlineStopInputTimer() {
     if (onlineState.inputTimer) { clearInterval(onlineState.inputTimer); onlineState.inputTimer = null; }
     const el = document.getElementById('onlineTimer');
     if (el) el.className = '';
+}
+// ------- 制限時間の共通処理(2026-10-04) -------
+// keyごとに1つ。tick(残り秒)を毎秒呼び、締め切りでend()を呼ぶ。tickがfalseを返したら(画面が変わった等)そこで止める
+function onlineStartCountdown(key, ms, tick, end) {
+    onlineStopCountdown(key);
+    const c = { deadline: Date.now() + ms, timer: null };
+    const step = () => {
+        const sec = Math.max(0, Math.ceil((c.deadline - Date.now()) / 1000));
+        if (tick && tick(sec) === false) { onlineStopCountdown(key); return; }
+        if (sec <= 0) { onlineStopCountdown(key); end(); }
+    };
+    c.timer = setInterval(step, 250);
+    onlineState.countdowns[key] = c;
+    step();
+}
+function onlineStopCountdown(key) {
+    const c = onlineState.countdowns[key];
+    if (c) { clearInterval(c.timer); delete onlineState.countdowns[key]; }
+}
+function onlineStopAllCountdowns() { Object.keys(onlineState.countdowns).forEach(onlineStopCountdown); }
+// 相手が時間内に来ない: キャラ選択でREADYしない・バトルで手を送ってこない。相手が抜けたとみなす
+function onlineStartRivalWatch(ms) {
+    if (onlineState.cpu) return;
+    onlineStartCountdown('rival', ms, null, () => {
+        const ph = onlineState.phase;
+        if (!onlineState.code || onlineState.oppLeft) return;
+        if (ph === 'select') {
+            const s = onlineRivalSel();
+            if (s && s.ready && s.m === onlineState.match) return; // 相手はREADY済み(自分を待っている)
+            onlineOpponentLeft();
+        } else if (ph === 'commit' || ph === 'reveal') {
+            onlineOpponentLeft(); // 手を送ったのに、相手の手(または中身)が届かない
+        }
+    });
 }
 function onlineTickInputTimer() {
     if (state.gameMode !== 'online' || onlineState.phase !== 'input') { onlineStopInputTimer(); return; }
@@ -9135,10 +9199,29 @@ function onlineRenderResult(text, cls, note, oppAdj) {
     onlineSetGate(`<div class="vs-result-btns">` +
         (onlineState.oppLeft ? '' : `<button class="vs-ready-btn" onclick="onlineRematch()">REMATCH</button>`) +
         `<button class="vs-sub-btn" onclick="onlineBackToTitle()">TITLE</button></div>`);
+    onlineStartResultTimer();
+}
+// 決着画面の制限時間(2026-10-04): 30秒REMATCHを押さなければ、部屋を抜けてONLINE V.S.の画面(ロビー)へ戻る
+function onlineStartResultTimer() {
+    onlineStopCountdown('rival');
+    onlineStartCountdown('result', ONLINE_RESULT_LIMIT_MS, sec => {
+        if (onlineState.phase !== 'over' || state.gameMode !== 'online') return false;
+        const gate = document.getElementById('onlineGate');
+        if (!gate || !gate.classList.contains('show')) return;
+        let t = gate.querySelector('.online-gate-timer');
+        if (!t) { t = document.createElement('div'); t.className = 'online-gate-timer'; gate.appendChild(t); } // 相手が抜けてボタンが差し替わった後も出す
+        t.textContent = 'TIME ' + sec;
+        t.classList.toggle('hurry', sec <= ONLINE_INPUT_HURRY_SEC);
+    }, () => {
+        if (onlineState.phase !== 'over' || state.gameMode !== 'online') return;
+        victoryBgmToken++; // 決着の曲が後から鳴り出さないようにする
+        onlineBackToLobby();
+    });
 }
 // REMATCH: キャラ選択へ戻る(同じ部屋のまま。前回のキャラを選んだ状態から)
 function onlineRematch() {
     if (onlineState.phase !== 'over' || onlineState.oppLeft) return;
+    onlineStopCountdown('result');
     playSE('se_select');
     victoryBgmToken++; // 決着のSEが鳴り終わる前に押した場合、後から決着の曲が鳴り出さないようにする
     onlineHideBattleOverlays();
