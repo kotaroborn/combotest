@@ -1223,8 +1223,7 @@
 .online-cpu-box.show { display: flex; }
 .online-search-error { color: #ff6b6b; white-space: pre-line; word-break: break-all; }
 .online-note { font-size: 11px; color: #aaa; line-height: 1.6; }
-.online-or { font-size: 12px; font-weight: 900; letter-spacing: 3px; color: #666; margin: 6px 0; }
-.online-code-input { width: 150px; font-size: 26px; letter-spacing: 10px; padding-left: 18px; }
+.online-or { font-size: 12px; font-weight: 900; letter-spacing: 3px; color: #666; margin: 0; }
 .online-msg { white-space: pre-line; word-break: break-all; min-height: 1.6em; font-size: 12px; font-weight: 700; letter-spacing: 1px; color: #ffd23c; line-height: 1.6; }
 .online-msg.error { color: #ff6b6b; }
 .online-label { font-size: 13px; font-weight: 900; letter-spacing: 4px; color: #aaa; }
@@ -1241,9 +1240,25 @@
 .online-rival { text-align: center; line-height: 1.6; }
 .online-rival-who { color: #fff; }
 .online-rival-rec { margin-left: 10px; color: #aaa; }
-.online-name-row { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
-.online-name-input { width: 112px; font-size: 22px; letter-spacing: 6px; padding-left: 10px; text-transform: uppercase; }
-.online-my-record { font-size: 12px; font-weight: 900; letter-spacing: 2px; color: #aaa; min-width: 60px; }
+.online-name-row { display: flex; align-items: center; gap: 10px; }
+.online-name-label { font-size: 10px; font-weight: 900; letter-spacing: 2px; color: #aaa; }
+.online-name-input { width: 84px; max-width: none; height: 34px; padding: 0 0 0 4px; font-size: 16px; letter-spacing: 4px; text-transform: uppercase; }
+/* 自分の勝敗: 2段(n WIN / n LOSE)で、名前欄(34px)の高さに収める */
+.online-my-record {
+    display: flex; flex-direction: column; justify-content: center; height: 34px; min-width: 56px; text-align: left;
+    font-size: 10px; font-weight: 900; letter-spacing: 1px; line-height: 15px; color: #aaa; font-variant-numeric: tabular-nums;
+}
+.online-my-record .win { color: #ffd23c; }
+/* ロビー: ランダムマッチと、友だちと(CREATE・JOIN)の2つのまとまり */
+.online-card {
+    display: flex; flex-direction: column; align-items: center; gap: 8px; width: 100%; max-width: 300px; box-sizing: border-box;
+}
+.online-card-friend { padding: 12px 14px 14px; border: 2px solid #3a3a3a; border-radius: 10px; background: rgba(255,255,255,0.04); }
+.online-card-title { font-size: 11px; font-weight: 900; letter-spacing: 3px; color: #ccc; }
+.online-card-sep { width: 80%; border-top: 1px dashed #444; margin: 2px 0; }
+.online-join-row { display: flex; align-items: center; gap: 8px; }
+.online-join-row .online-code-input { width: 96px; max-width: none; font-size: 20px; letter-spacing: 6px; padding: 8px 0 8px 6px; }
+.online-join-row .online-join-btn { min-width: 0; padding: 11px 16px; }
 .vs-result-rival { color: #aaa; }
 #enemyName { cursor: pointer; }
 #onlineRivalCard {

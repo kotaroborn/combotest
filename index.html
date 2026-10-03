@@ -17,7 +17,7 @@
     <meta property="og:image:height" content="630">
     <meta property="og:locale" content="ja_JP">
     <meta name="twitter:card" content="summary_large_image">
-    <link rel="stylesheet" href="css/style.min.css?v=224"> <!-- 配信用の軽量版。編集はcss/style.cssで行い、tools/build.shで作り直す(2026-10-02) -->
+    <link rel="stylesheet" href="css/style.min.css?v=225"> <!-- 配信用の軽量版。編集はcss/style.cssで行い、tools/build.shで作り直す(2026-10-02) -->
 
     <!-- 技名ポップ用の8bit風フォント(Press Start 2P、SIL OFL。2026-10-03に手書き風Permanent Markerから変更)。
          ゲームに同梱し(assets/fonts/)、ネット環境に左右されず表示する。canvasで使うため先読みしておく -->
@@ -116,7 +116,7 @@
     <button id="optionBtn" class="text-btn" onclick="openOption()" disabled>OPTION</button>
     <button class="howto-btn howto-corner" onclick="openHowTo()">HOW<br>TO</button>
     <div class="title-copyright">©BORN MAGAZINE 2026</div>
-    <div class="title-version">ver. 0.9.224</div> <!-- 2026-10-03: ロゴ直下から、画面下の中央(©表記と同じ高さ)へ移動 -->
+    <div class="title-version">ver. 0.9.225</div> <!-- 2026-10-03: ロゴ直下から、画面下の中央(©表記と同じ高さ)へ移動 -->
 </div>
 
 <!-- デッキ編成シーン: 21枚固定・内訳自由 -->
@@ -184,19 +184,27 @@
     <div id="onPanelLobby" class="online-panel">
         <!-- 名前と自分の勝敗(2026-10-03): ローマ字4文字。4文字そろうとその場で保存。対戦相手にも見える -->
         <div class="online-name-row">
-            <span class="online-label">NAME</span>
+            <span class="online-name-label">YOUR NAME</span>
             <input type="text" id="onNameInput" class="gift-code-input online-name-input" maxlength="4" autocapitalize="characters" autocomplete="off" spellcheck="false" oninput="onlineNameInput(this)" onblur="onlineNameBlur(this)">
-            <span id="onMyRecord" class="online-my-record"></span>
+            <span id="onMyRecord" class="online-my-record"></span> <!-- 2段(n WIN / n LOSE)で名前欄の高さに収める -->
         </div>
-        <button class="vs-ready-btn online-main-btn online-random-btn" onclick="onlineStartSearch()">RANDOM MATCH</button>
-        <div class="online-note">ボタンを押すだけで、待っている相手と自動で対戦します</div>
+        <!-- 遊び方は2種類: ランダムマッチ / 友だちと(部屋を作る・入る)。後者はCREATE・JOINを1つの枠にまとめる(2026-10-03) -->
+        <div class="online-card online-card-random">
+            <button class="vs-ready-btn online-main-btn online-random-btn" onclick="onlineStartSearch()">RANDOM MATCH</button>
+            <div class="online-note">ボタンを押すだけで、待っている相手と自動で対戦します</div>
+        </div>
         <div class="online-or">OR</div>
-        <button class="vs-ready-btn online-main-btn" onclick="onlineCreateRoom()">CREATE ROOM</button>
-        <div class="online-note">部屋を作って、表示される4桁の番号を相手に伝えます</div>
-        <div class="online-or">OR</div>
-        <input type="text" id="onJoinCode" class="gift-code-input online-code-input" maxlength="4" inputmode="numeric" pattern="[0-9]*" autocomplete="off" placeholder="0000">
-        <button class="vs-ready-btn online-main-btn online-join-btn" onclick="onlineJoinRoom()">JOIN ROOM</button>
-        <div class="online-note">相手から聞いた4桁の番号を入れて入室します</div>
+        <div class="online-card online-card-friend">
+            <div class="online-card-title">FRIEND MATCH</div>
+            <button class="vs-ready-btn online-main-btn" onclick="onlineCreateRoom()">CREATE ROOM</button>
+            <div class="online-note">部屋を作り、出てきた4桁の番号を相手に伝えます</div>
+            <div class="online-card-sep"></div>
+            <div class="online-join-row">
+                <input type="text" id="onJoinCode" class="gift-code-input online-code-input" maxlength="4" inputmode="numeric" pattern="[0-9]*" autocomplete="off" placeholder="0000">
+                <button class="vs-ready-btn online-join-btn" onclick="onlineJoinRoom()">JOIN ROOM</button>
+            </div>
+            <div class="online-note">相手から聞いた番号を入れて入室します</div>
+        </div>
         <div id="onLobbyMsg" class="online-msg"></div>
     </div>
     <div id="onPanelHost" class="online-panel">
@@ -794,7 +802,7 @@
 (function() {
     // 配信用の軽量版(コメント・空白を除いたもの)。編集はjs/script.jsで行い、tools/build.shで作り直す(2026-10-02)。
     // ?v=はバージョン(.title-versionの末尾3桁)と同じ番号にし、更新のたびに上げる(古いものがキャッシュに残らないように)
-    var SCRIPT_URL = 'js/script.min.js?v=224';
+    var SCRIPT_URL = 'js/script.min.js?v=225';
     var bar = document.getElementById('nowLoadingBar');
     var percentEl = document.getElementById('nowLoadingPercent');
     var settled = false; // フォールバック(タイムアウト)と正常読み込みの、どちらか一方だけが実行されるようにするためのフラグ

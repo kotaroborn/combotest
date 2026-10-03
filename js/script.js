@@ -8076,7 +8076,7 @@ function onlineRenderLobbyName() {
     const input = document.getElementById('onNameInput');
     if (input) input.value = onlineMyName();
     const rec = document.getElementById('onMyRecord');
-    if (rec) rec.textContent = onlineRecordText(onlineWins, onlineLosses);
+    if (rec) rec.innerHTML = `<span class="win">${onlineWins} WIN</span><span>${onlineLosses} LOSE</span>`; // ロビーだけはWIN/LOSEの2段表記
 }
 // バトル中に相手の名前をタップ: 相手の名前と勝敗を少しの間だけ出す(もう一度タップで消す)
 let onlineRivalCardTimer = null;
