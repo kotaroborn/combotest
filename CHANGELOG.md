@@ -3,6 +3,11 @@
 このプロジェクトの変更履歴。日付は新しいものを上に追記する。
 コード(`index.html` / `css/style.css` / `js/script.js`)や仕様に変更を加えた場合は、このファイルに追記すること(詳細は `AI_GUIDE.md` を参照)。
 
+## 2026-10-03(16)
+
+- ver. 0.9.228
+- ONLINE V.S.のマッチング画面(ロビー・部屋の相手待ち・ランダムマッチの検索中・キャラ選択)の左下にも、HOW TOとOPTIONのボタンを常に出すようにした(利用者の指示)。HOW TOは「HOW TO ONLINE V.S.」の欄付き。ここから開いたOPTIONにはRETRY/RETURN TO TITLEを出さない(タイトルへは左上の✕で戻る)。バトル中のOPTIONは今まで通りRETURN TO TITLEあり
+
 ## 2026-10-03(15)
 
 - ver. 0.9.227

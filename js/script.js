@@ -5887,7 +5887,9 @@ function showHowToOverlay(extraClass) {
 }
 function openHowTo() {
     const inBattle = document.getElementById('sceneBattle').classList.contains('active');
-    howToCurrentMode = inBattle && HOWTO_MODE_TEXTS[state.gameMode] ? state.gameMode : null;
+    // ONLINE V.S.のマッチング画面から開いた時も「HOW TO ONLINE V.S.」の欄を出す(2026-10-03)
+    const inOnlineMatching = document.getElementById('sceneOnline').classList.contains('active');
+    howToCurrentMode = inOnlineMatching ? 'online' : (inBattle && HOWTO_MODE_TEXTS[state.gameMode] ? state.gameMode : null);
     showHowToOverlay(null);
     rushPauseTimer('howto'); // BATTLE RUSH: HOW TOを開いている間はタイマーを止める(RUSH中でなければ何もしない)
 }
@@ -6036,7 +6038,10 @@ function updateOptionUI() {
     const isTitle = document.getElementById('sceneTitle').classList.contains('active');
     // デッキ編成から開いた場合(2026-10-02追加)は、STORY MODEのバトル前として扱う(state.gameModeは前のモードのまま残っていることがあるため)
     const isDeck = document.getElementById('sceneDeck').classList.contains('active');
-    const uiMode = isDeck ? 'story' : state.gameMode;
+    // ONLINE V.S.のマッチング画面(ロビー・相手待ち・キャラ選択)から開いた場合(2026-10-03): まだバトルではないので
+    // RETRY/RETURN TO TITLEは出さない(タイトルへは画面左上の✕で戻る)。gameModeは前のモードのまま残っていることがあるため画面で判定する
+    const isOnlineMatching = document.getElementById('sceneOnline').classList.contains('active');
+    const uiMode = isDeck ? 'story' : (isOnlineMatching ? 'online' : state.gameMode);
     // COSTUMEは「STORY MODEを一度最後までクリアした」場合、またはGIFT CODE等の追加コスチュームを1つでも
     // 持っている場合(costumeSelectionAvailable)のみ表示する
     document.getElementById('optionCostumeRow').style.display =
@@ -6045,7 +6050,7 @@ function updateOptionUI() {
     document.getElementById('optionGiftCodeRow').style.display = isTitle ? 'flex' : 'none';
     document.getElementById('optionRecordsRow').style.display = 'flex'; // RECORDSはどのOPTIONからでも見られる(2026-10-01、バトル中にもワザのヒントを確認できるように)
     document.getElementById('optionResetRow').style.display = isTitle ? 'flex' : 'none'; // 進行状況リセットもタイトルのOPTIONからのみ(バトル中の誤操作防止、2026-09-28)
-    document.getElementById('optionFooter').style.display = isTitle ? 'none' : 'flex';
+    document.getElementById('optionFooter').style.display = (isTitle || isOnlineMatching) ? 'none' : 'flex';
     // TRAINING MODEはデッキ編成を経由しない(選び放題の固定手札のため)、RETRYボタン自体を隠す。
     // デッキ編成中もまだバトルが始まっていないため、RETRYは出さずRETURN TO TITLEだけにする(2026-10-02)
     document.getElementById('optionRetryBtn').style.display = (uiMode === 'training' || uiMode === 'online' || isDeck) ? 'none' : ''; // オンライン対戦は相手がいるのでRETRYなし
