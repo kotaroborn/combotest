@@ -156,7 +156,7 @@ localStorage(キー: `commandbattle_save_v1`)に以下の値が保存され、�
 
 ## 8.6 文字(フォント)(2026-10-04)
 
-メニュー・ボタン・バトル画面の英数字・見出しは、ドット文字(Press Start 2P、`assets/fonts/`に同梱。BATTLE RUSHの回復表示・ワザ名と同じ)。対象は`css/style.css`の末尾「ドット文字への統一」の節にまとめてある(タイトルのメニュー、ロゴの文字、HOW TO/OPTION/CANCEL/GO!、デッキ編成画面、TURN・ステージ・名前、山札の残り・Refresh・出す枚数の指示、SKIP、ポップアップの見出し)。2026-10-04(ver. 0.9.235)からは、LOCAL V.S.・ONLINE V.S.の画面の文字と、すべてのボタン(記号だけのボタンを除く)も対象(同じ節の「その2」)。ver. 0.9.236からはLOADING・決着画面・BATTLE RUSHのRESULT(「その3」)と、canvasに描くCOMBOの表示(`drawComboCounter`、`TECH_NAME_FONT_FAMILY`)も。日本語はこのフォントに無いので通常のフォントで出る。2倍速ボタンの▶︎はドット文字に無いので通常のフォント。デッキ編成画面の見出しは「DECK BUILD」、合計は「TOTAL 21/21」。
+メニュー・ボタン・バトル画面の英数字・見出しは、ドット文字(Press Start 2P、`assets/fonts/`に同梱。BATTLE RUSHの回復表示・ワザ名と同じ)。対象は`css/style.css`の末尾「ドット文字への統一」の節にまとめてある(タイトルのメニュー、ロゴの文字、HOW TO/OPTION/CANCEL/GO!、デッキ編成画面、TURN・ステージ・名前、山札の残り・Refresh・出す枚数の指示、SKIP、ポップアップの見出し)。2026-10-04(ver. 0.9.235)からは、LOCAL V.S.・ONLINE V.S.の画面の文字と、すべてのボタン(記号だけのボタンを除く)も対象(同じ節の「その2」)。ver. 0.9.236からはLOADING・決着画面・BATTLE RUSHのRESULT(「その3」)と、canvasに描くCOMBOの表示(`drawComboCounter`、`TECH_NAME_FONT_FAMILY`)も。ver. 0.9.237から、トーストとONLINE V.S.の案内文は「英数字だけならドット文字」(`isPixelFontText`/`applyPixelFontIfAscii`)。確認の選択肢はCANCEL/OK・YES/NO・SKIP/YESの英語。バトル画面上のTURN表示は`turnDisplayHtml`で作り、LOCAL V.S.では1行(TURN 12、数の欄は2桁分の幅)、CANCELはCAN/CELの2行。日本語はこのフォントに無いので通常のフォントで出る。2倍速ボタンの▶︎はドット文字に無いので通常のフォント。デッキ編成画面の見出しは「DECK BUILD」、合計は「TOTAL 21/21」。
 
 ## 8.5 解放条件のまとめ(2026-10-04に整理、利用者の指示)
 

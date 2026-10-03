@@ -17,7 +17,7 @@
     <meta property="og:image:height" content="630">
     <meta property="og:locale" content="ja_JP">
     <meta name="twitter:card" content="summary_large_image">
-    <link rel="stylesheet" href="css/style.min.css?v=236"> <!-- 配信用の軽量版。編集はcss/style.cssで行い、tools/build.shで作り直す(2026-10-02) -->
+    <link rel="stylesheet" href="css/style.min.css?v=237"> <!-- 配信用の軽量版。編集はcss/style.cssで行い、tools/build.shで作り直す(2026-10-02) -->
 
     <!-- 技名ポップ用の8bit風フォント(Press Start 2P、SIL OFL。2026-10-03に手書き風Permanent Markerから変更)。
          ゲームに同梱し(assets/fonts/)、ネット環境に左右されず表示する。canvasで使うため先読みしておく -->
@@ -116,7 +116,7 @@
     <button id="optionBtn" class="text-btn" onclick="openOption()" disabled>OPTION</button>
     <button class="howto-btn howto-corner" onclick="openHowTo()">HOW<br>TO</button>
     <div class="title-copyright">©BORN MAGAZINE 2026</div>
-    <div class="title-version">ver. 0.9.236</div> <!-- 2026-10-03: ロゴ直下から、画面下の中央(©表記と同じ高さ)へ移動 -->
+    <div class="title-version">ver. 0.9.237</div> <!-- 2026-10-03: ロゴ直下から、画面下の中央(©表記と同じ高さ)へ移動 -->
 </div>
 
 <!-- デッキ編成シーン: 21枚固定・内訳自由 -->
@@ -268,7 +268,7 @@
             <div id="vsDeckRefreshLabel2" class="vs-deck-refresh">Refresh</div>
         </div>
         <div class="vs-controls">
-            <button id="vsClrBtn2" onclick="vsResetHands2()" disabled>CANCEL</button>
+            <button id="vsClrBtn2" onclick="vsResetHands2()" disabled><span class="cl-a">CAN</span><span class="cl-b">CEL</span></button> <!-- LOCAL V.S.では2行(CAN/CEL)にする(2026-10-04) -->
             <button id="vsGoBtn2" onclick="vsGo2()" disabled>GO!</button>
         </div>
         <div id="vsGate2" class="vs-gate"></div>
@@ -324,7 +324,7 @@
         <button id="optionBattleBtn" class="howto-btn" onclick="playSE('se_menu_open'); openOption();">OPT<br>ION</button>
         <button id="speedToggleBtn" class="howto-btn speed-toggle-btn" onclick="toggleBattleSpeed()" style="visibility:hidden;">▶︎</button>
         <div class="fn-group">
-            <button onclick="resetHands()" id="clrBtn" disabled>CANCEL</button>
+            <button onclick="resetHands()" id="clrBtn" disabled><span class="cl-a">CAN</span><span class="cl-b">CEL</span></button> <!-- 通常は1行。LOCAL V.S.では2行(2026-10-04) -->
             <button onclick="resolveTurn()" id="goBtn" disabled>GO!</button>
         </div>
     </div>
@@ -619,21 +619,21 @@
         <div id="resetConfirmPanel" class="confirm-panel">
             <p class="confirm-text">本当に進行状況を<br>リセットしてもよろしいですか？</p>
             <div class="confirm-btns">
-                <button onclick="closeResetConfirm()">キャンセル</button>
+                <button onclick="closeResetConfirm()">CANCEL</button>
                 <button onclick="doResetProgress()" class="confirm-ok">OK</button>
             </div>
         </div>
         <div id="retryConfirmPanel" class="confirm-panel">
             <p class="confirm-text">戦いをやり直しますか？</p>
             <div class="confirm-btns">
-                <button onclick="closeRetryConfirm()">キャンセル</button>
+                <button onclick="closeRetryConfirm()">CANCEL</button>
                 <button onclick="doOptionRetry()" class="confirm-ok">OK</button>
             </div>
         </div>
         <div id="returnConfirmPanel" class="confirm-panel">
             <p class="confirm-text" id="returnConfirmText">タイトルに戻りますか？<br>（ストーリーの進行状況は保存されます）</p>
             <div class="confirm-btns">
-                <button onclick="closeReturnConfirm()">キャンセル</button>
+                <button onclick="closeReturnConfirm()">CANCEL</button>
                 <button onclick="doOptionReturnToTitle()" class="confirm-ok">OK</button>
             </div>
         </div>
@@ -642,7 +642,7 @@
             <input type="text" id="giftCodeInput" class="gift-code-input" maxlength="8" autocomplete="off" autocapitalize="characters" spellcheck="false" oninput="if (!event.isComposing) upperInputValue(this)" oncompositionend="upperInputValue(this)"> <!-- 変換中は書き換えない(2026-10-03) -->
             <p class="confirm-text gift-code-error" id="giftCodeError" style="display:none;"></p>
             <div class="confirm-btns">
-                <button onclick="closeGiftCodeInput()">キャンセル</button>
+                <button onclick="closeGiftCodeInput()">CANCEL</button>
                 <button onclick="submitGiftCode()" class="confirm-ok">OK</button>
             </div>
         </div>
@@ -682,7 +682,7 @@
         <div id="bonusResetConfirmPanel" class="confirm-panel">
             <p class="confirm-text">全てのBONUSを取得前の状態に戻します。<br>よろしいですか？</p>
             <div class="confirm-btns">
-                <button onclick="closeBonusResetConfirm()">キャンセル</button>
+                <button onclick="closeBonusResetConfirm()">CANCEL</button>
                 <button onclick="doResetAllBonus()" class="confirm-ok">OK</button>
             </div>
         </div>
@@ -694,15 +694,15 @@
 <div id="subStorySkipConfirmPanel" class="confirm-panel confirm-panel-standalone">
     <p class="confirm-text">バトル直前までスキップしますか？</p>
     <div class="confirm-btns">
-        <button onclick="closeSubStorySkipConfirm()">いいえ</button>
-        <button onclick="acceptSubStorySkip()" class="confirm-ok">はい</button>
+        <button onclick="closeSubStorySkipConfirm()">NO</button>
+        <button onclick="acceptSubStorySkip()" class="confirm-ok">YES</button>
     </div>
 </div>
 <div id="substoryBattleConfirmPanel" class="confirm-panel confirm-panel-standalone">
     <p class="confirm-text">バトルしますか？</p>
     <div class="confirm-btns">
-        <button onclick="declineSubstoryBattle()">スキップする</button>
-        <button onclick="acceptSubstoryBattle()" class="confirm-ok">はい</button>
+        <button onclick="declineSubstoryBattle()">SKIP</button>
+        <button onclick="acceptSubstoryBattle()" class="confirm-ok">YES</button>
     </div>
 </div>
 
@@ -810,7 +810,7 @@
 (function() {
     // 配信用の軽量版(コメント・空白を除いたもの)。編集はjs/script.jsで行い、tools/build.shで作り直す(2026-10-02)。
     // ?v=はバージョン(.title-versionの末尾3桁)と同じ番号にし、更新のたびに上げる(古いものがキャッシュに残らないように)
-    var SCRIPT_URL = 'js/script.min.js?v=236';
+    var SCRIPT_URL = 'js/script.min.js?v=237';
     var bar = document.getElementById('nowLoadingBar');
     var percentEl = document.getElementById('nowLoadingPercent');
     var settled = false; // フォールバック(タイムアウト)と正常読み込みの、どちらか一方だけが実行されるようにするためのフラグ

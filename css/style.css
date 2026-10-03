@@ -1414,3 +1414,25 @@ button:not(.speed-toggle-btn):not(.deck-btn):not(.sound-test-play-btn):not(.popu
 .rush-result-value { font-size: 20px; letter-spacing: 0; line-height: 1.5; }
 .rush-result-sub { font-size: 8px; letter-spacing: 0; gap: 4px; }
 .rush-new { font-size: 8px; }
+
+/* ===== 2026-10-04 調整(利用者の指示) ===== */
+/* バトル画面上のTURN・数・ステージ名(3行のまま大きく) */
+#turnDisplay { font-size: 12px; line-height: 1.35; }
+#turnStageLabel { font-size: 8px; line-height: 1.5; white-space: nowrap; }
+/* LOCAL V.S.: 中央のTURNは1行(TURN 12)で大きく。数の欄は2桁分の幅・左揃えにして、桁が増えてもTURNが動かないようにする */
+body.versus-layout #turnDisplay, body.versus-layout #vsTurn2 { font-size: 14px; line-height: 1; white-space: nowrap; }
+body.versus-layout .turn-br { display: none; }
+body.versus-layout .turn-num { display: inline-block; width: 2em; margin-left: 0.5em; text-align: left; }
+/* CANCEL: 通常は1行。LOCAL V.S.(縦に細いボタン)ではCAN/CELの2行にしてボタン内に収める */
+.cl-a, .cl-b { display: inline; }
+body.versus-layout #clrBtn .cl-a, body.versus-layout #clrBtn .cl-b, .vs-controls #vsClrBtn2 .cl-a, .vs-controls #vsClrBtn2 .cl-b { display: block; }
+body.versus-layout #clrBtn, .vs-controls #vsClrBtn2 { font-size: 8px; line-height: 1.5; letter-spacing: 0; }
+body.versus-layout #goBtn, .vs-controls #vsGoBtn2 { font-size: 13px; }
+/* 英数字だけの文(CONNECTING...等)・トーストの英数字部分 */
+.pixel-text, .toast-pixel { font-family: var(--pixel-font); font-weight: normal; }
+.toast-head.toast-pixel { font-size: 8px !important; letter-spacing: 2px !important; }
+.toast-small.toast-pixel { font-size: 10px !important; }
+.toast-large.toast-pixel, .toast-line.toast-pixel { font-size: 14px !important; line-height: 1.5; }
+.unlock-toast-tap.toast-pixel { font-size: 7px; letter-spacing: 1px; }
+.online-msg.pixel-text, .online-note.pixel-text { font-size: 10px; letter-spacing: 1px; }
+

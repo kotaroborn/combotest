@@ -2185,11 +2185,13 @@ async function processUnlockToastQueue() {
     toast.style.color = accentColor;
     toast.style.borderColor = accentColor;
     const header = (typeof message === 'object' && message.header) || 'UNLOCKED'; // 見出しは通常UNLOCKED。RECORDSへの誘導はHINT
-    toast.innerHTML = `<span style="font-size:10px; letter-spacing:3px; color:#888; display:block;">${header}</span>`
+    // 英数字だけの部分(UNLOCKED・HINT・TAP TO CLOSE・ONLINE V.S. MODE等)はドット文字、日本語が入る部分は通常のフォント(2026-10-04)
+    const px = t => isPixelFontText(t) ? ' toast-pixel' : '';
+    toast.innerHTML = `<span class="toast-head${px(header)}" style="font-size:10px; letter-spacing:3px; color:#888; display:block;">${header}</span>`
         + (typeof message === 'string'
-            ? message // 従来通りの単一行表示(BONUS CONTENTS解放！等)
-            : `<span style="font-size:12px; display:block;">${message.small}</span><span style="font-size:19px; display:block; margin-top:2px;">${message.large}</span>`) // SUB STORY解放時: 番号(小)+タイトル(大)の2段階表示
-        + '<span class="unlock-toast-tap">TAP TO CLOSE</span>';
+            ? `<span class="toast-line${px(message)}">${message}</span>` // 従来通りの単一行表示(BONUS CONTENTS解放！等)
+            : `<span class="toast-small${px(message.small)}" style="font-size:12px; display:block;">${message.small}</span><span class="toast-large${px(message.large)}" style="font-size:19px; display:block; margin-top:2px;">${message.large}</span>`) // SUB STORY解放時: 番号(小)+タイトル(大)の2段階表示
+        + '<span class="unlock-toast-tap toast-pixel">TAP TO CLOSE</span>';
 
     toast.style.transition = 'none';
     toast.style.transform = UNLOCK_TOAST_HIDDEN_TRANSFORM;
@@ -3896,6 +3898,17 @@ function presetForSide(side) {
 
 // HPバー下の名前表示を更新する。味方は固定でVAL、敵はSTORY MODEなら現在の敵プリセット名、
 // TRAINING MODEなら固定でMIFUNE(STORY MODEは今後の連戦で敵が変わるたびに自動で切り替わる)
+// バトル画面上の「TURN / 数 / ステージ名」の3行(2026-10-04)。LOCAL V.S.(body.versus-layout)では改行を消して
+// 「TURN 12」の1行にする(数の欄は2桁分の幅で左揃えにしてあるので、2桁になってもTURNの文字は動かない)
+function turnDisplayHtml(turn, withStage) {
+    return `<span class="turn-word">TURN</span><br class="turn-br"><span class="turn-num">${turn}</span>`
+        + (withStage ? `<br><span id="turnStageLabel">${currentStageLabel()}</span>` : '');
+}
+// 文字が英数字・記号だけならドット文字にする(日本語が入る文はドット文字に無いので通常のフォントのまま。2026-10-04)
+function isPixelFontText(text) { return /^[\x20-\x7E]*$/.test(String(text).replace(/<[^>]*>/g, '')); }
+function applyPixelFontIfAscii(el, text) {
+    if (el) el.classList.toggle('pixel-text', !!text && isPixelFontText(text));
+}
 function updateCharNames() {
     if (state.gameMode === 'versus') { vsUpdateNames(); return; } // ローカル対戦は1P/2P表記付きの実名(？？？マスキングなし)
     if (state.gameMode === 'online') { // オンライン対戦: 自分と相手が選んだキャラの名前(相手のキャラが自分の端末でまだ解放されていなければ？？？、2026-10-03)
@@ -4138,7 +4151,7 @@ function resetBattleState() {
     document.getElementById('hpP_y').style.width = '100%';
     document.getElementById('hpE').style.width = '100%';
     document.getElementById('hpE_y').style.width = '100%';
-    document.getElementById('turnDisplay').innerHTML = `TURN<br>0<br><span id="turnStageLabel">${currentStageLabel()}</span>`;
+    document.getElementById('turnDisplay').innerHTML = turnDisplayHtml(0, true);
     if (state.gameMode === 'rush') rushUpdateHud(); // BATTLE RUSHはTURN表示の位置を撃破数/経過タイムにする
     document.querySelectorAll('.controls button').forEach(b => b.disabled = true); // 演出完了までは操作不可
     document.getElementById('howToBtn').disabled = false; // HOW TOは常に押せる
@@ -5605,7 +5618,7 @@ async function resolveTurn() {
     document.getElementById('speedToggleBtn').disabled = false; // SPEEDも同様、解決中でも切り替えられる
 
     state.turn++;
-    document.getElementById('turnDisplay').innerHTML = `TURN<br>${state.turn}<br><span id="turnStageLabel">${currentStageLabel()}</span>`;
+    document.getElementById('turnDisplay').innerHTML = turnDisplayHtml(state.turn, true);
     if (state.gameMode === 'rush') rushUpdateHud();
 
     const cursor = { i: 0 };
@@ -7469,7 +7482,7 @@ function vsRenderTop(activeIndex) {
     document.getElementById('vsClrBtn2').disabled = !(canInput && count > 0);
 
     document.getElementById('vsDeckInfo2').innerText = `DECK ${versusState.deck2.length}/${DB.DECK_TOTAL}`;
-    document.getElementById('vsTurn2').innerHTML = `TURN<br>${state.turn}`;
+    document.getElementById('vsTurn2').innerHTML = turnDisplayHtml(state.turn, false);
 }
 // markCardOutcomeから呼ばれる: 1P側で付けた勝敗表現(暗転・ヒビ割れ)を、上半分の同じカードにも付ける
 function vsMirrorCardOutcome(side, idx, outcomeClass) {
@@ -8250,6 +8263,7 @@ function onlineSetLobbyMsg(text, isError) {
     if (!el) return;
     el.textContent = text || '';
     el.classList.toggle('error', !!isError);
+    applyPixelFontIfAscii(el, text); // CONNECTING...等の英数字だけの文はドット文字(2026-10-04)
 }
 // タイトルのONLINE V.S.から
 function goOnlineLobby() {
@@ -8489,7 +8503,7 @@ function onlineSetSearchText(head, note) {
     const h = document.getElementById('onSearchText');
     const n = document.getElementById('onSearchNote');
     if (h) h.textContent = head;
-    if (n) { n.textContent = note; n.classList.remove('online-search-error'); }
+    if (n) { n.textContent = note; n.classList.remove('online-search-error'); applyPixelFontIfAscii(n, note); }
     onlineShowCpuPrompt(false);
     onlineShowPanel('Search');
 }
@@ -8499,6 +8513,7 @@ function onlineSetSearchNote(text, isError) {
     if (!n || onlineState.phase !== 'searching') return;
     n.textContent = text;
     n.classList.toggle('online-search-error', !!isError);
+    applyPixelFontIfAscii(n, text);
 }
 function onlineShowCpuPrompt(show) {
     const box = document.getElementById('onSearchCpu');

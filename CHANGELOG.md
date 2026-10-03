@@ -3,6 +3,15 @@
 このプロジェクトの変更履歴。日付は新しいものを上に追記する。
 コード(`index.html` / `css/style.css` / `js/script.js`)や仕様に変更を加えた場合は、このファイルに追記すること(詳細は `AI_GUIDE.md` を参照)。
 
+## 2026-10-04(6)
+
+- ver. 0.9.237
+- バトル画面上の「TURN / 数 / ステージ名」(3行のまま)を大きくした
+- LOCAL V.S.: 中央のTURNを1行の「TURN 12」にして大きくした(数の欄を2桁分の幅にして、2桁になってもTURNの文字が動かない)。CANCELボタンは「CAN/CEL」の2行にしてボタン内に収めた(`turnDisplayHtml`)
+- 解放のお知らせ(トースト)の英数字だけの部分(UNLOCKED・HINT・TAP TO CLOSE・ONLINE V.S. MODE等)をドット文字にした。日本語が入る部分(COSTUME 解放！等)は通常のフォントのまま
+- 確認の選択肢を英語+ドット文字に: キャンセル→CANCEL、はい→YES、いいえ→NO、スキップする→SKIP
+- ONLINE V.S.のCONNECTING...等、英数字だけの案内文をドット文字にした(`applyPixelFontIfAscii`)
+
 ## 2026-10-04(5)
 
 - ver. 0.9.236
