@@ -17,7 +17,7 @@
     <meta property="og:image:height" content="630">
     <meta property="og:locale" content="ja_JP">
     <meta name="twitter:card" content="summary_large_image">
-    <link rel="stylesheet" href="css/style.min.css?v=223"> <!-- 配信用の軽量版。編集はcss/style.cssで行い、tools/build.shで作り直す(2026-10-02) -->
+    <link rel="stylesheet" href="css/style.min.css?v=224"> <!-- 配信用の軽量版。編集はcss/style.cssで行い、tools/build.shで作り直す(2026-10-02) -->
 
     <!-- 技名ポップ用の8bit風フォント(Press Start 2P、SIL OFL。2026-10-03に手書き風Permanent Markerから変更)。
          ゲームに同梱し(assets/fonts/)、ネット環境に左右されず表示する。canvasで使うため先読みしておく -->
@@ -116,7 +116,7 @@
     <button id="optionBtn" class="text-btn" onclick="openOption()" disabled>OPTION</button>
     <button class="howto-btn howto-corner" onclick="openHowTo()">HOW<br>TO</button>
     <div class="title-copyright">©BORN MAGAZINE 2026</div>
-    <div class="title-version">ver. 0.9.223</div> <!-- 2026-10-03: ロゴ直下から、画面下の中央(©表記と同じ高さ)へ移動 -->
+    <div class="title-version">ver. 0.9.224</div> <!-- 2026-10-03: ロゴ直下から、画面下の中央(©表記と同じ高さ)へ移動 -->
 </div>
 
 <!-- デッキ編成シーン: 21枚固定・内訳自由 -->
@@ -182,6 +182,12 @@
         <div class="online-title">ONLINE V.S.</div>
     </div>
     <div id="onPanelLobby" class="online-panel">
+        <!-- 名前と自分の勝敗(2026-10-03): ローマ字4文字。4文字そろうとその場で保存。対戦相手にも見える -->
+        <div class="online-name-row">
+            <span class="online-label">NAME</span>
+            <input type="text" id="onNameInput" class="gift-code-input online-name-input" maxlength="4" autocapitalize="characters" autocomplete="off" spellcheck="false" oninput="onlineNameInput(this)" onblur="onlineNameBlur(this)">
+            <span id="onMyRecord" class="online-my-record"></span>
+        </div>
         <button class="vs-ready-btn online-main-btn online-random-btn" onclick="onlineStartSearch()">RANDOM MATCH</button>
         <div class="online-note">ボタンを押すだけで、待っている相手と自動で対戦します</div>
         <div class="online-or">OR</div>
@@ -278,7 +284,7 @@
             <div class="hp-yellow" id="hpE_y" style="width:100%"></div>
             <div class="hp-red" id="hpE" style="width:100%"></div>
         </div>
-        <div class="char-name" id="enemyName">ENEMY</div>
+        <div class="char-name" id="enemyName" onclick="onlineToggleRivalCard()">ENEMY</div> <!-- ONLINE V.S.ではタップで相手の名前・勝敗(2026-10-03) -->
     </div>
 </div>
 <div id="gameArea">
@@ -291,6 +297,7 @@
     <div id="vsResult1" class="vs-result"></div>
     <div id="onlineStatus"></div> <!-- オンライン対戦: 相手待ち等の表示(2026-10-03) -->
     <div id="onlineTimer"></div> <!-- オンライン対戦: 入力の残り時間(2026-10-03、段階4) -->
+    <div id="onlineRivalCard"></div> <!-- オンライン対戦: 相手の名前をタップした時の、名前と勝敗(2026-10-03) -->
 </div>
 <div id="ui">
     <div id="requiredHandSizeLabel" style="display:none;"></div>
@@ -510,11 +517,13 @@
             どこかにいるライバルと<br>
             読み合いバトルで勝負だ！</p>
             <p>・RANDOM MATCHで、待っている相手と自動で対戦します。30秒見つからない時は、CPUとの対戦も選べます。<br>
+            ・名前（ローマ字4文字）はONLINE V.S.の最初の画面で変えられます。名前と勝敗は対戦相手にも表示されます。<br>
+            ・対戦中に相手の名前をタップすると、相手の勝敗が見られます。<br>
             ・CREATE ROOMで出る4桁の番号を友だちに伝えると、友だちはJOIN ROOMでその部屋に入れます。<br>
             ・1ターンの制限時間は30秒です。時間切れになると、足りない枚数のカードが手札から自動で出されます。<br>
-            ・対戦中に通信が切れたまま戻らない時や、タイトルに戻った時は、相手の勝ちになります。<br>
+            ・対戦中に通信が切れたまま戻らない時や、タイトルに戻った・ページを閉じた時は、相手の勝ち・あなたの負けになります。<br>
             ・キャラクター・ステージはローカルバーサスモードと同じです。<br>
-            ・RECORDには勝利数だけが記録されます（CPUとの対戦は除く）。</p>
+            ・RECORDには勝利数・敗北数だけが記録されます（CPUとの対戦・引き分けは除く）。</p>
         </div>
     </div>
 </div>
@@ -785,7 +794,7 @@
 (function() {
     // 配信用の軽量版(コメント・空白を除いたもの)。編集はjs/script.jsで行い、tools/build.shで作り直す(2026-10-02)。
     // ?v=はバージョン(.title-versionの末尾3桁)と同じ番号にし、更新のたびに上げる(古いものがキャッシュに残らないように)
-    var SCRIPT_URL = 'js/script.min.js?v=223';
+    var SCRIPT_URL = 'js/script.min.js?v=224';
     var bar = document.getElementById('nowLoadingBar');
     var percentEl = document.getElementById('nowLoadingPercent');
     var settled = false; // フォールバック(タイムアウト)と正常読み込みの、どちらか一方だけが実行されるようにするためのフラグ

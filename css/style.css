@@ -1237,6 +1237,22 @@
 .online-score { font-size: 12px; font-weight: 900; letter-spacing: 2px; color: #ccc; }
 .online-rival { font-size: 12px; font-weight: 900; letter-spacing: 2px; color: #8cc6ff; }
 .online-rival.ready { color: #ffd23c; }
+/* 名前と勝敗(2026-10-03) */
+.online-rival { text-align: center; line-height: 1.6; }
+.online-rival-who { color: #fff; }
+.online-rival-rec { margin-left: 10px; color: #aaa; }
+.online-name-row { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+.online-name-input { width: 112px; font-size: 22px; letter-spacing: 6px; padding-left: 10px; text-transform: uppercase; }
+.online-my-record { font-size: 12px; font-weight: 900; letter-spacing: 2px; color: #aaa; min-width: 60px; }
+.vs-result-rival { color: #aaa; }
+#enemyName { cursor: pointer; }
+#onlineRivalCard {
+    display: none; position: absolute; right: 8px; top: 36px; z-index: 23; text-align: right;
+    padding: 6px 12px; border-radius: 8px; background: rgba(0,0,0,0.8); border: 1px solid #555; pointer-events: none;
+}
+#onlineRivalCard.show { display: block; animation: vsResultIn 0.2s ease-out; }
+.online-rival-card-name { font-size: 16px; font-weight: 900; letter-spacing: 3px; color: #fff; }
+.online-rival-card-rec { font-size: 12px; font-weight: 900; letter-spacing: 2px; color: #ffd23c; }
 #onPanelSelect.ready .vs-sel-grid { opacity: 0.45; }
 .online-msg-big { font-size: 28px; font-weight: 900; letter-spacing: 3px; color: #fff; line-height: 1.4; }
 .online-msg-big span { display: block; font-size: 12px; font-weight: 700; letter-spacing: 1px; color: #aaa; }

@@ -213,7 +213,11 @@ let storyMaxCombo = 0; // STORY MODEのバトルでの最大COMBO(プレイヤ�
 let rushUnlocked = false; // BATTLE RUSHが解放済みか。専用のGIFT CODEでのみ解放する(2026-09-28追加)
 let rushBest = { kills: 0, clearTimeMs: null, maxCombo: 0 }; // BATTLE RUSHの自己ベスト(撃破数・100人撃破時の最速タイム・最大COMBO)。セーブデータに永続化する
 let onlineUnlocked = false; // オンライン対戦(ONLINE V.S.)が解放済みか。LOCAL V.S.とは別の専用GIFT CODEでのみ解放する(2026-10-03追加)
-let onlineWins = 0; // ONLINE V.S.の通算勝利数。RECORDSに出す唯一のオンラインの記録(2026-10-03追加、セーブ対象)
+let onlineWins = 0; // ONLINE V.S.の通算勝利数(2026-10-03追加、セーブ対象)
+let onlineLosses = 0; // ONLINE V.S.の通算敗北数(2026-10-03追加、セーブ対象。これより前の負けは数えていない)
+let onlineName = null; // ONLINE V.S.で相手に見せる名前(ローマ字大文字4文字)。初めて使う時にランダムで決める(2026-10-03追加、セーブ対象)
+// 人との対戦中か(セーブ対象)。対戦の途中でページを閉じた・再読み込みした場合、次に開いた時に負けとして数える(2026-10-03追加)
+let onlineMatchOpen = false;
 
 // 各敵のストーリーシーン内に仕込む隠しタップで解除するサブストーリー(本文は完成済み。画像は今後配置予定、未配置ならプレースホルダー表示)
 // 隠しタップの対象画面(ストーリーシーン3画面のうち何枚目か、0始まり)。敵ごとにバラバラの画面に仕込む。
@@ -1305,6 +1309,12 @@ function applySaveDataOnBoot() {
     if (typeof save.rushUnlocked === 'boolean') rushUnlocked = save.rushUnlocked;
     if (typeof save.onlineUnlocked === 'boolean') onlineUnlocked = save.onlineUnlocked;
     if (typeof save.onlineWins === 'number') onlineWins = save.onlineWins;
+    if (typeof save.onlineLosses === 'number') onlineLosses = save.onlineLosses;
+    if (typeof save.onlineName === 'string' && onlineNameValid(save.onlineName)) onlineName = save.onlineName;
+    if (save.onlineMatchOpen === true) { // 前回、人との対戦の途中でページを閉じた: 相手の端末では相手の勝ちになっているので、負けとして数える
+        onlineLosses++;
+        writeSaveData({ onlineLosses, onlineMatchOpen: false });
+    }
     if (typeof save.storyMaxCombo === 'number') storyMaxCombo = save.storyMaxCombo;
     if (typeof save.recordsHintAnnounced === 'boolean') recordsHintAnnounced = save.recordsHintAnnounced;
     if (save.tutorialSeen) tutorialSeen = { deck: !!save.tutorialSeen.deck, battle: !!save.tutorialSeen.battle, extra: !!save.tutorialSeen.extra };
@@ -1339,7 +1349,7 @@ function markSpecialUsed(key, side) {
     if (side === 'E') return;
     if (state.battleStats) state.battleStats.techs++; // RESULT画面用: このバトルでのワザの発動回数(2026-10-02)
     // TRAINING MODE・LOCAL V.S.で使った技はRECORDSに記録しない(HOW TO TRAINING / HOW TO LOCAL V.S.の説明どおり、2026-10-01)
-    if (state.gameMode === 'training' || state.gameMode === 'versus' || state.gameMode === 'online') return; // ONLINE V.S.もRECORDSには勝利数だけを残す(2026-10-03)
+    if (state.gameMode === 'training' || state.gameMode === 'versus' || state.gameMode === 'online') return; // ONLINE V.S.もRECORDSには勝敗数だけを残す(2026-10-03)
     if (specialsUsed[key]) return; // 既に記録済みなら何もしない
     specialsUsed[key] = true;
     writeSaveData({ specialsUsed });
@@ -3852,7 +3862,7 @@ function updateCharNames() {
     if (state.gameMode === 'versus') { vsUpdateNames(); return; } // ローカル対戦は1P/2P表記付きの実名(？？？マスキングなし)
     if (state.gameMode === 'online') { // オンライン対戦: 自分と相手が選んだキャラの実名(相手側も？？？マスキングなし)
         document.getElementById('playerName').innerText = ENEMY_PRESETS[state.pPresetKey].name;
-        document.getElementById('enemyName').innerText = ENEMY_PRESETS[state.ePresetKey].name + (onlineState.cpu ? ' (CPU)' : ''); // CPU戦(ランダムマッチで相手が見つからなかった時)は、CPUであることを明示する
+        document.getElementById('enemyName').innerText = ENEMY_PRESETS[state.ePresetKey].name + (onlineState.cpu ? ' (CPU)' : ' - ' + onlineRivalName()); // 人との対戦では相手の名前も添える(タップで勝敗、2026-10-03) // CPU戦(ランダムマッチで相手が見つからなかった時)は、CPUであることを明示する
         return;
     }
     document.getElementById('playerName').innerText =
@@ -6040,8 +6050,8 @@ function updateOptionUI() {
     // デッキ編成中もまだバトルが始まっていないため、RETRYは出さずRETURN TO TITLEだけにする(2026-10-02)
     document.getElementById('optionRetryBtn').style.display = (uiMode === 'training' || uiMode === 'online' || isDeck) ? 'none' : ''; // オンライン対戦は相手がいるのでRETRYなし
     // RETURN TO TITLEの確認文言: STORY MODEは進行状況の保存に触れるが、TRAINING MODEは進行状況を持たないため短い文言にする
-    document.getElementById('returnConfirmText').innerHTML = (uiMode === 'online' && !onlineState.cpu)
-        ? 'タイトルに戻りますか？<br>（対戦は相手の勝ちになります）' // 部屋から抜けると、相手の端末では相手の勝ちになる
+    document.getElementById('returnConfirmText').innerHTML = (uiMode === 'online' && !onlineState.cpu && onlineInBattle())
+        ? 'タイトルに戻りますか？<br>（相手の勝ち・あなたの負けになります）' // 対戦の途中で抜けると、相手の端末では相手の勝ちになり、自分には負けが付く
         : (uiMode === 'training' || uiMode === 'versus' || uiMode === 'rush' || uiMode === 'online') // onlineはCPU戦(相手がいないので相手の勝ちにはならない)
         ? 'タイトルに戻りますか？'
         : 'タイトルに戻りますか？<br>（ストーリーの進行状況は保存されます）';
@@ -7675,6 +7685,10 @@ function vsSelectBackToTitle() {
 //   相手がCPUであることは、キャラ選択(RIVAL: CPU)・FIGHT!・バトル中の名前・決着画面のすべてで明示する。
 //   CPU戦の勝利はONLINE V.S.の勝利数(onlineWins)に数えない。
 // ・入力の制限時間(2026-10-03、段階4): 1ターン30秒(ONLINE_INPUT_LIMIT_MS)。時間切れなら手札から足りない枚数を自動で出す。CPU戦は制限なし。
+// ・名前と勝敗(2026-10-03): 各自の名前(ローマ字大文字4文字、onlineName)と通算の勝敗(onlineWins/onlineLosses)を、
+//   キャラ選択の欄(sel/{役})に載せて相手に見せる(キャラ選択・決着画面・バトル中に相手の名前をタップ)。
+//   勝敗は各自の端末の記録をそのまま見せるだけ(改造すれば偽れるが、遊びの目安として割り切る)。CPU戦は数えない。
+//   対戦の途中で抜けた(TITLE・ページを閉じた)時は、相手の勝ちになるのに合わせて自分にも負けを付ける(onlineMatchOpen)。
 // ・Firebaseのセキュリティルールは database.rules.json(段階4で本番用にした。部屋の参加者だけが書ける・自分の欄だけ・
 //   送った手は書き換えられない等)。ダミー通信でも同じルールで判定する(onlineRulesCheck、?net=dummy の時だけ)。
 //
@@ -7708,6 +7722,11 @@ const ONLINE_ROOM_EMPTY_STALE_MS = 10 * 60 * 1000; // 誰もいない部屋は�
 const ONLINE_CLEANUP_AGE_MS = ONLINE_ROOM_STALE_MS + 10 * 60 * 1000;
 const ONLINE_CLEANUP_LIMIT = 10; // 1回に消す部屋の数の上限(セキュリティルールでは20まで読める)
 const ONLINE_CARD_NAMES = ['PUNCH', 'UPPER', 'GUARD'];
+// 名前(2026-10-03): ローマ字大文字4文字。悪口になる語は使えない(4文字そのもの・3文字を含むもの)
+const ONLINE_NAME_NG4 = ['FUCK', 'FUKK', 'PHUK', 'SHIT', 'CUNT', 'DICK', 'COCK', 'PISS', 'TWAT', 'SLUT', 'WHOR', 'HOES', 'NAZI', 'RAPE',
+    'PORN', 'ANAL', 'JIZZ', 'TITS', 'NIGG', 'NIGR', 'NIGA', 'KIKE', 'SPIC', 'CHNK', 'GOOK', 'KILL', 'SINE', 'SHNE', 'KUSO', 'KASU',
+    'UNKO', 'MANK', 'CHIN', 'BAKA', 'GOMI', 'KIMO', 'USSE', 'HAGE', 'BUSU', 'DEBU'];
+const ONLINE_NAME_NG3 = ['FAG', 'FUK', 'FCK', 'KYS', 'SEX', 'CUM', 'NGR', 'ASS', 'TIT', 'DIE'];
 // 入力の制限時間(段階4)。時間切れなら、手札から足りない枚数を自動で出して送る(CPU戦では使わない)
 const ONLINE_INPUT_LIMIT_MS = 30000;
 const ONLINE_INPUT_HURRY_SEC = 10; // 残りがこの秒数以下になったら、残り時間の表示を赤くする
@@ -7984,6 +8003,95 @@ function onlineGameVersion() {
     return el ? el.textContent.trim() : '';
 }
 function onlineOppRole() { return onlineState.role === 'host' ? 'guest' : 'host'; }
+// ------- 名前と勝敗(2026-10-03) -------
+function onlineNameValid(name) {
+    if (typeof name !== 'string' || !/^[A-Z]{4}$/.test(name)) return false;
+    if (ONLINE_NAME_NG4.includes(name)) return false;
+    return !ONLINE_NAME_NG3.some(w => name.includes(w));
+}
+// 自分の名前。まだ無ければ、読みやすいランダムな4文字(子音・母音・子音・母音)を決めて保存する
+function onlineMyName() {
+    if (onlineName && onlineNameValid(onlineName)) return onlineName;
+    const C = 'BDFGHJKMNPRSTVWYZ', V = 'AEIOU';
+    let name = '';
+    for (let tries = 0; tries < 50 && !onlineNameValid(name); tries++) {
+        name = C[Math.floor(Math.random() * C.length)] + V[Math.floor(Math.random() * V.length)]
+            + C[Math.floor(Math.random() * C.length)] + V[Math.floor(Math.random() * V.length)];
+    }
+    onlineName = onlineNameValid(name) ? name : 'KOMA';
+    writeSaveData({ onlineName });
+    return onlineName;
+}
+function onlineRecordText(w, l) { return `${w}W ${l}L`; }
+// 相手のキャラ選択の欄(名前・勝敗)。届いた値はそのまま信じず、形が合わなければ使わない
+function onlineRivalSel() { return (onlineState.room && onlineState.room.sel && onlineState.room.sel[onlineOppRole()]) || null; }
+function onlineRivalName() {
+    if (onlineState.cpu) return 'CPU';
+    const s = onlineRivalSel();
+    return (s && onlineNameValid(s.name)) ? s.name : 'RIVAL';
+}
+// 相手の勝敗の表示。adjは決着画面用: この試合の結果を足して見せる({w:1}=相手が勝った、{l:1}=相手が負けた)
+function onlineRivalRecord(adj) {
+    if (onlineState.cpu) return '';
+    const s = onlineRivalSel();
+    const num = v => (typeof v === 'number' && isFinite(v) && v >= 0) ? Math.floor(Math.min(v, 9999999)) : null;
+    const w = s && num(s.w), l = s && num(s.l);
+    if (w === null || l === null) return '';
+    return onlineRecordText(w + ((adj && adj.w) || 0), l + ((adj && adj.l) || 0));
+}
+// 人との対戦の途中か(開始演出〜ターン解決。決着後・キャラ選択中は含まない)
+function onlineInBattle() {
+    return ['intro', 'input', 'commit', 'reveal', 'verify', 'resolve'].includes(onlineState.phase);
+}
+// 人との対戦の始まりと終わりで呼ぶ。終わりでは結果('win' | 'loss' | null=記録しない)を通算の勝敗に足す
+function onlineOpenMatch() {
+    if (onlineState.cpu) return;
+    onlineMatchOpen = true;
+    writeSaveData({ onlineMatchOpen: true });
+}
+function onlineCloseMatch(result) {
+    if (!onlineMatchOpen) return; // CPU戦・すでに記録済み
+    onlineMatchOpen = false;
+    if (result === 'win') onlineWins++;
+    else if (result === 'loss') onlineLosses++;
+    writeSaveData({ onlineWins, onlineLosses, onlineMatchOpen: false });
+}
+// ロビーの名前欄: 4文字そろって使える語ならその場で保存する。3文字以下のまま離れたら元の名前に戻す
+function onlineNameInput(el) {
+    const v = el.value.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 4);
+    if (el.value !== v) el.value = v;
+    if (v.length < 4) { onlineSetLobbyMsg('名前はローマ字4文字で入れてください'); return; }
+    if (!onlineNameValid(v)) { onlineSetLobbyMsg('その名前は使えません', true); return; }
+    if (v !== onlineName) {
+        onlineName = v;
+        writeSaveData({ onlineName });
+        playSE('se_select');
+    }
+    onlineSetLobbyMsg('');
+}
+function onlineNameBlur(el) {
+    if (el.value !== onlineMyName()) { el.value = onlineMyName(); onlineSetLobbyMsg(''); }
+}
+function onlineRenderLobbyName() {
+    const input = document.getElementById('onNameInput');
+    if (input) input.value = onlineMyName();
+    const rec = document.getElementById('onMyRecord');
+    if (rec) rec.textContent = onlineRecordText(onlineWins, onlineLosses);
+}
+// バトル中に相手の名前をタップ: 相手の名前と勝敗を少しの間だけ出す(もう一度タップで消す)
+let onlineRivalCardTimer = null;
+function onlineToggleRivalCard() {
+    if (state.gameMode !== 'online') return;
+    const el = document.getElementById('onlineRivalCard');
+    if (!el) return;
+    if (onlineRivalCardTimer) { clearTimeout(onlineRivalCardTimer); onlineRivalCardTimer = null; }
+    if (el.classList.contains('show')) { el.classList.remove('show'); return; }
+    const rec = onlineRivalRecord(null);
+    el.innerHTML = `<div class="online-rival-card-name">${onlineRivalName()}</div>` + (rec ? `<div class="online-rival-card-rec">${rec}</div>` : '');
+    el.classList.add('show');
+    playSE('se_select');
+    onlineRivalCardTimer = setTimeout(() => { onlineRivalCardTimer = null; el.classList.remove('show'); }, 3000);
+}
 function onlineRoomPath(sub) { return 'rooms/' + onlineState.code + (sub ? '/' + sub : ''); }
 function onlineTurnPath(turn, role) { return onlineRoomPath(`m/${onlineState.match}/t/${turn}/${role}`); }
 // 古すぎる部屋や、しばらく誰もいない部屋は、使い回してよい(抜けた人の在室フラグは通信切れで自動的に消える)。
@@ -8035,6 +8143,8 @@ function onlineSetGate(html) {
 }
 function onlineHideBattleOverlays() {
     onlineStopInputTimer();
+    const card = document.getElementById('onlineRivalCard');
+    if (card) card.classList.remove('show');
     onlineSetStatus('');
     onlineSetGate('');
     const r = document.getElementById('vsResult1');
@@ -8061,6 +8171,7 @@ function goOnlineLobby() {
     onlineSetLobbyMsg('');
     const input = document.getElementById('onJoinCode');
     if (input) input.value = '';
+    onlineRenderLobbyName(); // 名前と自分の勝敗(2026-10-03)
     onlineShowPanel('Lobby');
     showScene('online');
     playBGM('bgm_deck');
@@ -8224,6 +8335,8 @@ function onlineCancelHost() {
 }
 // 部屋から抜ける(タイトルへ戻る経路=goLogo等からも必ず呼ばれる。部屋にいなければ何もしない安全な処理)
 function onlineLeave() {
+    // 人との対戦の途中で抜けた(OPTIONのRETURN TO TITLE等): 相手の端末では相手の勝ちになるので、自分には負けを付ける
+    onlineCloseMatch(onlineInBattle() && onlineState.code && !onlineState.oppLeft ? 'loss' : null);
     onlineStopSearch(); // ランダムマッチで待合室にいれば、待合室からも抜ける
     onlineState.cpu = false;
     onlineState.random = false;
@@ -8578,7 +8691,7 @@ function onlineStartCpu() {
     onlineGoSelect();
 }
 // 相手の呼び名(決着画面・対戦成績の表示用)。CPU戦では必ず「CPU」と出す
-function onlineRivalLabel() { return onlineState.cpu ? 'CPU' : 'RIVAL'; }
+function onlineRivalLabel() { return onlineRivalName(); } // 人との対戦では相手の名前(まだ分からなければRIVAL)、CPU戦はCPU
 
 // ------- 部屋のデータが変わるたびに呼ばれる進行役 -------
 // 部屋の状態と自分のphaseを見比べて、次にやるべきことを1つずつ進める。同じデータで何度呼ばれても問題ない作り。
@@ -8704,7 +8817,8 @@ function onlineGoSelect() {
 }
 function onlineWriteSel() {
     if (!onlineState.net || !onlineState.code) return;
-    onlineState.net.set(onlineRoomPath('sel/' + onlineState.role), { key: onlineState.sel, ready: onlineState.ready, m: onlineState.match });
+    onlineState.net.set(onlineRoomPath('sel/' + onlineState.role), { key: onlineState.sel, ready: onlineState.ready, m: onlineState.match,
+        name: onlineMyName(), w: onlineWins, l: onlineLosses }); // 名前と通算の勝敗も相手に見せる(2026-10-03)
 }
 function onlineRenderSelect() {
     const grid = document.getElementById('onSelGrid');
@@ -8754,10 +8868,15 @@ function onlineRenderRival() {
         el.classList.remove('ready');
         return;
     }
-    const s = onlineState.room && onlineState.room.sel && onlineState.room.sel[onlineOppRole()];
+    const s = onlineRivalSel();
     const rivalReady = !!(s && s.ready && s.m === onlineState.match);
-    el.textContent = rivalReady ? 'RIVAL: READY!' : 'RIVAL: CHOOSING...';
+    // 1行目: 相手の名前と通算の勝敗(2026-10-03)、2行目: 選択中/READY
+    const rec = onlineRivalRecord(null);
+    el.innerHTML = `<div class="online-rival-who">RIVAL: ${onlineRivalName()}${rec ? `<span class="online-rival-rec">${rec}</span>` : ''}</div>`
+        + `<div>${rivalReady ? 'READY!' : 'CHOOSING...'}</div>`;
     el.classList.toggle('ready', rivalReady);
+    const score = document.getElementById('onScore'); // 対戦成績の相手の呼び名(名前が届いたら差し替える)
+    if (score) score.innerText = `YOU ${onlineState.wins.me} - ${onlineState.wins.opp} ${onlineRivalLabel()}`;
 }
 function onlineSelectChar(key) {
     if (onlineState.phase !== 'select' || onlineState.ready) return;
@@ -8833,6 +8952,7 @@ async function onlineLaunchMatch(stageNum, seed) {
     ]));
     if (onlineState.phase !== 'starting') return;
     onlineState.phase = 'intro';
+    onlineOpenMatch(); // 人との対戦の始まり(途中でページを閉じたら、次に開いた時に負けとして数える)
     onlineHideBattleOverlays();
     resetBattleState();
     showScene('battle');
@@ -8943,6 +9063,7 @@ async function onlineSubmit() {
 // 両端末の展開がズレていた(または相手の手がハッシュ値と合わなかった)。試合を止め、勝敗は記録しない
 function onlineSyncError() {
     onlineState.phase = 'over';
+    onlineCloseMatch(null); // 記録しない
     state.battleReady = false;
     onlineSetStatus('');
     const r = document.getElementById('vsResult1');
@@ -8957,26 +9078,25 @@ function onlineShowResult() {
     onlineState.phase = 'over';
     onlineSetStatus('');
     const winner = (state.hpP <= 0 && state.hpE <= 0) ? null : (state.hpE <= 0 ? 'me' : 'opp');
-    if (winner === 'me') {
-        onlineState.wins.me++;
-        if (!onlineState.cpu) { // CPU戦の勝利は、ONLINE V.S.の勝利数(RECORDS)に数えない
-            onlineWins++;
-            writeSaveData({ onlineWins });
-        }
-    } else if (winner === 'opp') {
-        onlineState.wins.opp++;
-    }
+    if (winner === 'me') onlineState.wins.me++;
+    else if (winner === 'opp') onlineState.wins.opp++;
+    // 通算の勝敗(RECORDS・相手に見せる記録)。CPU戦は数えない(onlineCloseMatchが何もしない)。引き分けは数えない
+    onlineCloseMatch(winner === 'me' ? 'win' : (winner === 'opp' ? 'loss' : null));
     onlineRenderResult(winner === null ? 'DRAW' : (winner === 'me' ? 'YOU WIN' : 'YOU LOSE'),
-        winner === null ? 'draw' : (winner === 'me' ? 'win' : 'lose'), '');
+        winner === null ? 'draw' : (winner === 'me' ? 'win' : 'lose'), '',
+        winner === 'me' ? { l: 1 } : (winner === 'opp' ? { w: 1 } : null));
     playSE('se_win');
     playResultBgmDelayed(winner === 'opp' ? 'bgm_battle_lose' : 'bgm_battle_win', 'se_win');
 }
-function onlineRenderResult(text, cls, note) {
+// oppAdj: 相手の通算の勝敗に、この試合の結果を足して見せる({w:1} / {l:1}。分からなければnull)
+function onlineRenderResult(text, cls, note, oppAdj) {
     const r = document.getElementById('vsResult1');
     r.className = 'vs-result show ' + cls;
+    const rec = onlineRivalRecord(oppAdj || null);
     r.innerHTML = `<div class="vs-result-text">${text}</div>` +
         (note ? `<div class="vs-result-score">${note}</div>` : '') +
-        `<div class="vs-result-score">YOU ${onlineState.wins.me} - ${onlineState.wins.opp} ${onlineRivalLabel()}</div>`;
+        `<div class="vs-result-score">YOU ${onlineState.wins.me} - ${onlineState.wins.opp} ${onlineRivalLabel()}</div>` +
+        (rec ? `<div class="vs-result-score vs-result-rival">${onlineRivalName()}  ${rec}</div>` : '');
     onlineSetGate(`<div class="vs-result-btns">` +
         (onlineState.oppLeft ? '' : `<button class="vs-ready-btn" onclick="onlineRematch()">REMATCH</button>`) +
         `<button class="vs-sub-btn" onclick="onlineBackToTitle()">TITLE</button></div>`);
@@ -9022,10 +9142,9 @@ function onlineEndByLeave() {
     state.battleReady = false;
     updateActionButtons();
     onlineState.wins.me++;
-    onlineWins++;
-    writeSaveData({ onlineWins });
+    onlineCloseMatch('win');
     onlineSetStatus('');
-    onlineRenderResult('YOU WIN', 'win', 'RIVAL LEFT');
+    onlineRenderResult('YOU WIN', 'win', 'RIVAL LEFT', { l: 1 });
     playSE('se_win');
     playResultBgmDelayed('bgm_battle_win', 'se_win');
 }
@@ -9037,9 +9156,10 @@ function onlineEndAbnormal(title, note, countOppWin) {
     onlineState.oppLeft = true; // REMATCHはできない(部屋の状態が分からないため、一度抜けてもらう)
     state.battleReady = false;
     if (countOppWin) onlineState.wins.opp++;
+    onlineCloseMatch(countOppWin ? 'loss' : null); // 相手の勝ちになった時だけ、自分の負けとして数える
     onlineSetStatus('');
     if (!wasResolving) updateActionButtons();
-    onlineRenderResult(title, 'lose', note);
+    onlineRenderResult(title, 'lose', note, countOppWin ? { w: 1 } : null);
     playSE('se_ko');
 }
 // 部屋が消えていた(自分の通信が長く切れている間に、相手が部屋を片付けた)
@@ -9502,8 +9622,9 @@ function renderRecords() {
             + stat('ベストタイム', rushBest.clearTimeMs === null ? '--:--.-' : formatRushTime(rushBest.clearTimeMs))
             + stat('最大COMBO', rushBest.maxCombo));
     }
-    if (onlineUnlocked) { // ONLINE V.S.は勝利数だけを残す(2026-10-03)
-        section('online', 'ONLINE V.S.', `${onlineWins} WIN${onlineWins === 1 ? '' : 'S'}`, stat('勝利数', `${onlineWins}回`));
+    if (onlineUnlocked) { // ONLINE V.S.は勝敗数だけを残す(2026-10-03。敗北数は名前の追加と同時に記録し始めた)
+        section('online', 'ONLINE V.S.', onlineRecordText(onlineWins, onlineLosses),
+            stat('名前', onlineMyName()) + stat('勝利数', `${onlineWins}回`) + stat('敗北数', `${onlineLosses}回`));
     }
     const techs = items.filter(it => it.tech);
     const unlocks = items.filter(it => !it.tech);
