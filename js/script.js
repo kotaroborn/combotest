@@ -9723,8 +9723,8 @@ function rushBackToTitle() {
 const RECORDS_HINTS = {
     subStoryHow: (n) => `STORY ${n}のシナリオ中に隠しタップで発見`, // 2026-10-04: 見つける前から、どのSTORYに隠れているかを出す
     subStoryHint: (n) => `STORY ${n}のシナリオ中に隠しタップで発見`,
-    costumeHow: (n) => `SUB STORY ${n} クリア後`,
-    costumeHint: (n) => `SUB STORY ${n} クリア後`,
+    costumeHow: (n) => `SUB STORY ${n} クリア`,
+    costumeHint: (n) => `SUB STORY ${n} クリア`,
     clearHow: 'ゲームクリアで解放',
     clearHint: 'ゲームクリアで解放',
     rushClearHow: 'BATTLE RUSHクリアで解放', // SOUND TEST(2026-10-04)
