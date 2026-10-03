@@ -215,7 +215,7 @@ let rushBest = { kills: 0, clearTimeMs: null, maxCombo: 0 }; // BATTLE RUSHの�
 let onlineUnlocked = false; // オンライン対戦(ONLINE V.S.)が解放済みか。LOCAL V.S.とは別の専用GIFT CODEでのみ解放する(2026-10-03追加)
 let onlineWins = 0; // ONLINE V.S.の通算勝利数(2026-10-03追加、セーブ対象)
 let onlineLosses = 0; // ONLINE V.S.の通算敗北数(2026-10-03追加、セーブ対象。これより前の負けは数えていない)
-let onlineName = null; // ONLINE V.S.で相手に見せる名前(ローマ字大文字4文字)。初めて使う時にランダムで決める(2026-10-03追加、セーブ対象)
+let onlineName = null; // ONLINE V.S.で相手に見せる名前(英大文字・数字の4文字、2026-10-03に数字も可にした)。初めて使う時にランダムで決める(2026-10-03追加、セーブ対象)
 // 人との対戦中か(セーブ対象)。対戦の途中でページを閉じた・再読み込みした場合、次に開いた時に負けとして数える(2026-10-03追加)
 let onlineMatchOpen = false;
 
@@ -7685,7 +7685,7 @@ function vsSelectBackToTitle() {
 //   相手がCPUであることは、キャラ選択(RIVAL: CPU)・FIGHT!・バトル中の名前・決着画面のすべてで明示する。
 //   CPU戦の勝利はONLINE V.S.の勝利数(onlineWins)に数えない。
 // ・入力の制限時間(2026-10-03、段階4): 1ターン30秒(ONLINE_INPUT_LIMIT_MS)。時間切れなら手札から足りない枚数を自動で出す。CPU戦は制限なし。
-// ・名前と勝敗(2026-10-03): 各自の名前(ローマ字大文字4文字、onlineName)と通算の勝敗(onlineWins/onlineLosses)を、
+// ・名前と勝敗(2026-10-03): 各自の名前(英大文字・数字の4文字、onlineName)と通算の勝敗(onlineWins/onlineLosses)を、
 //   キャラ選択の欄(sel/{役})に載せて相手に見せる(キャラ選択・決着画面・バトル中に相手の名前をタップ)。
 //   勝敗は各自の端末の記録をそのまま見せるだけ(改造すれば偽れるが、遊びの目安として割り切る)。CPU戦は数えない。
 //   対戦の途中で抜けた(TITLE・ページを閉じた)時は、相手の勝ちになるのに合わせて自分にも負けを付ける(onlineMatchOpen)。
@@ -7722,10 +7722,12 @@ const ONLINE_ROOM_EMPTY_STALE_MS = 10 * 60 * 1000; // 誰もいない部屋は�
 const ONLINE_CLEANUP_AGE_MS = ONLINE_ROOM_STALE_MS + 10 * 60 * 1000;
 const ONLINE_CLEANUP_LIMIT = 10; // 1回に消す部屋の数の上限(セキュリティルールでは20まで読める)
 const ONLINE_CARD_NAMES = ['PUNCH', 'UPPER', 'GUARD'];
-// 名前(2026-10-03): ローマ字大文字4文字。悪口になる語は使えない(4文字そのもの・3文字を含むもの)
-const ONLINE_NAME_NG4 = ['FUCK', 'FUKK', 'PHUK', 'SHIT', 'CUNT', 'DICK', 'COCK', 'PISS', 'TWAT', 'SLUT', 'WHOR', 'HOES', 'NAZI', 'RAPE',
+// 名前(2026-10-03): 英大文字・数字の4文字。悪口になる語は使えない(4文字そのもの・3文字を含むもの)。
+// 数字で言い換えたもの(5H1T等)も弾けるよう、判定の時だけ数字を形の似た文字に置き換えて調べる(ONLINE_NAME_DIGIT_LOOKALIKE)
+const ONLINE_NAME_NG4 = ['FUCK', 'FUKK', 'PHUK', 'FVCK', 'FCUK', 'SHIT', 'CUNT', 'DICK', 'COCK', 'PISS', 'TWAT', 'SLUT', 'WHOR', 'HOES', 'NAZI', 'RAPE',
     'PORN', 'ANAL', 'JIZZ', 'TITS', 'NIGG', 'NIGR', 'NIGA', 'KIKE', 'SPIC', 'CHNK', 'GOOK', 'KILL', 'SINE', 'SHNE', 'KUSO', 'KASU',
     'UNKO', 'MANK', 'CHIN', 'BAKA', 'GOMI', 'KIMO', 'USSE', 'HAGE', 'BUSU', 'DEBU'];
+const ONLINE_NAME_DIGIT_LOOKALIKE = { '0': 'O', '1': 'I', '2': 'Z', '3': 'E', '4': 'A', '5': 'S', '6': 'G', '7': 'T', '8': 'B', '9': 'G' };
 const ONLINE_NAME_NG3 = ['FAG', 'FUK', 'FCK', 'KYS', 'SEX', 'CUM', 'NGR', 'ASS', 'TIT', 'DIE'];
 // 入力の制限時間(段階4)。時間切れなら、手札から足りない枚数を自動で出して送る(CPU戦では使わない)
 const ONLINE_INPUT_LIMIT_MS = 30000;
@@ -8011,9 +8013,10 @@ function upperInputValue(el) {
     if (el.value !== v) el.value = v;
 }
 function onlineNameValid(name) {
-    if (typeof name !== 'string' || !/^[A-Z]{4}$/.test(name)) return false;
-    if (ONLINE_NAME_NG4.includes(name)) return false;
-    return !ONLINE_NAME_NG3.some(w => name.includes(w));
+    if (typeof name !== 'string' || !/^[A-Z0-9]{4}$/.test(name)) return false;
+    // 数字を形の似た文字に置き換えたものと、そのままのものの両方で調べる(1はIとLの両方)
+    const forms = [name, name.replace(/[0-9]/g, d => ONLINE_NAME_DIGIT_LOOKALIKE[d]), name.replace(/[0-9]/g, d => d === '1' ? 'L' : ONLINE_NAME_DIGIT_LOOKALIKE[d])];
+    return !forms.some(f => ONLINE_NAME_NG4.includes(f) || ONLINE_NAME_NG3.some(w => f.includes(w)));
 }
 // 自分の名前。まだ無ければ、読みやすいランダムな4文字(子音・母音・子音・母音)を決めて保存する
 function onlineMyName() {
@@ -8064,9 +8067,9 @@ function onlineCloseMatch(result) {
 }
 // ロビーの名前欄: 4文字そろって使える語ならその場で保存する。3文字以下のまま離れたら元の名前に戻す
 function onlineNameInput(el) {
-    const v = el.value.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 4);
+    const v = el.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 4);
     if (el.value !== v) el.value = v;
-    if (v.length < 4) { onlineSetLobbyMsg('名前はローマ字4文字で入れてください'); return; }
+    if (v.length < 4) { onlineSetLobbyMsg('名前は英数字4文字で入れてください'); return; }
     if (!onlineNameValid(v)) { onlineSetLobbyMsg('その名前は使えません', true); return; }
     if (v !== onlineName) {
         onlineName = v;

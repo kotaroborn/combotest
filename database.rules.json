@@ -47,7 +47,7 @@
               ".validate": "newData.isNumber() && (newData.val() === data.val() || newData.parent().parent().parent().child($role).val() === auth.uid)"
             },
             "name": {
-              ".validate": "newData.isString() && newData.val().matches(/^[A-Z]{4}$/) && (newData.val() === data.val() || newData.parent().parent().parent().child($role).val() === auth.uid)"
+              ".validate": "newData.isString() && newData.val().matches(/^[A-Z0-9]{4}$/) && (newData.val() === data.val() || newData.parent().parent().parent().child($role).val() === auth.uid)"
             },
             "w": {
               ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 9999999 && (newData.val() === data.val() || newData.parent().parent().parent().child($role).val() === auth.uid)"
