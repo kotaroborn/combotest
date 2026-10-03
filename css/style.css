@@ -1219,7 +1219,7 @@
 .online-note { font-size: 11px; color: #aaa; line-height: 1.6; }
 .online-or { font-size: 12px; font-weight: 900; letter-spacing: 3px; color: #666; margin: 6px 0; }
 .online-code-input { width: 150px; font-size: 26px; letter-spacing: 10px; padding-left: 18px; }
-.online-msg { min-height: 1.6em; font-size: 12px; font-weight: 700; letter-spacing: 1px; color: #ffd23c; line-height: 1.6; }
+.online-msg { white-space: pre-line; word-break: break-all; min-height: 1.6em; font-size: 12px; font-weight: 700; letter-spacing: 1px; color: #ffd23c; line-height: 1.6; }
 .online-msg.error { color: #ff6b6b; }
 .online-label { font-size: 13px; font-weight: 900; letter-spacing: 4px; color: #aaa; }
 .online-room-code {

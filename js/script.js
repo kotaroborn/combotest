@@ -7727,16 +7727,33 @@ function onlineNetMode() {
     try { return new URLSearchParams(location.search).get('net') === 'dummy' ? 'dummy' : 'firebase'; } catch (e) { return 'firebase'; }
 }
 // Firebase版: SDK(モジュール版)をCDNから読み込み、匿名ログインしてから使う
+// 失敗した段階(SDK=読み込み / LOGIN=匿名ログイン / DB=データベース)をエラーに付けて、画面に出せるようにする(2026-10-03)
+function onlineTagError(e, stage) {
+    const err = (e instanceof Error) ? e : new Error(String(e));
+    if (!err.onlineStage) err.onlineStage = stage;
+    return err;
+}
+// 応答が無いまま待ち続けないよう、一定時間で打ち切る(データベースのURL違い等で、エラーも返らず止まることがあるため)
+function onlineWithTimeout(promise, ms, stage) {
+    return Promise.race([promise, new Promise((_, rej) => setTimeout(() => {
+        const e = new Error('timeout'); e.code = 'timeout'; rej(onlineTagError(e, stage));
+    }, ms))]);
+}
 async function onlineCreateFirebaseNet() {
-    const [appM, authM, dbM] = await Promise.all([
-        import(ONLINE_SDK_BASE + 'firebase-app.js'),
-        import(ONLINE_SDK_BASE + 'firebase-auth.js'),
-        import(ONLINE_SDK_BASE + 'firebase-database.js')
-    ]);
+    let appM, authM, dbM;
+    try {
+        [appM, authM, dbM] = await Promise.all([
+            import(ONLINE_SDK_BASE + 'firebase-app.js'),
+            import(ONLINE_SDK_BASE + 'firebase-auth.js'),
+            import(ONLINE_SDK_BASE + 'firebase-database.js')
+        ]);
+    } catch (e) { throw onlineTagError(e, 'SDK'); }
     const app = appM.getApps().length ? appM.getApp() : appM.initializeApp(ONLINE_FIREBASE_CONFIG);
     const auth = authM.getAuth(app);
-    const db = dbM.getDatabase(app);
-    const cred = await authM.signInAnonymously(auth);
+    let db;
+    try { db = dbM.getDatabase(app); } catch (e) { throw onlineTagError(e, 'DB'); }
+    let cred;
+    try { cred = await onlineWithTimeout(authM.signInAnonymously(auth), 15000, 'LOGIN'); } catch (e) { throw onlineTagError(e, 'LOGIN'); }
     const r = path => dbM.ref(db, path);
     return {
         uid: cred.user.uid,
@@ -7745,8 +7762,10 @@ async function onlineCreateFirebaseNet() {
         update: (path, v) => dbM.update(r(path), v),
         remove: path => dbM.remove(r(path)),
         transaction: async (path, fn) => {
-            const res = await dbM.runTransaction(r(path), fn);
-            return { committed: res.committed, value: res.snapshot.val() };
+            try {
+                const res = await onlineWithTimeout(dbM.runTransaction(r(path), fn), 15000, 'DB');
+                return { committed: res.committed, value: res.snapshot.val() };
+            } catch (e) { throw onlineTagError(e, 'DB'); }
         },
         onDisconnectRemove: path => dbM.onDisconnect(r(path)).remove(),
         cancelOnDisconnect: path => dbM.onDisconnect(r(path)).cancel(),
@@ -7948,7 +7967,10 @@ function goOnlineLobby() {
 }
 function onlineErrorText(e) {
     console.warn('online:', e);
-    return '通信できませんでした。電波の良い所でもう一度お試しください';
+    // 原因を調べられるよう、失敗した段階とエラーコードを小さく添える(例: [LOGIN] auth/admin-restricted-operation)
+    const stage = (e && e.onlineStage) || '?';
+    const code = (e && (e.code || e.message)) || String(e);
+    return `通信できませんでした。電波の良い所でもう一度お試しください\n[${stage}] ${String(code).slice(0, 120)}`;
 }
 // CREATE ROOM: 空いている4桁の合言葉を探して部屋を作る
 async function onlineCreateRoom() {
