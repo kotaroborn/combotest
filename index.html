@@ -17,7 +17,7 @@
     <meta property="og:image:height" content="630">
     <meta property="og:locale" content="ja_JP">
     <meta name="twitter:card" content="summary_large_image">
-    <link rel="stylesheet" href="css/style.min.css?v=216"> <!-- 配信用の軽量版。編集はcss/style.cssで行い、tools/build.shで作り直す(2026-10-02) -->
+    <link rel="stylesheet" href="css/style.min.css?v=217"> <!-- 配信用の軽量版。編集はcss/style.cssで行い、tools/build.shで作り直す(2026-10-02) -->
 
     <!-- 技名ポップ用の8bit風フォント(Press Start 2P、SIL OFL。2026-10-03に手書き風Permanent Markerから変更)。
          ゲームに同梱し(assets/fonts/)、ネット環境に左右されず表示する。canvasで使うため先読みしておく -->
@@ -105,12 +105,13 @@
                 <div class="title-logo-fallback-sub">CROSS DIMENSION</div>
             </div>
         </div>
-        <div class="title-version">ver. 0.9.216</div>
+        <div class="title-version">ver. 0.9.217</div>
     </div>
     <!-- STORY MODE(2026-10-02、旧NEW GAME。CONTINUEは廃止): STORY 2以降へ進んだことがあれば、どの章から遊ぶか選ぶウィンドウを出す -->
     <button id="startBtn" class="text-btn" onclick="tapFlickerThen(this, () => goStoryMode())" disabled>STORY MODE</button>
     <button id="trainingBtn" class="text-btn" onclick="tapFlickerThen(this, () => goTrainingBattle())" disabled>TRAINING MODE</button>
     <button id="versusBtn" class="text-btn" onclick="tapFlickerThen(this, () => goVersusSelect())" disabled style="display:none;">LOCAL V.S.</button>
+    <button id="onlineBtn" class="text-btn" onclick="tapFlickerThen(this, () => goOnlineLobby())" disabled style="display:none;">ONLINE V.S.</button>
     <button id="rushBtn" class="text-btn" onclick="tapFlickerThen(this, () => goRushStart())" disabled style="display:none;">BATTLE RUSH</button>
     <button id="bonusContentsBtn" class="text-btn" onclick="openBonusContents()" style="display:none;">BONUS</button>
     <button id="optionBtn" class="text-btn" onclick="openOption()" disabled>OPTION</button>
@@ -172,6 +173,43 @@
         <button class="howto-btn vs-sel-howto" onclick="openHowToVs('P')">HOW<br>TO</button>
     </div>
     <div id="vsSelFight">FIGHT!</div>
+</div>
+
+<!-- オンライン対戦(ONLINE V.S.、2026-10-03): 部屋を作る/入る → 相手待ち → キャラ選択。バトル自体は通常のバトルシーンを使う -->
+<div id="sceneOnline" class="scene">
+    <div class="online-head">
+        <button class="vs-sel-back" onclick="onlineBackToTitle()">✕</button>
+        <div class="online-title">ONLINE V.S.</div>
+    </div>
+    <div id="onPanelLobby" class="online-panel">
+        <button class="vs-ready-btn online-main-btn" onclick="onlineCreateRoom()">CREATE ROOM</button>
+        <div class="online-note">部屋を作って、表示される4桁の番号を相手に伝えます</div>
+        <div class="online-or">OR</div>
+        <input type="text" id="onJoinCode" class="gift-code-input online-code-input" maxlength="4" inputmode="numeric" pattern="[0-9]*" autocomplete="off" placeholder="0000">
+        <button class="vs-ready-btn online-main-btn online-join-btn" onclick="onlineJoinRoom()">JOIN ROOM</button>
+        <div class="online-note">相手から聞いた4桁の番号を入れて入室します</div>
+        <div id="onLobbyMsg" class="online-msg"></div>
+    </div>
+    <div id="onPanelHost" class="online-panel">
+        <div class="online-label">ROOM CODE</div>
+        <div id="onRoomCode" class="online-room-code">0000</div>
+        <div class="online-note">この番号を相手に伝えてください<br>相手が入室すると始まります</div>
+        <div class="online-waiting">WAITING FOR RIVAL...</div>
+        <button class="vs-sub-btn" onclick="onlineCancelHost()">CANCEL</button>
+    </div>
+    <div id="onPanelSelect" class="online-panel">
+        <div id="onScore" class="online-score"></div>
+        <div class="vs-sel-head"><span class="vs-sel-badge">YOU</span><span class="vs-sel-name" id="onSelName"></span></div>
+        <div class="vs-sel-deck" id="onSelDeck"></div>
+        <div class="vs-sel-grid" id="onSelGrid"></div>
+        <button class="vs-ready-btn" id="onSelReady" onclick="onlineToggleReady()">READY</button>
+        <div id="onRivalStatus" class="online-rival"></div>
+    </div>
+    <div id="onPanelMsg" class="online-panel">
+        <div id="onMsgText" class="online-msg-big"></div>
+        <button class="vs-ready-btn" onclick="onlineBackToLobby()">OK</button>
+    </div>
+    <div id="onSelFight"><div class="online-fight-text">FIGHT!</div><div id="onFightNames" class="online-fight-names"></div></div>
 </div>
 
 <!-- バトルシーン -->
@@ -236,6 +274,7 @@
         <div id="battleStartLabel">BATTLE START</div>
     </div>
     <div id="vsResult1" class="vs-result"></div>
+    <div id="onlineStatus"></div> <!-- オンライン対戦: 相手待ち等の表示(2026-10-03) -->
 </div>
 <div id="ui">
     <div id="requiredHandSizeLabel" style="display:none;"></div>
@@ -256,6 +295,7 @@
     </div>
     <div id="vsGate1" class="vs-gate"></div>
     <button id="vsHowToBtn1" class="howto-btn vs-howto-btn" onclick="openHowToVs('P')">HOW<br>TO</button>
+    <div id="onlineGate"></div> <!-- オンライン対戦: 決着後のREMATCH/TITLEボタン(手札・ボタン部分を覆う、2026-10-03) -->
 </div>
 <!-- 決着オーバーレイ: ヘッダー・場・手札すべてを含む画面全体を覆う -->
 <div id="resultOverlay">
@@ -715,7 +755,7 @@
 (function() {
     // 配信用の軽量版(コメント・空白を除いたもの)。編集はjs/script.jsで行い、tools/build.shで作り直す(2026-10-02)。
     // ?v=はバージョン(.title-versionの末尾3桁)と同じ番号にし、更新のたびに上げる(古いものがキャッシュに残らないように)
-    var SCRIPT_URL = 'js/script.min.js?v=216';
+    var SCRIPT_URL = 'js/script.min.js?v=217';
     var bar = document.getElementById('nowLoadingBar');
     var percentEl = document.getElementById('nowLoadingPercent');
     var settled = false; // フォールバック(タイムアウト)と正常読み込みの、どちらか一方だけが実行されるようにするためのフラグ

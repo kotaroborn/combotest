@@ -38,7 +38,7 @@
 | `piyoSide, piyoFlip` | ピヨり演出の対象側/反転状態 |
 | `pPunchStreak, ePunchStreak` | 地上パンチの連続ヒット数 |
 | `pGuardHoldPose, eGuardHoldPose` | ガード構え維持フラグ |
-| `gameMode, pendingMode` | 現在/次回のゲームモード(`'story'` \| `'training'` \| `'substoryBattle'` \| `'versus'`) |
+| `gameMode, pendingMode` | 現在/次回のゲームモード(`'story'` \| `'training'` \| `'substoryBattle'` \| `'versus'` \| `'rush'` \| `'online'`) |
 | `trainingCycleIndex` | TRAINING MODEの技サイクル位置 |
 | `storyEnemyIndex` | STORY MODEでの現在の敵の位置(セーブ対象) |
 | `soundOn` | サウンド設定値(セーブ対象。再生処理は未実装) |
@@ -101,6 +101,12 @@ HOW TO/OPTIONポップアップの開閉と、OPTION画面内の各操作、お�
 スマホ縦画面を上下に分けた2人対戦(下=1P、上=2Pを180°回転)。キャラ選択、2P側の山札・手札、1P→2Pの交代(ゲート)、2P側canvasへの反転コピー、上下別の決着表示を担当する。バトルの判定・演出はモジュール7をそのまま使い、既存関数には`state.gameMode === 'versus'`の分岐でこのモジュールを呼ぶフックだけを入れている(`resolveTurn`/`resetBattleState`/`playBattleIntro`/`showResult`/`updateUI`/`updateHandUI`/`drawEnemySlots`/`markCardOutcome`/`rollRequiredHandSize`/`draw`等)。
 状態は`versusState`(定数`VERSUS_CHARACTERS`/`VERSUS_STAGE_COUNT`)にまとめている。`draw`内の技名ポップは`drawTechNamePops`に関数化し、`drawComboCounter`は描画先contextを引数で受け取れるようにした(反転canvasにも正しい向きで文字を描くため)。
 
+### 10. オンライン対戦(ONLINE V.S.)(2026-10-03追加)
+`onlineNetMode`, `onlineCreateFirebaseNet`, `onlineDummyHub`, `onlineCreateDummyHub`, `onlineEnsureNet`(通信部分。Firebase版/ダミー版を同じ形で扱う), `onlineGameVersion`, `onlineOppRole`, `onlineRoomPath`, `onlineTurnPath`, `onlineRoomIsStale`, `onlineRandomHex`, `onlineSha256`, `onlineHpKey`, `finisherTieSide`(resolveExchangeから呼ぶ), `onlineInputBlocked`(playCard等から呼ぶ), `onlineSetStatus`, `onlineSetGate`, `onlineHideBattleOverlays`, `onlineShowPanel`, `onlineSetLobbyMsg`, `goOnlineLobby`, `onlineErrorText`, `onlineCreateRoom`, `onlineJoinRoom`, `onlineEnterRoom`, `onlineCancelHost`, `onlineLeave`(goLogoからも呼ぶ), `onlineBackToTitle`, `onlineBackToLobby`, `onlineShowMessage`, `onlineProcess` / `onlineProcessOnce`(部屋のデータが変わるたびに呼ばれる進行役), `onlineBothReady`, `onlineGoSelect`, `onlineWriteSel`, `onlineRenderSelect`, `onlineRenderRival`, `onlineSelectChar`, `onlineRandomSelect`, `onlineToggleReady`, `onlineStartMatch`, `onlineEnemySetName`, `onlinePlayerSetName`, `onlineBeginTurn`, `onlineSubmit`, `onlineSyncError`, `onlineShowResult`, `onlineRenderResult`, `onlineRematch`, `onlineOpponentLeft`, `onlineEndByLeave`, `onlineEndAbnormal`, `onlineConnectionLost`
+
+離れた2人の対戦。部屋の作成・入室・キャラ選択(`#sceneOnline`)、各ターンの手の送受信(コミット→公開)、決着・切断処理を担当する。バトルの判定・演出はモジュール7をそのまま使い、既存関数には`state.gameMode === 'online'`の分岐でこのモジュールを呼ぶフックだけを入れている(`resolveTurn`/`resetBattleState`/`playBattleIntro`/`showResult`/`updateCharNames`/`playCard`/`resetHands`/`updateActionButtons`/`syncSlotsWaiting`/`playerSpriteName`/`playerCharacterSetName`/`currentStageLabel`/`markSpecialUsed`/`updateOptionUI`/`goLogo`)。
+状態は`onlineState`(定数`ONLINE_FIREBASE_CONFIG`/`ONLINE_SDK_BASE`/`ONLINE_ROOM_STALE_MS`/`ONLINE_LEAVE_GRACE_MS`/`ONLINE_CARD_NAMES`)にまとめている。セーブ対象の`onlineUnlocked`/`onlineWins`は設定・状態管理の範囲にある。Firebaseのデータの形は、このモジュールの冒頭コメントと`ONLINE_PLAN.md`を参照。
+
 ## 処理フローの起点(呼び出しの入口)
 
 - ゲーム起動: 画像読み込み完了 → `checkAllSettled` → `boot` → `playLogo`
@@ -108,3 +114,4 @@ HOW TO/OPTIONポップアップの開閉と、OPTION画面内の各操作、お�
 - ターン実行: `resolveTurn`(GO!ボタンのonclick) → ループ内で `resolveExchange` を攻防回数分呼び出す → `finally`句で後処理
 - バトル開始: `goBattleStart` → `resetBattleState` → `playBattleIntro`
 - ローカル対戦: タイトルのVERSUS → `goVersusSelect` → 両者READY → `vsStartFromSelect` → `vsStartBattle` → `resetBattleState` → `playBattleIntro` → `vsBeginTurnInput`。各ターンは `vsOnReady('P')` → 1PのGO!(`resolveTurn`→`vsSubmitP`) → `vsOnReady('E')` → 2PのGO!(`vsGo2`→`resolveTurn`) の順
+- オンライン対戦: タイトルのONLINE V.S. → `goOnlineLobby` → `onlineCreateRoom`(または`onlineJoinRoom`) → `onlineEnterRoom` → `onlineGoSelect` → 両者READY → `onlineProcess`が`onlineStartMatch` → `resetBattleState` → `playBattleIntro` → `onlineBeginTurn`。各ターンは GO!(`resolveTurn`→`onlineSubmit`、ハッシュ値を送る) → 相手のハッシュ値が届く(`onlineProcess`が中身を送る) → 相手の中身が届く(`onlineProcess`が照合して`resolveTurn`) → `onlineBeginTurn`

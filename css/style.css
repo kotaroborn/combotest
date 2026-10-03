@@ -303,6 +303,10 @@
             position: absolute; left: 50%; bottom: 27.6%; transform: translateX(-50%);
             font-size: 13px; letter-spacing: 3.5px; color: #bbb;
         }
+        #onlineBtn { /* オンライン対戦(2026-10-03)。縦位置はlayoutTitleMenuが表示中のボタンだけで詰めて決める */
+            position: absolute; left: 50%; bottom: 22.4%; transform: translateX(-50%);
+            font-size: 13px; letter-spacing: 3.5px; color: #bbb; white-space: nowrap;
+        }
         #rushBtn {
             position: absolute; left: 50%; bottom: 22.4%; transform: translateX(-50%);
             font-size: 13px; letter-spacing: 3.5px; color: #bbb; white-space: nowrap;
@@ -1184,4 +1188,73 @@
 #battleResultNextBtn {
     margin-top: 4px; background: #a00; border: none; color: #fff;
     padding: 10px 40px; font-size: 14px; font-weight: bold; letter-spacing: 2px; border-radius: 8px; cursor: pointer;
+}
+
+/* ------- オンライン対戦(ONLINE V.S.、2026-10-03追加) ------- */
+/* 部屋を作る/入る・相手待ち・キャラ選択の画面。キャラ選択はLOCAL V.S.の1P側と同じ部品・同じ赤の帯を使う */
+#sceneOnline.active {
+    display: flex; flex-direction: column;
+    background: linear-gradient(to top,
+        #3a0c0c 0%, #3a0c0c 10%, #340b0b 10%, #340b0b 20%,
+        #2d0909 20%, #2d0909 30%, #270808 30%, #270808 40%,
+        #200707 40%, #200707 50%, #1a0505 50%, #1a0505 60%,
+        #130404 60%, #130404 70%, #0d0303 70%, #0d0303 80%,
+        #060101 80%, #060101 90%, #000000 90%, #000000 100%
+    );
+}
+.online-head {
+    position: relative; flex: none; height: 44px; margin-top: var(--safe-top, 0px);
+    display: flex; align-items: center; justify-content: center;
+    border-bottom: 2px solid #444; background: #111;
+}
+.online-title { font-size: 18px; font-weight: 900; font-style: italic; letter-spacing: 3px; color: #ffd23c; }
+.online-panel {
+    display: none; flex: 1 1 auto; min-height: 0;
+    flex-direction: column; align-items: center; justify-content: center; gap: 12px;
+    padding: 16px 18px calc(16px + env(safe-area-inset-bottom, 0px)); text-align: center;
+}
+.online-panel.show { display: flex; }
+.online-main-btn { min-width: 210px; }
+.online-join-btn { background: #0a50a0; }
+.online-note { font-size: 11px; color: #aaa; line-height: 1.6; }
+.online-or { font-size: 12px; font-weight: 900; letter-spacing: 3px; color: #666; margin: 6px 0; }
+.online-code-input { width: 150px; font-size: 26px; letter-spacing: 10px; padding-left: 18px; }
+.online-msg { min-height: 1.6em; font-size: 12px; font-weight: 700; letter-spacing: 1px; color: #ffd23c; line-height: 1.6; }
+.online-msg.error { color: #ff6b6b; }
+.online-label { font-size: 13px; font-weight: 900; letter-spacing: 4px; color: #aaa; }
+.online-room-code {
+    font-size: 64px; font-weight: 900; letter-spacing: 14px; padding-left: 14px; color: #fff;
+    font-variant-numeric: tabular-nums; text-shadow: 0 0 16px rgba(255,210,60,0.6);
+}
+.online-waiting { font-size: 13px; font-weight: 900; letter-spacing: 3px; color: #ffd23c; animation: onlineBlink 1.2s steps(2, start) infinite; }
+@keyframes onlineBlink { to { visibility: hidden; } }
+.online-score { font-size: 12px; font-weight: 900; letter-spacing: 2px; color: #ccc; }
+.online-rival { font-size: 12px; font-weight: 900; letter-spacing: 2px; color: #8cc6ff; }
+.online-rival.ready { color: #ffd23c; }
+#onPanelSelect.ready .vs-sel-grid { opacity: 0.45; }
+.online-msg-big { font-size: 28px; font-weight: 900; letter-spacing: 3px; color: #fff; line-height: 1.4; }
+.online-msg-big span { display: block; font-size: 12px; font-weight: 700; letter-spacing: 1px; color: #aaa; }
+#onSelFight {
+    position: absolute; inset: 0; z-index: 40; display: none;
+    flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+    background: rgba(0,0,0,0.55);
+}
+#onSelFight.show { display: flex; animation: vsResultIn 0.3s ease-out; }
+.online-fight-text {
+    font-size: 54px; font-weight: 900; font-style: italic; letter-spacing: 4px; color: #fff;
+    text-shadow: 0 0 18px rgba(255,210,60,0.9);
+}
+.online-fight-names { font-size: 14px; font-weight: 900; letter-spacing: 2px; color: #ffd23c; white-space: pre; }
+/* バトル中: 相手待ちの表示(場の上に小さく)と、決着後のボタン(手札・ボタン部分を覆う) */
+#onlineStatus {
+    display: none; position: absolute; left: 50%; bottom: 8px; transform: translateX(-50%); z-index: 22;
+    padding: 4px 12px; border-radius: 12px; background: rgba(0,0,0,0.7);
+    font-size: 11px; font-weight: 900; letter-spacing: 2px; color: #ffd23c; white-space: nowrap; pointer-events: none;
+}
+#onlineStatus.show { display: block; }
+#ui.online-gated { position: relative; }
+#onlineGate { display: none; }
+#onlineGate.show {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    position: absolute; inset: 0; z-index: 30; background: rgba(0,0,0,0.88);
 }

@@ -212,6 +212,8 @@ let recordsHintAnnounced = false; // クリア後の「まだ見つけていな�
 let storyMaxCombo = 0; // STORY MODEのバトルでの最大COMBO(プレイヤー側)。RECORDSで表示する。セーブデータに永続化する(2026-09-28追加)
 let rushUnlocked = false; // BATTLE RUSHが解放済みか。専用のGIFT CODEでのみ解放する(2026-09-28追加)
 let rushBest = { kills: 0, clearTimeMs: null, maxCombo: 0 }; // BATTLE RUSHの自己ベスト(撃破数・100人撃破時の最速タイム・最大COMBO)。セーブデータに永続化する
+let onlineUnlocked = false; // オンライン対戦(ONLINE V.S.)が解放済みか。LOCAL V.S.とは別の専用GIFT CODEでのみ解放する(2026-10-03追加)
+let onlineWins = 0; // ONLINE V.S.の通算勝利数。RECORDSに出す唯一のオンラインの記録(2026-10-03追加、セーブ対象)
 
 // 各敵のストーリーシーン内に仕込む隠しタップで解除するサブストーリー(本文は完成済み。画像は今後配置予定、未配置ならプレースホルダー表示)
 // 隠しタップの対象画面(ストーリーシーン3画面のうち何枚目か、0始まり)。敵ごとにバラバラの画面に仕込む。
@@ -1150,6 +1152,7 @@ function currentStageLabel() {
     if (state.gameMode === 'substoryBattle') return 'EXTRA';
     if (state.gameMode === 'rush') return 'BATTLE RUSH';
     if (state.gameMode === 'versus') return 'LOCAL V.S.'; // ローカル対戦(2026-09-27、モード表示名を「VERSUS」から変更)
+    if (state.gameMode === 'online') return 'ONLINE V.S.'; // オンライン対戦(2026-10-03)
     if (state.gameMode !== 'story') return '';
     if (state.storyEnemyIndex === ENEMY_ORDER.length - 1) return 'FINAL STAGE'; // 5人目(最終)のみ特別表記
     const ordinal = STAGE_ORDINALS[state.storyEnemyIndex] || (state.storyEnemyIndex + 1) + 'TH';
@@ -1300,6 +1303,8 @@ function applySaveDataOnBoot() {
     if (typeof save.bonusContentsAnnounced === 'boolean') bonusContentsAnnounced = save.bonusContentsAnnounced;
     if (typeof save.versusUnlocked === 'boolean') versusUnlocked = save.versusUnlocked;
     if (typeof save.rushUnlocked === 'boolean') rushUnlocked = save.rushUnlocked;
+    if (typeof save.onlineUnlocked === 'boolean') onlineUnlocked = save.onlineUnlocked;
+    if (typeof save.onlineWins === 'number') onlineWins = save.onlineWins;
     if (typeof save.storyMaxCombo === 'number') storyMaxCombo = save.storyMaxCombo;
     if (typeof save.recordsHintAnnounced === 'boolean') recordsHintAnnounced = save.recordsHintAnnounced;
     if (save.tutorialSeen) tutorialSeen = { deck: !!save.tutorialSeen.deck, battle: !!save.tutorialSeen.battle, extra: !!save.tutorialSeen.extra };
@@ -1334,7 +1339,7 @@ function markSpecialUsed(key, side) {
     if (side === 'E') return;
     if (state.battleStats) state.battleStats.techs++; // RESULT画面用: このバトルでのワザの発動回数(2026-10-02)
     // TRAINING MODE・LOCAL V.S.で使った技はRECORDSに記録しない(HOW TO TRAINING / HOW TO LOCAL V.S.の説明どおり、2026-10-01)
-    if (state.gameMode === 'training' || state.gameMode === 'versus') return;
+    if (state.gameMode === 'training' || state.gameMode === 'versus' || state.gameMode === 'online') return; // ONLINE V.S.もRECORDSには勝利数だけを残す(2026-10-03)
     if (specialsUsed[key]) return; // 既に記録済みなら何もしない
     specialsUsed[key] = true;
     writeSaveData({ specialsUsed });
@@ -1459,7 +1464,7 @@ function enemySpriteName(baseName) {
 function playerSpriteName(baseName) {
     let skin = selectedSkin;
     // ローカル対戦(VERSUS)も、1Pが選んだキャラ(pPresetKey)の見た目で固定する(コスチュームは反映しない。'VAL'は既定の見た目)
-    if ((state.gameMode === 'substoryBattle' || state.gameMode === 'versus') && state.pPresetKey) {
+    if ((state.gameMode === 'substoryBattle' || state.gameMode === 'versus' || state.gameMode === 'online') && state.pPresetKey) {
         const m = state.pPresetKey.match(/^ENEMY_(\d+)$/);
         skin = state.pPresetKey === 'MIFUNE' ? 'mifune' : m ? 'enemy_' + parseInt(m[1], 10) : null;
     }
@@ -1784,11 +1789,13 @@ async function boot() {
         document.getElementById('startBtn').disabled = false;
         document.getElementById('trainingBtn').disabled = false;
         document.getElementById('versusBtn').disabled = false;
+        document.getElementById('onlineBtn').disabled = false;
         document.getElementById('rushBtn').disabled = false;
         document.getElementById('optionBtn').disabled = false;
         updateTitleContinueVisibility();
         updateVersusButtonVisibility(); // GIFT CODEでのみ解放するVERSUSボタンの表示を、復元済みのversusUnlockedに合わせる
         updateRushButtonVisibility(); // BATTLE RUSHボタンも同様
+        updateOnlineButtonVisibility(); // ONLINE V.S.ボタンも同様(2026-10-03)
         updateSpeedUI(); // セーブデータから復元したbattleSpeedX2をボタン表示に反映する
     } catch (e) {
         console.error('boot()の初期化処理でエラーが発生しましたが、NOW LOADINGは解除して起動を続行します:', e);
@@ -1866,6 +1873,12 @@ function updateVersusButtonVisibility() {
     if (btn) btn.style.display = versusUnlocked ? '' : 'none';
     layoutTitleMenu();
 }
+// ONLINE V.S.ボタンの表示を、専用GIFT CODEでの解放状態(onlineUnlocked)に合わせる(VERSUSと同じパターン、2026-10-03)
+function updateOnlineButtonVisibility() {
+    const btn = document.getElementById('onlineBtn');
+    if (btn) btn.style.display = onlineUnlocked ? '' : 'none';
+    layoutTitleMenu();
+}
 // BATTLE RUSHボタンの表示を、専用GIFT CODEでの解放状態(rushUnlocked)に合わせる(VERSUSと同じパターン)
 function updateRushButtonVisibility() {
     const btn = document.getElementById('rushBtn');
@@ -1874,7 +1887,7 @@ function updateRushButtonVisibility() {
 }
 // タイトルのメニューを、表示中のボタンだけで下から詰めて並べる(2026-09-28追加)。OPTIONは常に最下部。
 // 未解放で隠れているボタンの分の隙間は作らない。表示/非表示を切り替える各関数の最後で呼ぶ。
-const TITLE_MENU_ORDER = ['startBtn', 'trainingBtn', 'versusBtn', 'rushBtn', 'bonusContentsBtn', 'optionBtn']; // 上から順
+const TITLE_MENU_ORDER = ['startBtn', 'trainingBtn', 'versusBtn', 'onlineBtn', 'rushBtn', 'bonusContentsBtn', 'optionBtn']; // 上から順
 const TITLE_MENU_BOTTOM = 12;  // 最下段(OPTION)の位置(bottom %)
 const TITLE_MENU_STEP = 5.2;   // ボタン同士の間隔(%)
 function layoutTitleMenu() {
@@ -1921,6 +1934,7 @@ function goLogo() {
     // いるため、endSubstoryBattle()は必ず呼ぶ(サブストーリーバトル中でない場合は何もしない安全な処理)。
     endSubstoryBattle();
     exitVersusLayout(); // ローカル対戦(VERSUS)の上下分割レイアウトも必ず解除する(対戦中でない場合は何もしない)
+    onlineLeave(); // オンライン対戦の部屋からも必ず抜ける(部屋にいない場合は何もしない、2026-10-03)
     endRush(); // BATTLE RUSHのタイマー・進行中の演出も必ず止める(RUSH中でない場合は何もしない)
     hideResult();
     showScene('logo');
@@ -2694,6 +2708,7 @@ function goTitle() {
     showScene('title');
     updateTitleContinueVisibility();
     updateVersusButtonVisibility();
+    updateOnlineButtonVisibility();
     playBGM('bgm_title');
     updateBonusContentsUI();
     checkUnlockAnnouncements();
@@ -3599,6 +3614,7 @@ function draw(tRaw) {
 function playCard(handIdx) {
     if (state.resolving || !state.battleReady) return;
     if (state.gameMode === 'versus' && versusState.phase !== 'inputP') return; // ローカル対戦: 1Pの入力番以外は操作不可
+    if (onlineInputBlocked()) return; // オンライン対戦: 手を送った後(相手待ち・解決中)は操作不可
     const card = state.playerHand[handIdx];
     if (!card) return;
     if (state.requiredHandSize && filledCount() >= state.requiredHandSize) return; // このターン出せる枚数(ちょうど)に既に達している
@@ -3614,6 +3630,7 @@ function playCard(handIdx) {
 function resetHands() {
     if (state.resolving || !state.battleReady) return;
     if (state.gameMode === 'versus' && versusState.phase !== 'inputP') return; // ローカル対戦: 1Pの入力番以外は操作不可
+    if (onlineInputBlocked()) return; // オンライン対戦: 手を送った後は取り消せない
     playSE('se_cancel');
     // 場に出したカードを手札の空きへ戻す
     state.hands.forEach(card => {
@@ -3733,7 +3750,7 @@ function filledCount() {
 // 点線が現れた瞬間が「カードを出していい合図」になるようにする(BATTLE RUSHでタイミングが分かりにくかったため)。
 function syncSlotsWaiting() {
     const s = document.getElementById('slots');
-    const canPlay = state.battleReady && !state.resolving && (state.gameMode !== 'versus' || versusState.phase === 'inputP');
+    const canPlay = state.battleReady && !state.resolving && (state.gameMode !== 'versus' || versusState.phase === 'inputP') && !onlineInputBlocked();
     if (s) s.classList.toggle('slots-waiting', !canPlay);
 }
 function updateUI(activeIndex) {
@@ -3779,7 +3796,7 @@ function updateActionButtons() {
     const goOk = state.requiredHandSize ? filledCount() === state.requiredHandSize : filledCount() > 0;
     const clrOk = filledCount() > 0;
     // ローカル対戦(VERSUS): 1PのGO!/CANCELは1Pの入力番の間だけ押せる
-    const versusBlocked = state.gameMode === 'versus' && versusState.phase !== 'inputP';
+    const versusBlocked = (state.gameMode === 'versus' && versusState.phase !== 'inputP') || onlineInputBlocked(); // オンライン対戦も、手を送った後は押せない
     document.getElementById('goBtn').disabled = !(state.battleReady && !state.resolving && goOk && !versusBlocked);
     document.getElementById('clrBtn').disabled = !(state.battleReady && !state.resolving && clrOk && !versusBlocked);
 }
@@ -3832,6 +3849,11 @@ function presetForSide(side) {
 // TRAINING MODEなら固定でMIFUNE(STORY MODEは今後の連戦で敵が変わるたびに自動で切り替わる)
 function updateCharNames() {
     if (state.gameMode === 'versus') { vsUpdateNames(); return; } // ローカル対戦は1P/2P表記付きの実名(？？？マスキングなし)
+    if (state.gameMode === 'online') { // オンライン対戦: 自分と相手が選んだキャラの実名(相手側も？？？マスキングなし)
+        document.getElementById('playerName').innerText = ENEMY_PRESETS[state.pPresetKey].name;
+        document.getElementById('enemyName').innerText = ENEMY_PRESETS[state.ePresetKey].name;
+        return;
+    }
     document.getElementById('playerName').innerText =
         state.pPresetKey ? ENEMY_PRESETS[state.pPresetKey].name : 'VAL'; // 表記はVAL/Noah/Rita/Gald/Jack/Alv/MIFUNEで統一(大文字化しない) // サブストーリーバトルは借りているキャラの名前を表示
     document.getElementById('enemyName').innerText =
@@ -3979,6 +4001,10 @@ async function goBattleStart() {
 
 function resetBattleState() {
     rngReseed(); // シード付き乱数: バトルごとにシードを決め直す(山札のシャッフル等より前に行うこと)
+    // オンライン対戦: シードは両者共通(部屋から受け取る)だが、自分の山札の並びまで相手と同じだと、同じキャラ同士の時に
+    // 相手の山札を読めてしまう。山札は自分の端末でしか使わない(相手と一致させる必要がない)ため、'deckP'系統だけ
+    // この端末だけの乱数で始める(2026-10-03、ONLINE_PLAN.md参照)
+    if (state.pendingMode === 'online') RNG.streams.deckP = rngFreshSeed();
     // 第13条: state自体は再定義せず、プロパティのみ初期値に戻す
     state.hpP = 100; state.hpE = 100;
     state.pTookDamage = false; // このバトルでプレイヤーが一度でもダメージを受けたか(PERFECT!!判定用、2026-09-30)
@@ -4293,6 +4319,7 @@ async function playBattleIntro() {
     if (state.gameMode === 'story' && state.storyEnemyIndex === 0 && !tutorialSeen.battle) showTutorial('battle'); // はじめてのNoah戦のみ(2026-10-01)
     else if (state.gameMode === 'substoryBattle' && !tutorialSeen.extra) showTutorial('extra'); // はじめてのEXTRA BATTLEのみ(2026-10-02)
     if (state.gameMode === 'rush') rushStartTimer(); // BATTLE RUSH: 手札が配られて操作できるようになった瞬間から計測する
+    if (state.gameMode === 'online') onlineBeginTurn(); // オンライン対戦: 1ターン目の入力へ
 }
 
 // STORY MODEでenemyIndexの敵を撃破したことを記録する(既に記録済みなら何もしない)。
@@ -4311,6 +4338,7 @@ function isEnemyDefeated(idx) {
 function showResult(type) {
     if (state.gameMode === 'rush') { showRushResult(false); return; } // BATTLE RUSH: 倒れた時点で専用のRESULT(敵撃破はここを通らない)
     if (state.gameMode === 'versus') { vsShowResult(); return; } // ローカル対戦は上下それぞれにYOU WIN/YOU LOSEを出す専用の決着画面
+    if (state.gameMode === 'online') { onlineShowResult(); return; } // オンライン対戦: 専用の決着画面(REMATCH/TITLE)
     // STORY MODEでの勝利(K.O.以外)は、その時点で戦っていた敵を撃破履歴に記録する(最終戦に限らず毎回)
     if (type !== 'KO' && state.gameMode === 'story') {
         markEnemyDefeated(state.storyEnemyIndex);
@@ -5394,7 +5422,9 @@ async function resolveExchange(pAct, eAct, cursor) {
         const pFinisherReady = pFinisherReadyPre;
         const eFinisherReady = eFinisherReadyPre;
         if (pFinisherReady || eFinisherReady) {
-            const attacker = pFinisherReady ? 'P' : 'E'; // 両者同時成立は理論上稀なケースのためPを優先する
+            // 両者同時成立は理論上稀なケースのためPを優先する。ただしオンライン対戦では、両端末で同じ結果になるよう
+            // 部屋を作った側(ホスト)を優先する(ゲスト側の端末ではホストがE側にいるため、finisherTieSideが'E'を返す)
+            const attacker = (pFinisherReady && eFinisherReady) ? finisherTieSide() : (pFinisherReady ? 'P' : 'E');
             const defender = attacker === 'P' ? 'E' : 'P';
             markCardOutcome(defender, cursor.i, 'card-shatter');
             await runFinisher(attacker, defender, cursor);
@@ -5509,6 +5539,12 @@ async function resolveTurn() {
         if (versusState.phase === 'inputP') vsSubmitP();
         return;
     }
+    // オンライン対戦: GO!は「自分の手を相手へ送る」の意味になる。両者の手がそろった後、onlineProcessが
+    // phaseを'resolve'にしてから改めてこの関数を呼び、通常のターン解決へ進む
+    if (state.gameMode === 'online' && onlineState.phase !== 'resolve') {
+        if (onlineState.phase === 'input') onlineSubmit();
+        return;
+    }
     if (state.requiredHandSize && filledCount() !== state.requiredHandSize) return; // このターン出す枚数がちょうど揃っていない場合は開始しない(ボタンの無効化と二重の安全策)
     playSE('se_go');
     state.resolving = true;
@@ -5533,6 +5569,10 @@ async function resolveTurn() {
     } else if (state.gameMode === 'versus') {
         // ローカル対戦: 敵AIではなく、2Pが確定させた手をそのまま使う(中身は伏せたまま攻防の直前に1枚ずつ公開する)
         state.enemyHands = versusState.played2.slice(0, total);
+        state.enemyRevealedUpTo = 0;
+    } else if (state.gameMode === 'online') {
+        // オンライン対戦: 相手の端末から受け取った手(onlineProcessで照合済み)。中身は攻防の直前に1枚ずつ公開する
+        state.enemyHands = onlineState.oppCards.slice(0, total);
         state.enemyRevealedUpTo = 0;
     } else {
         state.enemyHands = generateEnemyTurnHand(total);
@@ -5743,6 +5783,7 @@ async function resolveTurn() {
             syncSlotsWaiting(); // カードを出せるようになったので、場の点線の枠を表示する
             if (rushKilled) updateActionButtons();
             if (state.gameMode === 'versus') vsBeginTurnInput(); // ローカル対戦: 次のターンの入力(1Pから)へ
+            if (state.gameMode === 'online') onlineBeginTurn(); // オンライン対戦: 次のターンの入力へ
         }
     }
 }
@@ -5987,7 +6028,7 @@ function updateOptionUI() {
     // COSTUMEは「STORY MODEを一度最後までクリアした」場合、またはGIFT CODE等の追加コスチュームを1つでも
     // 持っている場合(costumeSelectionAvailable)のみ表示する
     document.getElementById('optionCostumeRow').style.display =
-        (costumeSelectionAvailable() && uiMode !== 'substoryBattle' && uiMode !== 'versus') ? 'flex' : 'none'; // サブストーリーバトル中は借りているキャラの見た目を変更できないようにする
+        (costumeSelectionAvailable() && uiMode !== 'substoryBattle' && uiMode !== 'versus' && uiMode !== 'online') ? 'flex' : 'none'; // サブストーリーバトル中は借りているキャラの見た目を変更できないようにする
     // GIFT CODEはタイトル画面のOPTIONからのみ入力できるようにする(バトル中は表示しない)
     document.getElementById('optionGiftCodeRow').style.display = isTitle ? 'flex' : 'none';
     document.getElementById('optionRecordsRow').style.display = 'flex'; // RECORDSはどのOPTIONからでも見られる(2026-10-01、バトル中にもワザのヒントを確認できるように)
@@ -5995,9 +6036,11 @@ function updateOptionUI() {
     document.getElementById('optionFooter').style.display = isTitle ? 'none' : 'flex';
     // TRAINING MODEはデッキ編成を経由しない(選び放題の固定手札のため)、RETRYボタン自体を隠す。
     // デッキ編成中もまだバトルが始まっていないため、RETRYは出さずRETURN TO TITLEだけにする(2026-10-02)
-    document.getElementById('optionRetryBtn').style.display = (uiMode === 'training' || isDeck) ? 'none' : '';
+    document.getElementById('optionRetryBtn').style.display = (uiMode === 'training' || uiMode === 'online' || isDeck) ? 'none' : ''; // オンライン対戦は相手がいるのでRETRYなし
     // RETURN TO TITLEの確認文言: STORY MODEは進行状況の保存に触れるが、TRAINING MODEは進行状況を持たないため短い文言にする
-    document.getElementById('returnConfirmText').innerHTML = (uiMode === 'training' || uiMode === 'versus' || uiMode === 'rush')
+    document.getElementById('returnConfirmText').innerHTML = uiMode === 'online'
+        ? 'タイトルに戻りますか？<br>（対戦は相手の勝ちになります）' // 部屋から抜けると、相手の端末では相手の勝ちになる
+        : (uiMode === 'training' || uiMode === 'versus' || uiMode === 'rush')
         ? 'タイトルに戻りますか？'
         : 'タイトルに戻りますか？<br>（ストーリーの進行状況は保存されます）';
     closeResetConfirm(); // 開き直したら確認状態はリセット
@@ -6045,11 +6088,13 @@ const GIFT_CODE_PBKDF2_ITER = 150000;
 // submitGiftCode側でこの値かどうかを見て、コスチューム解放とは別の専用処理に分岐する。
 const GIFT_CODE_VERSUS_REWARD = 'unlock_versus';
 const GIFT_CODE_RUSH_REWARD = 'unlock_rush';
+const GIFT_CODE_ONLINE_REWARD = 'unlock_online'; // ONLINE V.S.解放(2026-10-03。LOCAL V.S.とは別のコード)
 // PBKDF2値(16進) → 報酬
 const GIFT_CODE_HASHES = {
     '8a1cc7fe3be521332e30b87dd716f2b23ce952dc15df2bb46ae93fd19dcf775c': 'mifune',               // MIFUNEコスチューム
     '0ed3577057a45b7eca95cb92ffd8de9e86661241827f4a676c57215ca77ade3c': GIFT_CODE_VERSUS_REWARD, // LOCAL V.S.解放
     '75c11927e586db4af6e3352382cde7af57d49676fdad0b1787b3d9993fdf3c51': GIFT_CODE_RUSH_REWARD,   // BATTLE RUSH解放
+    '292a6a5976af3f2a6d14b6bea9adfaa74db32ef501a411e06144b7f162e23adf': GIFT_CODE_ONLINE_REWARD, // ONLINE V.S.解放(2026-10-03)
 };
 function normalizeGiftCode(raw) {
     return (raw || '').trim().toUpperCase();
@@ -6121,6 +6166,21 @@ async function submitGiftCode() {
         updateOptionUI();
         if (!alreadyUnlocked) {
             showUnlockToast({ small: 'BATTLE RUSH', large: 'バトルラッシュモード 解放！' });
+        }
+        return;
+    }
+    if (reward === GIFT_CODE_ONLINE_REWARD) {
+        // オンライン対戦(ONLINE V.S.)解放コード。VERSUSと同じく、コスチューム解放処理には進まずここで完結させる(2026-10-03)
+        const alreadyUnlocked = onlineUnlocked;
+        onlineUnlocked = true;
+        writeSaveData({ onlineUnlocked: true });
+        updateOnlineButtonVisibility();
+        updateBonusContentsUI();
+        checkUnlockAnnouncements();
+        closeGiftCodeInput();
+        updateOptionUI();
+        if (!alreadyUnlocked) {
+            showUnlockToast({ small: 'ONLINE V.S. MODE', large: 'オンライン対戦モード 解放！' });
         }
         return;
     }
@@ -6987,7 +7047,7 @@ function vsPlayerSetName() {
 // プレイヤー側に実際に使われる見た目のセット名(表示倍率の判定用)。キャラを借りるモード(EXTRA BATTLE/VERSUS)では
 // 借りているキャラ(playerSpriteNameと同じ判定)、それ以外は選択中のコスチューム
 function playerCharacterSetName() {
-    if ((state.gameMode === 'substoryBattle' || state.gameMode === 'versus') && state.pPresetKey) return vsPlayerSetName();
+    if ((state.gameMode === 'substoryBattle' || state.gameMode === 'versus' || state.gameMode === 'online') && state.pPresetKey) return vsPlayerSetName();
     return selectedSkin;
 }
 
@@ -7586,6 +7646,879 @@ function vsSelectBackToTitle() {
 }
 
 // ============================================================
+// オンライン対戦(ONLINE V.S.)
+// ============================================================
+// 2026-10-03追加(段階2: 合言葉対戦)。決まったこと・進め方は ONLINE_PLAN.md を参照。
+// ・離れた2人が、それぞれ自分のスマホで遊ぶ対戦。画面はLOCAL V.S.のような上下分割ではなく、通常のバトル画面
+//   (自分=左のP側、相手=右のE側)を使う。キャラ選択・デッキ配分・能力はLOCAL V.S.と同じ(ENEMY_PRESETSのキャラを借りる)。
+// ・通信はFirebase(Realtime Database+匿名ログイン)を中継役にするだけ。登録・ログインは不要で、個人情報も集めない
+//   (アナリティクスも読み込まない)。SDKはONLINE V.S.を開いた時に初めてCDNから読み込む(他のモードの起動を遅くしない)。
+// ・通信部分は差し替えられる形にしてある(onlineState.net)。URLに?net=dummyを付けると、Firebaseの代わりに
+//   同じページ内の疑似サーバー(onlineDummyHub)を使う。tools/online_test.html で2画面を並べて動作確認できる。
+// ・バトルの中身は通常のバトル進行(resolveTurn/resolveExchange)をそのまま使う。両端末で同じシード
+//   (部屋のシードから試合ごとに決める)・同じ手なら同じ展開になる(シード付き乱数、RNG参照)。
+// ・1ターンの流れ: 自分の手を選んでGO! → 手の「ハッシュ値」だけを送る(コミット) → 相手のハッシュ値が届いたら、
+//   手の中身と塩(ランダムな文字列)を送る(公開) → 相手の中身が届いたら、ハッシュ値と一致するか確かめてから解決する。
+//   相手の中身は、自分が手を確定するまで受け取れない(先に相手の手を見てから出す、というズルを防ぐ)。
+// ・念のため、送るたびに「出す枚数」と「ターン開始時の両者のHP」も付けて、両端末の展開がズレていないか確かめる
+//   (ズレていたらSYNC ERRORで試合を止める。勝敗は記録しない)。
+// ・切断: 各自の在室フラグ(rooms/{合言葉}/p/{host|guest})を、通信が切れたら自動で消えるようにしておく(onDisconnect)。
+//   相手の在室フラグが一定時間(対戦中はONLINE_LEAVE_GRACE_MS、キャラ選択中等はONLINE_LEAVE_GRACE_SELECT_MS)消えたままなら
+//   「相手が抜けた」とみなし、対戦中なら残った側の勝ち。TITLE等で自分から抜けた時はbye/{role}を書くので、相手はすぐ分かる。
+// ・未実装(段階3・4): ランダムマッチ、入力の制限時間、HOW TOの文言、本番用のセキュリティルール。
+//
+// データの形(rooms/{合言葉4桁}):
+//   v: ゲームのバージョン表記(違うと入室できない) / createdAt / host・guest: 各自のuid / seed: 部屋のシード
+//   p/{host|guest}: 在室フラグ / bye/{host|guest}: 自分から抜けた印 / sel/{host|guest}: { key: キャラ, ready: 準備完了か, m: 何試合目の選択か }
+//   m/{試合番号}: { stage } … 両者READYでホストが書く。試合のシードは部屋のシードと試合番号から決める
+//   m/{試合番号}/end: { winner } … 相手が抜けたとみなして試合を終えた側が書く(通信切れから戻った側が結果を知るため)
+//   m/{試合番号}/t/{ターン}/{host|guest}: { h: 手のハッシュ値, n: 出す枚数, hp: ターン開始時のHP, c: 手(公開後), s: 塩(公開後) }
+const ONLINE_FIREBASE_CONFIG = {
+    // ゲームのコードに書き込まれて誰でも見られる性質の値(秘密ではない)。ONLINE_PLAN.md「2.5」参照
+    apiKey: 'AIzaSyCtdVnqtNlxoM0fAS6M4V--Q7wr7sv5O4c',
+    authDomain: 'clash5-14a47.firebaseapp.com',
+    databaseURL: 'https://clash5-14a47-default-rtdb.firebaseio.com',
+    projectId: 'clash5-14a47',
+    storageBucket: 'clash5-14a47.firebasestorage.app',
+    messagingSenderId: '1082588502354',
+    appId: '1:1082588502354:web:f7c908da0830944f4f028b'
+};
+const ONLINE_SDK_BASE = 'https://www.gstatic.com/firebasejs/12.19.0/'; // CDN(モジュール版)。v12.19.0
+const ONLINE_ROOM_STALE_MS = 3 * 60 * 60 * 1000; // 作成から3時間たった部屋は、残っていても使い回してよい
+const ONLINE_LEAVE_GRACE_MS = 15000; // 対戦中、相手の在室フラグがこの時間消えたままなら、相手が抜けたとみなす(一瞬の電波切れでは負けにしない)
+// キャラ選択中・相手待ちの間は長めに待つ(合言葉をLINE等で送っている間、スマホではブラウザの通信が切れることがあるため)
+const ONLINE_LEAVE_GRACE_SELECT_MS = 60000;
+const ONLINE_ROOM_EMPTY_STALE_MS = 10 * 60 * 1000; // 誰もいない部屋は、作成から10分たてば使い回してよい
+const ONLINE_CARD_NAMES = ['PUNCH', 'UPPER', 'GUARD'];
+
+// オンライン対戦の状態。stateと同様、以後再定義・再初期化せず、プロパティのみ書き換えて使う(第13条に倣う)。
+let onlineState = {
+    // 'idle'(部屋の外) | 'lobby'(部屋を作る/入る画面) | 'hosting'(部屋を作って相手待ち) | 'select'(キャラ選択) |
+    // 'starting'(FIGHT!表示〜読み込み) | 'intro'(開始演出) | 'input'(カードを選んでいる) | 'commit'(ハッシュ値を送って相手待ち) |
+    // 'reveal'(中身を送って相手の中身待ち) | 'verify'(照合中) | 'resolve'(ターン解決中) | 'over'(決着・中断) | 'gone'(相手が抜けた後の案内)
+    phase: 'idle',
+    net: null,        // 通信部分(Firebase版またはダミー版)。一度作ったら使い回す
+    uid: null,        // 匿名ログインのuid
+    code: null,       // 部屋の合言葉(数字4桁)
+    role: null,       // 'host'(部屋を作った側) | 'guest'(入った側)
+    room: null,       // 最後に受け取った部屋のデータ
+    unsubs: [],       // 部屋を抜ける時に解除するリスナー
+    match: 0,         // 何試合目か(REMATCHのたびに1増える)
+    turnNo: 0,        // この試合の何ターン目の入力か
+    sel: 'VAL',       // 自分が選んでいるキャラ
+    ready: false,     // キャラ選択でREADYを押したか
+    oppKey: null,     // 相手のキャラ(試合開始時に確定)
+    myCommit: null,   // このターンに送った自分の手 { turn, cards, salt, h, n, hp, revealed }
+    oppCards: null,   // 照合済みの相手の手(resolveTurnで使う)
+    wins: { me: 0, opp: 0 }, // この部屋での勝利数(部屋を出るとリセット)
+    oppSeen: false,   // 相手が一度でも入室したか
+    oppLeft: false,   // 相手が抜けたとみなしたか
+    leaveTimer: null, // 相手の在室フラグが消えてからの猶予タイマー
+    lostTimer: null,  // 部屋そのものが消えてからの猶予タイマー(自分の側の通信切れの判定)
+    processAgain: false, // onlineProcessの実行中に、もう一度呼ばれたか
+    busy: false,      // 部屋を作る/入る処理の途中か(連打防止)
+    processing: false // onlineProcessの多重実行防止
+};
+
+// ------- 通信部分(差し替え可能) -------
+// どちらの版も同じ形のオブジェクトを返す: uid / onValue(path, cb)→解除関数 / set / update / remove /
+// transaction(path, fn)→{committed, value} / onDisconnectRemove / cancelOnDisconnect / onConnected(cb)→解除関数
+function onlineNetMode() {
+    try { return new URLSearchParams(location.search).get('net') === 'dummy' ? 'dummy' : 'firebase'; } catch (e) { return 'firebase'; }
+}
+// Firebase版: SDK(モジュール版)をCDNから読み込み、匿名ログインしてから使う
+async function onlineCreateFirebaseNet() {
+    const [appM, authM, dbM] = await Promise.all([
+        import(ONLINE_SDK_BASE + 'firebase-app.js'),
+        import(ONLINE_SDK_BASE + 'firebase-auth.js'),
+        import(ONLINE_SDK_BASE + 'firebase-database.js')
+    ]);
+    const app = appM.getApps().length ? appM.getApp() : appM.initializeApp(ONLINE_FIREBASE_CONFIG);
+    const auth = authM.getAuth(app);
+    const db = dbM.getDatabase(app);
+    const cred = await authM.signInAnonymously(auth);
+    const r = path => dbM.ref(db, path);
+    return {
+        uid: cred.user.uid,
+        onValue: (path, cb) => dbM.onValue(r(path), snap => cb(snap.val()), err => console.warn('online onValue:', err)),
+        set: (path, v) => dbM.set(r(path), v),
+        update: (path, v) => dbM.update(r(path), v),
+        remove: path => dbM.remove(r(path)),
+        transaction: async (path, fn) => {
+            const res = await dbM.runTransaction(r(path), fn);
+            return { committed: res.committed, value: res.snapshot.val() };
+        },
+        onDisconnectRemove: path => dbM.onDisconnect(r(path)).remove(),
+        cancelOnDisconnect: path => dbM.onDisconnect(r(path)).cancel(),
+        onConnected: cb => dbM.onValue(r('.info/connected'), snap => cb(snap.val() === true))
+    };
+}
+// ダミー版(テスト用): 同じページ(またはtools/online_test.htmlの親ページ)に置いた疑似サーバーを、複数の画面で共有する
+function onlineDummyHub() {
+    let host = window;
+    try { if (window.parent && window.parent !== window && window.parent.document) host = window.parent; } catch (e) { /* 別ドメインの親なら自分の中に置く */ }
+    if (!host.__clash5DummyHub) host.__clash5DummyHub = onlineCreateDummyHub();
+    return host.__clash5DummyHub;
+}
+function onlineCreateDummyHub() {
+    const hub = { data: null, listeners: [], clients: {}, latency: 120, seq: 0 };
+    const split = path => String(path).split('/').filter(Boolean);
+    const clone = v => (v === undefined || v === null) ? null : JSON.parse(JSON.stringify(v));
+    hub.get = path => {
+        let cur = hub.data;
+        for (const k of split(path)) { if (cur === null || typeof cur !== 'object' || !(k in cur)) return null; cur = cur[k]; }
+        return clone(cur);
+    };
+    // 値を書く(nullなら消す)。空になった親も消す(Firebaseと同じ見え方にする)
+    hub.write = (path, val) => {
+        const keys = split(path);
+        val = clone(val);
+        if (keys.length === 0) { hub.data = val; hub.notify(); return; }
+        if (hub.data === null || typeof hub.data !== 'object') hub.data = {};
+        const stack = [hub.data];
+        let cur = hub.data;
+        for (let i = 0; i < keys.length - 1; i++) {
+            if (cur[keys[i]] === null || typeof cur[keys[i]] !== 'object') cur[keys[i]] = {};
+            cur = cur[keys[i]];
+            stack.push(cur);
+        }
+        const last = keys[keys.length - 1];
+        if (val === null) delete cur[last]; else cur[last] = val;
+        for (let i = stack.length - 1; i > 0; i--) {
+            if (Object.keys(stack[i]).length === 0) delete stack[i - 1][keys[i - 1]];
+        }
+        if (Object.keys(hub.data).length === 0) hub.data = null;
+        hub.notify();
+    };
+    // 変化があったリスナーにだけ、少し遅らせて(通信の遅れを模して)新しい値を届ける
+    hub.notify = () => {
+        hub.listeners.forEach(l => {
+            const c = hub.clients[l.client];
+            if (!c || !c.connected) return;
+            const json = JSON.stringify(hub.get(l.path));
+            if (json === l.last) return;
+            l.last = json;
+            setTimeout(() => { if (l.active) l.cb(JSON.parse(json)); }, hub.latency);
+        });
+    };
+    // テスト用の操作: 指定した画面の通信を切る/つなぎ直す(onDisconnectの動作確認用)
+    hub.disconnect = id => {
+        const c = hub.clients[id];
+        if (!c || !c.connected) return;
+        c.connected = false;
+        c.onDisc.forEach(path => hub.write(path, null));
+        c.onDisc.clear();
+        c.connCbs.forEach(cb => setTimeout(() => cb(false), 0));
+    };
+    hub.reconnect = id => {
+        const c = hub.clients[id];
+        if (!c || c.connected) return;
+        c.connected = true;
+        hub.listeners.filter(l => l.client === id).forEach(l => { l.last = undefined; });
+        c.connCbs.forEach(cb => setTimeout(() => cb(true), hub.latency));
+        hub.notify();
+    };
+    hub.newClient = () => {
+        const id = 'dummy-' + (++hub.seq) + '-' + Math.floor(Math.random() * 1e6);
+        const c = { connected: true, onDisc: new Set(), connCbs: [] };
+        hub.clients[id] = c;
+        const delay = fn => new Promise(res => setTimeout(() => res(fn()), hub.latency));
+        return {
+            uid: id,
+            onValue(path, cb) {
+                const l = { client: id, path, cb, last: undefined, active: true };
+                hub.listeners.push(l);
+                hub.notify();
+                return () => { l.active = false; hub.listeners = hub.listeners.filter(x => x !== l); };
+            },
+            set: (path, v) => delay(() => hub.write(path, v)),
+            update: (path, obj) => delay(() => { Object.keys(obj).forEach(k => hub.write(split(path).concat(split(k)).join('/'), obj[k])); }),
+            remove: path => delay(() => hub.write(path, null)),
+            transaction: (path, fn) => delay(() => {
+                const next = fn(hub.get(path));
+                if (next === undefined) return { committed: false, value: hub.get(path) };
+                hub.write(path, next);
+                return { committed: true, value: hub.get(path) };
+            }),
+            onDisconnectRemove: path => { c.onDisc.add(path); return Promise.resolve(); },
+            cancelOnDisconnect: path => { c.onDisc.delete(path); return Promise.resolve(); },
+            onConnected(cb) {
+                c.connCbs.push(cb);
+                setTimeout(() => cb(c.connected), hub.latency);
+                return () => { c.connCbs = c.connCbs.filter(x => x !== cb); };
+            }
+        };
+    };
+    return hub;
+}
+async function onlineEnsureNet() {
+    if (onlineState.net) return onlineState.net;
+    const net = onlineNetMode() === 'dummy' ? onlineDummyHub().newClient() : await onlineCreateFirebaseNet();
+    onlineState.net = net;
+    onlineState.uid = net.uid;
+    if (onlineNetMode() === 'dummy') window.__clash5DummyClientId = net.uid; // テストページから通信を切るための目印
+    return net;
+}
+
+// ------- 小さな共通処理 -------
+function onlineGameVersion() {
+    const el = document.querySelector('.title-version');
+    return el ? el.textContent.trim() : '';
+}
+function onlineOppRole() { return onlineState.role === 'host' ? 'guest' : 'host'; }
+function onlineRoomPath(sub) { return 'rooms/' + onlineState.code + (sub ? '/' + sub : ''); }
+function onlineTurnPath(turn, role) { return onlineRoomPath(`m/${onlineState.match}/t/${turn}/${role}`); }
+// 古すぎる部屋や、しばらく誰もいない部屋は、使い回してよい(抜けた人の在室フラグは通信切れで自動的に消える)。
+// 作ったばかりで誰もいない部屋は使い回さない(ホストが合言葉をLINE等で送っている間、一時的に通信が切れているだけのことがあるため)
+function onlineRoomIsStale(room) {
+    if (!room || typeof room !== 'object' || !room.host) return true;
+    const age = Date.now() - (typeof room.createdAt === 'number' ? room.createdAt : 0);
+    if (age > ONLINE_ROOM_STALE_MS) return true;
+    const empty = !room.p || (!room.p.host && !room.p.guest);
+    return empty && age > ONLINE_ROOM_EMPTY_STALE_MS;
+}
+function onlineRandomHex(bytes) {
+    const arr = new Uint8Array(bytes);
+    if (window.crypto && crypto.getRandomValues) crypto.getRandomValues(arr);
+    else for (let i = 0; i < bytes; i++) arr[i] = Math.floor(Math.random() * 256);
+    return Array.from(arr).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+async function onlineSha256(text) {
+    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+    return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+// ターン開始時の両者のHP(ホスト側から見た順。小数のズレを避けるため桁をそろえた文字列にする)
+function onlineHpKey() {
+    const mine = state.hpP.toFixed(3), theirs = state.hpE.toFixed(3);
+    return onlineState.role === 'host' ? `${mine}/${theirs}` : `${theirs}/${mine}`;
+}
+// 両者の必殺技が同じ攻防で同時に成立した時、どちらを優先するか(resolveExchangeから呼ぶ)。通常はP。
+// オンライン対戦では両端末で同じ結果になるよう、ホストを優先する(ゲストの端末ではホストはE側にいる)
+function finisherTieSide() {
+    return (state.gameMode === 'online' && onlineState.role === 'guest') ? 'E' : 'P';
+}
+// 手札・GO!等を押せない状態か(オンライン対戦で、手を送った後〜次のターンまで)
+function onlineInputBlocked() {
+    return state.gameMode === 'online' && onlineState.phase !== 'input';
+}
+function onlineSetStatus(text) {
+    const el = document.getElementById('onlineStatus');
+    if (!el) return;
+    el.textContent = text || '';
+    el.classList.toggle('show', !!text);
+}
+function onlineSetGate(html) {
+    const gate = document.getElementById('onlineGate');
+    if (!gate) return;
+    gate.innerHTML = html || '';
+    gate.classList.toggle('show', !!html);
+    const ui = document.getElementById('ui');
+    if (ui) ui.classList.toggle('online-gated', !!html); // ゲートを手札・ボタン部分(#ui)いっぱいに重ねるための基準位置
+}
+function onlineHideBattleOverlays() {
+    onlineSetStatus('');
+    onlineSetGate('');
+    const r = document.getElementById('vsResult1');
+    if (r && state.gameMode !== 'versus') { r.className = 'vs-result'; r.innerHTML = ''; }
+}
+
+// ------- ロビー(部屋を作る/入る)の画面 -------
+function onlineShowPanel(name) {
+    ['Lobby', 'Host', 'Select', 'Msg'].forEach(p => {
+        const el = document.getElementById('onPanel' + p);
+        if (el) el.classList.toggle('show', p === name);
+    });
+}
+function onlineSetLobbyMsg(text, isError) {
+    const el = document.getElementById('onLobbyMsg');
+    if (!el) return;
+    el.textContent = text || '';
+    el.classList.toggle('error', !!isError);
+}
+// タイトルのONLINE V.S.から
+function goOnlineLobby() {
+    onlineLeave(); // 念のため(前の部屋が残っていれば抜ける)
+    onlineState.phase = 'lobby';
+    onlineSetLobbyMsg('');
+    const input = document.getElementById('onJoinCode');
+    if (input) input.value = '';
+    onlineShowPanel('Lobby');
+    showScene('online');
+    playBGM('bgm_deck');
+}
+function onlineErrorText(e) {
+    console.warn('online:', e);
+    return '通信できませんでした。電波の良い所でもう一度お試しください';
+}
+// CREATE ROOM: 空いている4桁の合言葉を探して部屋を作る
+async function onlineCreateRoom() {
+    if (onlineState.busy || onlineState.phase !== 'lobby') return;
+    onlineState.busy = true;
+    playSE('se_select');
+    onlineSetLobbyMsg('CONNECTING...');
+    try {
+        const net = await onlineEnsureNet();
+        const room = { v: onlineGameVersion(), createdAt: Date.now(), host: net.uid, seed: rngFreshSeed(), p: { host: true } };
+        for (let tries = 0; tries < 12; tries++) {
+            const code = String(Math.floor(Math.random() * 10000)).padStart(4, '0');
+            const res = await net.transaction('rooms/' + code, cur => {
+                if (cur && !onlineRoomIsStale(cur)) return; // 使用中の合言葉は避ける(undefinedを返すと書き込まない)
+                return room;
+            });
+            if (res.committed && res.value && res.value.host === net.uid) {
+                if (onlineState.phase !== 'lobby') { net.remove('rooms/' + code); return; } // 待っている間に画面を離れていた
+                onlineSetLobbyMsg('');
+                onlineEnterRoom(code, 'host');
+                return;
+            }
+        }
+        onlineSetLobbyMsg('部屋を作れませんでした。もう一度お試しください', true);
+    } catch (e) {
+        onlineSetLobbyMsg(onlineErrorText(e), true);
+    } finally {
+        onlineState.busy = false;
+    }
+}
+// JOIN ROOM: 相手から聞いた合言葉の部屋に入る
+async function onlineJoinRoom() {
+    if (onlineState.busy || onlineState.phase !== 'lobby') return;
+    const input = document.getElementById('onJoinCode');
+    const code = (input ? input.value : '').replace(/\D/g, '');
+    if (!/^\d{4}$/.test(code)) {
+        playSE('se_cancel');
+        onlineSetLobbyMsg('4桁の数字を入力してください', true);
+        return;
+    }
+    onlineState.busy = true;
+    playSE('se_select');
+    onlineSetLobbyMsg('CONNECTING...');
+    try {
+        const net = await onlineEnsureNet();
+        const version = onlineGameVersion();
+        let reason = 'notfound';
+        const res = await net.transaction('rooms/' + code, cur => {
+            // 初回は手元のキャッシュ(null)で呼ばれることがある。nullを返せばサーバーの値で呼び直される
+            if (cur === null) { reason = 'notfound'; return null; }
+            // ホストの在室フラグが一時的に消えていても入れる(合言葉を送っている間に通信が切れていることがあるため)
+            if (onlineRoomIsStale(cur)) { reason = 'notfound'; return; }
+            if (cur.guest && cur.guest !== net.uid) { reason = 'full'; return; }
+            if (cur.v !== version) { reason = 'version'; return; }
+            reason = null;
+            cur.guest = net.uid;
+            cur.p = Object.assign({}, cur.p, { guest: true });
+            return cur;
+        });
+        if (res.committed && res.value && res.value.guest === net.uid) {
+            if (onlineState.phase !== 'lobby') return;
+            onlineSetLobbyMsg('');
+            onlineEnterRoom(code, 'guest');
+            return;
+        }
+        playSE('se_cancel');
+        onlineSetLobbyMsg(
+            reason === 'full' ? 'その部屋はもう対戦中です' :
+            reason === 'version' ? 'ゲームのバージョンが相手と違います。2人ともページを再読み込みしてください' :
+            'その番号の部屋が見つかりません', true);
+    } catch (e) {
+        onlineSetLobbyMsg(onlineErrorText(e), true);
+    } finally {
+        onlineState.busy = false;
+    }
+}
+// 部屋に入った後の共通処理: 在室フラグ・切断時の自動削除・部屋の監視を始める
+function onlineEnterRoom(code, role) {
+    const net = onlineState.net;
+    onlineState.code = code;
+    onlineState.role = role;
+    onlineState.room = null;
+    onlineState.match = 0;
+    onlineState.turnNo = 0;
+    onlineState.ready = false;
+    onlineState.wins = { me: 0, opp: 0 };
+    onlineState.oppSeen = role === 'guest'; // ゲストから見ると、相手(ホスト)は最初からいる。いないまま一定時間たてば「相手が抜けた」になる
+    onlineState.oppLeft = false;
+    onlineState.myCommit = null;
+    onlineState.oppCards = null;
+    const presence = onlineRoomPath('p/' + role);
+    net.onDisconnectRemove(presence);
+    // 通信が切れて戻った時(スマホでLINEを開いた後など)は、在室フラグを書き直す
+    // ただし部屋がもう消えていたら書き直さない(在室フラグだけの部屋ができてしまうため)。部屋ごとのトランザクションで確かめる
+    onlineState.unsubs.push(net.onConnected(connected => {
+        if (!connected || onlineState.code !== code) return;
+        net.transaction('rooms/' + code, cur => {
+            if (cur === null || !cur.host) return null; // 部屋が無い(初回は手元のキャッシュでnullのこともあるが、その場合はサーバーの値で呼び直される)
+            cur.p = Object.assign({}, cur.p, { [role]: true });
+            return cur;
+        }).then(() => net.onDisconnectRemove(presence)).catch(e => console.warn('online presence:', e));
+    }));
+    onlineState.unsubs.push(net.onValue('rooms/' + code, room => {
+        if (onlineState.code !== code) return;
+        onlineState.room = room;
+        onlineProcess();
+    }));
+    if (role === 'host') {
+        onlineState.phase = 'hosting';
+        document.getElementById('onRoomCode').textContent = code;
+        onlineShowPanel('Host');
+    } else {
+        onlineGoSelect();
+    }
+}
+// 部屋を作って待っている間のCANCEL
+function onlineCancelHost() {
+    playSE('se_cancel');
+    onlineLeave();
+    onlineState.phase = 'lobby';
+    onlineShowPanel('Lobby');
+}
+// 部屋から抜ける(タイトルへ戻る経路=goLogo等からも必ず呼ばれる。部屋にいなければ何もしない安全な処理)
+function onlineLeave() {
+    if (onlineState.leaveTimer) { clearTimeout(onlineState.leaveTimer); onlineState.leaveTimer = null; }
+    if (onlineState.lostTimer) { clearTimeout(onlineState.lostTimer); onlineState.lostTimer = null; }
+    onlineState.unsubs.forEach(u => { try { u(); } catch (e) { /* 何もしない */ } });
+    onlineState.unsubs = [];
+    const { net, code, role, room } = onlineState;
+    if (net && code) {
+        const opp = onlineOppRole();
+        const oppHere = room && room.p && room.p[opp];
+        try {
+            net.cancelOnDisconnect(onlineRoomPath('p/' + role));
+            // 相手がもういない(または来ていない)なら部屋ごと消す。相手がいれば自分の在室フラグだけ消す
+            // (相手の端末では、これを見て「相手が抜けた」になる)。無料枠を守るため、使い終わった部屋は残さない
+            // 自分で抜けた時は「bye」も書いておき、相手の端末では猶予時間を待たずにすぐ「相手が抜けた」にする
+            if (oppHere) net.update('rooms/' + code, { ['p/' + role]: null, ['bye/' + role]: true });
+            else net.remove('rooms/' + code);
+        } catch (e) { console.warn('online leave:', e); }
+    }
+    onlineState.code = null;
+    onlineState.role = null;
+    onlineState.room = null;
+    onlineState.oppKey = null;
+    onlineState.myCommit = null;
+    onlineState.oppCards = null;
+    onlineState.oppLeft = false;
+    onlineState.oppSeen = false;
+    onlineState.processing = false;
+    if (onlineState.phase !== 'idle') onlineState.phase = 'idle';
+    onlineHideBattleOverlays();
+    const fight = document.getElementById('onSelFight');
+    if (fight) fight.classList.remove('show');
+}
+// ✕ / TITLE: 部屋を抜けてタイトルへ
+function onlineBackToTitle() {
+    playSE('se_select');
+    onlineLeave();
+    endSubstoryBattle(); // pPresetKey等を通常の状態へ戻す(STORY MODEへの持ち越しを防ぐ)
+    goTitle();
+}
+// 相手が抜けた案内のOK: ロビーへ戻る
+function onlineBackToLobby() {
+    playSE('se_select');
+    endSubstoryBattle();
+    goOnlineLobby();
+}
+function onlineShowMessage(text) {
+    onlineState.phase = 'gone';
+    document.getElementById('onMsgText').innerHTML = text;
+    onlineShowPanel('Msg');
+    showScene('online');
+}
+
+// ------- 部屋のデータが変わるたびに呼ばれる進行役 -------
+// 部屋の状態と自分のphaseを見比べて、次にやるべきことを1つずつ進める。同じデータで何度呼ばれても問題ない作り。
+async function onlineProcess() {
+    if (onlineState.processing) { onlineState.processAgain = true; return; }
+    onlineState.processing = true;
+    try {
+        do {
+            onlineState.processAgain = false;
+            await onlineProcessOnce();
+        } while (onlineState.processAgain);
+    } catch (e) {
+        console.error('onlineProcess:', e);
+    } finally {
+        onlineState.processing = false;
+    }
+}
+async function onlineProcessOnce() {
+    const ph = onlineState.phase;
+    if (!onlineState.code || ph === 'idle' || ph === 'lobby' || ph === 'gone') return;
+    const room = onlineState.room;
+    const opp = onlineOppRole();
+    // 部屋そのものが消えた: 自分の通信が長く切れている間に、相手が「相手(=自分)が抜けた」とみなして部屋を片付けた場合等。
+    // 自分の側の切断なので、勝ちにはせず「DISCONNECTED」にする
+    if (!room || !room.host) {
+        if (!onlineState.lostTimer) {
+            onlineState.lostTimer = setTimeout(() => {
+                onlineState.lostTimer = null;
+                if (onlineState.code && !(onlineState.room && onlineState.room.host)) onlineConnectionLost();
+            }, 2000);
+        }
+        return;
+    }
+    if (onlineState.lostTimer) { clearTimeout(onlineState.lostTimer); onlineState.lostTimer = null; }
+    if (room.bye && room.bye[opp] && !onlineState.oppLeft) { onlineOpponentLeft(); return; } // 相手がTITLE等で自分から抜けた
+    const oppHere = !!(room.p && room.p[opp]);
+    if (oppHere) {
+        onlineState.oppSeen = true;
+        if (onlineState.leaveTimer) { clearTimeout(onlineState.leaveTimer); onlineState.leaveTimer = null; }
+    } else if (onlineState.oppSeen && !onlineState.oppLeft && !onlineState.leaveTimer && ph !== 'hosting') {
+        onlineState.leaveTimer = setTimeout(() => {
+            onlineState.leaveTimer = null;
+            const r = onlineState.room;
+            if (r && r.p && r.p[onlineOppRole()]) return; // 戻ってきていた
+            onlineOpponentLeft();
+        }, (ph === 'select' || ph === 'starting' || ph === 'over') ? ONLINE_LEAVE_GRACE_SELECT_MS : ONLINE_LEAVE_GRACE_MS);
+    }
+    // 自分の通信が切れている間に、相手が「相手が抜けた」として試合を終わらせていた(m/{試合番号}/end)。この試合は相手の勝ち
+    const curMatch = room.m && room.m[onlineState.match];
+    if (curMatch && curMatch.end && curMatch.end.winner === opp && ['intro', 'input', 'commit', 'reveal', 'verify', 'resolve'].includes(ph)) {
+        onlineEndAbnormal('DISCONNECTED', '通信が切れたため、相手の勝ちになりました', true);
+        return;
+    }
+
+    if (ph === 'hosting') {
+        if (room.guest && oppHere) onlineGoSelect();
+        return;
+    }
+    if (ph === 'select') {
+        onlineRenderRival();
+        const M = onlineState.match;
+        const m = room.m && room.m[M];
+        if (!m && onlineState.role === 'host' && onlineBothReady(room, M)) {
+            // 両者READY: ステージはホストが決める(LOCAL V.S.と同じく、ホストがSTORY MODEでクリア済みのステージから)
+            const stages = vsAvailableStages();
+            await onlineState.net.set(onlineRoomPath('m/' + M), { stage: stages[Math.floor(Math.random() * stages.length)] });
+            return;
+        }
+        if (m && m.stage && onlineState.ready && onlineBothReady(room, M)) onlineStartMatch(room, m);
+        return;
+    }
+    if (ph === 'input' || ph === 'commit' || ph === 'reveal') {
+        const t = room.m && room.m[onlineState.match] && room.m[onlineState.match].t && room.m[onlineState.match].t[onlineState.turnNo];
+        const theirs = t && t[opp];
+        if (ph === 'input') {
+            onlineSetStatus(theirs && theirs.h ? 'RIVAL IS READY!' : '');
+            return;
+        }
+        const mine = onlineState.myCommit;
+        if (ph === 'commit' && theirs && theirs.h && mine && !mine.revealed) {
+            // 相手も手を確定した。展開がズレていないか確かめてから、自分の手の中身を公開する
+            if (theirs.n !== mine.n || theirs.hp !== mine.hp) { onlineSyncError(); return; }
+            mine.revealed = true;
+            onlineState.phase = 'reveal';
+            await onlineState.net.update(onlineTurnPath(mine.turn, onlineState.role), { c: mine.cards, s: mine.salt });
+            onlineState.processAgain = true;
+            return;
+        }
+        if (ph === 'reveal' && theirs && typeof theirs.c === 'string' && typeof theirs.s === 'string') {
+            onlineState.phase = 'verify';
+            const h = await onlineSha256(theirs.c + '|' + theirs.s);
+            const cards = theirs.c.split(',');
+            const valid = h === theirs.h && cards.length === mine.n && cards.every(c => ONLINE_CARD_NAMES.includes(c));
+            if (!valid) { onlineSyncError(); return; }
+            onlineState.oppCards = cards;
+            onlineState.phase = 'resolve';
+            onlineSetStatus('');
+            resolveTurn();
+        }
+    }
+}
+function onlineBothReady(room, M) {
+    const s = room.sel || {};
+    return ['host', 'guest'].every(r => s[r] && s[r].ready && s[r].m === M);
+}
+
+// ------- キャラ選択 -------
+function onlineGoSelect() {
+    onlineState.phase = 'select';
+    onlineState.ready = false;
+    onlineState.oppKey = null;
+    if (!vsCharUnlocked(vsCharByKey(onlineState.sel))) onlineState.sel = 'VAL';
+    VERSUS_CHARACTERS.forEach(ch => { if (ch.thumbSet && vsCharUnlocked(ch)) loadEnemySet(ch.thumbSet); });
+    onlineWriteSel();
+    onlineRenderSelect();
+    onlineShowPanel('Select');
+    showScene('online');
+    playBGM('bgm_deck');
+    onlineProcess();
+}
+function onlineWriteSel() {
+    if (!onlineState.net || !onlineState.code) return;
+    onlineState.net.set(onlineRoomPath('sel/' + onlineState.role), { key: onlineState.sel, ready: onlineState.ready, m: onlineState.match });
+}
+function onlineRenderSelect() {
+    const grid = document.getElementById('onSelGrid');
+    if (!grid) return;
+    grid.innerHTML = '';
+    VS_SELECT_LAYOUT.forEach(key => {
+        if (key === 'RANDOM') {
+            const tile = document.createElement('div');
+            tile.className = 'vs-sel-tile vs-sel-random';
+            tile.innerHTML = '<div class="vs-sel-random-mark">?</div><div class="vs-sel-tile-name">RANDOM</div>';
+            tile.onclick = () => onlineRandomSelect();
+            grid.appendChild(tile);
+            return;
+        }
+        const ch = vsCharByKey(key);
+        if (ch.gift && !vsCharUnlocked(ch)) {
+            const empty = document.createElement('div');
+            empty.className = 'vs-sel-empty';
+            grid.appendChild(empty);
+            return;
+        }
+        const unlocked = vsCharUnlocked(ch);
+        const tile = document.createElement('div');
+        tile.dataset.key = ch.key;
+        tile.className = 'vs-sel-tile' + (unlocked ? '' : ' locked') + (ch.key === onlineState.sel ? ' selected' : '');
+        const name = unlocked ? ENEMY_PRESETS[ch.key].name : '???';
+        tile.innerHTML = `<img class="vs-sel-thumb" src="${vsThumbSrc(ch)}" alt="" onerror="this.onerror=null; this.src='assets/images/characters/player.PNG';"><div class="vs-sel-tile-name">${name}</div>`;
+        if (unlocked) tile.onclick = () => onlineSelectChar(ch.key);
+        grid.appendChild(tile);
+    });
+    const preset = ENEMY_PRESETS[onlineState.sel];
+    document.getElementById('onSelName').innerText = preset.name;
+    document.getElementById('onSelDeck').innerText = `DECK  P${preset.deck.PUNCH} / U${preset.deck.UPPER} / G${preset.deck.GUARD}`;
+    const btn = document.getElementById('onSelReady');
+    btn.innerText = onlineState.ready ? 'CANCEL' : 'READY';
+    btn.classList.toggle('is-ready', onlineState.ready);
+    document.getElementById('onPanelSelect').classList.toggle('ready', onlineState.ready);
+    document.getElementById('onScore').innerText = `YOU ${onlineState.wins.me} - ${onlineState.wins.opp} RIVAL`;
+    onlineRenderRival();
+}
+// 相手の状況(選択中/READY)。相手のキャラは、2人ともREADYになって試合が始まるまで見せない
+function onlineRenderRival() {
+    const el = document.getElementById('onRivalStatus');
+    if (!el) return;
+    const s = onlineState.room && onlineState.room.sel && onlineState.room.sel[onlineOppRole()];
+    const rivalReady = !!(s && s.ready && s.m === onlineState.match);
+    el.textContent = rivalReady ? 'RIVAL: READY!' : 'RIVAL: CHOOSING...';
+    el.classList.toggle('ready', rivalReady);
+}
+function onlineSelectChar(key) {
+    if (onlineState.phase !== 'select' || onlineState.ready) return;
+    onlineState.sel = key;
+    playSE('se_deck_plus');
+    onlineRenderSelect();
+    onlineWriteSel();
+}
+// ？(ランダム): 選べるキャラから1人を選ぶ。決まったキャラだけを相手へ送るので、ここはシード付き乱数でなくてよい
+function onlineRandomSelect() {
+    if (onlineState.phase !== 'select' || onlineState.ready) return;
+    const pool = VERSUS_CHARACTERS.filter(ch => vsCharUnlocked(ch)).map(ch => ch.key);
+    if (pool.length === 0) return;
+    onlineState.sel = pool[Math.floor(Math.random() * pool.length)];
+    playSE('se_select');
+    onlineRenderSelect();
+    onlineWriteSel();
+    const chosen = document.querySelector(`#onSelGrid .vs-sel-tile[data-key="${onlineState.sel}"]`);
+    if (chosen) { chosen.classList.remove('decided'); void chosen.offsetWidth; chosen.classList.add('decided'); }
+}
+function onlineToggleReady() {
+    if (onlineState.phase !== 'select') return;
+    onlineState.ready = !onlineState.ready;
+    playSE(onlineState.ready ? 'se_select' : 'se_cancel');
+    onlineRenderSelect();
+    onlineWriteSel();
+}
+
+// ------- 試合の開始・ターン・決着 -------
+async function onlineStartMatch(room, m) {
+    onlineState.phase = 'starting';
+    const s = room.sel[onlineOppRole()];
+    const oppCh = vsCharByKey(s.key);
+    onlineState.oppKey = (oppCh && ENEMY_PRESETS[s.key]) ? s.key : 'VAL'; // 知らないキーが来た場合の安全策
+    const stageNum = (m.stage >= 1 && m.stage <= VERSUS_STAGE_COUNT) ? m.stage : 1;
+    document.getElementById('onFightNames').innerText = `${ENEMY_PRESETS[onlineState.sel].name}  VS  ${ENEMY_PRESETS[onlineState.oppKey].name}`;
+    const fight = document.getElementById('onSelFight');
+    fight.classList.add('show');
+    playSE('se_go');
+    await rawWait(1100);
+    fight.classList.remove('show');
+    if (onlineState.phase !== 'starting') return; // 待っている間に相手が抜けた等
+    state.pendingMode = 'online'; // resetBattleStateはこの値からgameModeを決定する
+    state.pPresetKey = onlineState.sel;
+    state.ePresetKey = onlineState.oppKey;
+    state.substoryStageNum = stageNum; // 背景・BGMの指定はEXTRA BATTLE/LOCAL V.S.と同じ仕組みを使う
+    state.substoryMusicNum = stageNum;
+    // 試合のシード: 部屋のシードと試合番号から決める(両端末で同じ値になる)
+    RNG.nextSeed = ((room.seed >>> 0) ^ Math.imul(onlineState.match + 1, 0x9e3779b1)) >>> 0;
+    onlineState.turnNo = 0;
+    onlineState.myCommit = null;
+    onlineState.oppCards = null;
+    await ensureReadyWithLoading(Promise.all([
+        loadEnemySet(onlineEnemySetName()),
+        onlinePlayerSetName() ? loadEnemySet(onlinePlayerSetName()) : Promise.resolve(),
+        loadStageBackground(stageNum === 1 ? 'bg.PNG' : `bg_${stageNum}.PNG`),
+        preloadBgm('bgm_battle_' + stageNum, 'bgm_battle')
+    ]));
+    if (onlineState.phase !== 'starting') return;
+    onlineState.phase = 'intro';
+    onlineHideBattleOverlays();
+    resetBattleState();
+    showScene('battle');
+    playBattleIntro();
+    playBGM('bgm_battle_' + stageNum, 'bgm_battle');
+}
+// 読み込むグラフィックセット名(currentEnemySetName/vsPlayerSetNameはgameModeが確定した後に使うため、開始前はこちらで求める)
+function onlineEnemySetName() {
+    const k = state.ePresetKey;
+    if (k === 'MIFUNE') return 'training';
+    const mm = k.match(/^ENEMY_(\d+)$/);
+    return mm ? 'enemy_' + parseInt(mm[1], 10) : 'val';
+}
+function onlinePlayerSetName() { return vsPlayerSetName(); }
+// ターンの入力を始める(開始演出の直後、前のターンの解決が終わった直後)
+function onlineBeginTurn() {
+    if (state.gameMode !== 'online') return;
+    if (onlineState.oppLeft) { onlineEndByLeave(); return; }
+    if (onlineState.phase === 'over' || onlineState.phase === 'gone' || onlineState.phase === 'idle') return;
+    onlineState.turnNo++;
+    onlineState.myCommit = null;
+    onlineState.oppCards = null;
+    onlineState.phase = 'input';
+    onlineSetStatus('');
+    updateUI();
+    updateHandUI();
+    onlineProcess(); // 相手がすでにこのターンの手を送っていれば「RIVAL IS READY!」を出す
+}
+// GO!(resolveTurnから呼ばれる): 自分の手のハッシュ値だけを送る
+async function onlineSubmit() {
+    if (onlineState.phase !== 'input') return;
+    const n = filledCount();
+    if (n === 0 || (state.requiredHandSize && n !== state.requiredHandSize)) return;
+    onlineState.phase = 'commit'; // ここで先に変えて、連打で二重に送らないようにする
+    playSE('se_select');
+    updateUI();
+    updateHandUI();
+    onlineSetStatus('WAITING FOR RIVAL...');
+    const cards = state.hands.slice(0, n).join(',');
+    const salt = onlineRandomHex(16);
+    const turn = onlineState.turnNo;
+    try {
+        const h = await onlineSha256(cards + '|' + salt);
+        onlineState.myCommit = { turn, cards, salt, h, n, hp: onlineHpKey(), revealed: false };
+        await onlineState.net.set(onlineTurnPath(turn, onlineState.role), { h, n, hp: onlineState.myCommit.hp });
+    } catch (e) {
+        console.error('onlineSubmit:', e);
+    }
+    onlineProcess();
+}
+// 両端末の展開がズレていた(または相手の手がハッシュ値と合わなかった)。試合を止め、勝敗は記録しない
+function onlineSyncError() {
+    onlineState.phase = 'over';
+    state.battleReady = false;
+    onlineSetStatus('');
+    const r = document.getElementById('vsResult1');
+    r.className = 'vs-result show draw';
+    r.innerHTML = `<div class="vs-result-text">SYNC ERROR</div><div class="vs-result-score">この試合は記録されません</div>`;
+    onlineSetGate(`<div class="vs-result-btns"><button class="vs-ready-btn" onclick="onlineBackToTitle()">TITLE</button></div>`);
+    updateActionButtons();
+}
+// 決着(showResultから呼ばれる)
+function onlineShowResult() {
+    if (onlineState.phase === 'over' || !onlineState.code) return; // 演出中に「相手が抜けた」「通信切れ」で先に終わっていた
+    onlineState.phase = 'over';
+    onlineSetStatus('');
+    const winner = (state.hpP <= 0 && state.hpE <= 0) ? null : (state.hpE <= 0 ? 'me' : 'opp');
+    if (winner === 'me') {
+        onlineState.wins.me++;
+        onlineWins++;
+        writeSaveData({ onlineWins });
+    } else if (winner === 'opp') {
+        onlineState.wins.opp++;
+    }
+    onlineRenderResult(winner === null ? 'DRAW' : (winner === 'me' ? 'YOU WIN' : 'YOU LOSE'),
+        winner === null ? 'draw' : (winner === 'me' ? 'win' : 'lose'), '');
+    playSE('se_win');
+    playResultBgmDelayed(winner === 'opp' ? 'bgm_battle_lose' : 'bgm_battle_win', 'se_win');
+}
+function onlineRenderResult(text, cls, note) {
+    const r = document.getElementById('vsResult1');
+    r.className = 'vs-result show ' + cls;
+    r.innerHTML = `<div class="vs-result-text">${text}</div>` +
+        (note ? `<div class="vs-result-score">${note}</div>` : '') +
+        `<div class="vs-result-score">YOU ${onlineState.wins.me} - ${onlineState.wins.opp} RIVAL</div>`;
+    onlineSetGate(`<div class="vs-result-btns">` +
+        (onlineState.oppLeft ? '' : `<button class="vs-ready-btn" onclick="onlineRematch()">REMATCH</button>`) +
+        `<button class="vs-sub-btn" onclick="onlineBackToTitle()">TITLE</button></div>`);
+}
+// REMATCH: キャラ選択へ戻る(同じ部屋のまま。前回のキャラを選んだ状態から)
+function onlineRematch() {
+    if (onlineState.phase !== 'over' || onlineState.oppLeft) return;
+    playSE('se_select');
+    victoryBgmToken++; // 決着のSEが鳴り終わる前に押した場合、後から決着の曲が鳴り出さないようにする
+    onlineHideBattleOverlays();
+    onlineState.match++;
+    endSubstoryBattle();
+    onlineGoSelect();
+}
+// 相手が抜けた(在室フラグが猶予時間を過ぎても消えたまま)
+function onlineOpponentLeft() {
+    if (onlineState.oppLeft || !onlineState.code) return;
+    onlineState.oppLeft = true;
+    const ph = onlineState.phase;
+    if (ph === 'hosting' || ph === 'select' || ph === 'starting') {
+        onlineLeave();
+        onlineShowMessage('RIVAL LEFT<br><span>相手が部屋から出ました</span>');
+    } else if (ph === 'input' || ph === 'commit' || ph === 'reveal' || ph === 'verify') {
+        onlineEndByLeave();
+    } else if (ph === 'over') {
+        // 決着画面: REMATCHはできなくなる
+        const r = document.getElementById('vsResult1');
+        if (r && r.classList.contains('show')) {
+            const note = document.createElement('div');
+            note.className = 'vs-result-score';
+            note.textContent = 'RIVAL LEFT';
+            r.appendChild(note);
+        }
+        onlineSetGate(`<div class="vs-result-btns"><button class="vs-sub-btn" onclick="onlineBackToTitle()">TITLE</button></div>`);
+    }
+    // 'intro'・'resolve'の間は、演出が終わって次の入力に入る時(onlineBeginTurn)に処理する
+}
+// 対戦中に相手が抜けた: 残った側の勝ち
+function onlineEndByLeave() {
+    // 相手が通信切れから戻ってきた時に分かるよう、この試合の終わり方を部屋に残す(onlineProcessOnce参照)
+    if (onlineState.net && onlineState.code) onlineState.net.set(onlineRoomPath(`m/${onlineState.match}/end`), { winner: onlineState.role });
+    onlineState.phase = 'over';
+    state.battleReady = false;
+    updateActionButtons();
+    onlineState.wins.me++;
+    onlineWins++;
+    writeSaveData({ onlineWins });
+    onlineSetStatus('');
+    onlineRenderResult('YOU WIN', 'win', 'RIVAL LEFT');
+    playSE('se_win');
+    playResultBgmDelayed('bgm_battle_win', 'se_win');
+}
+
+// 自分の側の通信が切れていた等で、試合を普通に終えられなかった場合の表示。countOppWin=trueなら部屋の対戦成績だけ相手に1勝を付ける
+function onlineEndAbnormal(title, note, countOppWin) {
+    const wasResolving = onlineState.phase === 'resolve' || onlineState.phase === 'intro';
+    onlineState.phase = 'over';
+    onlineState.oppLeft = true; // REMATCHはできない(部屋の状態が分からないため、一度抜けてもらう)
+    state.battleReady = false;
+    if (countOppWin) onlineState.wins.opp++;
+    onlineSetStatus('');
+    if (!wasResolving) updateActionButtons();
+    onlineRenderResult(title, 'lose', note);
+    playSE('se_ko');
+}
+// 部屋が消えていた(自分の通信が長く切れている間に、相手が部屋を片付けた)
+function onlineConnectionLost() {
+    const ph = onlineState.phase;
+    if (['intro', 'input', 'commit', 'reveal', 'verify', 'resolve'].includes(ph)) {
+        onlineEndAbnormal('DISCONNECTED', '通信が切れたため、対戦を続けられません', false);
+    } else if (ph === 'over') {
+        onlineState.oppLeft = true;
+        onlineSetGate(`<div class="vs-result-btns"><button class="vs-sub-btn" onclick="onlineBackToTitle()">TITLE</button></div>`);
+    } else if (ph === 'hosting' || ph === 'select' || ph === 'starting') {
+        onlineLeave();
+        onlineShowMessage('DISCONNECTED<br><span>通信が切れたため、部屋から出ました</span>');
+    }
+}
+
+// ============================================================
 // BATTLE RUSH(100人組手、2026-09-28追加)
 // ============================================================
 // ・専用GIFT CODEで解放(タイトルのLOCAL V.S.の下にボタンが出現)。デッキ編成なし、VALの固定デッキ(7/7/7)・通常のプレイヤー能力。
@@ -7992,6 +8925,7 @@ function buildRecordsItems() {
         items.push({ got, tech: true, name: got ? t.name : '？？？', how: got ? t.cmd : t.hint });
     });
     if (rushUnlocked) items.push({ got: true, name: 'BATTLE RUSH', how: RECORDS_HINTS.giftHow, gift: true });
+    if (onlineUnlocked) items.push({ got: true, name: 'ONLINE V.S.', how: RECORDS_HINTS.giftHow, gift: true });
     return items;
 }
 function escapeRecordsText(t) { return String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
@@ -8029,6 +8963,9 @@ function renderRecords() {
             stat('最多撃破', `${rushBest.kills} / ${RUSH_TOTAL}`)
             + stat('ベストタイム', rushBest.clearTimeMs === null ? '--:--.-' : formatRushTime(rushBest.clearTimeMs))
             + stat('最大COMBO', rushBest.maxCombo));
+    }
+    if (onlineUnlocked) { // ONLINE V.S.は勝利数だけを残す(2026-10-03)
+        section('online', 'ONLINE V.S.', `${onlineWins} WIN${onlineWins === 1 ? '' : 'S'}`, stat('勝利数', `${onlineWins}回`));
     }
     const techs = items.filter(it => it.tech);
     const unlocks = items.filter(it => !it.tech);

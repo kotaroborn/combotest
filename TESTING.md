@@ -97,3 +97,22 @@
 - [ ] 決着で上下にYOU WIN/YOU LOSEが出て、REMATCH/CHARACTER/TITLEが動く
 - [ ] VERSUSからタイトルへ戻った後、STORY MODE/TRAINING MODEの画面レイアウトが通常どおり
 - [ ] iPhoneのSafari(ツールバー表示中)とホーム画面追加の両方で、上下のUIが画面内に収まる
+
+## オンライン対戦(ONLINE V.S.)
+
+スマホ2台(またはPC+スマホ)で、GitHub Pagesのページを開いて確認する。PCだけで流れを見る場合は`tools/online_test.html`(ダミー通信、2画面並び)も使える。
+
+- [ ] GIFT CODEでONLINE V.S.を解放すると、タイトルのLOCAL V.S.の下にボタンが出る(他のボタンと重ならない)
+- [ ] CREATE ROOMで4桁の番号が出る。もう1台のJOIN ROOMにその番号を入れると、両方がキャラ選択になる
+- [ ] 間違った番号・3桁以下を入れると、エラーの文が出る
+- [ ] 両方READYでFIGHT!(両者のキャラ名)→バトル開始演出。自分のキャラが左、相手のキャラが右
+- [ ] 先にGO!した側に「WAITING FOR RIVAL...」、まだの側に「RIVAL IS READY!」が出る
+- [ ] 両方GO!すると、相手のカードが1枚ずつ公開されて解決される。2台でHP・展開が同じ(左右が逆なだけ)
+- [ ] 何ターンか続けても「SYNC ERROR」が出ない(特に同じキャラ同士、MIFUNE、Refreshをまたぐ長い試合)
+- [ ] 決着でYOU WIN / YOU LOSEが出て、REMATCHでキャラ選択へ戻り、もう一度遊べる
+- [ ] 勝った側のRECORDSに「ONLINE V.S.」の勝利数が増えている
+- [ ] 対戦中に片方がOPTIONのRETURN TO TITLEで抜けると、残った側がすぐ「YOU WIN / RIVAL LEFT」になる
+- [ ] 対戦中に片方のブラウザ(タブ)を閉じると、15秒ほどで残った側が「YOU WIN / RIVAL LEFT」になる
+- [ ] 部屋を作った側が合言葉をLINEで送っている間(ブラウザを裏にしている間)でも、相手が入室できる
+- [ ] 対戦中に片方のスマホでLINE等を開いて10秒以内に戻ると、そのまま続けられる
+- [ ] itch.io版(iframe内)でも部屋を作れる・入れる
