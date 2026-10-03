@@ -3,6 +3,12 @@
 このプロジェクトの変更履歴。日付は新しいものを上に追記する。
 コード(`index.html` / `css/style.css` / `js/script.js`)や仕様に変更を加えた場合は、このファイルに追記すること(詳細は `AI_GUIDE.md` を参照)。
 
+## 2026-10-03(1)
+
+- ver. 0.9.214
+- 技名ポップ(METEOR!・FEINT!等)のフォントを、手書き風(Permanent Marker、Google FontsのCDN)から8bit風の`Press Start 2P`に変更。サイズは以前の見た目の約1.1倍(canvas上26px)。傾き・縁取り・アニメーションは従来通り(縁取りの角はドットに合わせて尖らせる)
+  - フォントは`assets/fonts/PressStart2P-Regular.ttf`として同梱(SIL OFL、ライセンス文`OFL-PressStart2P.txt`も同梱)。Google Fontsへの接続(preconnect/CSS)は不要になったため削除。canvasで使うため起動時に先読みする
+
 ## 2026-10-02(38)
 
 - ver. 0.9.213

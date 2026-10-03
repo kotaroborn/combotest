@@ -41,13 +41,8 @@
 | `bgm_battle_win.mp3` / `bgm_battle_lose.mp3` | `assets/audio/bgm/` | 決着後(RESULT中)の曲。YOU WINのSE(`se_win`)・K.O.のSE(`se_ko`)が鳴り終わってから流し、ループする。勝ち=STORY・EXTRA BATTLE・BATTLE RUSHクリア(LOCAL V.S.の決着後は勝ち負けの曲ではなく`bgm_title`をSEの後に流す)、負け=STORY・EXTRA BATTLEのK.O.・BATTLE RUSHで倒れた時。SOUND TESTにも追加(2026-10-02) | 鳴らさない(無音。バトルの曲は決着の時点で止める) |
 | `substory_end_1.PNG` 〜 `substory_end_5.PNG`(APNG可) | `assets/images/cutscenes/substory/` | EXTRA BATTLE後の「SUB STORY / キャラ名 / END」の代わりに出す画像(1=Noah〜5=Alv)。表示時間は`SUBSTORY_END_TIMING`(2026-10-02) | 従来どおり文字で表示 |
 | (章タイトル・SUB STORYタイトルの作り方) | | 1280×720のまま作ってOK。ゲームでは画面幅の140%に拡大して左右の透明な余白を画面外へ逃がし、文字を大きく見せる。**文字は画像の中央、横幅の約70%(x=190〜1090)以内に収めること**(それより外は切れる)。表示の前に1秒、黒い画面・無音の間が入る(2026-10-02) | |
+| `PressStart2P-Regular.ttf`(+`OFL-PressStart2P.txt`) | `assets/fonts/` | 技名ポップ(METEOR!等)の8bit風フォント。SIL Open Font License(ライセンス文を同梱)。2026-10-03 | 等幅の汎用フォント |
 | (APNGについて) | | カットシーンの画像(`op_*` / `story_*` / `substory_*`)は、同じファイル名のままAPNG(アニメーションPNG)に差し替えても動く。章タイトルとSUB STORY ENDは、表示のたびに必ず最初から再生される | |
-
-## 未使用・予約フォルダ
-
-| フォルダ | 用途 | 状態 |
-|---|---|---|
-| `assets/fonts/` | 独自フォント | コードから未参照(現状は既定のsans-serifを使用) |
 
 ## 推奨解像度
 

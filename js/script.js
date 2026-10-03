@@ -168,11 +168,14 @@ function spawnHitEffect(side, moveType, tier, xOverride, yOverride) {
 }
 
 // 技名ポップ(2026-09-27追加): 各技(ラッシュ/ブレイク/クラッシュ/メテオ/ライジング。第36条参照)が発動した瞬間に、
-// その英語名を手書き風フォント(Permanent Marker、CDN経由)でキャラの頭上に表示する。「発生時に技名も入れたいが
+// その英語名を8bit風フォント(Press Start 2P、assets/fonts/に同梱。2026-10-03に手書き風から変更)でキャラの頭上に表示する。「発生時に技名も入れたいが
 // 英語で」との要望を受けたもの。技が発動した側(attacker)を渡して呼ぶ。
 let techNamePops = [];
 const TECH_NAME_POP_LIFE = 1000; // 表示開始から消えるまでの時間(ms)
-const TECH_NAME_FONT_FAMILY = "'Permanent Marker', cursive"; // 読み込み前・失敗時はcursiveの汎用フォントにフォールバック
+const TECH_NAME_FONT_FAMILY = "'Press Start 2P', monospace"; // 読み込み前・失敗時は等幅の汎用フォントにフォールバック
+const TECH_NAME_FONT_SIZE = 26; // canvas上の文字サイズ(px)。2026-10-03: 8bit風フォントで以前の見た目より1.1倍程度大きく
+// canvasは未読み込みのフォントを使えない(代わりのフォントで描いてしまう)ため、起動時に読み込みを始めておく
+if (document.fonts && document.fonts.load) document.fonts.load(`${TECH_NAME_FONT_SIZE}px ${TECH_NAME_FONT_FAMILY}`).catch(() => {});
 function spawnTechNamePop(side, text) {
     techNamePops.push({ side, text, x: getX(side), y: getY(side), born: performance.now() });
 }
@@ -3048,10 +3051,10 @@ function drawTechNamePops(c, t, mirrorW) {
         c.translate(anchorX, anchorY);
         c.rotate(TECH_NAME_TILT_RAD);
         c.scale(scale, scale);
-        c.font = `32px ${TECH_NAME_FONT_FAMILY}`;
+        c.font = `${TECH_NAME_FONT_SIZE}px ${TECH_NAME_FONT_FAMILY}`;
         c.textAlign = 'center';
         c.textBaseline = 'alphabetic';
-        c.lineJoin = 'round';
+        c.lineJoin = 'miter'; // ドット文字の角が丸くならないよう、縁取りの角は尖らせる
         c.lineWidth = 4;
         c.strokeStyle = 'rgba(0,0,0,0.8)'; // 背景を選ばず読めるよう、黒い縁取りを先に描いてから白抜きにする
         c.strokeText(p.text, 0, 0);

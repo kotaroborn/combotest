@@ -1,3 +1,5 @@
+/* 技名ポップ用の8bit風フォント(Press Start 2P、SIL Open Font License。assets/fonts/OFL-PressStart2P.txt、2026-10-03) */
+@font-face { font-family: 'Press Start 2P'; src: url('../assets/fonts/PressStart2P-Regular.ttf') format('truetype'); font-display: swap; }
         * { box-sizing: border-box; touch-action: manipulation; }
         html, body { margin: 0; height: 100%; }
         body {
