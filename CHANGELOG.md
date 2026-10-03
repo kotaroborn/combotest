@@ -3,6 +3,11 @@
 このプロジェクトの変更履歴。日付は新しいものを上に追記する。
 コード(`index.html` / `css/style.css` / `js/script.js`)や仕様に変更を加えた場合は、このファイルに追記すること(詳細は `AI_GUIDE.md` を参照)。
 
+## 2026-10-03(18)
+
+- ver. 0.9.230
+- SOUND TESTのBGM欄に、STORY・SUB STORYのタイトルカードで鳴るジングル(`jingle_story`)を「story jingle」として追加した(openingの次)。ゲーム中と同じくループせず1回だけ鳴る
+
 ## 2026-10-03(17)
 
 - ver. 0.9.229

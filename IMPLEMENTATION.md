@@ -150,7 +150,7 @@ localStorage(キー: `commandbattle_save_v1`)に以下の値が保存され、�
 タイトル画面専用のボタン。以下のいずれか1つでも解除されていれば表示される(`bonusContentsAvailable`)。初めて条件を満たしてタイトルへ戻った瞬間に「BONUS CONTENTS 解放！」のトーストを1回だけ表示する(`bonusContentsAnnounced`で二重表示を防止)。開くと専用のポップアップ(OPTIONとは別)になり、中の行(SUB STORY/SOUND TEST/COSTUME/SPEED)はそれぞれの解放条件を満たしたものだけが表示される。
 
 - **SUB STORY**: 各敵のストーリーシーンに仕込まれた隠しタップ(5人目まで座標設定済み。`TODO.md`参照)で1つずつ解除する、5体分の裏設定的な短編(`SUBSTORY_BY_ENEMY`)。解除済みの一覧から選んで読める(`openSubStoryList`/`readSubStory`)。本編と同じく1文字ずつ表示されるテキストを複数画面再生する。
-- **SOUND TEST**: `gameClearedOnce`(STORY MODEクリア)または`soundTestUnlocked`(旧セーブデータ互換用の解放フラグ)で解放。BGM/SEをカテゴリ・ページ送りで選んでプレビュー再生できる(`openSoundTest`/`renderSoundTestScreen`/`selectSoundTestCategory`)。BONUS CONTENTSを閉じると自動的に再生停止する。
+- **SOUND TEST**: `gameClearedOnce`(STORY MODEクリア)または`soundTestUnlocked`(旧セーブデータ互換用の解放フラグ)で解放。BGM/SEをカテゴリ・ページ送りで選んでプレビュー再生できる(`openSoundTest`/`renderSoundTestScreen`/`selectSoundTestCategory`)。BONUS CONTENTSを閉じると自動的に再生停止する。BGM欄にはジングル(`jingle_story`、「story jingle」。openingの次)も入っていて、これだけはループせず1回で止まる(2026-10-03。一覧`SOUND_TEST_TRACKS`の`cat`/`once`、`soundTestTrackCat`)。
 - **COSTUME**: `costumeSelectionAvailable()`で解放判定(`gameClearedOnce`で敵1〜5の見た目`enemy_1`〜`enemy_5`が全解放、またはGIFT CODE等の追加コスチュームを1つでも持っていれば表示される)。選ぶとプレイヤーキャラの見た目が対応する敵のグラフィックセットに変わる(`selectCostume`)。`enemy_N`形式でない追加コスチューム(例: GIFT CODEで解放する`mifune`)は`EXTRA_COSTUME_LABELS`で表示名を、`COSTUME_ASSET_FOLDER`で流用する画像フォルダを指定する(`mifune`は`training`セットの画像を流用)。EXTRA BATTLE・VERSUS中はCOSTUME変更不可(借りているキャラの見た目を上書きしないため)。
 - **SPEED(バトル2倍速)**: `gameClearedOnce`で解放。BONUS CONTENTS内のSPEED行、およびバトル画面操作列のボタン、どちらからでも切り替えられ、常に両方の表示が同期する(`setBattleSpeed`/`toggleBattleSpeed`/`updateSpeedUI`)。実際の速度反映は演出の`wait()`側で行う(ダメージ計算等のゲームルールには影響しない、演出専用の設定)。
 

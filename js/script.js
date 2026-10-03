@@ -355,9 +355,16 @@ function subStoryDisplayTitle(idx) {
     return sub ? `Ex${idx + 1}: ${sub.title}` : '';
 }
 // サウンドテストの一覧(実ファイルはassets/audio/配下に今後配置。未配置の項目は再生時に何も鳴らないだけで、エラーにはしない)
+// 欄(BGM/SE)は名前の頭(bgm_/se_)で決まる。それ以外の名前の項目はcatで欄を、once:trueでループしないことを指定する
+function soundTestTrackCat(name) {
+    const t = SOUND_TEST_TRACKS.find(x => x.name === name);
+    return (t && t.cat) || (name.startsWith('bgm_') ? 'bgm' : 'se');
+}
 const SOUND_TEST_TRACKS = [
     { name: 'bgm_title', label: 'title' },
     { name: 'bgm_prologue', label: 'opening' },
+    // ジングル(STORY・SUB STORYのタイトルカードで1回だけ鳴る短い曲、assets/audio/bgm/)。BGM欄に出すが、ゲーム中と同じくループしない(2026-10-03)
+    { name: 'jingle_story', label: 'story jingle', cat: 'bgm', once: true },
     { name: 'bgm_story', label: 'story' },
     { name: 'bgm_story_5', label: 'story: Alv' },
     { name: 'bgm_deck', label: 'deck build' },
@@ -6715,8 +6722,7 @@ function renderSoundTestScreen() {
         return;
     }
 
-    const prefix = soundTestCategory === 'bgm' ? 'bgm_' : 'se_';
-    const tracks = SOUND_TEST_TRACKS.filter(t => t.name.startsWith(prefix));
+    const tracks = SOUND_TEST_TRACKS.filter(t => soundTestTrackCat(t.name) === soundTestCategory);
     const totalPages = Math.max(1, Math.ceil(tracks.length / SOUND_TEST_PAGE_SIZE));
     if (soundTestPage >= totalPages) soundTestPage = totalPages - 1;
     const pageTracks = tracks.slice(soundTestPage * SOUND_TEST_PAGE_SIZE, (soundTestPage + 1) * SOUND_TEST_PAGE_SIZE);
@@ -6800,7 +6806,8 @@ function stopSoundTestPlayback() {
 // 本編のBGM/SE再生とは独立したノードを使うため、本編のBGMを止めてしまうことはない。
 // また、未配置ファイルをse_punch等で代用せず、そのまま無音にする(どのファイルが未配置かを正確に確認できるようにするため)。
 async function toggleSoundTestTrack(name) {
-    const isBgm = name.startsWith('bgm_');
+    const isBgm = soundTestTrackCat(name) === 'bgm'; // ジングルもBGM扱い(BGMの音量・フォルダ)
+    const track = SOUND_TEST_TRACKS.find(t => t.name === name);
     const currentPlayingName = isBgm ? soundTestBgmPlayingName : soundTestSePlayingName;
     if (currentPlayingName === name) {
         if (isBgm) stopSoundTestBgmPreview(); else stopSoundTestSePreview();
@@ -6823,7 +6830,7 @@ async function toggleSoundTestTrack(name) {
     if (!document.getElementById('soundTestOverlay').classList.contains('show')) return;
     const source = ctx.createBufferSource();
     source.buffer = buffer;
-    source.loop = isBgm; // BGMはループ、SEは1回のみ
+    source.loop = isBgm && !(track && track.once); // BGMはループ、SE・ジングルは1回のみ
     source.connect(isBgm ? getBgmGainNode() : getSeGainNode());
     source.onended = () => {
         if (isBgm) {
