@@ -134,4 +134,5 @@
 - [ ] 対戦の途中でブラウザ(タブ)を閉じ、もう一度開くと、敗北数が1増えている
 - [ ] ロビー・部屋の相手待ち・ランダムマッチの検索中・キャラ選択の左下に、HOW TOとOPTIONが出ている(画面の他のボタン・文字と重ならない)。HOW TOに「HOW TO ONLINE V.S.」の欄がある。OPTIONにRETURN TO TITLEが出ない(バトル中のOPTIONには出る)
 - [ ] FRIEND MATCH(CREATE ROOM・JOIN ROOM)で勝っても負けても、途中で抜けても、RECORDSの勝敗は変わらない(RANDOM MATCHの時だけ変わる)。RECORDSの見出しは「n WIN  n LOSE」で、欄を開くと数え方の注意が出る。HOW TOに※注意がある
+- [ ] 相手が、自分がSTORY MODEでまだ勝っていないキャラを選ぶと、FIGHT!とバトル中の名前が「？？？」になる(本番版で確認。今はデバッグ解放ブロックで全員解放されているため出ない)
 - [ ] VS CPUでは名前・勝敗が出ず、勝っても負けてもRECORDSの勝敗数は変わらない

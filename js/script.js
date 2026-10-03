@@ -3867,9 +3867,9 @@ function presetForSide(side) {
 // TRAINING MODEなら固定でMIFUNE(STORY MODEは今後の連戦で敵が変わるたびに自動で切り替わる)
 function updateCharNames() {
     if (state.gameMode === 'versus') { vsUpdateNames(); return; } // ローカル対戦は1P/2P表記付きの実名(？？？マスキングなし)
-    if (state.gameMode === 'online') { // オンライン対戦: 自分と相手が選んだキャラの実名(相手側も？？？マスキングなし)
+    if (state.gameMode === 'online') { // オンライン対戦: 自分と相手が選んだキャラの名前(相手のキャラが自分の端末でまだ解放されていなければ？？？、2026-10-03)
         document.getElementById('playerName').innerText = ENEMY_PRESETS[state.pPresetKey].name;
-        document.getElementById('enemyName').innerText = ENEMY_PRESETS[state.ePresetKey].name + (onlineState.cpu ? ' (CPU)' : ' - ' + onlineRivalName()); // 人との対戦では相手の名前も添える(タップで勝敗、2026-10-03) // CPU戦(ランダムマッチで相手が見つからなかった時)は、CPUであることを明示する
+        document.getElementById('enemyName').innerText = onlineOppCharName(state.ePresetKey) + (onlineState.cpu ? ' (CPU)' : ' - ' + onlineRivalName()); // 人との対戦では相手の名前も添える(タップで勝敗、2026-10-03) // CPU戦(ランダムマッチで相手が見つからなかった時)は、CPUであることを明示する
         return;
     }
     document.getElementById('playerName').innerText =
@@ -8063,6 +8063,13 @@ function onlineRivalRecord(adj) {
     if (w === null || l === null) return '';
     return onlineRecordText(w + ((adj && adj.w) || 0), l + ((adj && adj.l) || 0));
 }
+// 相手のキャラの表示名。STORY MODEでまだ勝っていない敵(自分の端末でまだ解放されていないキャラ)は、
+// ネタバレ防止のため「？？？」にする(EXTRA BATTLEの？？？と同じ考え方、2026-10-03)。MIFUNEはTRAINING MODEで誰でも会っているので実名
+function onlineOppCharName(key) {
+    const ch = vsCharByKey(key);
+    if (ch && ch.storyIdx >= 0 && !vsCharUnlocked(ch)) return '？？？';
+    return ENEMY_PRESETS[key] ? ENEMY_PRESETS[key].name : '？？？';
+}
 // 人との対戦の途中か(開始演出〜ターン解決。決着後・キャラ選択中は含まない)
 function onlineInBattle() {
     return ['intro', 'input', 'commit', 'reveal', 'verify', 'resolve'].includes(onlineState.phase);
@@ -8955,7 +8962,7 @@ async function onlineStartCpuMatch() {
 }
 // 試合を始める(人との対戦・CPU戦共通)。seedがnullなら通常どおり毎回ランダムなシード
 async function onlineLaunchMatch(stageNum, seed) {
-    const oppName = ENEMY_PRESETS[onlineState.oppKey].name + (onlineState.cpu ? ' (CPU)' : '');
+    const oppName = onlineOppCharName(onlineState.oppKey) + (onlineState.cpu ? ' (CPU)' : '');
     document.getElementById('onFightNames').innerText = `${ENEMY_PRESETS[onlineState.sel].name}  VS  ${oppName}`;
     const fight = document.getElementById('onSelFight');
     fight.classList.add('show');
