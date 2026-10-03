@@ -9721,8 +9721,8 @@ function rushBackToTitle() {
 // 置き場所はタイトル画面のOPTION(最初から誰でも開けるため、隠し要素の存在自体を知らない人にもヒントが届く)。
 // ゲームクリア後にタイトルへ戻った時、未発見の項目が残っていれば一度だけトーストでRECORDSへ誘導する(checkUnlockAnnouncements)。
 const RECORDS_HINTS = {
-    subStoryHow: (n) => `STORY ${n}のシナリオ中に隠しタップで発見`, // 2026-10-04: 見つける前から、どのSTORYに隠れているかを出す
-    subStoryHint: (n) => `STORY ${n}のシナリオ中に隠しタップで発見`,
+    subStoryHow: (n) => `STORY ${n}シナリオ中の隠しタップを発見`, // 2026-10-04: 見つける前から、どのSTORYに隠れているかを出す
+    subStoryHint: (n) => `STORY ${n}シナリオ中の隠しタップを発見`,
     costumeHow: (n) => `SUB STORY ${n} クリア`,
     costumeHint: (n) => `SUB STORY ${n} クリア`,
     clearHow: 'ゲームクリアで解放',

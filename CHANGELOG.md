@@ -3,6 +3,12 @@
 このプロジェクトの変更履歴。日付は新しいものを上に追記する。
 コード(`index.html` / `css/style.css` / `js/script.js`)や仕様に変更を加えた場合は、このファイルに追記すること(詳細は `AI_GUIDE.md` を参照)。
 
+## 2026-10-04(9)
+
+- ver. 0.9.240
+- RECORDS > UNLOCKS のSUB STORY解放条件を「STORY nシナリオ中の隠しタップを発見」に変更
+- OPTIONのGIFT CODEボタン「入力する」を「入力」に変更
+
 ## 2026-10-04(8)
 
 - ver. 0.9.239
