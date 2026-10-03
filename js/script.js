@@ -8216,9 +8216,16 @@ function onlineSetSearchText(head, note) {
     const h = document.getElementById('onSearchText');
     const n = document.getElementById('onSearchNote');
     if (h) h.textContent = head;
-    if (n) n.textContent = note;
+    if (n) { n.textContent = note; n.classList.remove('online-search-error'); }
     onlineShowCpuPrompt(false);
     onlineShowPanel('Search');
+}
+// さがしている間の説明文(エラー・バージョン違いの案内も出す)。CPUの選択肢の表示はそのまま
+function onlineSetSearchNote(text, isError) {
+    const n = document.getElementById('onSearchNote');
+    if (!n || onlineState.phase !== 'searching') return;
+    n.textContent = text;
+    n.classList.toggle('online-search-error', !!isError);
 }
 function onlineShowCpuPrompt(show) {
     const box = document.getElementById('onSearchCpu');
@@ -8328,6 +8335,8 @@ async function onlineSearchStep() {
     const version = onlineGameVersion();
     onlineState.searchBusy = true;
     let claimed = null;
+    let otherVersion = 0; // 待合室にいる、バージョンが違う人の数(組めないので、気づけるよう案内を出す)
+    let failure = null;
     let res = null;
     try {
         res = await net.transaction('queue', cur => {
@@ -8338,6 +8347,7 @@ async function onlineSearchStep() {
                 const e = q[k];
                 if (!e || typeof e !== 'object' || now - (e.t || 0) > ONLINE_QUEUE_STALE_MS) delete q[k]; // 抜けた人の残り
             });
+            otherVersion = Object.keys(q).filter(k => k !== uid && q[k].v !== version).length;
             const mine = q[uid];
             if (mine && (mine.by || mine.room)) {
                 mine.t = now; // 自分はもう誰かに押さえられている: 合言葉が届くのを待つ
@@ -8361,6 +8371,7 @@ async function onlineSearchStep() {
         });
     } catch (e) {
         console.warn('online search:', e);
+        failure = e;
     }
     onlineState.searchBusy = false;
     if (token !== onlineState.searchToken || onlineState.phase !== 'searching') {
@@ -8368,7 +8379,14 @@ async function onlineSearchStep() {
         if (res && res.committed && claimed) onlineReleaseClaim(net, claimed);
         return;
     }
-    if (!res || !res.committed) { onlineScheduleSearchStep(3000); return; } // 通信の失敗等: 少し後でもう一度
+    if (!res || !res.committed) {
+        // 通信の失敗・データベースのルールで拒否された等: 原因が分かるよう画面に出し、少し後でもう一度
+        onlineSetSearchNote(failure ? onlineErrorText(failure) : '待合室に入れませんでした。もう一度試しています', true);
+        onlineScheduleSearchStep(3000);
+        return;
+    }
+    if (otherVersion > 0) onlineSetSearchNote('ゲームのバージョンが違う人が待っています(バージョンが違うと組めません)\n2人ともページを再読み込みしてください', true);
+    else onlineSetSearchNote('対戦相手をさがしています', false);
     if (claimed) {
         if (onlineState.queued) { onlineState.queued = false; if (onlineState.queueUnsub) { onlineState.queueUnsub(); onlineState.queueUnsub = null; } net.cancelOnDisconnect('queue/' + uid); }
         onlineMatchAsHost(claimed, token);
