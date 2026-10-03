@@ -9723,7 +9723,7 @@ function rushBackToTitle() {
 const RECORDS_HINTS = {
     subStoryHow: (n) => `STORY ${n}のシナリオ中に隠しタップで発見`, // 2026-10-04: 見つける前から、どのSTORYに隠れているかを出す
     subStoryHint: (n) => `STORY ${n}のシナリオ中に隠しタップで発見`,
-    costumeHow: (name) => `EXTRA BATTLEで${name}として勝利`,
+    costumeHow: (n) => `SUB STORY ${n} クリア後`,
     costumeHint: (n) => `SUB STORY ${n} クリア後`,
     clearHow: 'ゲームクリアで解放',
     clearHint: 'ゲームクリアで解放',
@@ -9754,7 +9754,7 @@ function buildRecordsItems() {
     for (let i = 0; i < ENEMY_ORDER.length; i++) {
         const got = unlockedSkins.includes('enemy_' + (i + 1));
         const name = ENEMY_PRESETS[ENEMY_ORDER[i]].name;
-        items.push({ got, name: got ? `COSTUME: ${name}` : 'COSTUME: ？？？', how: got ? RECORDS_HINTS.costumeHow(name) : RECORDS_HINTS.costumeHint(i + 1) });
+        items.push({ got, name: got ? `COSTUME: ${name}` : 'COSTUME: ？？？', how: got ? RECORDS_HINTS.costumeHow(i + 1) : RECORDS_HINTS.costumeHint(i + 1) });
     }
     // BATTLE RUSH(STORYクリア。GIFT CODEで先行解放した場合はその旨)・ONLINE V.S.(STORY 1クリア)は、2026-10-04から普通の項目
     const rushGot = rushAvailable();
