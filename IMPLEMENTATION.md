@@ -150,9 +150,24 @@ localStorage(キー: `commandbattle_save_v1`)に以下の値が保存され、�
 タイトル画面専用のボタン。以下のいずれか1つでも解除されていれば表示される(`bonusContentsAvailable`)。初めて条件を満たしてタイトルへ戻った瞬間に「BONUS CONTENTS 解放！」のトーストを1回だけ表示する(`bonusContentsAnnounced`で二重表示を防止)。開くと専用のポップアップ(OPTIONとは別)になり、中の行(SUB STORY/SOUND TEST/COSTUME/SPEED)はそれぞれの解放条件を満たしたものだけが表示される。
 
 - **SUB STORY**: 各敵のストーリーシーンに仕込まれた隠しタップ(5人目まで座標設定済み。`TODO.md`参照)で1つずつ解除する、5体分の裏設定的な短編(`SUBSTORY_BY_ENEMY`)。解除済みの一覧から選んで読める(`openSubStoryList`/`readSubStory`)。本編と同じく1文字ずつ表示されるテキストを複数画面再生する。
-- **SOUND TEST**: `gameClearedOnce`(STORY MODEクリア)または`soundTestUnlocked`(旧セーブデータ互換用の解放フラグ)で解放。BGM/SEをカテゴリ・ページ送りで選んでプレビュー再生できる(`openSoundTest`/`renderSoundTestScreen`/`selectSoundTestCategory`)。BONUS CONTENTSを閉じると自動的に再生停止する。BGM欄にはジングル(`jingle_story`、「story jingle」。openingの次)も入っていて、これだけはループせず1回で止まる(2026-10-03。一覧`SOUND_TEST_TRACKS`の`cat`/`once`、`soundTestTrackCat`)。
+- **SOUND TEST**: BATTLE RUSHクリア(25人撃破、タイムは問わない。`soundTestAvailableNow`/`rushClearedOnce`)で解放(2026-10-04に変更。以前はSTORYクリア。旧フラグ`soundTestUnlocked`は使わない)。初めてクリアした時、RUSHのRESULTが出た直後に「サウンドテスト 解放！」を1回だけ出す(`soundTestAnnounced`)。BGM/SEをカテゴリ・ページ送りで選んでプレビュー再生できる(`openSoundTest`/`renderSoundTestScreen`/`selectSoundTestCategory`)。BONUS CONTENTSを閉じると自動的に再生停止する。BGM欄にはジングル(`jingle_story`、「story jingle」。openingの次)も入っていて、これだけはループせず1回で止まる(2026-10-03。一覧`SOUND_TEST_TRACKS`の`cat`/`once`、`soundTestTrackCat`)。
 - **COSTUME**: `costumeSelectionAvailable()`で解放判定(`gameClearedOnce`で敵1〜5の見た目`enemy_1`〜`enemy_5`が全解放、またはGIFT CODE等の追加コスチュームを1つでも持っていれば表示される)。選ぶとプレイヤーキャラの見た目が対応する敵のグラフィックセットに変わる(`selectCostume`)。`enemy_N`形式でない追加コスチューム(例: GIFT CODEで解放する`mifune`)は`EXTRA_COSTUME_LABELS`で表示名を、`COSTUME_ASSET_FOLDER`で流用する画像フォルダを指定する(`mifune`は`training`セットの画像を流用)。EXTRA BATTLE・VERSUS中はCOSTUME変更不可(借りているキャラの見た目を上書きしないため)。
 - **SPEED(バトル2倍速)**: `gameClearedOnce`で解放。BONUS CONTENTS内のSPEED行、およびバトル画面操作列のボタン、どちらからでも切り替えられ、常に両方の表示が同期する(`setBattleSpeed`/`toggleBattleSpeed`/`updateSpeedUI`)。実際の速度反映は演出の`wait()`側で行う(ダメージ計算等のゲームルールには影響しない、演出専用の設定)。
+
+## 8.5 解放条件のまとめ(2026-10-04に整理、利用者の指示)
+
+| 項目 | 条件 | 知らせ |
+|---|---|---|
+| ONLINE V.S. | STORY 1(Noah)に勝つ(`onlineAvailable`) | Noahに勝った瞬間に「オンライン対戦モード 解放！」(`onlineUnlockAnnounced`) |
+| BATTLE RUSH | STORYクリア(`rushAvailable`)。GIFT CODEでの先行解放も可(`rushUnlocked`) | クリア後にタイトルへ戻った時「バトルラッシュモード 解放！」(`rushUnlockAnnounced`)。GIFT CODEの時はその場で |
+| BATTLE SPEED | STORYクリア | BONUS CONTENTS解放の知らせ |
+| SOUND TEST | BATTLE RUSHクリア(25人撃破) | RUSHのRESULT直後に「サウンドテスト 解放！」 |
+| SUB STORY 1〜5 | STORY nの会話中の隠しタップ | 見つけた時 |
+| COSTUME(5体) | SUB STORY nの先のEXTRA BATTLEで、そのキャラとして勝利 | COSTUME解放の知らせ |
+| LOCAL V.S.・MIFUNE | GIFT CODEのみ | 入力した時 |
+
+- RECORDSのヒント: SUB STORYは見つける前から「STORY nのシナリオ中に隠しタップで発見」、COSTUMEは見つける前「SUB STORY n クリア後」。BATTLE RUSH・ONLINE V.S.・SOUND TESTは普通の項目(見つける前は？？？)になった。
+- ONLINE V.S.のGIFT CODEは廃止(入力すると無効なコード)。`onlineUnlocked`はデバッグ解放ブロックと旧セーブデータ用に残るだけ。
 
 ## 9. GIFT CODE(実装済み、2026-09-27ドキュメント化、2026-09-28照合方式を変更)
 
@@ -160,7 +175,7 @@ localStorage(キー: `commandbattle_save_v1`)に以下の値が保存され、�
 
 - **照合方式(2026-09-28〜)**: 発行済みのコードそのものはソースに置かず、PBKDF2(SHA-256、ソルト`GIFT_CODE_PBKDF2_SALT`、`GIFT_CODE_PBKDF2_ITER`回)で変換した値だけを`GIFT_CODE_HASHES`に持つ。入力されたコードを同じ方法で変換し、一致したものだけ有効(`giftCodeReward`)。通信不要でオフライン完結。ブラウザ標準の`crypto.subtle`を使うため、https(itch.io/GitHub Pages)やlocalhostで動作し、使えない環境では「この環境ではコードを確認できません」と表示する。
 - 以前の「計算式(チェックサム)に合う文字列ならどれでも有効」方式はソースから有効コードを作れてしまうため廃止した。登録済みの3コード以外は無効。
-- 登録済みの報酬: MIFUNEコスチューム(`'mifune'`)、LOCAL V.S.解放(`GIFT_CODE_VERSUS_REWARD`)、BATTLE RUSH解放(`GIFT_CODE_RUSH_REWARD`)。コードの平文はリポジトリ・ドキュメントに書かない。
+- 登録済みの報酬: MIFUNEコスチューム(`'mifune'`)、LOCAL V.S.解放(`GIFT_CODE_VERSUS_REWARD`)、BATTLE RUSH解放(`GIFT_CODE_RUSH_REWARD`、2026-10-04からはSTORYクリア前の先行解放)。ONLINE V.S.のコードは2026-10-04に廃止。コードの平文はリポジトリ・ドキュメントに書かない。
 - コードの追加手順: コードを決める → 同じソルト・回数でPBKDF2値を計算(例: Node.jsで`crypto.pbkdf2Sync(code, 'CLASH5-GIFT-2026', 150000, 32, 'sha256').toString('hex')`) → `GIFT_CODE_HASHES`に1行追加。
 - 同じコードは`redeemedGiftCodes`に記録され、二度使用できない。コスチューム系のコードを入力すると対応するコスチュームが`unlockedSkins`に追加され、COSTUME選択・BONUS CONTENTS解放トースト(初回のみ)につながる。モード解放コードの場合は`versusUnlocked`/`rushUnlocked`を保存し、タイトルのボタンを即座に表示する。
 
@@ -195,7 +210,7 @@ BGM/SEはWeb Audio API(`AudioContext`)で実装されている。`state.soundOn`
 
 ## 13. BATTLE RUSH(実装済み、2026-09-28追加。コード内では`state.gameMode === 'rush'`、`rushXxx`系関数)
 
-- **入口**: タイトルの「BATTLE RUSH」ボタン(LOCAL V.S.の下)。専用GIFT CODEで解放(`rushUnlocked`)。
+- **入口**: タイトルの「BATTLE RUSH」ボタン(LOCAL V.S.の下)。STORYクリアで解放(2026-10-04。専用GIFT CODEでの先行解放も可、`rushUnlocked`)。「8.5 解放条件のまとめ」参照。
 - **ルール**: デッキ編成なしでVALの固定デッキ(7/7/7、能力は通常のプレイヤー)。出す枚数は自由。HPは戦闘間で引き継ぎ、雑魚撃破でHP5、中ボス撃破でHP30回復(上限100)。HP0で終了。100人撃破までのタイムを競う。2倍速は使用不可。
 - **敵の並び**: 5の倍数が中ボス(`ENEMY_ORDER`を順番に4周、100人目は4周目のAlv)、それ以外は雑魚(`RUSH_MOB_PRESET`、MIFUNE=trainingの見た目、手は完全ランダム)。
 - **強さ**: `rushEnemyAtk`/`rushEnemyMaxHp`参照。攻撃力は基本値(パンチ10/アッパー7)に対する割合として`atkMultOf`(E側)に反映し、技全体を同じ割合で縮める(アッパー初撃とメテオがアッパー系、それ以外はパンチ系。CLASH/TINY/WALL_IMPACTの固定値は対象外)。防御力等の個性は中ボス固有のまま。
@@ -215,7 +230,7 @@ BGM/SEはWeb Audio API(`AudioContext`)で実装されている。`state.soundOn`
 
 ## 15. オンライン対戦(ONLINE V.S.)(実装済み、2026-10-03追加。段階2: 合言葉対戦、段階3: ランダムマッチ、段階4: 制限時間・HOW TO・本番用ルール。`ONLINE_PLAN.md`参照。コード内では`state.gameMode === 'online'`、`onlineXxx`系関数)
 
-- **入口・解放**: タイトルの「ONLINE V.S.」ボタン(LOCAL V.S.とBATTLE RUSHの間)。LOCAL V.S.とは別の専用GIFT CODEで解放する(`onlineUnlocked`、セーブ対象)。2026-10-03からデバッグ解放ブロックでも解放している(GIFT CODEなしで確認するため。本番版ではブロックごと消える)。
+- **入口・解放**: タイトルの「ONLINE V.S.」ボタン(LOCAL V.S.とBATTLE RUSHの間)。STORY 1(Noah)に勝つと解放(2026-10-04、`onlineAvailable`。対戦相手が多い方がよいのでGIFT CODEはやめた)。デバッグ解放ブロックでも解放している(本番版ではブロックごと消える)。
 - **通信**: Firebase(Realtime Database+匿名ログイン)。プロジェクト`clash5-14a47`。SDK(モジュール版、v12.19.0)はONLINE V.S.を開いて部屋を作る/入る時に初めてCDN(gstatic.com)から読み込む。登録・ログイン画面は無く、アナリティクスも読み込まない。通信部分は差し替え可能(`onlineState.net`)。URLに`?net=dummy`を付けると、Firebaseの代わりにページ内の疑似サーバーを使う(`tools/online_test.html`で2画面を並べて確認できる)。
 - **部屋**: CREATE ROOMで空いている数字4桁の合言葉の部屋を作り、画面に大きく表示する。相手はJOIN ROOMで同じ番号を入れて入室する。エラー表示: 番号が4桁でない/部屋が見つからない/対戦中(2人そろっている)/ゲームのバージョンが違う(`.title-version`の表記で比べる。「2人ともページを再読み込みしてください」)。誰もいない部屋・作成から3時間たった部屋は使い回す。
 - **キャラ選択**: LOCAL V.S.と同じキャラ・同じ解放状況(各自のセーブデータで判定)。画面は自分の分だけ(相手の選択中のキャラは見えない。「RIVAL: CHOOSING... / READY!」だけ出る)。両者READYでFIGHT!(両者のキャラ名を表示)→バトル。ステージは部屋を作った側(ホスト)の解放状況から選ぶ。この部屋での対戦成績(YOU n - n RIVAL)を表示する。

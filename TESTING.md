@@ -98,6 +98,17 @@
 - [ ] VERSUSからタイトルへ戻った後、STORY MODE/TRAINING MODEの画面レイアウトが通常どおり
 - [ ] iPhoneのSafari(ツールバー表示中)とホーム画面追加の両方で、上下のUIが画面内に収まる
 
+## 解放条件(2026-10-04に整理)
+
+本番版(デバッグ解放ブロックを消した版)か、OPTIONの進行状況リセット後に確認する。
+
+- [ ] 最初はタイトルにONLINE V.S.・BATTLE RUSHが無い
+- [ ] STORY 1でNoahに勝つと、その場で「オンライン対戦モード 解放！」が出て、タイトルにONLINE V.S.が出る
+- [ ] STORYをクリアしてタイトルに戻ると「バトルラッシュモード 解放！」が出て、BATTLE RUSHが出る(BATTLE SPEED・BONUS CONTENTSも解放)
+- [ ] BATTLE RUSHを25人撃破でクリアすると、RESULTの直後に「サウンドテスト 解放！」が出て、BONUS CONTENTSにSOUND TESTが出る
+- [ ] RECORDSで、SUB STORYのヒントが「STORY nのシナリオ中に隠しタップで発見」、COSTUMEのヒントが「SUB STORY n クリア後」になっている
+- [ ] ONLINE V.S.のGIFT CODEは「無効なコード」になる。BATTLE RUSHのGIFT CODEはSTORYクリア前でも使える
+
 ## オンライン対戦(ONLINE V.S.)
 
 スマホ2台(またはPC+スマホ)で、GitHub Pagesのページを開いて確認する。PCだけで流れを見る場合は`tools/online_test.html`(ダミー通信、2画面並び)も使える。

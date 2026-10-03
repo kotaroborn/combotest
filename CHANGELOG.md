@@ -3,6 +3,16 @@
 このプロジェクトの変更履歴。日付は新しいものを上に追記する。
 コード(`index.html` / `css/style.css` / `js/script.js`)や仕様に変更を加えた場合は、このファイルに追記すること(詳細は `AI_GUIDE.md` を参照)。
 
+## 2026-10-04(2)
+
+- ver. 0.9.233
+- 解放条件を整理した(利用者の指示。`IMPLEMENTATION.md`「8.5 解放条件のまとめ」)
+  - ONLINE V.S.: GIFT CODE → STORY 1(Noah)に勝つと解放。勝った瞬間に「オンライン対戦モード 解放！」。ONLINE V.S.のGIFT CODEは廃止(無効なコード)
+  - BATTLE RUSH: GIFT CODE → STORYクリアで解放(GIFT CODEでの先行解放は残す)。クリア後にタイトルへ戻った時「バトルラッシュモード 解放！」
+  - SOUND TEST: STORYクリア → BATTLE RUSHクリア(25人撃破、タイム不問)で解放。RUSHのRESULT直後に「サウンドテスト 解放！」
+  - RECORDSのヒント: SUB STORYは「STORY nのシナリオ中に隠しタップで発見」、COSTUMEは「SUB STORY n クリア後」。BATTLE RUSH・ONLINE V.S.を普通の項目にした
+  - BATTLE SPEED(STORYクリア)、LOCAL V.S.・MIFUNE(GIFT CODE)は変更なし
+
 ## 2026-10-04
 
 - ver. 0.9.232

@@ -190,7 +190,7 @@ let defeatedEnemyIndices = []; // STORY MODEで一度でも撃破したことの
 // (storyEnemyIndexと同様、BONUS ALLリセットの対象には含めない)。
 let unlockedSkins = []; // 解除済みコスチュームのセット名('enemy_1'〜'enemy_5'、GIFT CODEで解放したもの('mifune'等)も同じ配列に入る)の配列
 let redeemedGiftCodes = []; // 使用済みGIFT CODEの配列(同じコードを二度使えないようにする。BONUS ALLリセットの対象に含む)
-let soundTestUnlocked = false; // SOUND TESTが解除済みか(旧条件。新条件はgameClearedOnce、後方互換のため残す)
+let soundTestUnlocked = false; // SOUND TESTが解除済みか(旧条件のフラグ。2026-10-04からSOUND TESTの解放はBATTLE RUSHクリアだけで判定し、このフラグは使わない(セーブの読み書きのみ残す))
 let battleSpeedX2 = false; // バトル中2倍速が有効か。SPEED機能自体の解放条件はgameClearedOnce(クリア後)。セーブデータに永続化する
 // SOUND TEST画面の状態: カテゴリ選択→BGM/SE一覧(6件ずつページ送り)の2階層
 let soundTestCategory = null; // null=カテゴリ選択画面、'bgm'または'se'=一覧画面
@@ -210,9 +210,12 @@ let perfectWins = 0; // ノーダメージ勝利(PERFECT!!)の回数。RECORDS�
 let tutorialSeen = { deck: false, battle: false, extra: false }; // はじめてのデッキ編成・Noah戦で出すチュートリアルを既に見たか(2026-10-01追加、セーブ対象)
 let recordsHintAnnounced = false; // クリア後の「まだ見つけていない秘密がある…」トーストを既に出したか(2026-09-28追加)
 let storyMaxCombo = 0; // STORY MODEのバトルでの最大COMBO(プレイヤー側)。RECORDSで表示する。セーブデータに永続化する(2026-09-28追加)
-let rushUnlocked = false; // BATTLE RUSHが解放済みか。専用のGIFT CODEでのみ解放する(2026-09-28追加)
+let rushUnlocked = false; // BATTLE RUSHをGIFT CODEで先行解放したか(2026-09-28追加)。2026-10-04からはSTORYクリアでも解放される(rushAvailable)
 let rushBest = { kills: 0, clearTimeMs: null, maxCombo: 0 }; // BATTLE RUSHの自己ベスト(撃破数・100人撃破時の最速タイム・最大COMBO)。セーブデータに永続化する
-let onlineUnlocked = false; // オンライン対戦(ONLINE V.S.)が解放済みか。LOCAL V.S.とは別の専用GIFT CODEでのみ解放する(2026-10-03追加)
+let onlineUnlocked = false; // 旧: ONLINE V.S.のGIFT CODEで解放したか(2026-10-03)。2026-10-04からONLINE V.S.はSTORY 1クリアで解放(onlineAvailable)。
+// このフラグはデバッグ解放ブロック・旧セーブデータ用に残すだけ(GIFT CODEは廃止)
+// 解放の知らせを一度出したか(2026-10-04): ONLINE V.S.(STORY 1でNoahに勝った時)、BATTLE RUSH(STORYクリア後のタイトル)、SOUND TEST(BATTLE RUSHのRESULT直後)
+let onlineUnlockAnnounced = false, rushUnlockAnnounced = false, soundTestAnnounced = false;
 let onlineWins = 0; // ONLINE V.S.の通算勝利数(2026-10-03追加、セーブ対象)
 let onlineLosses = 0; // ONLINE V.S.の通算敗北数(2026-10-03追加、セーブ対象。これより前の負けは数えていない)
 let onlineName = null; // ONLINE V.S.で相手に見せる名前(英大文字・数字の4文字、2026-10-03に数字も可にした)。初めて使う時にランダムで決める(2026-10-03追加、セーブ対象)
@@ -1324,6 +1327,9 @@ function applySaveDataOnBoot() {
     }
     if (typeof save.storyMaxCombo === 'number') storyMaxCombo = save.storyMaxCombo;
     if (typeof save.recordsHintAnnounced === 'boolean') recordsHintAnnounced = save.recordsHintAnnounced;
+    if (typeof save.onlineUnlockAnnounced === 'boolean') onlineUnlockAnnounced = save.onlineUnlockAnnounced;
+    if (typeof save.rushUnlockAnnounced === 'boolean') rushUnlockAnnounced = save.rushUnlockAnnounced;
+    if (typeof save.soundTestAnnounced === 'boolean') soundTestAnnounced = save.soundTestAnnounced;
     if (save.tutorialSeen) tutorialSeen = { deck: !!save.tutorialSeen.deck, battle: !!save.tutorialSeen.battle, extra: !!save.tutorialSeen.extra };
     if (typeof save.perfectWins === 'number') perfectWins = save.perfectWins;
     if (save.rushBest25 && typeof save.rushBest25 === 'object') { // 2026-09-30: 25人制に変わったため、100人制時代の記録(rushBest)は引き継がない
@@ -1891,16 +1897,31 @@ function updateVersusButtonVisibility() {
     if (btn) btn.style.display = versusUnlocked ? '' : 'none';
     layoutTitleMenu();
 }
-// ONLINE V.S.ボタンの表示を、専用GIFT CODEでの解放状態(onlineUnlocked)に合わせる(VERSUSと同じパターン、2026-10-03)
+// ------- 解放条件(2026-10-04に整理) -------
+// ・ONLINE V.S.: STORY 1(Noah)に勝つ。対戦相手が多い方がよいのでGIFT CODEは使わない
+// ・BATTLE RUSH: STORYクリア(GIFT CODEでの先行解放も残す)
+// ・SOUND TEST: BATTLE RUSHクリア(25人撃破。タイムは問わない)
+// ・BATTLE SPEED: STORYクリア / SUB STORY: STORYの会話中の隠しタップ / COSTUME: SUB STORYの先のEXTRA BATTLEで勝利
+// ・LOCAL V.S.・MIFUNE: GIFT CODEのみ
+function announceOnlineUnlock() {
+    onlineUnlockAnnounced = true;
+    writeSaveData({ onlineUnlockAnnounced: true });
+    showUnlockToast({ small: 'ONLINE V.S. MODE', large: 'オンライン対戦モード 解放！' });
+}
+function onlineAvailable() { return onlineUnlocked || gameClearedOnce || isEnemyDefeated(0); }
+function rushAvailable() { return rushUnlocked || gameClearedOnce; }
+function rushClearedOnce() { return rushBest.clearTimeMs !== null || (rushBest.kills || 0) >= RUSH_TOTAL; }
+function soundTestAvailableNow() { return rushClearedOnce(); }
+// ONLINE V.S.ボタンの表示(STORY 1クリアで解放、2026-10-04)
 function updateOnlineButtonVisibility() {
     const btn = document.getElementById('onlineBtn');
-    if (btn) btn.style.display = onlineUnlocked ? '' : 'none';
+    if (btn) btn.style.display = onlineAvailable() ? '' : 'none';
     layoutTitleMenu();
 }
-// BATTLE RUSHボタンの表示を、専用GIFT CODEでの解放状態(rushUnlocked)に合わせる(VERSUSと同じパターン)
+// BATTLE RUSHボタンの表示(STORYクリア、またはGIFT CODEでの先行解放、2026-10-04)
 function updateRushButtonVisibility() {
     const btn = document.getElementById('rushBtn');
-    if (btn) btn.style.display = rushUnlocked ? '' : 'none';
+    if (btn) btn.style.display = rushAvailable() ? '' : 'none';
     layoutTitleMenu();
 }
 // タイトルのメニューを、表示中のボタンだけで下から詰めて並べる(2026-09-28追加)。OPTIONは常に最下部。
@@ -2644,6 +2665,13 @@ function goPrologue() { hideResult(); showScene('prologue'); playPrologue(); }
 
 // タイトル画面に戻るたびに呼ぶ。新たに解放された(かつ未通知の)ものがあれば、スライド通知で知らせる
 function checkUnlockAnnouncements() {
+    // ONLINE V.S.(普段はNoahに勝った瞬間に出す。何かの理由で出せていなければここで出す)・BATTLE RUSH(STORYクリア後) 2026-10-04
+    if (onlineAvailable() && !onlineUnlockAnnounced) announceOnlineUnlock();
+    if (rushAvailable() && !rushUnlockAnnounced) {
+        rushUnlockAnnounced = true;
+        writeSaveData({ rushUnlockAnnounced: true });
+        showUnlockToast({ small: 'BATTLE RUSH', large: 'バトルラッシュモード 解放！' });
+    }
     if (bonusContentsAvailable() && !bonusContentsAnnounced) {
         bonusContentsAnnounced = true;
         writeSaveData({ bonusContentsAnnounced: true });
@@ -2727,6 +2755,7 @@ function goTitle() {
     updateTitleContinueVisibility();
     updateVersusButtonVisibility();
     updateOnlineButtonVisibility();
+    updateRushButtonVisibility(); // STORYクリアで解放されるため、タイトルに戻るたびに見直す(2026-10-04)
     playBGM('bgm_title');
     updateBonusContentsUI();
     checkUnlockAnnouncements();
@@ -4360,6 +4389,8 @@ function showResult(type) {
     // STORY MODEでの勝利(K.O.以外)は、その時点で戦っていた敵を撃破履歴に記録する(最終戦に限らず毎回)
     if (type !== 'KO' && state.gameMode === 'story') {
         markEnemyDefeated(state.storyEnemyIndex);
+        // STORY 1でNoahに勝った瞬間に、ONLINE V.S.の解放を知らせる(2026-10-04)
+        if (onlineAvailable() && !onlineUnlockAnnounced) announceOnlineUnlock();
     }
 
     // 5人目(最終)の敵をYOU WINで倒した場合のみ、通常の決着画面ではなく専用のエンディング演出に分岐する
@@ -5939,13 +5970,13 @@ function openOption() {
 // この関数とcheckUnlockAnnouncements(タイトル復帰時の「BONUS CONTENTS 解放！」トースト)の両方から共通で参照し、
 // ボタンの表示条件とトースト発火条件がズレないようにする。
 function bonusContentsAvailable() {
-    const soundTestAvailable = gameClearedOnce || soundTestUnlocked; // 新条件(エンディングを迎えてタイトルへ戻る)。旧セーブデータのsoundTestUnlockedも引き続き有効
+    const soundTestAvailable = soundTestAvailableNow(); // BATTLE RUSHクリアで解放(2026-10-04)
     const costumeAvailable = costumeSelectionAvailable(); // OPTION画面のCOSTUME行と同じ解放条件
     const speedAvailable = gameClearedOnce; // SPEED機能自体の解放条件(クリア後に出現)
     return unlockedSubStories.length > 0 || soundTestAvailable || costumeAvailable || speedAvailable;
 }
 function updateBonusContentsUI() {
-    const soundTestAvailable = gameClearedOnce || soundTestUnlocked;
+    const soundTestAvailable = soundTestAvailableNow();
     const costumeAvailable = costumeSelectionAvailable(); // OPTION画面のCOSTUME行と同じ解放条件
     const btn = document.getElementById('bonusContentsBtn');
     if (btn) btn.style.display = bonusContentsAvailable() ? '' : 'none';
@@ -6114,13 +6145,12 @@ const GIFT_CODE_PBKDF2_ITER = 150000;
 // submitGiftCode側でこの値かどうかを見て、コスチューム解放とは別の専用処理に分岐する。
 const GIFT_CODE_VERSUS_REWARD = 'unlock_versus';
 const GIFT_CODE_RUSH_REWARD = 'unlock_rush';
-const GIFT_CODE_ONLINE_REWARD = 'unlock_online'; // ONLINE V.S.解放(2026-10-03。LOCAL V.S.とは別のコード)
 // PBKDF2値(16進) → 報酬
 const GIFT_CODE_HASHES = {
     '8a1cc7fe3be521332e30b87dd716f2b23ce952dc15df2bb46ae93fd19dcf775c': 'mifune',               // MIFUNEコスチューム
     '0ed3577057a45b7eca95cb92ffd8de9e86661241827f4a676c57215ca77ade3c': GIFT_CODE_VERSUS_REWARD, // LOCAL V.S.解放
     '75c11927e586db4af6e3352382cde7af57d49676fdad0b1787b3d9993fdf3c51': GIFT_CODE_RUSH_REWARD,   // BATTLE RUSH解放
-    '292a6a5976af3f2a6d14b6bea9adfaa74db32ef501a411e06144b7f162e23adf': GIFT_CODE_ONLINE_REWARD, // ONLINE V.S.解放(2026-10-03)
+    // ONLINE V.S.のコードは2026-10-04に廃止(STORY 1クリアで解放するようにしたため。入力すると無効なコード)
 };
 function normalizeGiftCode(raw) {
     return (raw || '').trim().toUpperCase();
@@ -6182,9 +6212,10 @@ async function submitGiftCode() {
     writeSaveData({ redeemedGiftCodes });
     if (reward === GIFT_CODE_RUSH_REWARD) {
         // BATTLE RUSH解放コード。VERSUSと同じく、コスチューム解放処理には進まずここで完結させる。
-        const alreadyUnlocked = rushUnlocked;
+        const alreadyUnlocked = rushAvailable(); // STORYクリア済みなら、もう解放されている
         rushUnlocked = true;
-        writeSaveData({ rushUnlocked: true });
+        rushUnlockAnnounced = true; // ここで知らせるので、タイトルでは重ねて出さない
+        writeSaveData({ rushUnlocked: true, rushUnlockAnnounced: true });
         updateRushButtonVisibility();
         updateBonusContentsUI();
         checkUnlockAnnouncements(); // 初回のBONUS CONTENTS解放であれば、ここで案内する
@@ -6192,21 +6223,6 @@ async function submitGiftCode() {
         updateOptionUI();
         if (!alreadyUnlocked) {
             showUnlockToast({ small: 'BATTLE RUSH', large: 'バトルラッシュモード 解放！' });
-        }
-        return;
-    }
-    if (reward === GIFT_CODE_ONLINE_REWARD) {
-        // オンライン対戦(ONLINE V.S.)解放コード。VERSUSと同じく、コスチューム解放処理には進まずここで完結させる(2026-10-03)
-        const alreadyUnlocked = onlineUnlocked;
-        onlineUnlocked = true;
-        writeSaveData({ onlineUnlocked: true });
-        updateOnlineButtonVisibility();
-        updateBonusContentsUI();
-        checkUnlockAnnouncements();
-        closeGiftCodeInput();
-        updateOptionUI();
-        if (!alreadyUnlocked) {
-            showUnlockToast({ small: 'ONLINE V.S. MODE', large: 'オンライン対戦モード 解放！' });
         }
         return;
     }
@@ -9625,6 +9641,12 @@ function showRushResult(cleared) {
     document.getElementById('rushNewKills').classList.toggle('show', newKills);
     document.getElementById('rushNewTime').classList.toggle('show', newTime);
     document.getElementById('rushNewCombo').classList.toggle('show', newCombo);
+    // 初めてBATTLE RUSHをクリアした: RESULTが出た直後にSOUND TESTの解放を知らせる(2026-10-04)
+    if (cleared && soundTestAvailableNow() && !soundTestAnnounced) {
+        soundTestAnnounced = true;
+        writeSaveData({ soundTestAnnounced: true });
+        setTimeout(() => showUnlockToast({ small: 'SOUND TEST', large: 'サウンドテスト 解放！' }), 600);
+    }
 
     if (cleared) {
         playSE('se_win');
@@ -9655,12 +9677,14 @@ function rushBackToTitle() {
 // 置き場所はタイトル画面のOPTION(最初から誰でも開けるため、隠し要素の存在自体を知らない人にもヒントが届く)。
 // ゲームクリア後にタイトルへ戻った時、未発見の項目が残っていれば一度だけトーストでRECORDSへ誘導する(checkUnlockAnnouncements)。
 const RECORDS_HINTS = {
-    subStoryHow: (n) => `ストーリー${n}人目の会話中に隠しタップで発見`,
-    subStoryHint: 'ストーリーの会話シーンのどこかをタップする',
+    subStoryHow: (n) => `STORY ${n}のシナリオ中に隠しタップで発見`, // 2026-10-04: 見つける前から、どのSTORYに隠れているかを出す
+    subStoryHint: (n) => `STORY ${n}のシナリオ中に隠しタップで発見`,
     costumeHow: (name) => `EXTRA BATTLEで${name}として勝利`,
-    costumeHint: 'SUB STORYの先にある戦いで手に入る',
+    costumeHint: (n) => `SUB STORY ${n} クリア後`,
     clearHow: 'ゲームクリアで解放',
     clearHint: 'ゲームクリアで解放',
+    rushClearHow: 'BATTLE RUSHクリアで解放', // SOUND TEST(2026-10-04)
+    story1How: 'STORY 1クリアで解放',       // ONLINE V.S.(2026-10-04)
     giftHow: 'GIFT CODEで解放',
 };
 // TECHNIQUES(技の記録、2026-09-30追加)。一度でも出した技はコマンドを表示し、未使用の技は「？？？」とヒントを出す。
@@ -9681,15 +9705,20 @@ function buildRecordsItems() {
     const items = [];
     for (let i = 0; i < ENEMY_ORDER.length; i++) {
         const got = unlockedSubStories.includes(i);
-        items.push({ got, name: got ? `SUB STORY ${i + 1}` : '？？？', how: got ? RECORDS_HINTS.subStoryHow(i + 1) : RECORDS_HINTS.subStoryHint });
+        items.push({ got, name: got ? `SUB STORY ${i + 1}` : '？？？', how: got ? RECORDS_HINTS.subStoryHow(i + 1) : RECORDS_HINTS.subStoryHint(i + 1) });
     }
     for (let i = 0; i < ENEMY_ORDER.length; i++) {
         const got = unlockedSkins.includes('enemy_' + (i + 1));
         const name = ENEMY_PRESETS[ENEMY_ORDER[i]].name;
-        items.push({ got, name: got ? `COSTUME: ${name}` : 'COSTUME: ？？？', how: got ? RECORDS_HINTS.costumeHow(name) : RECORDS_HINTS.costumeHint });
+        items.push({ got, name: got ? `COSTUME: ${name}` : 'COSTUME: ？？？', how: got ? RECORDS_HINTS.costumeHow(name) : RECORDS_HINTS.costumeHint(i + 1) });
     }
-    const soundGot = gameClearedOnce || soundTestUnlocked;
-    items.push({ got: soundGot, name: soundGot ? 'SOUND TEST' : '？？？', how: soundGot ? RECORDS_HINTS.clearHow : RECORDS_HINTS.clearHint });
+    // BATTLE RUSH(STORYクリア。GIFT CODEで先行解放した場合はその旨)・ONLINE V.S.(STORY 1クリア)は、2026-10-04から普通の項目
+    const rushGot = rushAvailable();
+    items.push({ got: rushGot, name: rushGot ? 'BATTLE RUSH' : '？？？', how: (rushGot && !gameClearedOnce) ? RECORDS_HINTS.giftHow : RECORDS_HINTS.clearHow });
+    const onlineGot = onlineAvailable();
+    items.push({ got: onlineGot, name: onlineGot ? 'ONLINE V.S.' : '？？？', how: RECORDS_HINTS.story1How });
+    const soundGot = soundTestAvailableNow();
+    items.push({ got: soundGot, name: soundGot ? 'SOUND TEST' : '？？？', how: RECORDS_HINTS.rushClearHow });
     items.push({ got: gameClearedOnce, name: gameClearedOnce ? 'BATTLE SPEED' : '？？？', how: gameClearedOnce ? RECORDS_HINTS.clearHow : RECORDS_HINTS.clearHint });
     // GIFT CODE限定: 解放した人にだけ追加する
     Object.keys(EXTRA_COSTUME_LABELS).forEach(skin => {
@@ -9700,8 +9729,6 @@ function buildRecordsItems() {
         const got = !!specialsUsed[t.key];
         items.push({ got, tech: true, name: got ? t.name : '？？？', how: got ? t.cmd : t.hint });
     });
-    if (rushUnlocked) items.push({ got: true, name: 'BATTLE RUSH', how: RECORDS_HINTS.giftHow, gift: true });
-    if (onlineUnlocked) items.push({ got: true, name: 'ONLINE V.S.', how: RECORDS_HINTS.giftHow, gift: true });
     return items;
 }
 function escapeRecordsText(t) { return String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
@@ -9734,13 +9761,13 @@ function renderRecords() {
         stat('進行', storyCleared ? 'CLEAR' : `${defeated} / ${ENEMY_ORDER.length} 撃破`)
         + stat('最大COMBO', storyMaxCombo)
         + stat('PERFECT勝利', `${perfectWins}回`));
-    if (rushUnlocked) {
+    if (rushAvailable()) {
         section('rush', 'BATTLE RUSH', `${rushBest.kills} / ${RUSH_TOTAL}`,
             stat('最多撃破', `${rushBest.kills} / ${RUSH_TOTAL}`)
             + stat('ベストタイム', rushBest.clearTimeMs === null ? '--:--.-' : formatRushTime(rushBest.clearTimeMs))
             + stat('最大COMBO', rushBest.maxCombo));
     }
-    if (onlineUnlocked) { // ONLINE V.S.は勝敗数だけを残す(2026-10-03。敗北数は名前の追加と同時に記録し始めた)
+    if (onlineAvailable()) { // ONLINE V.S.は勝敗数だけを残す(2026-10-03。敗北数は名前の追加と同時に記録し始めた)
         section('online', 'ONLINE V.S.', `${onlineWins} WIN  ${onlineLosses} LOSE`, // RECORDSではWIN/LOSE表記(2026-10-03)
             stat('名前', onlineMyName()) + stat('勝利数', `${onlineWins}回`) + stat('敗北数', `${onlineLosses}回`)
             + '<div class="records-note">RANDOM MATCHで人と対戦した時だけ数えます（CPU戦・FRIEND MATCH・引き分けは数えません）</div>');
