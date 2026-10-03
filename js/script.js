@@ -8004,6 +8004,12 @@ function onlineGameVersion() {
 }
 function onlineOppRole() { return onlineState.role === 'host' ? 'guest' : 'host'; }
 // ------- 名前と勝敗(2026-10-03) -------
+// 入力欄の文字を大文字にする(GIFT CODE欄)。変わる時だけ書き換える。変換中(event.isComposing)は呼び出し側で除く:
+// 変換中に書き換えると、日本語キーボードや予測変換で同じ文字が重なって入る(2026-10-03)
+function upperInputValue(el) {
+    const v = el.value.toUpperCase();
+    if (el.value !== v) el.value = v;
+}
 function onlineNameValid(name) {
     if (typeof name !== 'string' || !/^[A-Z]{4}$/.test(name)) return false;
     if (ONLINE_NAME_NG4.includes(name)) return false;
@@ -8070,6 +8076,7 @@ function onlineNameInput(el) {
     onlineSetLobbyMsg('');
 }
 function onlineNameBlur(el) {
+    onlineNameInput(el); // 変換の確定(compositionend)が届かない端末でも、欄を離れた時に必ず読み取る
     if (el.value !== onlineMyName()) { el.value = onlineMyName(); onlineSetLobbyMsg(''); }
 }
 function onlineRenderLobbyName() {

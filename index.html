@@ -17,7 +17,7 @@
     <meta property="og:image:height" content="630">
     <meta property="og:locale" content="ja_JP">
     <meta name="twitter:card" content="summary_large_image">
-    <link rel="stylesheet" href="css/style.min.css?v=225"> <!-- 配信用の軽量版。編集はcss/style.cssで行い、tools/build.shで作り直す(2026-10-02) -->
+    <link rel="stylesheet" href="css/style.min.css?v=226"> <!-- 配信用の軽量版。編集はcss/style.cssで行い、tools/build.shで作り直す(2026-10-02) -->
 
     <!-- 技名ポップ用の8bit風フォント(Press Start 2P、SIL OFL。2026-10-03に手書き風Permanent Markerから変更)。
          ゲームに同梱し(assets/fonts/)、ネット環境に左右されず表示する。canvasで使うため先読みしておく -->
@@ -116,7 +116,7 @@
     <button id="optionBtn" class="text-btn" onclick="openOption()" disabled>OPTION</button>
     <button class="howto-btn howto-corner" onclick="openHowTo()">HOW<br>TO</button>
     <div class="title-copyright">©BORN MAGAZINE 2026</div>
-    <div class="title-version">ver. 0.9.225</div> <!-- 2026-10-03: ロゴ直下から、画面下の中央(©表記と同じ高さ)へ移動 -->
+    <div class="title-version">ver. 0.9.226</div> <!-- 2026-10-03: ロゴ直下から、画面下の中央(©表記と同じ高さ)へ移動 -->
 </div>
 
 <!-- デッキ編成シーン: 21枚固定・内訳自由 -->
@@ -185,7 +185,7 @@
         <!-- 名前と自分の勝敗(2026-10-03): ローマ字4文字。4文字そろうとその場で保存。対戦相手にも見える -->
         <div class="online-name-row">
             <span class="online-name-label">YOUR NAME</span>
-            <input type="text" id="onNameInput" class="gift-code-input online-name-input" maxlength="4" autocapitalize="characters" autocomplete="off" spellcheck="false" oninput="onlineNameInput(this)" onblur="onlineNameBlur(this)">
+            <input type="text" id="onNameInput" class="gift-code-input online-name-input" maxlength="4" autocapitalize="characters" autocomplete="off" spellcheck="false" oninput="if (!event.isComposing) onlineNameInput(this)" oncompositionend="onlineNameInput(this)" onblur="onlineNameBlur(this)"> <!-- 変換中(日本語キーボード・予測変換)は書き換えない(2026-10-03、同じ文字が重なる不具合の修正) -->
             <span id="onMyRecord" class="online-my-record"></span> <!-- 2段(n WIN / n LOSE)で名前欄の高さに収める -->
         </div>
         <!-- 遊び方は2種類: ランダムマッチ / 友だちと(部屋を作る・入る)。後者はCREATE・JOINを1つの枠にまとめる(2026-10-03) -->
@@ -631,7 +631,7 @@
         </div>
         <div id="giftCodeConfirmPanel" class="confirm-panel">
             <p class="confirm-text">GIFT CODE<br>8桁のコードを入力してください</p>
-            <input type="text" id="giftCodeInput" class="gift-code-input" maxlength="8" autocomplete="off" autocapitalize="characters" spellcheck="false" oninput="this.value = this.value.toUpperCase();">
+            <input type="text" id="giftCodeInput" class="gift-code-input" maxlength="8" autocomplete="off" autocapitalize="characters" spellcheck="false" oninput="if (!event.isComposing) upperInputValue(this)" oncompositionend="upperInputValue(this)"> <!-- 変換中は書き換えない(2026-10-03) -->
             <p class="confirm-text gift-code-error" id="giftCodeError" style="display:none;"></p>
             <div class="confirm-btns">
                 <button onclick="closeGiftCodeInput()">キャンセル</button>
@@ -802,7 +802,7 @@
 (function() {
     // 配信用の軽量版(コメント・空白を除いたもの)。編集はjs/script.jsで行い、tools/build.shで作り直す(2026-10-02)。
     // ?v=はバージョン(.title-versionの末尾3桁)と同じ番号にし、更新のたびに上げる(古いものがキャッシュに残らないように)
-    var SCRIPT_URL = 'js/script.min.js?v=225';
+    var SCRIPT_URL = 'js/script.min.js?v=226';
     var bar = document.getElementById('nowLoadingBar');
     var percentEl = document.getElementById('nowLoadingPercent');
     var settled = false; // フォールバック(タイムアウト)と正常読み込みの、どちらか一方だけが実行されるようにするためのフラグ
