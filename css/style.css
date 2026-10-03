@@ -1387,3 +1387,30 @@ button:not(.speed-toggle-btn):not(.deck-btn):not(.sound-test-play-btn):not(.popu
 .vs-sel-tile-name { font-size: 7px; letter-spacing: 0; }
 .online-join-row .online-code-input { font-size: 15px; letter-spacing: 4px; padding-left: 4px; }
 .howto-footer button { font-size: 8px; }
+
+/* ドット文字への統一・その3(2026-10-04、利用者の指示): LOADING、決着画面(YOU WIN/K.O./PERFECT・RESULT)、BATTLE RUSHのRESULT。
+   COMBOはcanvasに描いているので、script.jsのdrawComboCounter側で同じフォントにしている */
+#nowLoadingText, #nowLoadingPercent, #sceneLoadingText,
+#resultText, #resultPerfectText, #resultNoDamageText, #battleResult, #continueBtn, #backTitleBtn,
+#rushResultOverlay {
+    font-family: var(--pixel-font); font-weight: normal;
+}
+#battleResult *, #rushResultOverlay * { font-weight: normal; }
+#nowLoadingText, #sceneLoadingText { font-size: 12px; letter-spacing: 2px; }
+#nowLoadingPercent { font-size: 9px; }
+#resultText { font-size: 34px; letter-spacing: 2px; }
+#resultPerfectText { font-size: 15px; letter-spacing: 1px; margin-bottom: -6px; }
+#resultNoDamageText { font-size: 22px; letter-spacing: 2px; margin-bottom: -6px; }
+.br-title { font-size: 11px; letter-spacing: 3px; }
+.br-card span { font-size: 14px; }
+.br-stat { font-size: 7px; letter-spacing: 0; }
+.br-stat span:last-child { font-size: 11px; }
+#battleResultNextBtn { font-size: 12px; letter-spacing: 2px; }
+#continueBtn { font-size: 12px; }
+#backTitleBtn { font-size: 11px; }
+#rushResultClear { font-size: 24px; letter-spacing: 2px; }
+.rush-result-title { font-size: 18px; letter-spacing: 3px; }
+.rush-result-label { font-size: 9px; letter-spacing: 1px; }
+.rush-result-value { font-size: 20px; letter-spacing: 0; line-height: 1.5; }
+.rush-result-sub { font-size: 8px; letter-spacing: 0; gap: 4px; }
+.rush-new { font-size: 8px; }

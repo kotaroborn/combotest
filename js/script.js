@@ -3070,7 +3070,7 @@ function drawComboCounter(side, anchorX, align, c) {
         bigMilestoneGlow = Math.sin(bt * Math.PI);
     }
 
-    const comboFontSize = 18, numberFontSize = 26;
+    const comboFontSize = 20, numberFontSize = 30; // 2026-10-04: ドット文字にした(以前は18/26の斜体)
     let color = '#fff';
     if (isBigMilestoneActive) color = '#ff3b3b';
     else if (isSmallMilestoneActive || isAlwaysSparkly) color = '#ffd23c';
@@ -3099,17 +3099,17 @@ function drawComboCounter(side, anchorX, align, c) {
 
     const comboText = 'COMBO';
     const numberText = String(showValue);
-    c.font = `italic 900 ${comboFontSize}px sans-serif`;
+    c.font = `${comboFontSize}px ${TECH_NAME_FONT_FAMILY}`; // 2026-10-04: ドット文字(ワザ名・HP +5と同じ)
     const comboWidth = c.measureText(comboText).width;
-    c.font = `italic 900 ${numberFontSize}px sans-serif`;
+    c.font = `${numberFontSize}px ${TECH_NAME_FONT_FAMILY}`;
     const numberWidth = c.measureText(numberText).width;
     const gap = 6;
     const totalWidth = comboWidth + gap + numberWidth;
     const startX = align === 'left' ? 0 : -totalWidth; // 右揃えの場合、全体をtotalWidth分左へオフセットする
 
-    c.font = `italic 900 ${comboFontSize}px sans-serif`;
+    c.font = `${comboFontSize}px ${TECH_NAME_FONT_FAMILY}`; // 2026-10-04: ドット文字(ワザ名・HP +5と同じ)
     c.fillText(comboText, startX, 0);
-    c.font = `italic 900 ${numberFontSize}px sans-serif`;
+    c.font = `${numberFontSize}px ${TECH_NAME_FONT_FAMILY}`;
     c.fillText(numberText, startX + comboWidth + gap, 4); // 数字が大きい分、ベースラインを少し下げて視覚的に揃える
 
     c.restore();

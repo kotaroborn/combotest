@@ -3,6 +3,11 @@
 このプロジェクトの変更履歴。日付は新しいものを上に追記する。
 コード(`index.html` / `css/style.css` / `js/script.js`)や仕様に変更を加えた場合は、このファイルに追記すること(詳細は `AI_GUIDE.md` を参照)。
 
+## 2026-10-04(5)
+
+- ver. 0.9.236
+- ドット文字への統一・その3(利用者の指示): NOW LOADING / LOADING、COMBOの表示(canvas、`drawComboCounter`)、決着画面(YOU WIN・K.O.・PERFECT!!・COMBO PERFECT!!・RESULT・NEXT・CONTINUE)、BATTLE RUSHのRESULT(CLEAR!!・KILLS・TIME・MAX COMBO・NEW RECORD!・RETRY/TITLE)
+
 ## 2026-10-04(4)
 
 - ver. 0.9.235
