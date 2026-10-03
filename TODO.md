@@ -33,7 +33,6 @@
 ## 4. HOW TO(遊び方)
 
 - 2026-10-01、モード別のHOW TO(TRAINING / BATTLE RUSH / EXTRA BATTLE / LOCAL V.S.)とワザ表(TECHNIQUES)を実装済み(`IMPLEMENTATION.md`「7. UI機能」参照)。
-- BATTLE RUSHの雑魚DOLLの残りのポーズ(guard / damage / knock2)は、利用者から画像が届き次第配置する(未配置のポーズは立ち絵で代用される)。
 
 ## 5. ローカル対戦(VERSUS)まわりの調整
 
