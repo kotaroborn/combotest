@@ -1783,6 +1783,7 @@ async function boot() {
         unlockedSkins = ['enemy_1', 'enemy_2', 'enemy_3', 'enemy_4', 'enemy_5', 'mifune']; // 5体分すべてのコスチューム+MIFUNE(GIFT CODE限定)を解放
         versusUnlocked = true; // 対戦モード(VERSUS)もGIFT CODEなしで確認できるようにしておく
         rushUnlocked = true; // BATTLE RUSHもGIFT CODEなしで確認できるようにしておく
+        onlineUnlocked = true; // ONLINE V.S.もGIFT CODEなしで確認できるようにしておく(2026-10-03、利用者の指示)
         // ▲▲▲ 動作確認用の一時デバッグ設定 ▲▲▲
 
         preloadSE(); // SEは軽量なので先読みしておく(起動をブロックしない非同期処理)

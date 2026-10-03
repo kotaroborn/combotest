@@ -215,7 +215,7 @@ BGM/SEはWeb Audio API(`AudioContext`)で実装されている。`state.soundOn`
 
 ## 15. オンライン対戦(ONLINE V.S.)(実装済み、2026-10-03追加。段階2: 合言葉対戦、段階3: ランダムマッチ。`ONLINE_PLAN.md`参照。コード内では`state.gameMode === 'online'`、`onlineXxx`系関数)
 
-- **入口・解放**: タイトルの「ONLINE V.S.」ボタン(LOCAL V.S.とBATTLE RUSHの間)。LOCAL V.S.とは別の専用GIFT CODEで解放する(`onlineUnlocked`、セーブ対象)。デバッグ解放ブロックには入れていない(GIFT CODEで解放して確認する)。
+- **入口・解放**: タイトルの「ONLINE V.S.」ボタン(LOCAL V.S.とBATTLE RUSHの間)。LOCAL V.S.とは別の専用GIFT CODEで解放する(`onlineUnlocked`、セーブ対象)。2026-10-03からデバッグ解放ブロックでも解放している(GIFT CODEなしで確認するため。本番版ではブロックごと消える)。
 - **通信**: Firebase(Realtime Database+匿名ログイン)。プロジェクト`clash5-14a47`。SDK(モジュール版、v12.19.0)はONLINE V.S.を開いて部屋を作る/入る時に初めてCDN(gstatic.com)から読み込む。登録・ログイン画面は無く、アナリティクスも読み込まない。通信部分は差し替え可能(`onlineState.net`)。URLに`?net=dummy`を付けると、Firebaseの代わりにページ内の疑似サーバーを使う(`tools/online_test.html`で2画面を並べて確認できる)。
 - **部屋**: CREATE ROOMで空いている数字4桁の合言葉の部屋を作り、画面に大きく表示する。相手はJOIN ROOMで同じ番号を入れて入室する。エラー表示: 番号が4桁でない/部屋が見つからない/対戦中(2人そろっている)/ゲームのバージョンが違う(`.title-version`の表記で比べる。「2人ともページを再読み込みしてください」)。誰もいない部屋・作成から3時間たった部屋は使い回す。
 - **キャラ選択**: LOCAL V.S.と同じキャラ・同じ解放状況(各自のセーブデータで判定)。画面は自分の分だけ(相手の選択中のキャラは見えない。「RIVAL: CHOOSING... / READY!」だけ出る)。両者READYでFIGHT!(両者のキャラ名を表示)→バトル。ステージは部屋を作った側(ホスト)の解放状況から選ぶ。この部屋での対戦成績(YOU n - n RIVAL)を表示する。

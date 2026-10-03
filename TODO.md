@@ -11,7 +11,7 @@
   - ~~本番版では`js/script.js`の圧縮(minify)も行う~~ → 2026-10-02に対応済み(`tools/build.sh`で軽量版`js/script.min.js`/`css/style.min.css`を作り、ゲームはそちらを読み込む)。
   - itch.io版では、`index.html`のOGPタグ(og:url / og:image)がGitHub PagesのURLを指しているため、差し替えるか削除する。
 
-- **動作確認用のデバッグ解放ブロックが残っている**: 起動処理(`boot`)内に「【本番リリース前に必ずこのブロックを削除すること】」と明記された一時コードがあり、`gameClearedOnce`(BONUS CONTENTS/SOUND TEST/SPEEDの解放条件)・`unlockedSubStories`・`unlockedSkins`を、セーブデータの内容に関わらず強制的に全解放している。友人テスト用の一時措置であることがコード内コメントに明記されている。本番公開前に必ずこのブロックごと削除すること。
+- **動作確認用のデバッグ解放ブロックが残っている**: 起動処理(`boot`)内に「【本番リリース前に必ずこのブロックを削除すること】」と明記された一時コードがあり、`gameClearedOnce`(BONUS CONTENTS/SOUND TEST/SPEEDの解放条件)・`unlockedSubStories`・`unlockedSkins`・`versusUnlocked`・`rushUnlocked`・`onlineUnlocked`を、セーブデータの内容に関わらず強制的に全解放している。友人テスト用の一時措置であることがコード内コメントに明記されている。本番公開前に必ずこのブロックごと削除すること。
   - 2026-09-28、BATTLE RUSHの確認用に`rushUnlocked = true`もこのブロックに追加した(ブロックごと削除すれば本来のGIFT CODE解放に戻る)。
   - このブロックの影響で、下記「ローカル対戦(VERSUS)」のキャラ・ステージ解放判定も現状は常に全解放の状態になっている(`vsCharUnlocked`/`vsAvailableStages`自体のロジックは実装済みで、このブロックさえ消せば正しく機能する)。
 
