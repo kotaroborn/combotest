@@ -3851,7 +3851,7 @@ function updateCharNames() {
     if (state.gameMode === 'versus') { vsUpdateNames(); return; } // ローカル対戦は1P/2P表記付きの実名(？？？マスキングなし)
     if (state.gameMode === 'online') { // オンライン対戦: 自分と相手が選んだキャラの実名(相手側も？？？マスキングなし)
         document.getElementById('playerName').innerText = ENEMY_PRESETS[state.pPresetKey].name;
-        document.getElementById('enemyName').innerText = ENEMY_PRESETS[state.ePresetKey].name;
+        document.getElementById('enemyName').innerText = ENEMY_PRESETS[state.ePresetKey].name + (onlineState.cpu ? ' (CPU)' : ''); // CPU戦(ランダムマッチで相手が見つからなかった時)は、CPUであることを明示する
         return;
     }
     document.getElementById('playerName').innerText =
@@ -6038,9 +6038,9 @@ function updateOptionUI() {
     // デッキ編成中もまだバトルが始まっていないため、RETRYは出さずRETURN TO TITLEだけにする(2026-10-02)
     document.getElementById('optionRetryBtn').style.display = (uiMode === 'training' || uiMode === 'online' || isDeck) ? 'none' : ''; // オンライン対戦は相手がいるのでRETRYなし
     // RETURN TO TITLEの確認文言: STORY MODEは進行状況の保存に触れるが、TRAINING MODEは進行状況を持たないため短い文言にする
-    document.getElementById('returnConfirmText').innerHTML = uiMode === 'online'
+    document.getElementById('returnConfirmText').innerHTML = (uiMode === 'online' && !onlineState.cpu)
         ? 'タイトルに戻りますか？<br>（対戦は相手の勝ちになります）' // 部屋から抜けると、相手の端末では相手の勝ちになる
-        : (uiMode === 'training' || uiMode === 'versus' || uiMode === 'rush')
+        : (uiMode === 'training' || uiMode === 'versus' || uiMode === 'rush' || uiMode === 'online') // onlineはCPU戦(相手がいないので相手の勝ちにはならない)
         ? 'タイトルに戻りますか？'
         : 'タイトルに戻りますか？<br>（ストーリーの進行状況は保存されます）';
     closeResetConfirm(); // 開き直したら確認状態はリセット
@@ -7665,8 +7665,18 @@ function vsSelectBackToTitle() {
 // ・切断: 各自の在室フラグ(rooms/{合言葉}/p/{host|guest})を、通信が切れたら自動で消えるようにしておく(onDisconnect)。
 //   相手の在室フラグが一定時間(対戦中はONLINE_LEAVE_GRACE_MS、キャラ選択中等はONLINE_LEAVE_GRACE_SELECT_MS)消えたままなら
 //   「相手が抜けた」とみなし、対戦中なら残った側の勝ち。TITLE等で自分から抜けた時はbye/{role}を書くので、相手はすぐ分かる。
-// ・未実装(段階3・4): ランダムマッチ、入力の制限時間、HOW TOの文言、本番用のセキュリティルール。
+// ・ランダムマッチ(2026-10-03、段階3): RANDOM MATCHを押すと待合室(queue)に入り、待っている人がいればその人と組む。
+//   組んだ側(後から来た側)が部屋を作ってホストになり、待っていた側の待合室の欄に合言葉を書く。待っていた側はそれを見て
+//   ゲストとして入室する。以後は合言葉対戦と同じ仕組み(onlineEnterRoom以降)。待合室の取り合いは、待合室全体の
+//   トランザクションで防ぐ(同時に2人が同じ相手を選ばない)。30秒(ONLINE_SEARCH_CPU_PROMPT_MS)見つからなければ
+//   「VS CPU / KEEP SEARCHING」を出す。CPU戦は通信を使わず、相手の手は通常のCPU(generateEnemyTurnHand)が決める。
+//   相手がCPUであることは、キャラ選択(RIVAL: CPU)・FIGHT!・バトル中の名前・決着画面のすべてで明示する。
+//   CPU戦の勝利はONLINE V.S.の勝利数(onlineWins)に数えない。
+// ・未実装(段階4): 入力の制限時間、HOW TOの文言、本番用のセキュリティルール。
 //
+// 待合室の形(queue/{uid}): { v: ゲームのバージョン表記(同じ表記の人としか組まない), t0: 待ち始めた時刻, t: 最後に確かめた時刻,
+//   by: 自分と組もうとしている人のuid, at: byを書いた時刻, room: 組んだ相手が作った部屋の合言葉 }
+//   通信が切れたら自動で消える(onDisconnect)。tが古すぎる欄は、次に待合室を見た人が消す。
 // データの形(rooms/{合言葉4桁}):
 //   v: ゲームのバージョン表記(違うと入室できない) / createdAt / host・guest: 各自のuid / seed: 部屋のシード
 //   p/{host|guest}: 在室フラグ / bye/{host|guest}: 自分から抜けた印 / sel/{host|guest}: { key: キャラ, ready: 準備完了か, m: 何試合目の選択か }
@@ -7690,6 +7700,12 @@ const ONLINE_LEAVE_GRACE_MS = 15000; // 対戦中、相手の在室フラグが�
 const ONLINE_LEAVE_GRACE_SELECT_MS = 60000;
 const ONLINE_ROOM_EMPTY_STALE_MS = 10 * 60 * 1000; // 誰もいない部屋は、作成から10分たてば使い回してよい
 const ONLINE_CARD_NAMES = ['PUNCH', 'UPPER', 'GUARD'];
+// ランダムマッチ(段階3)
+const ONLINE_SEARCH_CPU_PROMPT_MS = 30000; // この時間相手が見つからなければ「VS CPU / KEEP SEARCHING」を出す
+const ONLINE_QUEUE_REFRESH_MS = 20000;     // 待っている間、この間隔で待合室を見直す(自分の欄のtを新しくし、後から来た人がいれば組む)
+const ONLINE_QUEUE_STALE_MS = 60000;       // tがこれより古い欄は、抜けた人の残りとして消す
+const ONLINE_QUEUE_CLAIM_WAIT_MS = 10000;  // 組もうとした人(by)から部屋の合言葉がこの時間届かなければ、取り消して待ち直す
+const ONLINE_RANDOM_GUEST_WAIT_MS = 15000; // 部屋を作った側: 相手がこの時間入室してこなければ、部屋を片付けてさがし直す
 
 // オンライン対戦の状態。stateと同様、以後再定義・再初期化せず、プロパティのみ書き換えて使う(第13条に倣う)。
 let onlineState = {
@@ -7717,7 +7733,18 @@ let onlineState = {
     lostTimer: null,  // 部屋そのものが消えてからの猶予タイマー(自分の側の通信切れの判定)
     processAgain: false, // onlineProcessの実行中に、もう一度呼ばれたか
     busy: false,      // 部屋を作る/入る処理の途中か(連打防止)
-    processing: false // onlineProcessの多重実行防止
+    processing: false, // onlineProcessの多重実行防止
+    // ランダムマッチ(段階3)。phaseは'searching'(待合室で相手をさがしている) | 'matching'(相手が見つかり、部屋を作る/入る途中)
+    random: false,    // ランダムマッチで組んだ部屋か(合言葉を画面に出さない)
+    searchToken: 0,   // さがすのをやめるたびに1増やす(待っている間の非同期処理が、古いさがし方のまま進まないように)
+    queued: false,    // 待合室に自分の欄があるか
+    queueUnsub: null, // 自分の欄の監視の解除関数
+    searchBusy: false, // 待合室の見直しの途中か
+    searchStartAt: 0, // さがし始めた(またはKEEP SEARCHINGを押した)時刻
+    searchTimers: { refresh: null, prompt: null, tick: null, claim: null },
+    matchTimer: null, // 部屋を作った側の、相手の入室待ちタイマー
+    matchTarget: null, // 部屋を作った側: 組んだ相手のuid(相手が入室してこなかった時に、相手の欄の合言葉を消すため)
+    cpu: false        // CPU戦(通信なし)か
 };
 
 // ------- 通信部分(差し替え可能) -------
@@ -7943,7 +7970,7 @@ function onlineHideBattleOverlays() {
 
 // ------- ロビー(部屋を作る/入る)の画面 -------
 function onlineShowPanel(name) {
-    ['Lobby', 'Host', 'Select', 'Msg'].forEach(p => {
+    ['Lobby', 'Host', 'Search', 'Select', 'Msg'].forEach(p => {
         const el = document.getElementById('onPanel' + p);
         if (el) el.classList.toggle('show', p === name);
     });
@@ -7980,19 +8007,12 @@ async function onlineCreateRoom() {
     onlineSetLobbyMsg('CONNECTING...');
     try {
         const net = await onlineEnsureNet();
-        const room = { v: onlineGameVersion(), createdAt: Date.now(), host: net.uid, seed: rngFreshSeed(), p: { host: true } };
-        for (let tries = 0; tries < 12; tries++) {
-            const code = String(Math.floor(Math.random() * 10000)).padStart(4, '0');
-            const res = await net.transaction('rooms/' + code, cur => {
-                if (cur && !onlineRoomIsStale(cur)) return; // 使用中の合言葉は避ける(undefinedを返すと書き込まない)
-                return room;
-            });
-            if (res.committed && res.value && res.value.host === net.uid) {
-                if (onlineState.phase !== 'lobby') { net.remove('rooms/' + code); return; } // 待っている間に画面を離れていた
-                onlineSetLobbyMsg('');
-                onlineEnterRoom(code, 'host');
-                return;
-            }
+        const code = await onlineReserveRoom(net);
+        if (code) {
+            if (onlineState.phase !== 'lobby') { net.remove('rooms/' + code); return; } // 待っている間に画面を離れていた
+            onlineSetLobbyMsg('');
+            onlineEnterRoom(code, 'host');
+            return;
         }
         onlineSetLobbyMsg('部屋を作れませんでした。もう一度お試しください', true);
     } catch (e) {
@@ -8000,6 +8020,40 @@ async function onlineCreateRoom() {
     } finally {
         onlineState.busy = false;
     }
+}
+// 空いている4桁の合言葉を探して、自分がホストの部屋を作る。作れた合言葉を返す(作れなければnull)。
+// CREATE ROOMとランダムマッチ(組んだ側)の両方から使う
+async function onlineReserveRoom(net) {
+    const room = { v: onlineGameVersion(), createdAt: Date.now(), host: net.uid, seed: rngFreshSeed(), p: { host: true } };
+    for (let tries = 0; tries < 12; tries++) {
+        const code = String(Math.floor(Math.random() * 10000)).padStart(4, '0');
+        const res = await net.transaction('rooms/' + code, cur => {
+            if (cur && !onlineRoomIsStale(cur)) return; // 使用中の合言葉は避ける(undefinedを返すと書き込まない)
+            return room;
+        });
+        if (res.committed && res.value && res.value.host === net.uid) return code;
+    }
+    return null;
+}
+// 合言葉の部屋にゲストとして入るトランザクション。入れればnull、入れなければ理由('notfound' | 'full' | 'version')を返す。
+// JOIN ROOMとランダムマッチ(待っていた側)の両方から使う
+async function onlineTryJoin(net, code) {
+    const version = onlineGameVersion();
+    let reason = 'notfound';
+    const res = await net.transaction('rooms/' + code, cur => {
+        // 初回は手元のキャッシュ(null)で呼ばれることがある。nullを返せばサーバーの値で呼び直される
+        if (cur === null) { reason = 'notfound'; return null; }
+        // ホストの在室フラグが一時的に消えていても入れる(合言葉を送っている間に通信が切れていることがあるため)
+        if (onlineRoomIsStale(cur)) { reason = 'notfound'; return; }
+        if (cur.guest && cur.guest !== net.uid) { reason = 'full'; return; }
+        if (cur.v !== version) { reason = 'version'; return; }
+        reason = null;
+        cur.guest = net.uid;
+        cur.p = Object.assign({}, cur.p, { guest: true });
+        return cur;
+    });
+    if (res.committed && res.value && res.value.guest === net.uid) return null;
+    return reason || 'notfound';
 }
 // JOIN ROOM: 相手から聞いた合言葉の部屋に入る
 async function onlineJoinRoom() {
@@ -8016,21 +8070,8 @@ async function onlineJoinRoom() {
     onlineSetLobbyMsg('CONNECTING...');
     try {
         const net = await onlineEnsureNet();
-        const version = onlineGameVersion();
-        let reason = 'notfound';
-        const res = await net.transaction('rooms/' + code, cur => {
-            // 初回は手元のキャッシュ(null)で呼ばれることがある。nullを返せばサーバーの値で呼び直される
-            if (cur === null) { reason = 'notfound'; return null; }
-            // ホストの在室フラグが一時的に消えていても入れる(合言葉を送っている間に通信が切れていることがあるため)
-            if (onlineRoomIsStale(cur)) { reason = 'notfound'; return; }
-            if (cur.guest && cur.guest !== net.uid) { reason = 'full'; return; }
-            if (cur.v !== version) { reason = 'version'; return; }
-            reason = null;
-            cur.guest = net.uid;
-            cur.p = Object.assign({}, cur.p, { guest: true });
-            return cur;
-        });
-        if (res.committed && res.value && res.value.guest === net.uid) {
+        const reason = await onlineTryJoin(net, code);
+        if (reason === null) {
             if (onlineState.phase !== 'lobby') return;
             onlineSetLobbyMsg('');
             onlineEnterRoom(code, 'guest');
@@ -8061,6 +8102,9 @@ function onlineEnterRoom(code, role) {
     onlineState.oppLeft = false;
     onlineState.myCommit = null;
     onlineState.oppCards = null;
+    // ランダムマッチから来た場合: さがす間のタイマーは止める(組めずにさがし直す時はonlineResumeSearchがかけ直す)
+    const T = onlineState.searchTimers;
+    Object.keys(T).forEach(k => { if (T[k]) { clearTimeout(T[k]); clearInterval(T[k]); T[k] = null; } });
     const presence = onlineRoomPath('p/' + role);
     net.onDisconnectRemove(presence);
     // 通信が切れて戻った時(スマホでLINEを開いた後など)は、在室フラグを書き直す
@@ -8078,7 +8122,19 @@ function onlineEnterRoom(code, role) {
         onlineState.room = room;
         onlineProcess();
     }));
-    if (role === 'host') {
+    if (role === 'host' && onlineState.random) {
+        // ランダムマッチで組んだ側: 合言葉は出さず、相手の入室を待つ。来なければ部屋を片付けてさがし直す
+        onlineState.phase = 'hosting';
+        onlineSetSearchText('RIVAL FOUND!', '対戦相手が見つかりました。接続しています');
+        onlineState.matchTimer = setTimeout(() => {
+            onlineState.matchTimer = null;
+            if (onlineState.phase !== 'hosting' || onlineState.code !== code) return;
+            // 相手の欄に書いた合言葉を消しておく(相手は待合室に残っていれば、また誰かと組める)
+            if (onlineState.matchTarget) onlineReleaseClaim(onlineState.net, onlineState.matchTarget, true);
+            onlineLeave(); // 誰も来ていないので部屋ごと消える
+            onlineResumeSearch();
+        }, ONLINE_RANDOM_GUEST_WAIT_MS);
+    } else if (role === 'host') {
         onlineState.phase = 'hosting';
         document.getElementById('onRoomCode').textContent = code;
         onlineShowPanel('Host');
@@ -8095,6 +8151,11 @@ function onlineCancelHost() {
 }
 // 部屋から抜ける(タイトルへ戻る経路=goLogo等からも必ず呼ばれる。部屋にいなければ何もしない安全な処理)
 function onlineLeave() {
+    onlineStopSearch(); // ランダムマッチで待合室にいれば、待合室からも抜ける
+    onlineState.cpu = false;
+    onlineState.random = false;
+    onlineState.matchTarget = null;
+    if (onlineState.matchTimer) { clearTimeout(onlineState.matchTimer); onlineState.matchTimer = null; }
     if (onlineState.leaveTimer) { clearTimeout(onlineState.leaveTimer); onlineState.leaveTimer = null; }
     if (onlineState.lostTimer) { clearTimeout(onlineState.lostTimer); onlineState.lostTimer = null; }
     onlineState.unsubs.forEach(u => { try { u(); } catch (e) { /* 何もしない */ } });
@@ -8145,6 +8206,288 @@ function onlineShowMessage(text) {
     onlineShowPanel('Msg');
     showScene('online');
 }
+
+// ------- ランダムマッチ(段階3) -------
+// 流れ: RANDOM MATCH → onlineStartSearch → onlineSearchStep(待合室全体のトランザクション)
+//   ・待っている人がいた: その人の欄にby(自分のuid)を書いて押さえ、onlineMatchAsHostで部屋を作り、相手の欄に合言葉を書く → ホストとして入室
+//   ・いなかった: 自分の欄を作って待つ。自分の欄に合言葉が書かれたら(onlineOnQueueEntry)、onlineMatchAsGuestでゲストとして入室
+function onlineSetSearchText(head, note) {
+    const h = document.getElementById('onSearchText');
+    const n = document.getElementById('onSearchNote');
+    if (h) h.textContent = head;
+    if (n) n.textContent = note;
+    onlineShowCpuPrompt(false);
+    onlineShowPanel('Search');
+}
+function onlineShowCpuPrompt(show) {
+    const box = document.getElementById('onSearchCpu');
+    if (box) box.classList.toggle('show', !!show);
+}
+// さがし始めてからの経過時間(SEARCHING... 0:12)
+function onlineUpdateSearchTime() {
+    const el = document.getElementById('onSearchText');
+    if (!el || onlineState.phase !== 'searching') return;
+    const sec = Math.floor((Date.now() - onlineState.searchStartAt) / 1000);
+    el.textContent = `SEARCHING... ${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`;
+}
+// ロビーのRANDOM MATCH
+async function onlineStartSearch() {
+    if (onlineState.busy || onlineState.phase !== 'lobby') return;
+    playSE('se_select');
+    onlineSetLobbyMsg('CONNECTING...');
+    onlineState.busy = true;
+    try {
+        await onlineEnsureNet();
+    } catch (e) {
+        onlineSetLobbyMsg(onlineErrorText(e), true);
+        return;
+    } finally {
+        onlineState.busy = false;
+    }
+    if (onlineState.phase !== 'lobby') return; // 待っている間に画面を離れていた
+    onlineSetLobbyMsg('');
+    onlineResumeSearch();
+}
+// さがす状態に入る(最初・組めなかった時のやり直し共通)。待ち時間の表示は、最初にさがし始めた時から数える
+function onlineResumeSearch() {
+    const fresh = onlineState.phase === 'lobby';
+    onlineState.phase = 'searching';
+    onlineState.random = true;
+    if (fresh || !onlineState.searchStartAt) onlineState.searchStartAt = Date.now();
+    onlineSetSearchText('SEARCHING...', '対戦相手をさがしています');
+    showScene('online');
+    const T = onlineState.searchTimers;
+    if (!T.tick) T.tick = setInterval(onlineUpdateSearchTime, 1000);
+    onlineUpdateSearchTime();
+    onlineScheduleCpuPrompt();
+    onlineSearchStep();
+}
+// 一定時間見つからなければ「VS CPU / KEEP SEARCHING」を出す(出している間もさがし続ける)
+function onlineScheduleCpuPrompt() {
+    const T = onlineState.searchTimers;
+    if (T.prompt) clearTimeout(T.prompt);
+    const wait = Math.max(0, onlineState.searchStartAt + ONLINE_SEARCH_CPU_PROMPT_MS - Date.now());
+    T.prompt = setTimeout(() => {
+        T.prompt = null;
+        if (onlineState.phase === 'searching') onlineShowCpuPrompt(true);
+        else if (onlineState.phase === 'matching' || onlineState.phase === 'hosting') onlineScheduleCpuPromptLater(); // 組む途中なら、うまくいかなかった時に備えて少し後で見直す
+    }, wait);
+}
+function onlineScheduleCpuPromptLater() {
+    const T = onlineState.searchTimers;
+    T.prompt = setTimeout(() => {
+        T.prompt = null;
+        if (onlineState.phase === 'searching') onlineShowCpuPrompt(true);
+        else if (onlineState.random && !onlineState.code) onlineScheduleCpuPromptLater();
+    }, 3000);
+}
+// KEEP SEARCHING: もう30秒待つ
+function onlineKeepSearching() {
+    if (onlineState.phase !== 'searching') return;
+    playSE('se_select');
+    onlineShowCpuPrompt(false);
+    onlineState.searchStartAt = Date.now();
+    onlineUpdateSearchTime();
+    onlineScheduleCpuPrompt();
+}
+// CANCEL: ロビーへ戻る
+function onlineCancelSearch() {
+    playSE('se_cancel');
+    onlineLeave();
+    onlineState.phase = 'lobby';
+    onlineShowPanel('Lobby');
+}
+// さがすのをやめる(待合室の自分の欄を消し、タイマー・監視を止める)。onlineLeaveから必ず呼ばれる。さがしていなければ何もしない
+function onlineStopSearch() {
+    onlineState.searchToken++;
+    const T = onlineState.searchTimers;
+    Object.keys(T).forEach(k => { if (T[k]) { clearTimeout(T[k]); clearInterval(T[k]); T[k] = null; } });
+    onlineLeaveQueue();
+    onlineState.searchBusy = false;
+    onlineShowCpuPrompt(false);
+}
+function onlineLeaveQueue() {
+    if (onlineState.queueUnsub) { try { onlineState.queueUnsub(); } catch (e) { /* 何もしない */ } onlineState.queueUnsub = null; }
+    const net = onlineState.net;
+    if (onlineState.queued && net) {
+        const path = 'queue/' + net.uid;
+        try {
+            net.cancelOnDisconnect(path);
+            net.remove(path);
+        } catch (e) { console.warn('online queue leave:', e); }
+    }
+    onlineState.queued = false;
+}
+// 待合室を1回見る: 待っている人がいれば押さえる。いなければ自分の欄を作る(すでにあればtを新しくする)
+async function onlineSearchStep() {
+    if (onlineState.phase !== 'searching' || onlineState.searchBusy) return;
+    const token = onlineState.searchToken;
+    const net = onlineState.net;
+    const uid = net.uid;
+    const version = onlineGameVersion();
+    onlineState.searchBusy = true;
+    let claimed = null;
+    let res = null;
+    try {
+        res = await net.transaction('queue', cur => {
+            claimed = null; // トランザクションは何度か呼び直されることがあるので、毎回初めから決め直す
+            const q = (cur && typeof cur === 'object') ? cur : {};
+            const now = Date.now();
+            Object.keys(q).forEach(k => {
+                const e = q[k];
+                if (!e || typeof e !== 'object' || now - (e.t || 0) > ONLINE_QUEUE_STALE_MS) delete q[k]; // 抜けた人の残り
+            });
+            const mine = q[uid];
+            if (mine && (mine.by || mine.room)) {
+                mine.t = now; // 自分はもう誰かに押さえられている: 合言葉が届くのを待つ
+            } else {
+                let best = null;
+                Object.keys(q).forEach(k => {
+                    const e = q[k];
+                    if (k === uid || e.v !== version || e.by || e.room) return;
+                    if (best === null || (e.t0 || 0) < (q[best].t0 || 0)) best = k; // いちばん長く待っている人から
+                });
+                if (best !== null) {
+                    q[best].by = uid;
+                    q[best].at = now;
+                    delete q[uid];
+                    claimed = best;
+                } else {
+                    q[uid] = { v: version, t0: (mine && mine.t0) || now, t: now };
+                }
+            }
+            return Object.keys(q).length ? q : null;
+        });
+    } catch (e) {
+        console.warn('online search:', e);
+    }
+    onlineState.searchBusy = false;
+    if (token !== onlineState.searchToken || onlineState.phase !== 'searching') {
+        // 待っている間にCANCEL等でやめていた。押さえた相手は放す(相手側は時間切れでも待ち直せる)
+        if (res && res.committed && claimed) onlineReleaseClaim(net, claimed);
+        return;
+    }
+    if (!res || !res.committed) { onlineScheduleSearchStep(3000); return; } // 通信の失敗等: 少し後でもう一度
+    if (claimed) {
+        if (onlineState.queued) { onlineState.queued = false; if (onlineState.queueUnsub) { onlineState.queueUnsub(); onlineState.queueUnsub = null; } net.cancelOnDisconnect('queue/' + uid); }
+        onlineMatchAsHost(claimed, token);
+        return;
+    }
+    if (!onlineState.queued) {
+        onlineState.queued = true;
+        net.onDisconnectRemove('queue/' + uid); // 通信が切れたら自分の欄は自動で消える
+        onlineState.queueUnsub = net.onValue('queue/' + uid, e => onlineOnQueueEntry(e, token));
+    }
+    onlineScheduleSearchStep(ONLINE_QUEUE_REFRESH_MS);
+}
+function onlineScheduleSearchStep(ms) {
+    const T = onlineState.searchTimers;
+    if (T.refresh) clearTimeout(T.refresh);
+    T.refresh = setTimeout(() => { T.refresh = null; onlineSearchStep(); }, ms);
+}
+// 押さえた相手を放す(自分が押さえたままの場合だけ)。withRoom=trueなら、書いた合言葉も消す(相手が入室してこなかった時)
+function onlineReleaseClaim(net, target, withRoom) {
+    net.transaction('queue/' + target, cur => {
+        if (cur === null) return null;
+        if (cur.by !== net.uid || (cur.room && !withRoom)) return;
+        delete cur.by; delete cur.at; delete cur.room;
+        return cur;
+    }).catch(e => console.warn('online release:', e));
+}
+// 自分の待合室の欄が変わった
+function onlineOnQueueEntry(e, token) {
+    if (token !== onlineState.searchToken || onlineState.phase !== 'searching') return;
+    const T = onlineState.searchTimers;
+    if (!e) {
+        // 自分の欄が消えた(通信切れの自動削除、他の人の掃除等): 作り直す
+        onlineState.queued = false;
+        if (onlineState.queueUnsub) { onlineState.queueUnsub(); onlineState.queueUnsub = null; }
+        onlineScheduleSearchStep(500);
+        return;
+    }
+    if (typeof e.room === 'string' && /^\d{4}$/.test(e.room)) {
+        if (T.claim) { clearTimeout(T.claim); T.claim = null; }
+        onlineMatchAsGuest(e.room, token);
+        return;
+    }
+    if (e.by && !T.claim) {
+        // 誰かが組もうとしている。合言葉が一定時間届かなければ(相手の通信切れ等)、取り消して待ち直す
+        const by = e.by;
+        T.claim = setTimeout(() => {
+            T.claim = null;
+            if (token !== onlineState.searchToken || onlineState.phase !== 'searching') return;
+            const net = onlineState.net;
+            net.transaction('queue/' + net.uid, cur => {
+                if (cur === null) return null;
+                if (cur.by !== by || cur.room) return;
+                delete cur.by; delete cur.at;
+                cur.t = Date.now();
+                return cur;
+            }).catch(err => console.warn('online claim timeout:', err));
+        }, ONLINE_QUEUE_CLAIM_WAIT_MS);
+    } else if (!e.by && T.claim) {
+        clearTimeout(T.claim); T.claim = null;
+    }
+}
+// 組んだ側: 部屋を作り、押さえた相手の欄に合言葉を書いてから、ホストとして入室する
+async function onlineMatchAsHost(target, token) {
+    const net = onlineState.net;
+    onlineState.phase = 'matching';
+    onlineShowCpuPrompt(false);
+    onlineSetSearchText('RIVAL FOUND!', '対戦相手が見つかりました。接続しています');
+    let code = null;
+    try {
+        code = await onlineReserveRoom(net);
+        if (code && token === onlineState.searchToken) {
+            const res = await net.transaction('queue/' + target, cur => {
+                if (cur === null) return null;
+                if (cur.by !== net.uid || cur.room) return; // 相手がやめた/別の人と組んだ
+                cur.room = code;
+                return cur;
+            });
+            if (res.committed && res.value && res.value.room === code && token === onlineState.searchToken) {
+                onlineState.matchTarget = target;
+                onlineEnterRoom(code, 'host'); // onlineState.randomはtrueのまま → 合言葉を出さずに相手を待つ
+                return;
+            }
+        }
+    } catch (e) {
+        console.warn('online match host:', e);
+    }
+    // うまくいかなかった: 作った部屋を消し、押さえた相手を放して、さがし直す
+    if (code) net.remove('rooms/' + code);
+    onlineReleaseClaim(net, target);
+    if (token === onlineState.searchToken && onlineState.phase === 'matching') onlineResumeSearch();
+}
+// 待っていた側: 自分の欄に書かれた合言葉の部屋にゲストとして入る
+async function onlineMatchAsGuest(code, token) {
+    const net = onlineState.net;
+    onlineState.phase = 'matching';
+    onlineShowCpuPrompt(false);
+    onlineSetSearchText('RIVAL FOUND!', '対戦相手が見つかりました。接続しています');
+    onlineLeaveQueue(); // 自分の欄はもういらない
+    let reason = 'notfound';
+    try { reason = await onlineTryJoin(net, code); } catch (e) { console.warn('online match guest:', e); }
+    if (token !== onlineState.searchToken || onlineState.phase !== 'matching') {
+        if (reason === null) net.update('rooms/' + code, { 'p/guest': null, 'bye/guest': true }); // 入れたが、もうやめていた
+        return;
+    }
+    if (reason === null) { onlineEnterRoom(code, 'guest'); return; }
+    onlineResumeSearch(); // 部屋が無くなっていた等: さがし直す
+}
+// VS CPU: 通信を使わず、CPUと戦う(キャラ選択から)
+function onlineStartCpu() {
+    if (onlineState.phase !== 'searching') return;
+    playSE('se_select');
+    onlineLeave(); // 待合室から抜ける
+    onlineState.cpu = true;
+    onlineState.match = 0;
+    onlineState.wins = { me: 0, opp: 0 };
+    onlineState.oppLeft = false;
+    onlineGoSelect();
+}
+// 相手の呼び名(決着画面・対戦成績の表示用)。CPU戦では必ず「CPU」と出す
+function onlineRivalLabel() { return onlineState.cpu ? 'CPU' : 'RIVAL'; }
 
 // ------- 部屋のデータが変わるたびに呼ばれる進行役 -------
 // 部屋の状態と自分のphaseを見比べて、次にやるべきことを1つずつ進める。同じデータで何度呼ばれても問題ない作り。
@@ -8200,7 +8543,10 @@ async function onlineProcessOnce() {
     }
 
     if (ph === 'hosting') {
-        if (room.guest && oppHere) onlineGoSelect();
+        if (room.guest && oppHere) {
+            if (onlineState.matchTimer) { clearTimeout(onlineState.matchTimer); onlineState.matchTimer = null; } // ランダムマッチの入室待ちを終える
+            onlineGoSelect();
+        }
         return;
     }
     if (ph === 'select') {
@@ -8305,13 +8651,18 @@ function onlineRenderSelect() {
     btn.innerText = onlineState.ready ? 'CANCEL' : 'READY';
     btn.classList.toggle('is-ready', onlineState.ready);
     document.getElementById('onPanelSelect').classList.toggle('ready', onlineState.ready);
-    document.getElementById('onScore').innerText = `YOU ${onlineState.wins.me} - ${onlineState.wins.opp} RIVAL`;
+    document.getElementById('onScore').innerText = `YOU ${onlineState.wins.me} - ${onlineState.wins.opp} ${onlineRivalLabel()}`;
     onlineRenderRival();
 }
 // 相手の状況(選択中/READY)。相手のキャラは、2人ともREADYになって試合が始まるまで見せない
 function onlineRenderRival() {
     const el = document.getElementById('onRivalStatus');
     if (!el) return;
+    if (onlineState.cpu) { // CPU戦: 相手が人ではないことをはっきり出す
+        el.textContent = 'RIVAL: CPU';
+        el.classList.remove('ready');
+        return;
+    }
     const s = onlineState.room && onlineState.room.sel && onlineState.room.sel[onlineOppRole()];
     const rivalReady = !!(s && s.ready && s.m === onlineState.match);
     el.textContent = rivalReady ? 'RIVAL: READY!' : 'RIVAL: CHOOSING...';
@@ -8341,6 +8692,7 @@ function onlineToggleReady() {
     onlineState.ready = !onlineState.ready;
     playSE(onlineState.ready ? 'se_select' : 'se_cancel');
     onlineRenderSelect();
+    if (onlineState.cpu) { if (onlineState.ready) onlineStartCpuMatch(); return; } // CPU戦: 相手を待たずに始める
     onlineWriteSel();
 }
 
@@ -8351,7 +8703,22 @@ async function onlineStartMatch(room, m) {
     const oppCh = vsCharByKey(s.key);
     onlineState.oppKey = (oppCh && ENEMY_PRESETS[s.key]) ? s.key : 'VAL'; // 知らないキーが来た場合の安全策
     const stageNum = (m.stage >= 1 && m.stage <= VERSUS_STAGE_COUNT) ? m.stage : 1;
-    document.getElementById('onFightNames').innerText = `${ENEMY_PRESETS[onlineState.sel].name}  VS  ${ENEMY_PRESETS[onlineState.oppKey].name}`;
+    // 試合のシード: 部屋のシードと試合番号から決める(両端末で同じ値になる)
+    await onlineLaunchMatch(stageNum, ((room.seed >>> 0) ^ Math.imul(onlineState.match + 1, 0x9e3779b1)) >>> 0);
+}
+// CPU戦の開始(READYを押した時): 相手のキャラは、自分が選べるキャラ(LOCAL V.S.と同じ解放状況)からランダム。
+// ステージもLOCAL V.S.と同じく、STORY MODEでクリア済みのステージから選ぶ
+async function onlineStartCpuMatch() {
+    onlineState.phase = 'starting';
+    const pool = VERSUS_CHARACTERS.filter(ch => vsCharUnlocked(ch) && ENEMY_PRESETS[ch.key]).map(ch => ch.key);
+    onlineState.oppKey = pool.length ? pool[Math.floor(Math.random() * pool.length)] : 'VAL';
+    const stages = vsAvailableStages();
+    await onlineLaunchMatch(stages[Math.floor(Math.random() * stages.length)], null);
+}
+// 試合を始める(人との対戦・CPU戦共通)。seedがnullなら通常どおり毎回ランダムなシード
+async function onlineLaunchMatch(stageNum, seed) {
+    const oppName = ENEMY_PRESETS[onlineState.oppKey].name + (onlineState.cpu ? ' (CPU)' : '');
+    document.getElementById('onFightNames').innerText = `${ENEMY_PRESETS[onlineState.sel].name}  VS  ${oppName}`;
     const fight = document.getElementById('onSelFight');
     fight.classList.add('show');
     playSE('se_go');
@@ -8363,8 +8730,7 @@ async function onlineStartMatch(room, m) {
     state.ePresetKey = onlineState.oppKey;
     state.substoryStageNum = stageNum; // 背景・BGMの指定はEXTRA BATTLE/LOCAL V.S.と同じ仕組みを使う
     state.substoryMusicNum = stageNum;
-    // 試合のシード: 部屋のシードと試合番号から決める(両端末で同じ値になる)
-    RNG.nextSeed = ((room.seed >>> 0) ^ Math.imul(onlineState.match + 1, 0x9e3779b1)) >>> 0;
+    if (seed !== null) RNG.nextSeed = seed;
     onlineState.turnNo = 0;
     onlineState.myCommit = null;
     onlineState.oppCards = null;
@@ -8409,6 +8775,14 @@ async function onlineSubmit() {
     if (onlineState.phase !== 'input') return;
     const n = filledCount();
     if (n === 0 || (state.requiredHandSize && n !== state.requiredHandSize)) return;
+    if (onlineState.cpu) {
+        // CPU戦: 相手の手はその場でCPUが決める(STORY MODE等と同じgenerateEnemyTurnHand。相手のキャラの配分・クセを使う)
+        onlineState.oppCards = generateEnemyTurnHand(n);
+        onlineState.phase = 'resolve';
+        onlineSetStatus('');
+        resolveTurn();
+        return;
+    }
     onlineState.phase = 'commit'; // ここで先に変えて、連打で二重に送らないようにする
     playSE('se_select');
     updateUI();
@@ -8439,14 +8813,16 @@ function onlineSyncError() {
 }
 // 決着(showResultから呼ばれる)
 function onlineShowResult() {
-    if (onlineState.phase === 'over' || !onlineState.code) return; // 演出中に「相手が抜けた」「通信切れ」で先に終わっていた
+    if (onlineState.phase === 'over' || (!onlineState.code && !onlineState.cpu)) return; // 演出中に「相手が抜けた」「通信切れ」で先に終わっていた
     onlineState.phase = 'over';
     onlineSetStatus('');
     const winner = (state.hpP <= 0 && state.hpE <= 0) ? null : (state.hpE <= 0 ? 'me' : 'opp');
     if (winner === 'me') {
         onlineState.wins.me++;
-        onlineWins++;
-        writeSaveData({ onlineWins });
+        if (!onlineState.cpu) { // CPU戦の勝利は、ONLINE V.S.の勝利数(RECORDS)に数えない
+            onlineWins++;
+            writeSaveData({ onlineWins });
+        }
     } else if (winner === 'opp') {
         onlineState.wins.opp++;
     }
@@ -8460,7 +8836,7 @@ function onlineRenderResult(text, cls, note) {
     r.className = 'vs-result show ' + cls;
     r.innerHTML = `<div class="vs-result-text">${text}</div>` +
         (note ? `<div class="vs-result-score">${note}</div>` : '') +
-        `<div class="vs-result-score">YOU ${onlineState.wins.me} - ${onlineState.wins.opp} RIVAL</div>`;
+        `<div class="vs-result-score">YOU ${onlineState.wins.me} - ${onlineState.wins.opp} ${onlineRivalLabel()}</div>`;
     onlineSetGate(`<div class="vs-result-btns">` +
         (onlineState.oppLeft ? '' : `<button class="vs-ready-btn" onclick="onlineRematch()">REMATCH</button>`) +
         `<button class="vs-sub-btn" onclick="onlineBackToTitle()">TITLE</button></div>`);

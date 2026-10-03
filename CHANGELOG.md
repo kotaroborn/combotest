@@ -3,6 +3,14 @@
 このプロジェクトの変更履歴。日付は新しいものを上に追記する。
 コード(`index.html` / `css/style.css` / `js/script.js`)や仕様に変更を加えた場合は、このファイルに追記すること(詳細は `AI_GUIDE.md` を参照)。
 
+## 2026-10-03(7)
+
+- ver. 0.9.219
+- ONLINE V.S.: ランダムマッチを追加(段階3、`ONLINE_PLAN.md`・`IMPLEMENTATION.md`「15.」参照)。ロビーのRANDOM MATCHを押すだけで、待っている相手と自動で組む(待合室`queue`、トランザクションで取り合いを防ぐ)
+  - 30秒見つからなければ「VS CPU / KEEP SEARCHING」を出す。VS CPUは通信なしのCPU戦で、相手がCPUであることをキャラ選択・FIGHT!・バトル中の名前・決着画面で明示する。CPU戦の勝利はRECORDSのONLINE V.S.勝利数に数えない
+  - 合言葉対戦の部屋を作る/入る処理を、ランダムマッチと共通の関数(`onlineReserveRoom` / `onlineTryJoin`)にした(動作は同じ)
+  - `database.rules.json`に待合室(`queue`)の行を追加(Firebaseコンソールのルールに貼り直しが必要)
+
 ## 2026-10-03(6)
 
 - ver. 0.9.218

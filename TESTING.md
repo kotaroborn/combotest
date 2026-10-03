@@ -116,3 +116,8 @@
 - [ ] 部屋を作った側が合言葉をLINEで送っている間(ブラウザを裏にしている間)でも、相手が入室できる
 - [ ] 対戦中に片方のスマホでLINE等を開いて10秒以内に戻ると、そのまま続けられる
 - [ ] itch.io版(iframe内)でも部屋を作れる・入れる
+- [ ] (ランダムマッチ、先に`database.rules.json`をコンソールのルールに貼り直しておく)2台でRANDOM MATCHを押すと、どちらも「RIVAL FOUND!」→キャラ選択になり、最後まで対戦できる(片方が先に押して待っている場合と、ほぼ同時に押した場合の両方)
+- [ ] RANDOM MATCHで待っている間、「SEARCHING... 0:12」の時間が進む。CANCELでロビーに戻れる
+- [ ] 1台だけでRANDOM MATCHを押して30秒待つと「相手が見つかりません」とVS CPU / KEEP SEARCHINGが出る。KEEP SEARCHINGでさらに30秒待つ。出ている間にもう1台がRANDOM MATCHを押すと、そのまま対戦に進む
+- [ ] VS CPUで、キャラ選択に「RIVAL: CPU」、FIGHT!とバトル中の相手の名前に「(CPU)」、決着画面に「YOU n - n CPU」と出る。CPUに勝ってもRECORDSのONLINE V.S.勝利数は増えない
+- [ ] RANDOM MATCHで待っている途中にブラウザを閉じた人とは組まれない(もう1台で押しても、ずっと待つことにならない)

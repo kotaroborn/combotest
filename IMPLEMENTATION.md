@@ -213,7 +213,7 @@ BGM/SEはWeb Audio API(`AudioContext`)で実装されている。`state.soundOn`
 - **`Math.random`のまま**: CPUの手(`weightedRandomMove`)、見た目だけの乱数(画面の揺れ`screenShake`、`pJit`/`eJit`、キャラ選択のルーレットの途中の動き)。
 
 
-## 15. オンライン対戦(ONLINE V.S.)(実装済み、2026-10-03追加。段階2: 合言葉対戦。`ONLINE_PLAN.md`参照。コード内では`state.gameMode === 'online'`、`onlineXxx`系関数)
+## 15. オンライン対戦(ONLINE V.S.)(実装済み、2026-10-03追加。段階2: 合言葉対戦、段階3: ランダムマッチ。`ONLINE_PLAN.md`参照。コード内では`state.gameMode === 'online'`、`onlineXxx`系関数)
 
 - **入口・解放**: タイトルの「ONLINE V.S.」ボタン(LOCAL V.S.とBATTLE RUSHの間)。LOCAL V.S.とは別の専用GIFT CODEで解放する(`onlineUnlocked`、セーブ対象)。デバッグ解放ブロックには入れていない(GIFT CODEで解放して確認する)。
 - **通信**: Firebase(Realtime Database+匿名ログイン)。プロジェクト`clash5-14a47`。SDK(モジュール版、v12.19.0)はONLINE V.S.を開いて部屋を作る/入る時に初めてCDN(gstatic.com)から読み込む。登録・ログイン画面は無く、アナリティクスも読み込まない。通信部分は差し替え可能(`onlineState.net`)。URLに`?net=dummy`を付けると、Firebaseの代わりにページ内の疑似サーバーを使う(`tools/online_test.html`で2画面を並べて確認できる)。
@@ -225,4 +225,8 @@ BGM/SEはWeb Audio API(`AudioContext`)で実装されている。`state.soundOn`
 - **切断・離脱**: 各自の在室フラグを、通信が切れたら自動で消えるようにしている。相手の在室フラグが対戦中は15秒(`ONLINE_LEAVE_GRACE_MS`)、キャラ選択中・決着画面では60秒(`ONLINE_LEAVE_GRACE_SELECT_MS`、合言葉をLINE等で送っている間にスマホの通信が切れることがあるため)消えたままなら、相手が抜けたとみなす。TITLE等で自分から抜けた場合は印(`bye`)を残すので、相手側はすぐ分かる。ホストの在室フラグが一時的に消えていても入室はできる。対戦中なら残った側の勝ち(YOU WIN / RIVAL LEFT)、キャラ選択中なら「RIVAL LEFT」の案内からロビーへ。15秒以内に戻れば何も起きない。自分の通信が長く切れていて、戻った時に相手がすでに勝ちにしていた場合は「DISCONNECTED」(相手の勝ち)、部屋ごと片付けられていた場合も「DISCONNECTED」になる。OPTIONのRETURN TO TITLEで抜けると、相手の勝ちになる(確認文に明記)。
 - **OPTION**: RETRYとCOSTUMEは出さない。
 - **後片付け**: 抜ける時、相手がもういなければ部屋ごと消す(無料枠を守るため)。
-- **未実装(段階3・4)**: ランダムマッチ、入力の制限時間(30秒)、HOW TO ONLINE V.S.の文言、本番用のセキュリティルール。
+- **ランダムマッチ**(2026-10-03、段階3): ロビーの一番上のRANDOM MATCHを押すだけで、待っている相手と自動で組む(登録・合言葉は不要)。さがしている間は「SEARCHING... 0:12」(経過時間)とCANCEL。相手が見つかると「RIVAL FOUND!」→ 2人ともキャラ選択へ進み、以後は合言葉対戦と同じ(合言葉は画面に出さない)。同じゲームのバージョンの人としか組まない。
+  - 仕組み: 待合室(`queue/{uid}`)を、待合室全体のトランザクションで見る(2人が同時に同じ相手を選ばない)。待っている人がいれば、後から来た側がその人を押さえて部屋を作り(ホスト)、待っていた側の欄に合言葉を書く。待っていた側はそれを見てゲストとして入室する。押さえられたのに合言葉が10秒来なければ取り消して待ち直す。ホストは相手が15秒入室してこなければ、相手の欄の合言葉を消し、部屋を片付けてさがし直す。待合室の自分の欄は、CANCEL・TITLE・通信切れで消える(通信が戻れば作り直す)。
+  - 30秒(`ONLINE_SEARCH_CPU_PROMPT_MS`)見つからなければ「相手が見つかりません」と「VS CPU / KEEP SEARCHING」を出す(出している間もさがし続け、見つかればそのまま対戦に進む)。KEEP SEARCHINGでさらに30秒待つ。
+  - **CPU戦(VS CPU)**: 通信を使わない。キャラ選択(相手の欄は「RIVAL: CPU」)でREADYを押すとすぐ始まる。相手のキャラは自分が選べるキャラ(LOCAL V.S.と同じ解放状況)からランダム、ステージもLOCAL V.S.と同じ選び方。相手の手は通常のCPU(`generateEnemyTurnHand`、そのキャラのデッキ配分・クセ)が決める。FIGHT!の表示・バトル中の相手の名前に「(CPU)」、決着画面の成績は「YOU n - n CPU」と、相手がCPUであることを必ず明示する。REMATCHでキャラ選択へ戻る。**CPU戦の勝利はONLINE V.S.の勝利数(RECORDS)に数えない。** OPTIONのRETURN TO TITLEの確認文は「タイトルに戻りますか？」だけ(相手の勝ちにはならないため)。
+- **未実装(段階4)**: 入力の制限時間(30秒)、HOW TO ONLINE V.S.の文言、本番用のセキュリティルール。
