@@ -1046,6 +1046,7 @@
 .records-section.open .records-section-body { display: block; }
 .records-stat { display: flex; justify-content: space-between; font-size: 12px; line-height: 1.9; }
 .records-stat span:last-child { font-weight: 700; color: #fff; font-variant-numeric: tabular-nums; }
+.records-note { font-size: 10px; line-height: 1.6; color: #999; margin-top: 4px; } /* ONLINE V.S.の数え方の注意(2026-10-03) */
 .records-item { display: flex; flex-direction: column; padding: 5px 0; border-bottom: 1px solid #262626; line-height: 1.35; }
 .records-item-name { font-size: 12px; font-weight: 700; color: #777; }
 .records-item.got .records-item-name { color: #ffd23c; }

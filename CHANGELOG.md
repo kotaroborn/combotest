@@ -3,6 +3,13 @@
 このプロジェクトの変更履歴。日付は新しいものを上に追記する。
 コード(`index.html` / `css/style.css` / `js/script.js`)や仕様に変更を加えた場合は、このファイルに追記すること(詳細は `AI_GUIDE.md` を参照)。
 
+## 2026-10-03(17)
+
+- ver. 0.9.229
+- ONLINE V.S.の通算の勝敗(RECORDS・相手に見せる勝敗)は、RANDOM MATCHで人と対戦した時だけ数えるようにした(利用者の指示)。相手が見つからずにCPUと対戦した時(元から数えていない)と、FRIEND MATCH(CREATE ROOM・JOIN ROOM)は数えない。FRIEND MATCHの途中で抜けても負けは付かない(OPTIONの確認文は「対戦は相手の勝ちになります」)
+- RECORDSのONLINE V.S.欄の見出しを「1W 1L」→「1 WIN  1 LOSE」にし、欄の中に数え方の注意を出した
+- HOW TO ONLINE V.S.に、数え方の注意(※注意)を追加
+
 ## 2026-10-03(16)
 
 - ver. 0.9.228

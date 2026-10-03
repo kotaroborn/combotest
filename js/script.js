@@ -6056,7 +6056,9 @@ function updateOptionUI() {
     document.getElementById('optionRetryBtn').style.display = (uiMode === 'training' || uiMode === 'online' || isDeck) ? 'none' : ''; // オンライン対戦は相手がいるのでRETRYなし
     // RETURN TO TITLEの確認文言: STORY MODEは進行状況の保存に触れるが、TRAINING MODEは進行状況を持たないため短い文言にする
     document.getElementById('returnConfirmText').innerHTML = (uiMode === 'online' && !onlineState.cpu && onlineInBattle())
-        ? 'タイトルに戻りますか？<br>（相手の勝ち・あなたの負けになります）' // 対戦の途中で抜けると、相手の端末では相手の勝ちになり、自分には負けが付く
+        ? (onlineCountsRecord()
+            ? 'タイトルに戻りますか？<br>（相手の勝ち・あなたの負けになります）' // RANDOM MATCHの途中で抜けると、相手の勝ちになり、自分には負けが付く
+            : 'タイトルに戻りますか？<br>（対戦は相手の勝ちになります）') // FRIEND MATCHは通算の勝敗に数えない
         : (uiMode === 'training' || uiMode === 'versus' || uiMode === 'rush' || uiMode === 'online') // onlineはCPU戦(相手がいないので相手の勝ちにはならない)
         ? 'タイトルに戻りますか？'
         : 'タイトルに戻りますか？<br>（ストーリーの進行状況は保存されます）';
@@ -7692,7 +7694,8 @@ function vsSelectBackToTitle() {
 // ・入力の制限時間(2026-10-03、段階4): 1ターン30秒(ONLINE_INPUT_LIMIT_MS)。時間切れなら手札から足りない枚数を自動で出す。CPU戦は制限なし。
 // ・名前と勝敗(2026-10-03): 各自の名前(英大文字・数字の4文字、onlineName)と通算の勝敗(onlineWins/onlineLosses)を、
 //   キャラ選択の欄(sel/{役})に載せて相手に見せる(キャラ選択・決着画面・バトル中に相手の名前をタップ)。
-//   勝敗は各自の端末の記録をそのまま見せるだけ(改造すれば偽れるが、遊びの目安として割り切る)。CPU戦は数えない。
+//   勝敗は各自の端末の記録をそのまま見せるだけ(改造すれば偽れるが、遊びの目安として割り切る)。数えるのはRANDOM MATCHで人と
+//   対戦した時だけ(CPU戦・FRIEND MATCHは数えない、onlineCountsRecord)。
 //   対戦の途中で抜けた(TITLE・ページを閉じた)時は、相手の勝ちになるのに合わせて自分にも負けを付ける(onlineMatchOpen)。
 // ・Firebaseのセキュリティルールは database.rules.json(段階4で本番用にした。部屋の参加者だけが書ける・自分の欄だけ・
 //   送った手は書き換えられない等)。ダミー通信でも同じルールで判定する(onlineRulesCheck、?net=dummy の時だけ)。
@@ -8058,13 +8061,16 @@ function onlineInBattle() {
     return ['intro', 'input', 'commit', 'reveal', 'verify', 'resolve'].includes(onlineState.phase);
 }
 // 人との対戦の始まりと終わりで呼ぶ。終わりでは結果('win' | 'loss' | null=記録しない)を通算の勝敗に足す
+// 通算の勝敗(RECORDS・相手に見せる記録)に数えるのは、RANDOM MATCHで人と対戦した時だけ(2026-10-03、利用者の指示)。
+// CPU戦(相手が見つからなかった時)とFRIEND MATCH(合言葉の部屋)は数えない
+function onlineCountsRecord() { return onlineState.random && !onlineState.cpu; }
 function onlineOpenMatch() {
-    if (onlineState.cpu) return;
+    if (!onlineCountsRecord()) return;
     onlineMatchOpen = true;
     writeSaveData({ onlineMatchOpen: true });
 }
 function onlineCloseMatch(result) {
-    if (!onlineMatchOpen) return; // CPU戦・すでに記録済み
+    if (!onlineMatchOpen) return; // 数えない対戦(CPU戦・FRIEND MATCH)・すでに記録済み
     onlineMatchOpen = false;
     if (result === 'win') onlineWins++;
     else if (result === 'loss') onlineLosses++;
@@ -9107,7 +9113,7 @@ function onlineShowResult() {
 function onlineRenderResult(text, cls, note, oppAdj) {
     const r = document.getElementById('vsResult1');
     r.className = 'vs-result show ' + cls;
-    const rec = onlineRivalRecord(oppAdj || null);
+    const rec = onlineRivalRecord(onlineCountsRecord() ? (oppAdj || null) : null); // FRIEND MATCHは相手の記録も増えないので足さない
     r.innerHTML = `<div class="vs-result-text">${text}</div>` +
         (note ? `<div class="vs-result-score">${note}</div>` : '') +
         `<div class="vs-result-score">YOU ${onlineState.wins.me} - ${onlineState.wins.opp} ${onlineRivalLabel()}</div>` +
@@ -9638,8 +9644,9 @@ function renderRecords() {
             + stat('最大COMBO', rushBest.maxCombo));
     }
     if (onlineUnlocked) { // ONLINE V.S.は勝敗数だけを残す(2026-10-03。敗北数は名前の追加と同時に記録し始めた)
-        section('online', 'ONLINE V.S.', onlineRecordText(onlineWins, onlineLosses),
-            stat('名前', onlineMyName()) + stat('勝利数', `${onlineWins}回`) + stat('敗北数', `${onlineLosses}回`));
+        section('online', 'ONLINE V.S.', `${onlineWins} WIN  ${onlineLosses} LOSE`, // RECORDSではWIN/LOSE表記(2026-10-03)
+            stat('名前', onlineMyName()) + stat('勝利数', `${onlineWins}回`) + stat('敗北数', `${onlineLosses}回`)
+            + '<div class="records-note">RANDOM MATCHで人と対戦した時だけ数えます（CPU戦・FRIEND MATCH・引き分けは数えません）</div>');
     }
     const techs = items.filter(it => it.tech);
     const unlocks = items.filter(it => !it.tech);

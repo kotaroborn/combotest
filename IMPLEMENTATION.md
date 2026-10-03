@@ -233,7 +233,8 @@ BGM/SEはWeb Audio API(`AudioContext`)で実装されている。`state.soundOn`
   - ロビーの並び(2026-10-03、ver. 0.9.225): 上から YOUR NAME の行 → RANDOM MATCH → OR → 「FRIEND MATCH」の枠(CREATE ROOM、点線、番号欄+JOIN ROOMの横並び)。遊び方が「ランダムマッチ」と「友だちと(部屋を作る/入る)」の2種類だと分かるようにした。
   - 名前と通算の勝敗(`onlineWins`/`onlineLosses`)は、キャラ選択の欄(`sel/{役}`の`name`/`w`/`l`)に載せて相手に送る。相手からは、キャラ選択画面(「RIVAL: KOTA 12W 5L」の下に CHOOSING... / READY!)、決着画面(「KOTA 12W 6L」。この試合の結果を足して見せる)、バトル中に相手の名前(「キャラ名 - 相手の名前」)をタップした時の小さな窓(3秒で消える)で見える。この部屋での対戦成績も「YOU 1 - 0 KOTA」と相手の名前で出す。CPU戦は名前・勝敗を出さない(「CPU」)。
   - 勝敗は各自の端末の記録を見せるだけ(改造すれば偽れるが、遊びの目安として割り切る)。届いた名前が英大文字・数字の4文字でなければ「RIVAL」、勝敗が数でなければ出さない。
-  - 敗北の数え方: 普通に負けた時、通信切れで相手の勝ちになった時(`DISCONNECTED`)、対戦の途中でTITLEに戻った時(OPTIONの確認文は「相手の勝ち・あなたの負けになります」)。対戦の途中でページを閉じた・再読み込みした時は、対戦開始時に保存した印(`onlineMatchOpen`)が残るので、次に開いた時に負けとして数える。SYNC ERRORと、部屋ごと消えていた時の`DISCONNECTED`は数えない。
+  - **数える対戦**(2026-10-03、ver. 0.9.229): 通算の勝敗に数えるのはRANDOM MATCHで人と対戦した時だけ(`onlineCountsRecord`)。CPU戦とFRIEND MATCH(合言葉の部屋)は数えない(途中で抜けても負けは付かず、決着画面の相手の勝敗にも今の試合を足さない)。キャラ選択等で相手に見せる勝敗は、FRIEND MATCHでも出す(RANDOM MATCHでの記録)。RECORDSの見出しは「3 WIN  2 LOSE」で、欄の中に数え方の注意を出す。HOW TOにも※注意として書いた。
+  - 敗北の数え方(RANDOM MATCHの場合): 普通に負けた時、通信切れで相手の勝ちになった時(`DISCONNECTED`)、対戦の途中でTITLEに戻った時(OPTIONの確認文は「相手の勝ち・あなたの負けになります」)。対戦の途中でページを閉じた・再読み込みした時は、対戦開始時に保存した印(`onlineMatchOpen`)が残るので、次に開いた時に負けとして数える。SYNC ERRORと、部屋ごと消えていた時の`DISCONNECTED`は数えない。
 - **入力の制限時間**(2026-10-03、段階4): 1ターンの入力は30秒(`ONLINE_INPUT_LIMIT_MS`)。残り時間を場の右上に「TIME 27」のように出し、残り10秒から赤く点滅させる。時間切れなら、場に出したカードはそのままに、足りない枚数を手札からランダムに選んで出し、そのまま送る(「TIME UP!  WAITING FOR RIVAL...」)。締め切りは各自の端末で数える。CPU戦は制限なし(相手を待たせないため)。
 - **HOW TO**(2026-10-03、段階4): 対戦中(CPU戦も)にHOW TOを開くと「HOW TO ONLINE V.S.」の欄が出る(`howToTextOnline`)。RANDOM MATCH・名前と勝敗・合言葉・制限時間・切断時の扱い・RECORDに残るのは勝敗数だけ、を説明する。
 - **セキュリティルール**(2026-10-03、段階4): `database.rules.json`(Firebaseコンソールの「ルール」に貼る。暫定ルールは`database.rules.interim.json`)。
