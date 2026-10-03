@@ -5844,6 +5844,7 @@ const HOWTO_MODE_TEXTS = {
     rush:           { text: 'howToTextRush',     label: 'HOW TO BATTLE RUSH' },
     substoryBattle: { text: 'howToTextExtra',    label: 'HOW TO EXTRA BATTLE' },
     versus:         { text: 'howToTextVersus',   label: 'HOW TO LOCAL V.S.' },
+    online:         { text: 'howToTextOnline',   label: 'HOW TO ONLINE V.S.' }, // 2026-10-03、段階4
 };
 const howToOpenSections = { mode: false, tech: false };
 let howToCurrentMode = null; // 今開いているHOW TOで表示するモード(HOWTO_MODE_TEXTSのキー)。無ければnull
@@ -7673,7 +7674,9 @@ function vsSelectBackToTitle() {
 //   「VS CPU / KEEP SEARCHING」を出す。CPU戦は通信を使わず、相手の手は通常のCPU(generateEnemyTurnHand)が決める。
 //   相手がCPUであることは、キャラ選択(RIVAL: CPU)・FIGHT!・バトル中の名前・決着画面のすべてで明示する。
 //   CPU戦の勝利はONLINE V.S.の勝利数(onlineWins)に数えない。
-// ・未実装(段階4): 入力の制限時間、HOW TOの文言、本番用のセキュリティルール。
+// ・入力の制限時間(2026-10-03、段階4): 1ターン30秒(ONLINE_INPUT_LIMIT_MS)。時間切れなら手札から足りない枚数を自動で出す。CPU戦は制限なし。
+// ・Firebaseのセキュリティルールは database.rules.json(段階4で本番用にした。部屋の参加者だけが書ける・自分の欄だけ・
+//   送った手は書き換えられない等)。ダミー通信でも同じルールで判定する(onlineRulesCheck、?net=dummy の時だけ)。
 //
 // 待合室の形(queue/{uid}): { v: ゲームのバージョン表記(同じ表記の人としか組まない), t0: 待ち始めた時刻, t: 最後に確かめた時刻,
 //   by: 自分と組もうとしている人のuid, at: byを書いた時刻, room: 組んだ相手が作った部屋の合言葉 }
@@ -7700,7 +7703,14 @@ const ONLINE_LEAVE_GRACE_MS = 15000; // 対戦中、相手の在室フラグが�
 // キャラ選択中・相手待ちの間は長めに待つ(合言葉をLINE等で送っている間、スマホではブラウザの通信が切れることがあるため)
 const ONLINE_LEAVE_GRACE_SELECT_MS = 60000;
 const ONLINE_ROOM_EMPTY_STALE_MS = 10 * 60 * 1000; // 誰もいない部屋は、作成から10分たてば使い回してよい
+// 古い部屋の掃除(段階4): ページを開いて最初に通信した時に1回だけ、作成から3時間(+時計のズレの余裕10分)たった部屋を
+// 少しだけ消す(無料枠を守るため。普段は抜ける時に消しているので、ここで見つかるのは2人とも通信切れのまま終わった部屋だけ)
+const ONLINE_CLEANUP_AGE_MS = ONLINE_ROOM_STALE_MS + 10 * 60 * 1000;
+const ONLINE_CLEANUP_LIMIT = 10; // 1回に消す部屋の数の上限(セキュリティルールでは20まで読める)
 const ONLINE_CARD_NAMES = ['PUNCH', 'UPPER', 'GUARD'];
+// 入力の制限時間(段階4)。時間切れなら、手札から足りない枚数を自動で出して送る(CPU戦では使わない)
+const ONLINE_INPUT_LIMIT_MS = 30000;
+const ONLINE_INPUT_HURRY_SEC = 10; // 残りがこの秒数以下になったら、残り時間の表示を赤くする
 // ランダムマッチ(段階3)
 const ONLINE_SEARCH_CPU_PROMPT_MS = 30000; // この時間相手が見つからなければ「VS CPU / KEEP SEARCHING」を出す
 const ONLINE_QUEUE_REFRESH_MS = 20000;     // 待っている間、この間隔で待合室を見直す(自分の欄のtを新しくし、後から来た人がいれば組む)
@@ -7745,7 +7755,11 @@ let onlineState = {
     searchTimers: { refresh: null, prompt: null, tick: null, claim: null },
     matchTimer: null, // 部屋を作った側の、相手の入室待ちタイマー
     matchTarget: null, // 部屋を作った側: 組んだ相手のuid(相手が入室してこなかった時に、相手の欄の合言葉を消すため)
-    cpu: false        // CPU戦(通信なし)か
+    cpu: false,       // CPU戦(通信なし)か
+    // 入力の制限時間(段階4)
+    inputTimer: null,    // 残り時間の表示を更新するタイマー
+    inputDeadline: 0,    // このターンの入力の締め切り時刻
+    timeUp: false        // このターンは時間切れで自動的に出したか
 };
 
 // ------- 通信部分(差し替え可能) -------
@@ -7797,18 +7811,26 @@ async function onlineCreateFirebaseNet() {
         },
         onDisconnectRemove: path => dbM.onDisconnect(r(path)).remove(),
         cancelOnDisconnect: path => dbM.onDisconnect(r(path)).cancel(),
-        onConnected: cb => dbM.onValue(r('.info/connected'), snap => cb(snap.val() === true))
+        onConnected: cb => dbM.onValue(r('.info/connected'), snap => cb(snap.val() === true)),
+        // 作成時刻(createdAt)がbeforeTs以前の部屋を、古い順にlimit個まで読む(古い部屋の掃除用。ルールで許しているのはこの読み方だけ)
+        oldRooms: async (beforeTs, limit) => {
+            const snap = await dbM.get(dbM.query(r('rooms'), dbM.orderByChild('createdAt'), dbM.endAt(beforeTs), dbM.limitToFirst(limit)));
+            return snap.val();
+        }
     };
 }
 // ダミー版(テスト用): 同じページ(またはtools/online_test.htmlの親ページ)に置いた疑似サーバーを、複数の画面で共有する
 function onlineDummyHub() {
     let host = window;
     try { if (window.parent && window.parent !== window && window.parent.document) host = window.parent; } catch (e) { /* 別ドメインの親なら自分の中に置く */ }
-    if (!host.__clash5DummyHub) host.__clash5DummyHub = onlineCreateDummyHub();
+    // テストページ(tools/online_test.html)がセキュリティルールの判定(tools/rules_check.js)を用意していれば、それも使う(段階4)
+    if (!host.__clash5DummyHub) host.__clash5DummyHub = onlineCreateDummyHub(host.__clash5RulesCheck || null);
     return host.__clash5DummyHub;
 }
-function onlineCreateDummyHub() {
-    const hub = { data: null, listeners: [], clients: {}, latency: 120, seq: 0 };
+// rules: 省略可。{ canWrite(uid, path, oldRoot, newRoot), canRead(uid, path, root, query) } → 許可ならtrue。
+// あれば、Firebaseと同じように、ルールで拒否される読み書きをエラー(PERMISSION_DENIED)にする
+function onlineCreateDummyHub(rules) {
+    const hub = { data: null, listeners: [], clients: {}, latency: 120, seq: 0, rules: rules || null, denied: [] };
     const split = path => String(path).split('/').filter(Boolean);
     const clone = v => (v === undefined || v === null) ? null : JSON.parse(JSON.stringify(v));
     hub.get = path => {
@@ -7817,6 +7839,26 @@ function onlineCreateDummyHub() {
         return clone(cur);
     };
     // 値を書く(nullなら消す)。空になった親も消す(Firebaseと同じ見え方にする)
+    // ルールの判定: writesは[[path, 値], ...](updateのように複数の場所へ同時に書く場合もまとめて判定する)
+    hub.check = (uid, writes) => {
+        if (!hub.rules) return true;
+        const oldRoot = clone(hub.data);
+        const saved = hub.data;
+        hub.data = clone(saved);
+        const silent = hub.notify; hub.notify = () => {};
+        writes.forEach(([p, v]) => hub.write(p, v));
+        const newRoot = hub.data;
+        hub.data = saved; hub.notify = silent;
+        const ok = writes.every(([p]) => hub.rules.canWrite(uid, p, oldRoot, newRoot));
+        if (!ok) { hub.denied.push(writes.map(w => w[0]).join(',')); console.warn('dummy rules: PERMISSION_DENIED', uid, writes); }
+        return ok;
+    };
+    hub.canRead = (uid, path, query) => !hub.rules || hub.rules.canRead(uid, path, clone(hub.data), query || null);
+    const denied = () => { const e = new Error('PERMISSION_DENIED: Permission denied'); e.code = 'PERMISSION_DENIED'; return e; };
+    hub.apply = (uid, writes) => {
+        if (!hub.check(uid, writes)) throw denied();
+        writes.forEach(([p, v]) => hub.write(p, v));
+    };
     hub.write = (path, val) => {
         const keys = split(path);
         val = clone(val);
@@ -7853,7 +7895,7 @@ function onlineCreateDummyHub() {
         const c = hub.clients[id];
         if (!c || !c.connected) return;
         c.connected = false;
-        c.onDisc.forEach(path => hub.write(path, null));
+        c.onDisc.forEach(path => { if (hub.check(id, [[path, null]])) hub.write(path, null); });
         c.onDisc.clear();
         c.connCbs.forEach(cb => setTimeout(() => cb(false), 0));
     };
@@ -7869,23 +7911,34 @@ function onlineCreateDummyHub() {
         const id = 'dummy-' + (++hub.seq) + '-' + Math.floor(Math.random() * 1e6);
         const c = { connected: true, onDisc: new Set(), connCbs: [] };
         hub.clients[id] = c;
-        const delay = fn => new Promise(res => setTimeout(() => res(fn()), hub.latency));
+        const delay = fn => new Promise((res, rej) => setTimeout(() => { try { res(fn()); } catch (e) { rej(e); } }, hub.latency));
         return {
             uid: id,
             onValue(path, cb) {
+                if (!hub.canRead(id, path)) { console.warn('dummy rules: read denied', path); return () => {}; }
                 const l = { client: id, path, cb, last: undefined, active: true };
                 hub.listeners.push(l);
                 hub.notify();
                 return () => { l.active = false; hub.listeners = hub.listeners.filter(x => x !== l); };
             },
-            set: (path, v) => delay(() => hub.write(path, v)),
-            update: (path, obj) => delay(() => { Object.keys(obj).forEach(k => hub.write(split(path).concat(split(k)).join('/'), obj[k])); }),
-            remove: path => delay(() => hub.write(path, null)),
+            set: (path, v) => delay(() => hub.apply(id, [[path, v]])),
+            update: (path, obj) => delay(() => hub.apply(id, Object.keys(obj).map(k => [split(path).concat(split(k)).join('/'), obj[k]]))),
+            remove: path => delay(() => hub.apply(id, [[path, null]])),
             transaction: (path, fn) => delay(() => {
+                if (!hub.canRead(id, path)) throw denied();
                 const next = fn(hub.get(path));
                 if (next === undefined) return { committed: false, value: hub.get(path) };
-                hub.write(path, next);
+                hub.apply(id, [[path, next]]);
                 return { committed: true, value: hub.get(path) };
+            }),
+            oldRooms: (beforeTs, limit) => delay(() => {
+                if (!hub.canRead(id, 'rooms', { orderByChild: 'createdAt', endAt: beforeTs, limitToFirst: limit })) throw denied();
+                const rooms = hub.get('rooms') || {};
+                const keys = Object.keys(rooms).filter(k => typeof rooms[k].createdAt === 'number' && rooms[k].createdAt <= beforeTs)
+                    .sort((a, b) => rooms[a].createdAt - rooms[b].createdAt).slice(0, limit);
+                if (!keys.length) return null;
+                const out = {}; keys.forEach(k => { out[k] = rooms[k]; });
+                return out;
             }),
             onDisconnectRemove: path => { c.onDisc.add(path); return Promise.resolve(); },
             cancelOnDisconnect: path => { c.onDisc.delete(path); return Promise.resolve(); },
@@ -7904,7 +7957,25 @@ async function onlineEnsureNet() {
     onlineState.net = net;
     onlineState.uid = net.uid;
     if (onlineNetMode() === 'dummy') window.__clash5DummyClientId = net.uid; // テストページから通信を切るための目印
+    onlineCleanupOldRooms(net); // 待たずに裏で進める
     return net;
+}
+// 古い部屋の掃除(段階4): ページを開いて最初に通信した時に1回だけ。失敗しても何もしない(遊ぶのには影響しない)
+async function onlineCleanupOldRooms(net) {
+    if (!net.oldRooms) return;
+    try {
+        const rooms = await net.oldRooms(Date.now() - ONLINE_CLEANUP_AGE_MS, ONLINE_CLEANUP_LIMIT);
+        if (!rooms || typeof rooms !== 'object') return;
+        // 部屋ごとに、まだ古いままか確かめてから消す(読んだ後に誰かが同じ番号で部屋を作り直していたら消さない)
+        await Promise.all(Object.keys(rooms).filter(code => /^\d{4}$/.test(code)).map(code =>
+            net.transaction('rooms/' + code, cur => {
+                if (cur === null) return null;
+                if (!onlineRoomIsStale(cur)) return;
+                return null;
+            }).catch(e => console.warn('online cleanup:', code, e))));
+    } catch (e) {
+        console.warn('online cleanup:', e);
+    }
 }
 
 // ------- 小さな共通処理 -------
@@ -7963,6 +8034,7 @@ function onlineSetGate(html) {
     if (ui) ui.classList.toggle('online-gated', !!html); // ゲートを手札・ボタン部分(#ui)いっぱいに重ねるための基準位置
 }
 function onlineHideBattleOverlays() {
+    onlineStopInputTimer();
     onlineSetStatus('');
     onlineSetGate('');
     const r = document.getElementById('vsResult1');
@@ -8784,10 +8856,58 @@ function onlineBeginTurn() {
     onlineState.myCommit = null;
     onlineState.oppCards = null;
     onlineState.phase = 'input';
+    onlineState.timeUp = false;
     onlineSetStatus('');
     updateUI();
     updateHandUI();
+    onlineStartInputTimer(); // 入力の制限時間(人との対戦だけ)
     onlineProcess(); // 相手がすでにこのターンの手を送っていれば「RIVAL IS READY!」を出す
+}
+// ------- 入力の制限時間(段階4) -------
+// 知らない人と遊ぶため、1ターンの入力は30秒(ONLINE_INPUT_LIMIT_MS)まで。残り時間を場の右上に出し、
+// 時間切れなら、場に出したカードはそのままに、足りない枚数を手札から自動で出して送る。
+// 締め切りは各自の端末で数える(相手の締め切りは相手の端末が守る)。CPU戦は相手を待たせないので制限なし。
+function onlineStartInputTimer() {
+    onlineStopInputTimer();
+    if (onlineState.cpu) return;
+    onlineState.inputDeadline = Date.now() + ONLINE_INPUT_LIMIT_MS;
+    onlineState.inputTimer = setInterval(onlineTickInputTimer, 250);
+    onlineTickInputTimer();
+}
+function onlineStopInputTimer() {
+    if (onlineState.inputTimer) { clearInterval(onlineState.inputTimer); onlineState.inputTimer = null; }
+    const el = document.getElementById('onlineTimer');
+    if (el) el.className = '';
+}
+function onlineTickInputTimer() {
+    if (state.gameMode !== 'online' || onlineState.phase !== 'input') { onlineStopInputTimer(); return; }
+    const sec = Math.max(0, Math.ceil((onlineState.inputDeadline - Date.now()) / 1000));
+    const el = document.getElementById('onlineTimer');
+    if (el) {
+        el.textContent = 'TIME ' + sec;
+        el.className = 'show' + (sec <= ONLINE_INPUT_HURRY_SEC ? ' hurry' : '');
+    }
+    if (sec <= 0) onlineInputTimeUp();
+}
+// 時間切れ: 足りない枚数を、手札の中からランダムに選んで場に出し、そのまま送る。
+// どのカードを出したかは自分の手として相手へ送られるので、ここはシード付き乱数でなくてよい
+function onlineInputTimeUp() {
+    onlineStopInputTimer();
+    if (state.gameMode !== 'online' || onlineState.phase !== 'input' || state.resolving || !state.battleReady) return;
+    const need = state.requiredHandSize || 1;
+    while (filledCount() < need) {
+        const left = [];
+        state.playerHand.forEach((c, i) => { if (c) left.push(i); });
+        const slot = state.hands.indexOf(null);
+        if (left.length === 0 || slot === -1) break;
+        const idx = left[Math.floor(Math.random() * left.length)];
+        state.hands[slot] = state.playerHand[idx];
+        state.playerHand[idx] = null;
+    }
+    updateHandUI();
+    updateUI();
+    onlineState.timeUp = true;
+    onlineSubmit();
 }
 // GO!(resolveTurnから呼ばれる): 自分の手のハッシュ値だけを送る
 async function onlineSubmit() {
@@ -8803,10 +8923,11 @@ async function onlineSubmit() {
         return;
     }
     onlineState.phase = 'commit'; // ここで先に変えて、連打で二重に送らないようにする
+    onlineStopInputTimer();
     playSE('se_select');
     updateUI();
     updateHandUI();
-    onlineSetStatus('WAITING FOR RIVAL...');
+    onlineSetStatus(onlineState.timeUp ? 'TIME UP!  WAITING FOR RIVAL...' : 'WAITING FOR RIVAL...');
     const cards = state.hands.slice(0, n).join(',');
     const salt = onlineRandomHex(16);
     const turn = onlineState.turnNo;

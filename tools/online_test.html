@@ -9,6 +9,9 @@
   ゲームを2つ並べて開き、Firebaseの代わりにこのページの中の疑似サーバー(ダミー通信)でつなぐ。
   ・左右どちらかでCREATE ROOM → 表示された4桁の番号をもう片方のJOIN ROOMに入れる。
   ・(段階3)左右の両方でRANDOM MATCHを押すと、待合室(ダミー)で自動的に組まれる。片方だけなら30秒でVS CPU / KEEP SEARCHINGが出る。
+  ・(段階4)database.rules.json のセキュリティルールでも判定する(tools/rules_check.js。拒否された書き込みは上の欄に出る)。
+    ルールなしで試すときは ?rules=off を付けて開く。
+  ・(段階4)入力の制限時間は30秒。放っておくと、足りない枚数が自動で出される。
   ・「通信を切る」で、その画面の通信切れ(在室フラグの自動削除)を再現できる。15秒たつと相手側で「相手が抜けた」になる。
   ・ONLINE V.S.ボタンはGIFT CODEで解放した時だけ出るので、ここでは下の「解放する」で両方に一時的に解放する(セーブには書かない)。
   ゲーム本体には何も影響しない(このページを開いた時だけ使われる)。
@@ -27,7 +30,26 @@
     <b>ONLINE V.S. テスト(ダミー通信)</b>
     <button onclick="unlockBoth()">両方でONLINE V.S.を解放する</button>
     <label>通信の遅れ <input id="lat" type="number" value="120" style="width:60px" onchange="setLatency()"> ms</label>
+    <span id="rulesInfo">ルール: 読み込み中...</span>
 </div>
+<script src="rules_check.js"></script>
+<script>
+    // セキュリティルールを先に読み込んでおく(ゲーム側が最初に通信する時に、ダミー通信がこれを使う)
+    window.__clash5RulesReady = (async () => {
+        const info = document.getElementById('rulesInfo');
+        if (new URLSearchParams(location.search).get('rules') === 'off') { info.textContent = 'ルール: なし'; return; }
+        try {
+            const res = await fetch('../database.rules.json', { cache: 'no-store' });
+            window.__clash5RulesCheck = window.clash5MakeRulesCheck(await res.json());
+            info.textContent = 'ルール: database.rules.json';
+            setInterval(() => {
+                const n = window.__clash5RulesLog.length;
+                info.textContent = 'ルール: database.rules.json / 拒否: ' + n + (n ? '(' + JSON.stringify(window.__clash5RulesLog[n - 1]).slice(0, 200) + ')' : '');
+                info.style.color = n ? '#ff6b6b' : '';
+            }, 1000);
+        } catch (e) { info.textContent = 'ルール: 読み込めませんでした ' + e; }
+    })();
+</script>
 <div class="frames">
     <div class="col">
         <div>画面A <button onclick="net('A', false)">通信を切る</button> <button onclick="net('A', true)">つなぎ直す</button></div>

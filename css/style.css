@@ -1258,6 +1258,15 @@
     font-size: 11px; font-weight: 900; letter-spacing: 2px; color: #ffd23c; white-space: nowrap; pointer-events: none;
 }
 #onlineStatus.show { display: block; }
+/* 入力の残り時間(段階4): 場の右上。残り10秒から赤く点滅させる */
+#onlineTimer {
+    display: none; position: absolute; right: 8px; top: 8px; z-index: 22;
+    padding: 4px 10px; border-radius: 12px; background: rgba(0,0,0,0.7);
+    font-size: 11px; font-weight: 900; letter-spacing: 2px; color: #fff; white-space: nowrap; pointer-events: none;
+}
+#onlineTimer.show { display: block; }
+#onlineTimer.hurry { color: #ff5a5a; animation: onlineTimerHurry 0.5s ease-in-out infinite alternate; }
+@keyframes onlineTimerHurry { from { opacity: 1; } to { opacity: 0.45; } }
 #ui.online-gated { position: relative; }
 #onlineGate { display: none; }
 #onlineGate.show {

@@ -1,0 +1,14 @@
+{
+  "rules": {
+    "rooms": {
+      "$code": {
+        ".read": "auth != null && $code.matches(/^[0-9]{4}$/)",
+        ".write": "auth != null && $code.matches(/^[0-9]{4}$/)"
+      }
+    },
+    "queue": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    }
+  }
+}
