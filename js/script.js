@@ -6076,6 +6076,9 @@ function doResetAllBonus() {
 }
 
 function closeOption() {
+    // GIFT CODE入力が開いている間の×・背景タップは、OPTIONを閉じず入力だけ閉じて戻る(2026-10-04)
+    const gift = document.getElementById('giftCodeConfirmPanel');
+    if (gift && gift.classList.contains('show')) { closeGiftCodeInput(); return; }
     document.getElementById('optionOverlay').classList.remove('show');
     rushResumeTimer('option');
 }
