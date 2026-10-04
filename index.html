@@ -17,7 +17,7 @@
     <meta property="og:image:height" content="630">
     <meta property="og:locale" content="ja_JP">
     <meta name="twitter:card" content="summary_large_image">
-    <link rel="stylesheet" href="css/style.min.css?v=242"> <!-- 配信用の軽量版。編集はcss/style.cssで行い、tools/build.shで作り直す(2026-10-02) -->
+    <link rel="stylesheet" href="css/style.min.css?v=243"> <!-- 配信用の軽量版。編集はcss/style.cssで行い、tools/build.shで作り直す(2026-10-02) -->
 
     <!-- 技名ポップ用の8bit風フォント(Press Start 2P、SIL OFL。2026-10-03に手書き風Permanent Markerから変更)。
          ゲームに同梱し(assets/fonts/)、ネット環境に左右されず表示する。canvasで使うため先読みしておく -->
@@ -116,7 +116,7 @@
     <button id="optionBtn" class="text-btn" onclick="openOption()" disabled>OPTION</button>
     <button class="howto-btn howto-corner" onclick="openHowTo()">HOW<br>TO</button>
     <div class="title-copyright">©BORN MAGAZINE 2026</div>
-    <div class="title-version">ver. 0.9.242</div> <!-- 2026-10-03: ロゴ直下から、画面下の中央(©表記と同じ高さ)へ移動 -->
+    <div class="title-version">ver. 0.9.243</div> <!-- 2026-10-03: ロゴ直下から、画面下の中央(©表記と同じ高さ)へ移動 -->
 </div>
 
 <!-- デッキ編成シーン: 21枚固定・内訳自由 -->
@@ -720,10 +720,9 @@
 
 <div id="subStoryOverlay" class="popup-overlay" onclick="closeSubStoryBackdrop(event)">
     <div class="popup-panel">
-        <button class="popup-close" onclick="closeAllBonus()">×</button>
+        <button class="popup-close" onclick="closeSubStory()">×</button>
         <div class="howto-content">
             <h2>SUB STORY</h2>
-            <button class="sound-test-back-btn" onclick="closeSubStory()">◀︎戻る</button>
             <div id="subStoryListView">
                 <div id="subStoryListRows"></div>
             </div>
@@ -747,10 +746,9 @@
 <!-- SOUND TESTポップアップ -->
 <div id="soundTestOverlay" class="popup-overlay" onclick="closeSoundTestBackdrop(event)">
     <div class="popup-panel">
-        <button class="popup-close" onclick="closeAllBonus()">×</button>
+        <button class="popup-close" onclick="soundTestBack()">×</button>
         <div class="howto-content">
             <h2>SOUND TEST</h2>
-            <button id="soundTestBackBtn" class="sound-test-back-btn" onclick="soundTestBack()">◀︎戻る</button>
             <div id="soundTestBody"></div>
         </div>
     </div>
@@ -783,17 +781,15 @@
         <button class="popup-close" onclick="closeRecords()">×</button>
         <div class="howto-content">
             <h2>RECORDS</h2>
-            <button class="sound-test-back-btn" onclick="closeRecords()">◀︎戻る</button>
             <div id="recordsBody"></div>
         </div>
     </div>
 </div>
 <div id="costumeOverlay" class="popup-overlay" onclick="closeCostumeBackdrop(event)">
     <div class="popup-panel">
-        <button class="popup-close" onclick="closeCostumeX()">×</button>
+        <button class="popup-close" onclick="closeCostume()">×</button>
         <div class="howto-content">
             <h2>COSTUME</h2>
-            <button id="costumeBackBtn" class="sound-test-back-btn" style="display:none;" onclick="closeCostume()">◀︎戻る</button>
             <div id="costumeRows"></div>
             <p class="bonus-note">※バトル中の見た目のみ変化します。性能は変化しません。</p>
             <p id="costumeFromBonusNote" class="costume-from-bonus-note" style="display:none;">※STORYやTRAININGのバトル中いつでもOPTIONから見た目を変更できます。</p>
@@ -810,7 +806,7 @@
 (function() {
     // 配信用の軽量版(コメント・空白を除いたもの)。編集はjs/script.jsで行い、tools/build.shで作り直す(2026-10-02)。
     // ?v=はバージョン(.title-versionの末尾3桁)と同じ番号にし、更新のたびに上げる(古いものがキャッシュに残らないように)
-    var SCRIPT_URL = 'js/script.min.js?v=242';
+    var SCRIPT_URL = 'js/script.min.js?v=243';
     var bar = document.getElementById('nowLoadingBar');
     var percentEl = document.getElementById('nowLoadingPercent');
     var settled = false; // フォールバック(タイムアウト)と正常読み込みの、どちらか一方だけが実行されるようにするためのフラグ

@@ -3,6 +3,12 @@
 このプロジェクトの変更履歴。日付は新しいものを上に追記する。
 コード(`index.html` / `css/style.css` / `js/script.js`)や仕様に変更を加えた場合は、このファイルに追記すること(詳細は `AI_GUIDE.md` を参照)。
 
+## 2026-10-04(12)
+
+- ver. 0.9.243
+- RECORDSの全体達成数・達成率(例: 12 / 40、30%)をドット文字に変更
+- 「◀︎戻る」ボタンを廃止(SUB STORY・SOUND TEST・RECORDS・COSTUME)。右上の×で、第1階層(HOW TO・OPTION・BONUS CONTENTS)は閉じ、第2階層以降は1つ戻る。SUB STORY→BONUSへ、SOUND TESTの曲一覧→カテゴリ選択→BONUSへ、RECORDS→OPTIONへ、COSTUME→呼び出し元へ(これまでSUB STORY・SOUND TEST・BONUS経由のCOSTUMEの×はBONUS全体を閉じていた)。背景タップも同じ動き
+
 ## 2026-10-04(11)
 
 - ver. 0.9.242

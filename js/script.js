@@ -6908,7 +6908,7 @@ function closeSoundTest() {
     document.getElementById('soundTestOverlay').classList.remove('show');
     playBGM('bgm_title'); // タイトルBGMを再開する(サウンドテストはタイトルからしか開けないため、常にタイトルBGMへ戻せばよい)
 }
-function closeSoundTestBackdrop(e) { if (e.target.id === 'soundTestOverlay') closeSoundTest(); }
+function closeSoundTestBackdrop(e) { if (e.target.id === 'soundTestOverlay') soundTestBack(); }
 
 // ------- COSTUME(コスチューム選択) -------
 let costumeOpenedFromBonus = false; // COSTUME画面をBONUS CONTENTS経由で開いたかどうか。選択操作等で再描画されても状態を保持する
@@ -6978,7 +6978,6 @@ function openCostumeSelect(fromBonus) {
     // 選べるコスチュームがVal以外に1つも無い間は「OPTIONからいつでも変更できます」の注記は出さない
     const hasSelectableCostume = unlockedSkins.some(n => canChangeCostume(n));
     document.getElementById('costumeFromBonusNote').style.display = (costumeOpenedFromBonus && hasSelectableCostume) ? 'block' : 'none';
-    document.getElementById('costumeBackBtn').style.display = costumeOpenedFromBonus ? 'block' : 'none';
     document.getElementById('costumeOverlay').classList.add('show');
     startCostumeThumbAnim();
 }
@@ -6997,7 +6996,7 @@ function closeCostumeX() {
     if (costumeOpenedFromBonus) closeAllBonus();
     else closeCostume();
 }
-function closeCostumeBackdrop(e) { if (e.target.id === 'costumeOverlay') closeCostumeX(); }
+function closeCostumeBackdrop(e) { if (e.target.id === 'costumeOverlay') closeCostume(); }
 
 // OPTION内のRETRY: このバトル直前のデッキ編成へ戻る(現在のモードを維持)。確認ポップアップを挟む。
 function openRetryConfirm() { document.getElementById('retryConfirmPanel').classList.add('show'); }

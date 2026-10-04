@@ -1436,3 +1436,7 @@ body.versus-layout #goBtn, .vs-controls #vsGoBtn2 { font-size: 13px; }
 .unlock-toast-tap.toast-pixel { font-size: 7px; letter-spacing: 1px; }
 .online-msg.pixel-text, .online-note.pixel-text { font-size: 10px; letter-spacing: 1px; }
 
+
+/* 2026-10-04: RECORDSの全体達成数・達成率をドット文字に。戻るボタンは廃止(右上の×で、第1階層は閉じる・第2階層以降は1つ戻る) */
+.records-rate-num { font-family: var(--pixel-font); font-weight: normal; font-size: 18px; letter-spacing: 1px; }
+.records-rate-pct { font-family: var(--pixel-font); font-weight: normal; font-size: 11px; }
